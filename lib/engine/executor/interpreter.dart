@@ -332,6 +332,10 @@ class Interpreter {
   static final Map<String, List<ASTNode>> _astCache = {};
 
   final Database db;
+  String _currentUser = 'admin';
+
+  String get currentUser => _currentUser;
+  set currentUser(String val) => _currentUser = val;
   
   // Local environment for PL/SQL variables
   final Map<String, DbValue> _env = {};
@@ -564,6 +568,18 @@ class Interpreter {
     if (node is GenerateStmt) {
       return _executeGenerate();
     }
+    if (node is GrantStmt) {
+      db.catalog.grantPrivilege(node.user, node.tableName, node.privilege);
+      return QueryResult(columns: [], rows: [], message: 'Grant succeeded.');
+    }
+    if (node is RevokeStmt) {
+      db.catalog.revokePrivilege(node.user, node.tableName, node.privilege);
+      return QueryResult(columns: [], rows: [], message: 'Revoke succeeded.');
+    }
+    if (node is SetUserStmt) {
+      currentUser = node.username;
+      return QueryResult(columns: [], rows: [], message: 'User changed to $currentUser.');
+    }
     throw Exception("Unsupported AST Node type: ${node.runtimeType}");
   }
 
@@ -764,6 +780,9 @@ END;
   }
 
   QueryResult _executeInsert(InsertStmt stmt) {
+    if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'insert')) {
+      throw Exception("Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+    }
     final schema = _insertSchemaCache.putIfAbsent(stmt, () {
       final tableName = stmt.tableName.toLowerCase();
       final s = db.catalog.getTableSchema(tableName);
@@ -1126,6 +1145,9 @@ END;
   }
 
   QueryResult _executeDelete(DeleteStmt stmt) {
+    if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'delete')) {
+      throw Exception("Permission denied: DELETE privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+    }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
     final schema = db.catalog.getTableSchema(tableName);
@@ -1286,6 +1308,9 @@ END;
   }
 
   QueryResult _executeUpdate(UpdateStmt stmt) {
+    if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'update')) {
+      throw Exception("Permission denied: UPDATE privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+    }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
     final schema = db.catalog.getTableSchema(tableName);
@@ -1614,6 +1639,14 @@ END;
 
 
   dynamic _executeSelect(SelectStmt stmt) {
+    if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'select')) {
+      throw Exception("Permission denied: SELECT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+    }
+    if (stmt.join != null) {
+      if (!db.catalog.hasPrivilege(currentUser, stmt.join!.tableName, 'select')) {
+        throw Exception("Permission denied: SELECT privilege required on table '${stmt.join!.tableName}' for user '$currentUser'.");
+      }
+    }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
     final schema = db.catalog.getTableSchema(tableName);

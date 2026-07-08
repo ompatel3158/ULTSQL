@@ -194,6 +194,26 @@ class BeginTxStmt extends Stmt {}
 class CommitTxStmt extends Stmt {}
 class RollbackTxStmt extends Stmt {}
 
+// DCL Statements
+class GrantStmt extends Stmt {
+  final String privilege;
+  final String tableName;
+  final String user;
+  GrantStmt(this.privilege, this.tableName, this.user);
+}
+
+class RevokeStmt extends Stmt {
+  final String privilege;
+  final String tableName;
+  final String user;
+  RevokeStmt(this.privilege, this.tableName, this.user);
+}
+
+class SetUserStmt extends Stmt {
+  final String username;
+  SetUserStmt(this.username);
+}
+
 class CreateRelationshipStmt extends Stmt {
   final String name;
   final String fromTable;

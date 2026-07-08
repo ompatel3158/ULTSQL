@@ -172,8 +172,53 @@ class Catalog {
   final Map<String, IndexSchema> _indexes = {};
   final Map<String, TableStats> _stats = {};
   final Map<String, List<IndexSchema>> _tableIndexesCache = {};
+  final Map<String, Map<String, List<String>>> _permissions = {};
 
   Catalog(this.basePath);
+
+  void grantPrivilege(String user, String tableName, String privilege) {
+    final u = user.toLowerCase();
+    final t = tableName.toLowerCase();
+    final p = privilege.toLowerCase();
+    final userMap = _permissions.putIfAbsent(u, () => {});
+    final tablePrivs = userMap.putIfAbsent(t, () => []);
+    if (!tablePrivs.contains(p)) {
+      tablePrivs.add(p);
+    }
+    save();
+  }
+
+  void revokePrivilege(String user, String tableName, String privilege) {
+    final u = user.toLowerCase();
+    final t = tableName.toLowerCase();
+    final p = privilege.toLowerCase();
+    final userMap = _permissions[u];
+    if (userMap != null) {
+      final tablePrivs = userMap[t];
+      if (tablePrivs != null) {
+        tablePrivs.remove(p);
+        if (tablePrivs.isEmpty) {
+          userMap.remove(t);
+        }
+        if (userMap.isEmpty) {
+          _permissions.remove(u);
+        }
+        save();
+      }
+    }
+  }
+
+  bool hasPrivilege(String user, String tableName, String privilege) {
+    final u = user.toLowerCase();
+    if (u == 'admin' || u == 'sa') return true;
+    final t = tableName.toLowerCase();
+    final p = privilege.toLowerCase();
+    final userMap = _permissions[u];
+    if (userMap == null) return false;
+    final tablePrivs = userMap[t];
+    if (tablePrivs == null) return false;
+    return tablePrivs.contains(p) || tablePrivs.contains('all');
+  }
 
   Map<String, dynamic> getBackupState() {
     return {
@@ -337,6 +382,17 @@ class Catalog {
           _stats[key.toLowerCase()] = TableStats.fromJson(val);
         });
       }
+      _permissions.clear();
+      if (jsonMap.containsKey('permissions')) {
+        final permMap = jsonMap['permissions'] as Map<String, dynamic>;
+        permMap.forEach((user, tables) {
+          final userMap = <String, List<String>>{};
+          (tables as Map<String, dynamic>).forEach((table, privs) {
+            userMap[table] = List<String>.from(privs);
+          });
+          _permissions[user.toLowerCase()] = userMap;
+        });
+      }
     } catch (e) {
       // Catalog corrupt or empty, ignore
     }
@@ -363,12 +419,21 @@ class Catalog {
     _stats.forEach((key, val) {
       statsMap[key] = val.toJson();
     });
+    final Map<String, dynamic> permissionsMap = {};
+    _permissions.forEach((user, tables) {
+      final Map<String, dynamic> userMap = {};
+      tables.forEach((table, privs) {
+        userMap[table] = privs;
+      });
+      permissionsMap[user] = userMap;
+    });
 
     final outputMap = {
       'tables': tablesMap,
       'relationships': relsMap,
       'indexes': indexesMap,
       'stats': statsMap,
+      'permissions': permissionsMap,
     };
     file.writeAsStringSync(json.encode(outputMap));
   }

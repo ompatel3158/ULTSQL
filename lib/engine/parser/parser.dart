@@ -12,6 +12,8 @@ class Parser {
 
   Token _peek() => tokens[_current];
 
+  Token _peekNext() => _current + 1 < tokens.length ? tokens[_current + 1] : tokens.last;
+
   Token _previous() => tokens[_current - 1];
 
   Token _advance() {
@@ -145,16 +147,23 @@ class Parser {
     }
     if (_check(TokenType.identifier)) {
       final id = _peek().lexeme.toLowerCase();
-      if (id == 'update') {
+      if (const {'update', 'select', 'insert', 'delete', 'create', 'show', 'grant', 'revoke', 'explain', 'analyze'}.contains(id)) {
         // Fall through to standard SQL statement
       } else {
         if (id == 'dbms_output') {
           return _parseDbmsOutputStatement();
         }
         if (id == 'set') {
-          _advance(); // Consume 'set'
+          final nextLexeme = _peekNext().lexeme.toLowerCase();
+          if (nextLexeme == 'user' || nextLexeme == 'current_user') {
+            // Fall through to standard SQL statement for DCL SetUserStmt
+          } else {
+            _advance(); // Consume 'set'
+            return _parseAssignmentStatement();
+          }
+        } else {
+          return _parseAssignmentStatement();
         }
-        return _parseAssignmentStatement();
       }
     }
     // Standard SQL can also run in block
@@ -335,7 +344,98 @@ class Parser {
     if (_match([TokenType.showKeyword])) {
       return _parseShowStatement();
     }
+    final nextLexeme = _peek().lexeme.toLowerCase();
+    if (nextLexeme == 'grant') {
+      _advance(); // Consume 'grant'
+      return _parseGrantStatement();
+    }
+    if (nextLexeme == 'revoke') {
+      _advance(); // Consume 'revoke'
+      return _parseRevokeStatement();
+    }
+    if (nextLexeme == 'set') {
+      _advance(); // Consume 'set'
+      return _parseSetStatement();
+    }
     throw Exception("Unsupported statement beginning with '${_peek().lexeme}'.");
+  }
+
+  Stmt _parseGrantStatement() {
+    String privilege = '';
+    final nextLex = _peek().lexeme.toLowerCase();
+    if (nextLex == 'all') {
+      _advance();
+      privilege = 'all';
+      if (_peek().lexeme.toLowerCase() == 'privileges') {
+        _advance();
+      }
+    } else {
+      privilege = _advance().lexeme.toLowerCase();
+    }
+
+    _consume(TokenType.on, "Expected 'ON' after privilege in GRANT statement.");
+    final tableName = _consume(TokenType.identifier, "Expected table name in GRANT statement.").lexeme;
+    _consume(TokenType.to, "Expected 'TO' in GRANT statement.");
+    
+    String user = '';
+    if (_check(TokenType.stringLiteral)) {
+      user = _consume(TokenType.stringLiteral, "").lexeme;
+    } else {
+      user = _consume(TokenType.identifier, "Expected username in GRANT statement.").lexeme;
+    }
+    
+    if (_check(TokenType.semicolon)) _advance();
+    return GrantStmt(privilege, tableName, user);
+  }
+
+  Stmt _parseRevokeStatement() {
+    String privilege = '';
+    final nextLex = _peek().lexeme.toLowerCase();
+    if (nextLex == 'all') {
+      _advance();
+      privilege = 'all';
+      if (_peek().lexeme.toLowerCase() == 'privileges') {
+        _advance();
+      }
+    } else {
+      privilege = _advance().lexeme.toLowerCase();
+    }
+
+    _consume(TokenType.on, "Expected 'ON' after privilege in REVOKE statement.");
+    final tableName = _consume(TokenType.identifier, "Expected table name in REVOKE statement.").lexeme;
+    _consume(TokenType.from, "Expected 'FROM' in REVOKE statement.");
+    
+    String user = '';
+    if (_check(TokenType.stringLiteral)) {
+      user = _consume(TokenType.stringLiteral, "").lexeme;
+    } else {
+      user = _consume(TokenType.identifier, "Expected username in REVOKE statement.").lexeme;
+    }
+
+    if (_check(TokenType.semicolon)) _advance();
+    return RevokeStmt(privilege, tableName, user);
+  }
+
+  Stmt _parseSetStatement() {
+    final nextLexeme = _peek().lexeme.toLowerCase();
+    if (nextLexeme == 'user' || nextLexeme == 'current_user') {
+      _advance(); // Consume user token
+      
+      if (_check(TokenType.equals)) {
+        _advance();
+      }
+      
+      String username = '';
+      if (_check(TokenType.stringLiteral)) {
+        username = _consume(TokenType.stringLiteral, "").lexeme;
+      } else {
+        username = _consume(TokenType.identifier, "Expected username in SET USER statement.").lexeme;
+      }
+      
+      if (_check(TokenType.semicolon)) _advance();
+      return SetUserStmt(username);
+    }
+    throw Exception("Unsupported SET statement: ${_peek().lexeme}");
   }
 
   Stmt _parseShowStatement() {

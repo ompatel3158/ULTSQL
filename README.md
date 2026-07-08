@@ -231,6 +231,15 @@ The engine provides replication capability for distributed reliability:
 * Modifications are captured in transaction logs as a stream of `WalReplicationRecord` structures.
 * The `ReplicationMaster` registers replicas and replicates WAL streams asynchronously, allowing secondary replicas to replay changes and mirror the primary database state in real-time.
 
+### 3. Role-Based Access Control & DCL (GRANT, REVOKE, SET USER)
+The engine implements secure, fine-grained access control:
+* **DCL Statements**: Users can manage table privileges using standard SQL commands:
+  * `GRANT SELECT, INSERT, UPDATE, DELETE ON table TO user;`
+  * `REVOKE SELECT, INSERT, UPDATE, DELETE ON table FROM user;`
+  * `SET USER 'username';` / `SET USER username;`
+* **Authorization verification**: Select, Insert, Update, and Delete execution paths query catalog privileges. Default user `'admin'` has all privileges.
+* Privilege mappings are stored inside `Catalog` and serialized automatically in the database directory's `catalog.db` file.
+
 ---
 
 ## Under-the-Hood Performance Features (How We Beat SQLite)

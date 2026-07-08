@@ -93,7 +93,13 @@ enum TokenType {
   placeholder,
   policyKeyword,
   usingKeyword,
-  analyze
+  analyze,
+  grant,
+  revoke,
+  privileges,
+  all,
+  setKeyword,
+  userKeyword
 }
 
 class Token {
