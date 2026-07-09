@@ -79,7 +79,8 @@ class Join {
   final String tableName;
   final String? alias;
   final Expression onCondition;
-  Join(this.tableName, this.onCondition, {this.alias});
+  final bool isLeftJoin;
+  Join(this.tableName, this.onCondition, {this.alias, this.isLeftJoin = false});
 }
 
 class OrderBy {
@@ -96,6 +97,26 @@ class CreateTableStmt extends Stmt {
   final String tableName;
   final List<ColumnDef> columns;
   CreateTableStmt(this.tableName, this.columns);
+}
+
+enum AlterAction {
+  add,
+  drop
+}
+
+class AlterTableStmt extends Stmt {
+  final String tableName;
+  final AlterAction action;
+  final ColumnDef? columnToAdd; // For ADD
+  final String? columnToDrop;  // For DROP
+
+  AlterTableStmt.add(this.tableName, this.columnToAdd)
+      : action = AlterAction.add,
+        columnToDrop = null;
+
+  AlterTableStmt.drop(this.tableName, this.columnToDrop)
+      : action = AlterAction.drop,
+        columnToAdd = null;
 }
 
 class InsertStmt extends Stmt {
@@ -244,8 +265,9 @@ class CreateIndexStmt extends Stmt {
   final String name;
   final String tableName;
   final String columnName;
+  final String? usingMethod;
 
-  CreateIndexStmt(this.name, this.tableName, this.columnName);
+  CreateIndexStmt(this.name, this.tableName, this.columnName, {this.usingMethod});
 }
 
 class GenerateStmt extends Stmt {}
@@ -272,6 +294,45 @@ class CreatePolicyStmt extends Stmt {
   final String tableName;
   final Expression condition;
   CreatePolicyStmt(this.name, this.tableName, this.condition);
+}
+
+class Parameter {
+  final String name;
+  final DataType type;
+  Parameter(this.name, this.type);
+}
+
+class CreateProcedureStmt extends Stmt {
+  final String name;
+  final List<Parameter> params;
+  final List<Stmt> body;
+  final String sql;
+  CreateProcedureStmt(this.name, this.params, this.body, this.sql);
+}
+
+class CreateFunctionStmt extends Stmt {
+  final String name;
+  final List<Parameter> params;
+  final DataType returnType;
+  final List<Stmt> body;
+  final String sql;
+  CreateFunctionStmt(this.name, this.params, this.returnType, this.body, this.sql);
+}
+
+class CallStmt extends Stmt {
+  final String name;
+  final List<Expression> args;
+  CallStmt(this.name, this.args);
+}
+
+class ReturnStmt extends Stmt {
+  final Expression expr;
+  ReturnStmt(this.expr);
+}
+
+class ReturnException implements Exception {
+  final dynamic value;
+  ReturnException(this.value);
 }
 
 String exprToSqlString(Expression expr) {

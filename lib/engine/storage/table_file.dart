@@ -119,7 +119,7 @@ class RecordSerializer {
     return buffer;
   }
 
-  static List<DbValue> deserializeRow(Uint8List recordBytes) {
+  static List<DbValue> deserializeRow(Uint8List recordBytes, [int? expectedColumnCount]) {
     final data = ByteData.sublistView(recordBytes);
     final count = data.getUint16(0);
     final list = <DbValue>[];
@@ -130,6 +130,11 @@ class RecordSerializer {
           : recordBytes.length;
       final len = endOffset - startOffset;
       list.add(DbValue.fromBytes(data, startOffset, len));
+    }
+    if (expectedColumnCount != null && list.length < expectedColumnCount) {
+      while (list.length < expectedColumnCount) {
+        list.add(DbNull());
+      }
     }
     return list;
   }
@@ -302,6 +307,51 @@ class RowTableFile {
     _cachedPageCount = null;
   }
 
+  void insertRawRecordSync(Uint8List recordBytes) {
+    if (_activeInsertPage != null) {
+      final success = SlottedPageHelper.insertRecordDirect(_activeInsertPage!, recordBytes, recordBytes.length);
+      if (success) {
+        _activeInsertPage!.isDirty = true;
+        return;
+      }
+      flushActivePageSync();
+    }
+
+    final pgr = pager;
+    int pageCount = getPageCount();
+
+    if (pageCount == 0) {
+      final page = cache.pinPageSync(filePath, 0);
+      SlottedPageHelper.initPage(page);
+      SlottedPageHelper.insertRecordDirect(page, recordBytes, recordBytes.length);
+      page.isDirty = true;
+      _activeInsertPage = page;
+      _activeInsertPageId = 0;
+      _cachedPageCount = 1;
+      return;
+    }
+
+    final lastPageId = pageCount - 1;
+    final page = cache.pinPageSync(filePath, lastPageId);
+    final success = SlottedPageHelper.insertRecordDirect(page, recordBytes, recordBytes.length);
+    
+    if (success) {
+      page.isDirty = true;
+      _activeInsertPage = page;
+      _activeInsertPageId = lastPageId;
+    } else {
+      cache.unpinPageSync(filePath, lastPageId, isDirty: false);
+      final newPageId = pageCount;
+      final newPage = cache.pinPageSync(filePath, newPageId);
+      SlottedPageHelper.initPage(newPage);
+      SlottedPageHelper.insertRecordDirect(newPage, recordBytes, recordBytes.length);
+      newPage.isDirty = true;
+      _activeInsertPage = newPage;
+      _activeInsertPageId = newPageId;
+      _cachedPageCount = newPageId + 1;
+    }
+  }
+
   BTreePointer insertSync(List<DbValue> row, {int xmin = 0, int rollPtr = 0}) {
     final recordLen = RecordSerializer.serializeMvccRowDirect(_sharedTempBuffer, row, xmin, 0, rollPtr);
     
@@ -449,6 +499,7 @@ class RowTableFile {
     Set<int>? activeTxIds,
     MvccTransactionManager? txManager,
     List<int>? projectedColIndexes,
+    int? expectedColumnCount,
   }) {
     final pager = cache.getOrCreatePager(filePath);
     final pageCount = pager.getPageCountSync();
@@ -463,19 +514,21 @@ class RowTableFile {
       activeTxIds: actIds,
       projectedColIndexes: projectedColIndexes,
       tableFile: this,
+      expectedColumnCount: expectedColumnCount,
     );
   }
 
-  List<DbValue> _deserializePartialRow(Uint8List recordBytes, List<int> colIndexes, List<DbValue>? reuseList) {
+  List<DbValue> _deserializePartialRow(Uint8List recordBytes, List<int> colIndexes, List<DbValue>? reuseList, [int? expectedColumnCount]) {
     if (colIndexes.isEmpty) return const <DbValue>[];
     final data = ByteData.sublistView(recordBytes);
     final count = data.getUint16(0);
+    final targetCount = expectedColumnCount ?? count;
     List<DbValue> list;
-    if (reuseList != null && reuseList.length == count) {
+    if (reuseList != null && reuseList.length == targetCount) {
       list = reuseList;
-      list.fillRange(0, count, DbNull());
+      list.fillRange(0, targetCount, DbNull());
     } else {
-      list = List<DbValue>.filled(count, DbNull());
+      list = List<DbValue>.filled(targetCount, DbNull());
     }
     for (final colIdx in colIndexes) {
       if (colIdx < count) {
@@ -485,6 +538,8 @@ class RowTableFile {
             : recordBytes.length;
         final len = endOffset - startOffset;
         list[colIdx] = DbValue.fromBytes(data, startOffset, len);
+      } else if (colIdx < targetCount) {
+        list[colIdx] = DbNull();
       }
     }
     return list;
@@ -500,6 +555,7 @@ class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue
   final Set<int> activeTxIds;
   final List<int>? projectedColIndexes;
   final RowTableFile tableFile;
+  final int? expectedColumnCount;
 
   int _currentPageId = 0;
   Page? _currentPage;
@@ -517,6 +573,7 @@ class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue
     required this.activeTxIds,
     this.projectedColIndexes,
     required this.tableFile,
+    this.expectedColumnCount,
   });
 
   @override
@@ -544,19 +601,19 @@ class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue
             if (mgr.isVisible(xmin, xmax, currentTxId, activeTxIds)) {
               final rowData = Uint8List.view(recBytes.buffer, recBytes.offsetInBytes + 12, recBytes.length - 12);
               if (projectedColIndexes != null) {
-                _reusedRowList = tableFile._deserializePartialRow(rowData, projectedColIndexes!, _reusedRowList);
+                _reusedRowList = tableFile._deserializePartialRow(rowData, projectedColIndexes!, _reusedRowList, expectedColumnCount);
                 _current = _reusedRowList;
               } else {
-                _current = RecordSerializer.deserializeRow(rowData);
+                _current = RecordSerializer.deserializeRow(rowData, expectedColumnCount);
               }
               return true;
             }
           } else {
             if (projectedColIndexes != null) {
-              _reusedRowList = tableFile._deserializePartialRow(recBytes, projectedColIndexes!, _reusedRowList);
+              _reusedRowList = tableFile._deserializePartialRow(recBytes, projectedColIndexes!, _reusedRowList, expectedColumnCount);
               _current = _reusedRowList;
             } else {
-              _current = RecordSerializer.deserializeRow(recBytes);
+              _current = RecordSerializer.deserializeRow(recBytes, expectedColumnCount);
             }
             return true;
           }

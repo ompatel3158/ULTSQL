@@ -800,6 +800,19 @@ class PageCache {
     }
   }
 
+  void evictTableSync(String filePath) {
+    flushAllSync();
+    final keysToRemove = _cache.keys.where((k) => k.filePath == filePath).toList();
+    for (final k in keysToRemove) {
+      _cache.remove(k);
+      _unpinnedKeys.remove(k);
+    }
+    final pager = _pagers.remove(filePath);
+    if (pager != null) {
+      pager.closeSync();
+    }
+  }
+
   void closeAllSync() {
     _isClosed = true;
     flushAllSync();

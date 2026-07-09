@@ -49,6 +49,10 @@ class Lexer {
     'references': TokenType.referencesKeyword,
     'delete': TokenType.deleteKeyword,
     'cascade': TokenType.cascadeKeyword,
+    'alter': TokenType.alterKeyword,
+    'add': TokenType.addKeyword,
+    'drop': TokenType.dropKeyword,
+    'column': TokenType.columnKeyword,
     'declare': TokenType.declare,
     'begin': TokenType.begin,
     'end': TokenType.end,
@@ -65,6 +69,11 @@ class Lexer {
     'json': TokenType.typeJson,
     'policy': TokenType.policyKeyword,
     'using': TokenType.usingKeyword,
+    'procedure': TokenType.procedureKeyword,
+    'function': TokenType.functionKeyword,
+    'returns': TokenType.returnsKeyword,
+    'return': TokenType.returnKeyword,
+    'call': TokenType.callKeyword,
   };
 
   bool get _isAtEnd => _position >= source.length;

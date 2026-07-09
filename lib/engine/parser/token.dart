@@ -39,6 +39,10 @@ enum TokenType {
   referencesKeyword,
   deleteKeyword,
   cascadeKeyword,
+  alterKeyword,
+  addKeyword,
+  dropKeyword,
+  columnKeyword,
 
   // Keywords - PL/SQL
   declare,
@@ -99,7 +103,12 @@ enum TokenType {
   privileges,
   all,
   setKeyword,
-  userKeyword
+  userKeyword,
+  procedureKeyword,
+  functionKeyword,
+  returnsKeyword,
+  returnKeyword,
+  callKeyword
 }
 
 class Token {

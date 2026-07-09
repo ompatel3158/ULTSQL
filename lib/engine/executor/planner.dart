@@ -4,6 +4,7 @@ import '../parser/ast.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
+import '../storage/hnsw_index.dart';
 import '../cache/page_cache.dart';
 import 'plan_nodes.dart';
 import 'value.dart';
@@ -28,6 +29,83 @@ class QueryPlanner {
     if (schema == null) {
       throw Exception("Table '$tableName' does not exist in catalog.");
     }
+
+    // Check if we can use HNSW index scan for ORDER BY vector_distance
+    if (stmt.orderBy != null) {
+      final orderExpr = stmt.orderBy!.expr;
+      FunctionCallExpr? vectorDistExpr;
+      if (orderExpr is FunctionCallExpr && orderExpr.name.toLowerCase() == 'vector_distance') {
+        vectorDistExpr = orderExpr;
+      } else if (orderExpr is VariableExpr) {
+        final alias = orderExpr.path.last.toLowerCase();
+        for (final proj in stmt.projections) {
+          if (proj.alias?.toLowerCase() == alias && proj.expr is FunctionCallExpr) {
+            final func = proj.expr as FunctionCallExpr;
+            if (func.name.toLowerCase() == 'vector_distance') {
+              vectorDistExpr = func;
+              break;
+            }
+          }
+        }
+      }
+
+      if (vectorDistExpr != null && vectorDistExpr.arguments.length == 2) {
+        final firstArg = vectorDistExpr.arguments[0];
+        if (firstArg is VariableExpr) {
+          final colName = firstArg.path.last.toLowerCase();
+          final idx = catalog.getIndexForColumn(tableName, colName);
+          if (idx != null && idx.usingMethod == 'hnsw') {
+            var queryVecVal = evaluateExpression(vectorDistExpr.arguments[1], {});
+            if (queryVecVal is DbText) {
+              final text = queryVecVal.value.trim();
+              if (text.startsWith('[') && text.endsWith(']')) {
+                try {
+                  final elements = text.substring(1, text.length - 1).split(',').map((e) => double.parse(e.trim())).toList();
+                  queryVecVal = DbVector(elements);
+                } catch (_) {}
+              }
+            }
+            if (queryVecVal is DbVector) {
+              final limit = stmt.limit ?? 10;
+              final rowTableFile = RowTableFile(cache: cache, tableName: schema.name, dbDirectory: dbDirectory);
+              final indexFile = '$dbDirectory/${idx.name.toLowerCase()}.hnsw';
+              final hnswIndex = HnswIndex(indexPath: indexFile, autoSave: false);
+              
+              PlanNode plan = HnswScanNode(
+                tableFile: rowTableFile,
+                schema: schema,
+                index: hnswIndex,
+                queryVector: queryVecVal,
+                limit: limit,
+              );
+              
+              if (schema.policies.isNotEmpty) {
+                Expression combinedPolicy = schema.policies.first.condition;
+                for (int i = 1; i < schema.policies.length; i++) {
+                  combinedPolicy = BinaryExpr('OR', combinedPolicy, schema.policies[i].condition);
+                }
+                plan = FilterNode(plan, combinedPolicy);
+              }
+              
+              var projections = stmt.projections;
+              if (projections.length == 1 &&
+                  projections[0].expr is VariableExpr &&
+                  (projections[0].expr as VariableExpr).path.first == '*') {
+                final list = <Projection>[];
+                for (final col in schema.columnNames) {
+                  list.add(Projection(VariableExpr([col]), null));
+                }
+                projections = list;
+              }
+              
+              plan = ProjectNode(plan, projections);
+              return plan;
+            }
+          }
+        }
+      }
+    }
+
     bool isParallelScan = false;
 
     var projections = stmt.projections;
@@ -291,6 +369,7 @@ class QueryPlanner {
           rightIndex: rightIndex,
           leftJoinCol: leftJoinCol,
           rightSchema: joinSchema,
+          isLeftJoin: stmt.join!.isLeftJoin,
         );
       } else {
         currentPlan = HashJoinNode(
@@ -298,6 +377,8 @@ class QueryPlanner {
           right: joinScan,
           leftJoinCol: leftJoinCol,
           rightJoinCol: rightJoinCol,
+          isLeftJoin: stmt.join!.isLeftJoin,
+          rightSchema: joinSchema,
         );
       }
     }

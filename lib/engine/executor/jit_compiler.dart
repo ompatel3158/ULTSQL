@@ -45,6 +45,7 @@ bool matchLike(String str, String pattern) {
 
 class JitCompiler {
   static List<DbValue>? currentParams;
+  static dynamic activeInterpreter;
 
   static JitClosure compile(Expression expr) {
     if (expr is LiteralExpr || expr is PlaceholderExpr || expr is VectorLiteralExpr) {
@@ -436,12 +437,37 @@ class JitCompiler {
       final name = expr.name.toLowerCase();
       final argFns = expr.arguments.map((a) => _compileDefault(a)).toList();
 
-      if (name == 'vector_distance' && argFns.length == 2) {
-        final v1Fn = argFns[0];
-        final v2Fn = argFns[1];
-        return (row) {
-          var v1 = v1Fn(row);
-          var v2 = v2Fn(row);
+      return (row) {
+        if (activeInterpreter != null) {
+          final active = activeInterpreter!;
+          final funcSchema = active.db.catalog.getFunction(name);
+          if (funcSchema != null) {
+            final args = argFns.map((fn) => fn(row)).toList();
+            final savedEnv = Map<String, DbValue>.from(active.env);
+            active.env.clear();
+            for (int i = 0; i < funcSchema.params.length; i++) {
+              final param = funcSchema.params[i];
+              final argVal = i < args.length ? args[i] : DbNull();
+              active.env[param.name] = argVal;
+            }
+            DbValue returnValue = DbNull();
+            try {
+              for (final stmt in funcSchema.body) {
+                active.executeNodeSync(stmt);
+              }
+            } on ReturnException catch (e) {
+              returnValue = e.value as DbValue;
+            } finally {
+              active.env.clear();
+              active.env.addAll(savedEnv);
+            }
+            return returnValue;
+          }
+        }
+
+        if (name == 'vector_distance' && argFns.length == 2) {
+          var v1 = argFns[0](row);
+          var v2 = argFns[1](row);
           if (v1 is DbText) {
             v1 = _parseVectorFromString(v1.value) ?? v1;
           }
@@ -452,13 +478,10 @@ class JitCompiler {
             return DbDouble(v1.distanceTo(v2));
           }
           return DbNull();
-        };
-      }
-      if (name == 'cast' && argFns.length == 2) {
-        final valFn = argFns[0];
-        final typeStr = (expr.arguments[1] as LiteralExpr).value.toString();
-        return (row) {
-          final val = valFn(row);
+        }
+        if (name == 'cast' && argFns.length == 2) {
+          final val = argFns[0](row);
+          final typeStr = (expr.arguments[1] as LiteralExpr).value.toString();
           if (val is DbNull) return DbNull();
           if (typeStr == 'DataType.text') {
             return DbText(val.toString());
@@ -472,8 +495,9 @@ class JitCompiler {
             return DbDouble(double.tryParse(val.toString()) ?? 0.0);
           }
           return DbNull();
-        };
-      }
+        }
+        return DbNull();
+      };
     }
 
     return (row) => DbNull();

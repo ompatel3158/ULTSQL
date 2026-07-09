@@ -166,6 +166,32 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
     final name = expr.name.toLowerCase();
     final args = expr.arguments.map((a) => evaluateExpression(a, rowContext)).toList();
 
+    if (JitCompiler.activeInterpreter != null) {
+      final active = JitCompiler.activeInterpreter!;
+      final funcSchema = active.db.catalog.getFunction(name);
+      if (funcSchema != null) {
+        final savedEnv = Map<String, DbValue>.from(active.env);
+        active.env.clear();
+        for (int i = 0; i < funcSchema.params.length; i++) {
+          final param = funcSchema.params[i];
+          final argVal = i < args.length ? args[i] : DbNull();
+          active.env[param.name] = argVal;
+        }
+        DbValue returnValue = DbNull();
+        try {
+          for (final stmt in funcSchema.body) {
+            active.executeNodeSync(stmt);
+          }
+        } on ReturnException catch (e) {
+          returnValue = e.value as DbValue;
+        } finally {
+          active.env.clear();
+          active.env.addAll(savedEnv);
+        }
+        return returnValue;
+      }
+    }
+
     if (name == 'vector_distance' && args.length == 2) {
       var v1 = args[0];
       var v2 = args[1];
@@ -234,10 +260,12 @@ class RowScanNode extends PlanNode {
         activeTxIds: currentTx.activeTxIds,
         txManager: tableFile.cache.mvccTxManager,
         projectedColIndexes: _colsToLoad,
+        expectedColumnCount: schema.columnNames.length,
       ).iterator;
     } else {
       _iterator = tableFile.scanSync(
         projectedColIndexes: _colsToLoad,
+        expectedColumnCount: schema.columnNames.length,
       ).iterator;
     }
   }
@@ -968,6 +996,8 @@ class HashJoinNode extends PlanNode {
   final PlanNode right;
   final String leftJoinCol;
   final String rightJoinCol;
+  final bool isLeftJoin;
+  final TableSchema? rightSchema;
   late final JitClosure _jitLeftKey;
   late final JitClosure _jitRightKey;
 
@@ -981,9 +1011,22 @@ class HashJoinNode extends PlanNode {
     required this.right,
     required this.leftJoinCol,
     required this.rightJoinCol,
+    this.isLeftJoin = false,
+    this.rightSchema,
   }) {
     _jitLeftKey = JitCompiler.compile(VariableExpr([leftJoinCol]));
     _jitRightKey = JitCompiler.compile(VariableExpr([rightJoinCol]));
+  }
+
+  Map<String, DbValue> _createNullRow() {
+    final nullRow = <String, DbValue>{};
+    if (rightSchema != null) {
+      for (final colName in rightSchema!.columnNames) {
+        nullRow['${rightSchema!.name}.$colName'] = DbNull();
+        nullRow[colName] = DbNull();
+      }
+    }
+    return nullRow;
   }
 
   @override
@@ -1027,6 +1070,11 @@ class HashJoinNode extends PlanNode {
         _matchIdx = 0;
       } else {
         _currentMatches = null;
+        if (isLeftJoin) {
+          final nullRow = _createNullRow();
+          final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(nullRow);
+          return mergedRow;
+        }
       }
     }
   }
@@ -1154,7 +1202,7 @@ DbVector? _parseVectorFromString(String s) {
   return null;
 }
 
-List<DbValue>? _getVisibleRowValues(RowTableFile tableFile, Uint8List recBytes) {
+List<DbValue>? _getVisibleRowValues(RowTableFile tableFile, Uint8List recBytes, [int? expectedColumnCount]) {
   try {
     final mvccRecord = MvccRecord.fromBytes(recBytes);
     final currentTx = tableFile.cache.currentMvccTx;
@@ -1162,11 +1210,11 @@ List<DbValue>? _getVisibleRowValues(RowTableFile tableFile, Uint8List recBytes) 
     final currentTxId = currentTx?.txId ?? 0;
     final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
     if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-      return RecordSerializer.deserializeRow(mvccRecord.rowData);
+      return RecordSerializer.deserializeRow(mvccRecord.rowData, expectedColumnCount);
     }
     return null;
   } catch (_) {
-    return RecordSerializer.deserializeRow(recBytes);
+    return RecordSerializer.deserializeRow(recBytes, expectedColumnCount);
   }
 }
 
@@ -1176,6 +1224,7 @@ class IndexJoinNode extends PlanNode {
   final BTreeIndex rightIndex;
   final String leftJoinCol;
   final TableSchema rightSchema;
+  final bool isLeftJoin;
   late final JitClosure _jitLeftKey;
 
   Page? _pinnedPage;
@@ -1188,8 +1237,18 @@ class IndexJoinNode extends PlanNode {
     required this.rightIndex,
     required this.leftJoinCol,
     required this.rightSchema,
+    this.isLeftJoin = false,
   }) {
     _jitLeftKey = JitCompiler.compile(VariableExpr([leftJoinCol]));
+  }
+
+  Map<String, DbValue> _createNullRow() {
+    final nullRow = <String, DbValue>{};
+    for (final colName in rightSchema.columnNames) {
+      nullRow['${rightSchema.name}.$colName'] = DbNull();
+      nullRow[colName] = DbNull();
+    }
+    return nullRow;
   }
 
   @override
@@ -1219,6 +1278,11 @@ class IndexJoinNode extends PlanNode {
             final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(rightRow);
             return mergedRow;
           }
+          if (isLeftJoin) {
+            final nullRow = _createNullRow();
+            final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
+            return mergedRow;
+          }
           continue;
         }
 
@@ -1233,7 +1297,7 @@ class IndexJoinNode extends PlanNode {
           }
           final recBytes = SlottedPageHelper.getRecord(_pinnedPage!, ptr.slotId);
           if (recBytes != null) {
-            final rightRowValues = _getVisibleRowValues(rightTable, recBytes);
+            final rightRowValues = _getVisibleRowValues(rightTable, recBytes, rightSchema.columnNames.length);
             if (rightRowValues != null) {
               final rightRow = <String, DbValue>{};
               for (int i = 0; i < rightSchema.columnNames.length; i++) {
@@ -1250,6 +1314,17 @@ class IndexJoinNode extends PlanNode {
           }
         }
         _joinCache[searchKey] = null;
+        if (isLeftJoin) {
+          final nullRow = _createNullRow();
+          final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
+          return mergedRow;
+        }
+      } else {
+        if (isLeftJoin) {
+          final nullRow = _createNullRow();
+          final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
+          return mergedRow;
+        }
       }
     }
   }
@@ -1324,7 +1399,7 @@ class GraphJoinNode extends PlanNode {
             final page = rightTable!.cache.pinPageSync(rightTable!.filePath, ptr.pageId);
             final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
             if (recBytes != null) {
-              final rightRowValues = _getVisibleRowValues(rightTable!, recBytes);
+              final rightRowValues = _getVisibleRowValues(rightTable!, recBytes, rightSchema.columnNames.length);
               if (rightRowValues != null) {
                 final rightRow = <String, DbValue>{};
                 for (int i = 0; i < rightSchema.columnNames.length; i++) {
@@ -1465,22 +1540,49 @@ class HnswScanNode extends PlanNode {
   Map<String, DbValue>? next() {
     if (_results == null || _cursor >= _results!.length) return null;
     final node = _results![_cursor++];
-    final page = tableFile.cache.pinPageSync(tableFile.filePath, node.pageId);
-    final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
-    if (recBytes == null) {
-      tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
-      return next(); // Try next
-    }
-    final values = RecordSerializer.deserializeRow(recBytes);
     final map = <String, DbValue>{};
-    for (int i = 0; i < schema.columnNames.length; i++) {
-      if (i < values.length) {
-        final colName = schema.columnNames[i];
-        map['${schema.name}.$colName'] = values[i];
-        map[colName] = values[i];
+    
+    if (schema.isColumnar) {
+      final colTable = ColumnTableFile(
+        cache: tableFile.cache,
+        tableName: schema.name,
+        dbDirectory: tableFile.dbDirectory,
+        schema: schema,
+      );
+      for (int i = 0; i < schema.columnNames.length; i++) {
+        final colFilePath = colTable.getColumnFilePath(i);
+        final pager = tableFile.cache.getOrCreatePager(colFilePath);
+        if (node.pageId >= pager.getPageCountSync()) {
+          return next();
+        }
+        final page = tableFile.cache.pinPageSync(colFilePath, node.pageId);
+        final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
+        if (recBytes != null) {
+          final data = ByteData.sublistView(recBytes);
+          final val = DbValue.fromBytes(data, 0, recBytes.length);
+          final colName = schema.columnNames[i];
+          map['${schema.name}.$colName'] = val;
+          map[colName] = val;
+        }
+        tableFile.cache.unpinPageSync(colFilePath, node.pageId, isDirty: false);
       }
+    } else {
+      final page = tableFile.cache.pinPageSync(tableFile.filePath, node.pageId);
+      final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
+      if (recBytes == null) {
+        tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
+        return next(); // Try next
+      }
+      final values = RecordSerializer.deserializeRow(recBytes);
+      for (int i = 0; i < schema.columnNames.length; i++) {
+        if (i < values.length) {
+          final colName = schema.columnNames[i];
+          map['${schema.name}.$colName'] = values[i];
+          map[colName] = values[i];
+        }
+      }
+      tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
     }
-    tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
     return map;
   }
 

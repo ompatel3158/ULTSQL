@@ -11,6 +11,7 @@ import '../cache/page_cache.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
+import '../storage/hnsw_index.dart';
 import 'value.dart';
 import 'plan_nodes.dart';
 import 'planner.dart';
@@ -341,6 +342,7 @@ class Interpreter {
   
   // Local environment for PL/SQL variables
   final Map<String, DbValue> _env = {};
+  Map<String, DbValue> get env => _env;
   
   // Console print log (DBMS_OUTPUT)
   final List<String> dbmsOutputLog = [];
@@ -427,7 +429,7 @@ class Interpreter {
 
         for (final stmt in statements) {
           try {
-            if (stmt is CreateTableStmt || stmt is CreateRelationshipStmt || stmt is CreateIndexStmt || stmt is CreatePolicyStmt) {
+            if (stmt is CreateTableStmt || stmt is CreateRelationshipStmt || stmt is CreateIndexStmt || stmt is CreatePolicyStmt || stmt is CreateProcedureStmt || stmt is CreateFunctionStmt || stmt is AlterTableStmt) {
               catalogModified = true;
             }
             var res = _executeNodeSync(stmt);
@@ -498,7 +500,24 @@ class Interpreter {
     });
   }
 
+  dynamic executeNodeSync(ASTNode node) => _executeNodeSync(node);
+
   dynamic _executeNodeSync(ASTNode node) {
+    JitCompiler.activeInterpreter = this;
+    if (node is ReturnStmt) {
+      final valFn = _jitCache.putIfAbsent(node.expr, () => JitCompiler.compile(node.expr));
+      final val = valFn(_env);
+      throw ReturnException(val);
+    }
+    if (node is CreateProcedureStmt) {
+      return _executeCreateProcedure(node);
+    }
+    if (node is CreateFunctionStmt) {
+      return _executeCreateFunction(node);
+    }
+    if (node is CallStmt) {
+      return _executeCall(node);
+    }
     if (node is ExplainStmt) {
       return _executeExplain(node);
     }
@@ -507,6 +526,9 @@ class Interpreter {
     }
     if (node is CreateTableStmt) {
       return _executeCreateTable(node);
+    }
+    if (node is AlterTableStmt) {
+      return _executeAlterTable(node);
     }
     if (node is CreateIndexStmt) {
       return _executeCreateIndex(node);
@@ -681,6 +703,79 @@ END;
     );
   }
 
+  QueryResult _executeCreateProcedure(CreateProcedureStmt stmt) {
+    final name = stmt.name.toLowerCase();
+    if (db.catalog.hasProcedure(name)) {
+      throw Exception("Procedure '$name' already exists.");
+    }
+    final schema = ProcedureSchema(name: stmt.name, sql: stmt.sql);
+    db.catalog.addProcedure(schema);
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Procedure '${stmt.name}' created successfully.",
+    );
+  }
+
+  QueryResult _executeCreateFunction(CreateFunctionStmt stmt) {
+    final name = stmt.name.toLowerCase();
+    if (db.catalog.hasFunction(name)) {
+      throw Exception("Function '$name' already exists.");
+    }
+    final schema = FunctionSchema(name: stmt.name, sql: stmt.sql);
+    db.catalog.addFunction(schema);
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Function '${stmt.name}' created successfully.",
+    );
+  }
+
+  QueryResult _executeCall(CallStmt stmt) {
+    final procSchema = db.catalog.getProcedure(stmt.name);
+    if (procSchema == null) {
+      throw Exception("Procedure '${stmt.name}' does not exist.");
+    }
+    
+    final args = stmt.args.map((a) {
+      final fn = _jitCache.putIfAbsent(a, () => JitCompiler.compile(a));
+      return fn(_env);
+    }).toList();
+    
+    final savedEnv = Map<String, DbValue>.from(_env);
+    _env.clear();
+    
+    for (int i = 0; i < procSchema.params.length; i++) {
+      final param = procSchema.params[i];
+      final argVal = i < args.length ? args[i] : DbNull();
+      _env[param.name] = argVal;
+    }
+    
+    QueryResult? lastResult;
+    try {
+      for (final s in procSchema.body) {
+        final res = _executeNodeSync(s);
+        if (res is Future) {
+          throw Exception("Asynchronous operations are not supported inside procedures.");
+        }
+        if (res is QueryResult) {
+          lastResult = res;
+        }
+      }
+    } on ReturnException catch (_) {
+      // Early return from procedure
+    } finally {
+      _env.clear();
+      _env.addAll(savedEnv);
+    }
+    
+    return QueryResult(
+      columns: lastResult?.columns ?? [],
+      rows: lastResult?.rows ?? [],
+      message: "Procedure '${stmt.name}' executed successfully.",
+    );
+  }
+
   QueryResult _executeCreateTable(CreateTableStmt stmt) {
     final tableName = stmt.tableName.toLowerCase();
     if (db.catalog.hasTable(tableName)) {
@@ -728,6 +823,164 @@ END;
       rows: [],
       message: "Table '${stmt.tableName}' created successfully${isColumnar ? ' (optimized Columnar store)' : ' (Row store)'}.",
     );
+  }
+
+  QueryResult _executeAlterTable(AlterTableStmt stmt) {
+    final tableName = stmt.tableName.toLowerCase();
+    final schema = db.catalog.getTableSchema(tableName);
+    if (schema == null) {
+      throw Exception("Table '$tableName' does not exist.");
+    }
+
+    if (stmt.action == AlterAction.add) {
+      final colToAdd = stmt.columnToAdd!;
+      if (schema.columnNamesLower.contains(colToAdd.name.toLowerCase())) {
+        throw Exception("Column '${colToAdd.name}' already exists in table '$tableName'.");
+      }
+      
+      // Update catalog schema
+      final newSchema = schema.addColumn(colToAdd);
+      db.catalog.addTable(newSchema, saveToFile: false);
+      
+      // Clear caches
+      _referencingTablesCache.clear();
+      _insertSchemaCache.clear();
+      _insertClosuresCache.clear();
+      _schemaKeyToIndexCache.clear();
+      _rowTableCache.remove(tableName);
+
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Column '${colToAdd.name}' added to table '$tableName' successfully.",
+      );
+    } else if (stmt.action == AlterAction.drop) {
+      final colName = stmt.columnToDrop!;
+      final colIdx = schema.columnNamesLower.indexOf(colName.toLowerCase());
+      if (colIdx == -1) {
+        throw Exception("Column '$colName' not found in table '$tableName'.");
+      }
+
+      if (schema.columnPrimaryKey[colIdx]) {
+        throw Exception("Cannot drop primary key column '$colName'.");
+      }
+
+      // First, remove associated index if any
+      final idxSchema = db.catalog.getIndexForColumn(tableName, colName);
+      if (idxSchema != null) {
+        db.catalog.removeIndex(idxSchema.name, saveToFile: false);
+        final idxFile = File('${db.directory}/${idxSchema.name.toLowerCase()}.idx');
+        if (idxFile.existsSync()) {
+          try {
+            idxFile.deleteSync();
+          } catch (_) {}
+        }
+      }
+
+      // Rewrite the table data
+      if (schema.isColumnar) {
+        final colCount = schema.columnNames.length;
+        // Evict column files from cache
+        for (int i = colIdx; i < colCount; i++) {
+          final filePath = '${db.directory}/${schema.name}.col_$i';
+          db.cache.evictTableSync(filePath);
+        }
+
+        // Delete the file for the dropped column
+        final fileToDelete = File('${db.directory}/${schema.name}.col_$colIdx');
+        if (fileToDelete.existsSync()) {
+          fileToDelete.deleteSync();
+        }
+
+        // Rename remaining column files
+        for (int i = colIdx + 1; i < colCount; i++) {
+          final oldFile = File('${db.directory}/${schema.name}.col_$i');
+          if (oldFile.existsSync()) {
+            oldFile.renameSync('${db.directory}/${schema.name}.col_${i - 1}');
+          }
+        }
+      } else {
+        final rowTable = RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        );
+        final pager = db.cache.getOrCreatePager(rowTable.filePath);
+        final pageCount = pager.getPageCountSync();
+        
+        final records = <MvccRecord>[];
+        for (int p = 0; p < pageCount; p++) {
+          final page = db.cache.pinPageSync(rowTable.filePath, p);
+          final rowCount = SlottedPageHelper.getRowCount(page);
+          for (int s = 0; s < rowCount; s++) {
+            final recBytes = SlottedPageHelper.getRecord(page, s);
+            if (recBytes != null) {
+              try {
+                final mvccRec = MvccRecord.fromBytes(recBytes);
+                final rowValues = RecordSerializer.deserializeRow(mvccRec.rowData);
+                if (colIdx < rowValues.length) {
+                  rowValues.removeAt(colIdx);
+                }
+                final newRowData = RecordSerializer.serializeRow(rowValues);
+                records.add(MvccRecord(
+                  xmin: mvccRec.xmin,
+                  xmax: mvccRec.xmax,
+                  rollPtr: mvccRec.rollPtr,
+                  rowData: newRowData,
+                ));
+              } catch (_) {
+                final rowValues = RecordSerializer.deserializeRow(recBytes);
+                if (colIdx < rowValues.length) {
+                  rowValues.removeAt(colIdx);
+                }
+                final newRowData = RecordSerializer.serializeRow(rowValues);
+                records.add(MvccRecord(xmin: 0, xmax: 0, rollPtr: 0, rowData: newRowData));
+              }
+            }
+          }
+          db.cache.unpinPageSync(rowTable.filePath, p, isDirty: false);
+        }
+
+        // Evict table from cache
+        db.cache.evictTableSync(rowTable.filePath);
+
+        // Delete original file
+        final file = File(rowTable.filePath);
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+
+        // Write records to a fresh file
+        final newRowTable = RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        );
+        for (final rec in records) {
+          newRowTable.insertRawRecordSync(rec.toBytes());
+        }
+        newRowTable.flushActivePageSync();
+      }
+
+      // Update catalog schema
+      final newSchema = schema.dropColumn(colName);
+      db.catalog.addTable(newSchema, saveToFile: false);
+
+      // Clear caches
+      _referencingTablesCache.clear();
+      _insertSchemaCache.clear();
+      _insertClosuresCache.clear();
+      _schemaKeyToIndexCache.clear();
+      _rowTableCache.remove(tableName);
+
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Column '$colName' dropped from table '$tableName' successfully.",
+      );
+    } else {
+      throw Exception("Unsupported ALTER TABLE action.");
+    }
   }
 
 
@@ -1972,13 +2225,84 @@ END;
       colIndexes.add(cIdx);
     }
 
-    if (schema.isColumnar) {
+    if (schema.isColumnar && stmt.usingMethod != 'hnsw') {
       throw Exception("B+ Tree indexes are not supported on columnar tables.");
     }
 
     // Register index schema
-    final idxSchema = IndexSchema(name: stmt.name, tableName: stmt.tableName, columnName: stmt.columnName);
+    final idxSchema = IndexSchema(
+      name: stmt.name,
+      tableName: stmt.tableName,
+      columnName: stmt.columnName,
+      usingMethod: stmt.usingMethod,
+    );
     db.catalog.addIndex(idxSchema, saveToFile: true);
+
+    if (stmt.usingMethod == 'hnsw') {
+      final indexFile = '${db.directory}/$indexName.hnsw';
+      final hnsw = HnswIndex(indexPath: indexFile, autoSave: false);
+      final colIdx = colIndexes[0];
+      
+      if (schema.isColumnar) {
+        final colTable = ColumnTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+          schema: schema,
+        );
+        final colFilePath = colTable.getColumnFilePath(colIdx);
+        final pager = db.cache.getOrCreatePager(colFilePath);
+        final pageCount = pager.getPageCountSync();
+        for (int pageId = 0; pageId < pageCount; pageId++) {
+          final page = db.cache.pinPageSync(colFilePath, pageId);
+          final byteData = page.byteData;
+          final rowCount = byteData.getUint16(1);
+          for (int slotId = 0; slotId < rowCount; slotId++) {
+            final slotOffset = 5 + slotId * 4;
+            final recordOffset = byteData.getUint16(slotOffset);
+            final recordLen = byteData.getUint16(slotOffset + 2);
+            if (recordLen == 0 || recordOffset >= 4096) continue;
+            final recBytes = SlottedPageHelper.getRecord(page, slotId);
+            if (recBytes != null) {
+              final data = ByteData.sublistView(recBytes);
+              final val = DbValue.fromBytes(data, 0, recBytes.length);
+              if (val is DbVector) {
+                hnsw.insertSync(val, pageId, slotId);
+              }
+            }
+          }
+          db.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+        }
+      } else {
+        final rowTable = RowTableFile(cache: db.cache, tableName: schema.name, dbDirectory: db.directory);
+        final pager = db.cache.getOrCreatePager(rowTable.filePath);
+        final pageCount = pager.getPageCountSync();
+        for (int pageId = 0; pageId < pageCount; pageId++) {
+          final page = db.cache.pinPageSync(rowTable.filePath, pageId);
+          final byteData = page.byteData;
+          final rowCount = byteData.getUint16(1);
+          for (int slotId = 0; slotId < rowCount; slotId++) {
+            final slotOffset = 5 + slotId * 4;
+            final recordOffset = byteData.getUint16(slotOffset);
+            final recordLen = byteData.getUint16(slotOffset + 2);
+            if (recordLen == 0 || recordOffset >= 4096) continue;
+            final recBytes = SlottedPageHelper.getRecord(page, slotId);
+            if (recBytes != null) {
+              final rowValues = RecordSerializer.deserializeRow(recBytes);
+              if (colIdx < rowValues.length) {
+                final val = rowValues[colIdx];
+                if (val is DbVector) {
+                  hnsw.insertSync(val, pageId, slotId);
+                }
+              }
+            }
+          }
+          db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
+        }
+      }
+      hnsw.saveSync();
+      return QueryResult(columns: [], rows: [], message: "HNSW Vector Index '$indexName' created successfully.");
+    }
 
     // Initialize index file
     final indexFile = '${db.directory}/$indexName.idx';

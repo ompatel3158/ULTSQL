@@ -4,6 +4,74 @@ import '../parser/ast.dart';
 import '../parser/lexer.dart';
 import '../parser/parser.dart';
 
+class ProcedureSchema {
+  final String name;
+  final String sql;
+  late final List<Parameter> params;
+  late final List<Stmt> body;
+
+  ProcedureSchema({required this.name, required this.sql}) {
+    _parse();
+  }
+
+  void _parse() {
+    final lexer = Lexer(sql);
+    final tokens = lexer.tokenize();
+    final parser = Parser(tokens);
+    final stmt = parser.parse();
+    if (stmt is CreateProcedureStmt) {
+      params = stmt.params;
+      body = stmt.body;
+    } else {
+      throw Exception("Invalid procedure SQL stored in catalog");
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'sql': sql,
+      };
+
+  factory ProcedureSchema.fromJson(Map<String, dynamic> json) {
+    return ProcedureSchema(name: json['name'], sql: json['sql']);
+  }
+}
+
+class FunctionSchema {
+  final String name;
+  final String sql;
+  late final List<Parameter> params;
+  late final DataType returnType;
+  late final List<Stmt> body;
+
+  FunctionSchema({required this.name, required this.sql}) {
+    _parse();
+  }
+
+  void _parse() {
+    final lexer = Lexer(sql);
+    final tokens = lexer.tokenize();
+    final parser = Parser(tokens);
+    final stmt = parser.parse();
+    if (stmt is CreateFunctionStmt) {
+      params = stmt.params;
+      returnType = stmt.returnType;
+      body = stmt.body;
+    } else {
+      throw Exception("Invalid function SQL stored in catalog");
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'sql': sql,
+      };
+
+  factory FunctionSchema.fromJson(Map<String, dynamic> json) {
+    return FunctionSchema(name: json['name'], sql: json['sql']);
+  }
+}
+
 class PolicySchema {
   final String name;
   final Expression condition;
@@ -61,6 +129,48 @@ class TableSchema {
     columnNamesLower = columnNames.map((c) => c.toLowerCase()).toList();
     hasForeignKeys = this.columnReferencesTable.any((t) => t != null);
     hasUniqueOrPrimaryKey = this.columnPrimaryKey.any((b) => b) || this.columnUnique.any((b) => b);
+  }
+
+  TableSchema addColumn(ColumnDef col) {
+    return TableSchema(
+      name: name,
+      columnNames: [...columnNames, col.name],
+      columnTypes: [...columnTypes, col.type],
+      isColumnar: isColumnar,
+      columnPrimaryKey: [...columnPrimaryKey, col.isPrimaryKey],
+      columnUnique: [...columnUnique, col.isUnique],
+      columnReferencesTable: [...columnReferencesTable, col.referencesTable],
+      columnReferencesColumn: [...columnReferencesColumn, col.referencesColumn],
+      columnOnDeleteCascade: [...columnOnDeleteCascade, col.onDeleteCascade],
+      policies: policies,
+    );
+  }
+
+  TableSchema dropColumn(String colName) {
+    final idx = columnNamesLower.indexOf(colName.toLowerCase());
+    if (idx == -1) {
+      throw Exception("Column '$colName' not found in table '$name'.");
+    }
+    final newNames = List<String>.from(columnNames)..removeAt(idx);
+    final newTypes = List<DataType>.from(columnTypes)..removeAt(idx);
+    final newPrimaryKey = List<bool>.from(columnPrimaryKey)..removeAt(idx);
+    final newUnique = List<bool>.from(columnUnique)..removeAt(idx);
+    final newReferencesTable = List<String?>.from(columnReferencesTable)..removeAt(idx);
+    final newReferencesColumn = List<String?>.from(columnReferencesColumn)..removeAt(idx);
+    final newOnDeleteCascade = List<bool>.from(columnOnDeleteCascade)..removeAt(idx);
+
+    return TableSchema(
+      name: name,
+      columnNames: newNames,
+      columnTypes: newTypes,
+      isColumnar: isColumnar,
+      columnPrimaryKey: newPrimaryKey,
+      columnUnique: newUnique,
+      columnReferencesTable: newReferencesTable,
+      columnReferencesColumn: newReferencesColumn,
+      columnOnDeleteCascade: newOnDeleteCascade,
+      policies: policies,
+    );
   }
 
   Map<String, dynamic> toJson() => {
@@ -145,23 +255,27 @@ class IndexSchema {
   final String name;
   final String tableName;
   final String columnName;
+  final String? usingMethod;
 
   IndexSchema({
     required this.name,
     required this.tableName,
     required this.columnName,
+    this.usingMethod,
   });
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'tableName': tableName,
         'columnName': columnName,
+        'usingMethod': usingMethod,
       };
 
   factory IndexSchema.fromJson(Map<String, dynamic> json) => IndexSchema(
         name: json['name'],
         tableName: json['tableName'],
         columnName: json['columnName'],
+        usingMethod: json['usingMethod'],
       );
 }
 
@@ -173,8 +287,26 @@ class Catalog {
   final Map<String, TableStats> _stats = {};
   final Map<String, List<IndexSchema>> _tableIndexesCache = {};
   final Map<String, Map<String, List<String>>> _permissions = {};
+  final Map<String, ProcedureSchema> _procedures = {};
+  final Map<String, FunctionSchema> _functions = {};
 
   Catalog(this.basePath);
+
+  ProcedureSchema? getProcedure(String name) => _procedures[name.toLowerCase()];
+  bool hasProcedure(String name) => _procedures.containsKey(name.toLowerCase());
+
+  void addProcedure(ProcedureSchema proc, {bool saveToFile = true}) {
+    _procedures[proc.name.toLowerCase()] = proc;
+    if (saveToFile) save();
+  }
+
+  FunctionSchema? getFunction(String name) => _functions[name.toLowerCase()];
+  bool hasFunction(String name) => _functions.containsKey(name.toLowerCase());
+
+  void addFunction(FunctionSchema func, {bool saveToFile = true}) {
+    _functions[func.name.toLowerCase()] = func;
+    if (saveToFile) save();
+  }
 
   void grantPrivilege(String user, String tableName, String privilege) {
     final u = user.toLowerCase();
@@ -226,6 +358,8 @@ class Catalog {
       'relationships': Map<String, RelationshipSchema>.from(_relationships),
       'indexes': Map<String, IndexSchema>.from(_indexes),
       'stats': Map<String, TableStats>.from(_stats),
+      'procedures': Map<String, ProcedureSchema>.from(_procedures),
+      'functions': Map<String, FunctionSchema>.from(_functions),
     };
   }
 
@@ -278,6 +412,30 @@ class Catalog {
         }
       });
     }
+
+    _procedures.clear();
+    if (state['procedures'] != null) {
+      final rawProcs = state['procedures'] as Map;
+      rawProcs.forEach((k, v) {
+        if (v is ProcedureSchema) {
+          _procedures[k.toString()] = v;
+        } else if (v is Map) {
+          _procedures[k.toString()] = ProcedureSchema.fromJson(Map<String, dynamic>.from(v));
+        }
+      });
+    }
+
+    _functions.clear();
+    if (state['functions'] != null) {
+      final rawFuncs = state['functions'] as Map;
+      rawFuncs.forEach((k, v) {
+        if (v is FunctionSchema) {
+          _functions[k.toString()] = v;
+        } else if (v is Map) {
+          _functions[k.toString()] = FunctionSchema.fromJson(Map<String, dynamic>.from(v));
+        }
+      });
+    }
   }
 
   TableStats? getTableStats(String name) => _stats[name.toLowerCase()];
@@ -316,6 +474,12 @@ class Catalog {
 
   void addIndex(IndexSchema idx, {bool saveToFile = true}) {
     _indexes[idx.name.toLowerCase()] = idx;
+    _tableIndexesCache.clear();
+    if (saveToFile) save();
+  }
+
+  void removeIndex(String name, {bool saveToFile = true}) {
+    _indexes.remove(name.toLowerCase());
     _tableIndexesCache.clear();
     if (saveToFile) save();
   }
@@ -393,6 +557,20 @@ class Catalog {
           _permissions[user.toLowerCase()] = userMap;
         });
       }
+      _procedures.clear();
+      if (jsonMap.containsKey('procedures')) {
+        final procsMap = jsonMap['procedures'] as Map<String, dynamic>;
+        procsMap.forEach((key, val) {
+          _procedures[key.toLowerCase()] = ProcedureSchema.fromJson(val);
+        });
+      }
+      _functions.clear();
+      if (jsonMap.containsKey('functions')) {
+        final funcsMap = jsonMap['functions'] as Map<String, dynamic>;
+        funcsMap.forEach((key, val) {
+          _functions[key.toLowerCase()] = FunctionSchema.fromJson(val);
+        });
+      }
     } catch (e) {
       // Catalog corrupt or empty, ignore
     }
@@ -427,6 +605,14 @@ class Catalog {
       });
       permissionsMap[user] = userMap;
     });
+    final Map<String, dynamic> proceduresMap = {};
+    _procedures.forEach((key, val) {
+      proceduresMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> functionsMap = {};
+    _functions.forEach((key, val) {
+      functionsMap[key] = val.toJson();
+    });
 
     final outputMap = {
       'tables': tablesMap,
@@ -434,6 +620,8 @@ class Catalog {
       'indexes': indexesMap,
       'stats': statsMap,
       'permissions': permissionsMap,
+      'procedures': proceduresMap,
+      'functions': functionsMap,
     };
     file.writeAsStringSync(json.encode(outputMap));
   }

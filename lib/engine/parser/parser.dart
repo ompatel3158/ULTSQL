@@ -145,6 +145,9 @@ class Parser {
     if (_check(TokenType.whileKeyword)) {
       return _parseWhileStatement();
     }
+    if (_check(TokenType.returnKeyword)) {
+      return _parseReturnStatement();
+    }
     if (_check(TokenType.identifier)) {
       final id = _peek().lexeme.toLowerCase();
       if (const {'update', 'select', 'insert', 'delete', 'create', 'show', 'grant', 'revoke', 'explain', 'analyze', 'use'}.contains(id)) {
@@ -269,6 +272,9 @@ class Parser {
   // SQL Parsing
   Stmt _parseStatement() {
     _placeholderCount = 0;
+    if (_match([TokenType.alterKeyword])) {
+      return _parseAlterTableStatement();
+    }
     if (_match([TokenType.explain])) {
       _consume(TokenType.select, "Expected 'SELECT' after 'EXPLAIN'.");
       final selectStmt = _parseSelectStatement() as SelectStmt;
@@ -285,6 +291,9 @@ class Parser {
       final tableName = _consume(TokenType.identifier, "Expected table name to analyze.").lexeme;
       if (_check(TokenType.semicolon)) _advance();
       return AnalyzeStmt(tableName);
+    }
+    if (_match([TokenType.callKeyword])) {
+      return _parseCallStatement();
     }
     if (_match([TokenType.create])) {
       return _parseCreateStatement();
@@ -461,6 +470,67 @@ class Parser {
   }
 
   Stmt _parseCreateStatement() {
+    if (_match([TokenType.procedureKeyword])) {
+      final startIdx = _current - 2; // Since 'create' and 'procedure' are matched
+      final nameToken = _consume(TokenType.identifier, "Expected procedure name.");
+      final name = nameToken.lexeme;
+      
+      final params = _parseParameters();
+      
+      _consume(TokenType.as, "Expected 'AS' after procedure parameters.");
+      _consume(TokenType.begin, "Expected 'BEGIN' to start procedure body.");
+      
+      final body = <Stmt>[];
+      while (!_check(TokenType.end) && !_isAtEnd) {
+        body.add(_parsePlSqlStatement());
+      }
+      _consume(TokenType.end, "Expected 'END' to close procedure body.");
+      if (_check(TokenType.semicolon)) _advance();
+      
+      final endIdx = _current;
+      final sql = tokens.sublist(startIdx, endIdx).map((t) {
+        if (t.type == TokenType.stringLiteral) {
+          final escaped = t.lexeme.replaceAll("'", "''");
+          return "'$escaped'";
+        }
+        return t.lexeme;
+      }).join(' ');
+      
+      return CreateProcedureStmt(name, params, body, sql);
+    }
+    
+    if (_match([TokenType.functionKeyword])) {
+      final startIdx = _current - 2; // Since 'create' and 'function' are matched
+      final nameToken = _consume(TokenType.identifier, "Expected function name.");
+      final name = nameToken.lexeme;
+      
+      final params = _parseParameters();
+      
+      _consume(TokenType.returnsKeyword, "Expected 'RETURNS' keyword.");
+      final returnType = _parseDataType();
+      
+      _consume(TokenType.as, "Expected 'AS' after function return type.");
+      _consume(TokenType.begin, "Expected 'BEGIN' to start function body.");
+      
+      final body = <Stmt>[];
+      while (!_check(TokenType.end) && !_isAtEnd) {
+        body.add(_parsePlSqlStatement());
+      }
+      _consume(TokenType.end, "Expected 'END' to close function body.");
+      if (_check(TokenType.semicolon)) _advance();
+      
+      final endIdx = _current;
+      final sql = tokens.sublist(startIdx, endIdx).map((t) {
+        if (t.type == TokenType.stringLiteral) {
+          final escaped = t.lexeme.replaceAll("'", "''");
+          return "'$escaped'";
+        }
+        return t.lexeme;
+      }).join(' ');
+      
+      return CreateFunctionStmt(name, params, returnType, body, sql);
+    }
+
     if (_peek().lexeme.toLowerCase() == 'database') {
       _advance(); // Consume 'database'
       final dbNameToken = _consume(TokenType.identifier, "Expected database name.");
@@ -569,9 +639,14 @@ class Parser {
       _consume(TokenType.rParen, "Expected ')' after column names.");
       final columnName = colNames.join(',');
 
+      String? usingMethod;
+      if (_match([TokenType.usingKeyword])) {
+        usingMethod = _consume(TokenType.identifier, "Expected index method name (e.g. HNSW).").lexeme.toLowerCase();
+      }
+
       if (_check(TokenType.semicolon)) _advance();
 
-      return CreateIndexStmt(indexName, tableName, columnName);
+      return CreateIndexStmt(indexName, tableName, columnName, usingMethod: usingMethod);
     } else if (_match([TokenType.policyKeyword])) {
       final name = _consume(TokenType.identifier, "Expected policy name.").lexeme;
       _consume(TokenType.on, "Expected 'ON' keyword.");
@@ -584,6 +659,26 @@ class Parser {
       return CreatePolicyStmt(name, tableName, condition);
     }
     throw Exception("Expected 'TABLE', 'RELATIONSHIP', 'INDEX', or 'POLICY' after 'CREATE'.");
+  }
+
+  Stmt _parseAlterTableStatement() {
+    _consume(TokenType.table, "Expected 'TABLE' after 'ALTER'.");
+    final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
+    final tableName = tableNameToken.lexeme;
+
+    if (_match([TokenType.addKeyword])) {
+      final colNameToken = _consume(TokenType.identifier, "Expected column name to add.");
+      final colType = _parseDataType();
+      if (_check(TokenType.semicolon)) _advance();
+      return AlterTableStmt.add(tableName, ColumnDef(colNameToken.lexeme, colType));
+    } else if (_match([TokenType.dropKeyword])) {
+      _consume(TokenType.columnKeyword, "Expected 'COLUMN' after 'DROP'.");
+      final colNameToken = _consume(TokenType.identifier, "Expected column name to drop.");
+      if (_check(TokenType.semicolon)) _advance();
+      return AlterTableStmt.drop(tableName, colNameToken.lexeme);
+    } else {
+      throw Exception("Expected 'ADD' or 'DROP' in ALTER TABLE statement.");
+    }
   }
 
   Stmt _parseInsertStatement() {
@@ -634,6 +729,8 @@ class Parser {
     if (_match([TokenType.as])) {
       tableAlias = _consume(TokenType.identifier, "Expected table alias.").lexeme;
     } else if (_peek().type == TokenType.identifier && 
+               _peek().lexeme.toLowerCase() != 'left' &&
+               _peek().lexeme.toLowerCase() != 'outer' &&
                ![
                  TokenType.join,
                  TokenType.where,
@@ -648,12 +745,28 @@ class Parser {
     }
 
     Join? join;
-    if (_match([TokenType.join])) {
+    bool isLeftJoin = false;
+    bool hasJoin = false;
+    if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'left') {
+      _advance(); // consume 'left'
+      isLeftJoin = true;
+      if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'outer') {
+        _advance(); // consume 'outer'
+      }
+      _consume(TokenType.join, "Expected 'JOIN' after 'LEFT [OUTER]'.");
+      hasJoin = true;
+    } else if (_match([TokenType.join])) {
+      hasJoin = true;
+    }
+
+    if (hasJoin) {
       final joinTable = _consume(TokenType.identifier, "Expected table to join.").lexeme;
       String? joinAlias;
       if (_match([TokenType.as])) {
         joinAlias = _consume(TokenType.identifier, "Expected table alias.").lexeme;
       } else if (_peek().type == TokenType.identifier &&
+                 _peek().lexeme.toLowerCase() != 'left' &&
+                 _peek().lexeme.toLowerCase() != 'outer' &&
                  ![
                    TokenType.on,
                    TokenType.join,
@@ -669,7 +782,7 @@ class Parser {
       }
       _consume(TokenType.on, "Expected 'ON' condition for JOIN.");
       final onCond = _parseExpression();
-      join = Join(joinTable, onCond, alias: joinAlias);
+      join = Join(joinTable, onCond, alias: joinAlias, isLeftJoin: isLeftJoin);
     }
 
     Expression? whereCondition;
@@ -889,5 +1002,43 @@ class Parser {
     }
 
     throw Exception("Unexpected token '${_peek().lexeme}' in expression.");
+  }
+
+  List<Parameter> _parseParameters() {
+    final params = <Parameter>[];
+    if (_match([TokenType.lParen])) {
+      if (!_check(TokenType.rParen)) {
+        do {
+          final nameToken = _consume(TokenType.identifier, "Expected parameter name.");
+          final dataType = _parseDataType();
+          params.add(Parameter(nameToken.lexeme, dataType));
+        } while (_match([TokenType.comma]));
+      }
+      _consume(TokenType.rParen, "Expected ')' after parameter list.");
+    }
+    return params;
+  }
+
+  Stmt _parseReturnStatement() {
+    _consume(TokenType.returnKeyword, "Expected 'RETURN'.");
+    final expr = _parseExpression();
+    _consume(TokenType.semicolon, "Expected ';' after return statement.");
+    return ReturnStmt(expr);
+  }
+
+  Stmt _parseCallStatement() {
+    final nameToken = _consume(TokenType.identifier, "Expected procedure name in CALL statement.");
+    final name = nameToken.lexeme;
+    
+    _consume(TokenType.lParen, "Expected '(' for CALL argument list.");
+    final args = <Expression>[];
+    if (!_check(TokenType.rParen)) {
+      do {
+        args.add(_parseExpression());
+      } while (_match([TokenType.comma]));
+    }
+    _consume(TokenType.rParen, "Expected ')' after CALL argument list.");
+    if (_check(TokenType.semicolon)) _advance();
+    return CallStmt(name, args);
   }
 }
