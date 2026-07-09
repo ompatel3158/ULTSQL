@@ -331,7 +331,9 @@ class PreparedStatement {
 class Interpreter {
   static final Map<String, List<ASTNode>> _astCache = {};
 
-  final Database db;
+  Database _db;
+  Database get db => _db;
+  set db(Database val) => _db = val;
   String _currentUser = 'admin';
 
   String get currentUser => _currentUser;
@@ -383,10 +385,10 @@ class Interpreter {
     return true;
   }
 
-  late final SessionTxContext _sessionContext;
+  late SessionTxContext _sessionContext;
 
-  Interpreter(this.db) {
-    _sessionContext = db.cache.createSessionContext();
+  Interpreter(Database initialDb) : _db = initialDb {
+    _sessionContext = _db.cache.createSessionContext();
   }
 
   Future<QueryResult> executeScript(String sqlScript) async {
@@ -579,6 +581,12 @@ class Interpreter {
     if (node is SetUserStmt) {
       currentUser = node.username;
       return QueryResult(columns: [], rows: [], message: 'User changed to $currentUser.');
+    }
+    if (node is CreateDatabaseStmt) {
+      return _executeCreateDatabase(node);
+    }
+    if (node is UseDatabaseStmt) {
+      return _executeUseDatabase(node);
     }
     throw Exception("Unsupported AST Node type: ${node.runtimeType}");
   }
@@ -777,6 +785,52 @@ END;
       rows: [],
       message: "Policy '${stmt.name}' created successfully on table '${stmt.tableName}'.",
     );
+  }
+
+  Future<QueryResult> _executeCreateDatabase(CreateDatabaseStmt stmt) async {
+    final dbDir = '${stmt.name}_db';
+    final directory = Directory(dbDir);
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+    final newDb = Database(dbDir);
+    await newDb.init();
+    await newDb.close(); // Release file locks
+    return QueryResult(columns: [], rows: [], message: "Database '${stmt.name}' created successfully.");
+  }
+
+  Future<QueryResult> _executeUseDatabase(UseDatabaseStmt stmt) async {
+    final dbDir = '${stmt.name}_db';
+    final directory = Directory(dbDir);
+    if (!directory.existsSync()) {
+      throw Exception("Database '${stmt.name}' does not exist.");
+    }
+    // 1. Close current database
+    await _db.close();
+
+    // 2. Instantiate and initialize target database
+    final newDb = Database(dbDir);
+    await newDb.init();
+    _db = newDb;
+
+    // 3. Clear interpreter caches
+    _rowTableCache.clear();
+    _colTableCache.clear();
+    _indexExistsCache.clear();
+    _indexColIdxCache.clear();
+    _indexFileNameCache.clear();
+    _insertSchemaCache.clear();
+    _insertClosuresCache.clear();
+    _insertPlaceholderIndicesCache.clear();
+    _referencingTablesCache.clear();
+    _rowContextCache.clear();
+    _schemaKeyToIndexCache.clear();
+    _jitCache.clear();
+
+    // 4. Update session transaction context
+    _sessionContext = _db.cache.createSessionContext();
+
+    return QueryResult(columns: [], rows: [], message: "Switched to database '${stmt.name}'.");
   }
 
   QueryResult _executeInsert(InsertStmt stmt) {

@@ -90,9 +90,19 @@ The application provides a premium dark-themed interactive IDE ([EditorScreen](f
 The parser and execution nodes support primary SQL components:
 
 ### Data Definition Language (DDL)
-Allows table creation with five native data types: `INT`, `DOUBLE`, `TEXT`, `VECTOR`, and `JSON`.
-```sql
-CREATE TABLE employees (
+Allows database creation and table creation with five native data types: `INT`, `DOUBLE`, `TEXT`, `VECTOR`, and `JSON`.
+
+* **Create Database**:
+  ```sql
+  CREATE DATABASE sales;
+  ```
+* **Switch Database**:
+  ```sql
+  USE sales;
+  ```
+* **Create Table**:
+  ```sql
+  CREATE TABLE employees (
   id INT,
   name TEXT,
   salary DOUBLE,

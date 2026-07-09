@@ -214,6 +214,16 @@ class SetUserStmt extends Stmt {
   SetUserStmt(this.username);
 }
 
+class CreateDatabaseStmt extends Stmt {
+  final String name;
+  CreateDatabaseStmt(this.name);
+}
+
+class UseDatabaseStmt extends Stmt {
+  final String name;
+  UseDatabaseStmt(this.name);
+}
+
 class CreateRelationshipStmt extends Stmt {
   final String name;
   final String fromTable;

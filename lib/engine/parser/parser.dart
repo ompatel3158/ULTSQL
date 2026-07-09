@@ -147,7 +147,7 @@ class Parser {
     }
     if (_check(TokenType.identifier)) {
       final id = _peek().lexeme.toLowerCase();
-      if (const {'update', 'select', 'insert', 'delete', 'create', 'show', 'grant', 'revoke', 'explain', 'analyze'}.contains(id)) {
+      if (const {'update', 'select', 'insert', 'delete', 'create', 'show', 'grant', 'revoke', 'explain', 'analyze', 'use'}.contains(id)) {
         // Fall through to standard SQL statement
       } else {
         if (id == 'dbms_output') {
@@ -357,6 +357,12 @@ class Parser {
       _advance(); // Consume 'set'
       return _parseSetStatement();
     }
+    if (nextLexeme == 'use') {
+      _advance(); // Consume 'use'
+      final dbNameToken = _consume(TokenType.identifier, "Expected database name.");
+      if (_check(TokenType.semicolon)) _advance();
+      return UseDatabaseStmt(dbNameToken.lexeme);
+    }
     throw Exception("Unsupported statement beginning with '${_peek().lexeme}'.");
   }
 
@@ -455,6 +461,12 @@ class Parser {
   }
 
   Stmt _parseCreateStatement() {
+    if (_peek().lexeme.toLowerCase() == 'database') {
+      _advance(); // Consume 'database'
+      final dbNameToken = _consume(TokenType.identifier, "Expected database name.");
+      if (_check(TokenType.semicolon)) _advance();
+      return CreateDatabaseStmt(dbNameToken.lexeme);
+    }
     if (_match([TokenType.table])) {
       final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
       final tableName = tableNameToken.lexeme;
