@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import '../cache/page_cache.dart';
@@ -11,6 +12,8 @@ import 'value.dart';
 import 'jit_compiler.dart';
 import '../storage/hnsw_index.dart';
 import '../storage/fts_index.dart';
+import '../storage/ivf_flat_index.dart';
+import '../fdw/fdw_manager.dart';
 
 abstract class PlanNode {
   void open();
@@ -41,6 +44,71 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
     }
   }
 
+  if (expr is SubqueryExpr) {
+    final active = JitCompiler.activeInterpreter;
+    if (active == null) {
+      return DbNull();
+    }
+    SubqueryContext.push(rowContext);
+    try {
+      final res = active.executeNodeSync(expr.selectStmt);
+      if (res != null) {
+        final rows = res.rows;
+        if (rows is List) {
+          if (rows.isEmpty) {
+            return DbList([]);
+          }
+          if (rows.length == 1 && rows[0].length == 1) {
+            return rows[0][0];
+          }
+          return DbList(rows.map<DbValue>((r) => r.isNotEmpty ? r[0] as DbValue : DbNull()).toList());
+        }
+      }
+      return DbNull();
+    } finally {
+      SubqueryContext.pop();
+    }
+  }
+
+  if (expr is JsonExtractExpr) {
+    final baseVal = evaluateExpression(expr.expr, rowContext);
+    if (baseVal is DbJson) {
+      final jsonMapOrList = baseVal.value;
+      dynamic extractedRaw;
+      if (jsonMapOrList is Map) {
+        extractedRaw = jsonMapOrList[expr.path];
+      } else if (jsonMapOrList is List) {
+        final idx = int.tryParse(expr.path);
+        if (idx != null && idx >= 0 && idx < jsonMapOrList.length) {
+          extractedRaw = jsonMapOrList[idx];
+        }
+      }
+      if (extractedRaw == null) {
+        return DbNull();
+      }
+      if (expr.asText) {
+        if (extractedRaw is String) {
+          return DbText(extractedRaw);
+        } else {
+          return DbText(json.encode(extractedRaw));
+        }
+      } else {
+        if (extractedRaw is int) {
+          return DbInt(extractedRaw);
+        } else if (extractedRaw is double) {
+          return DbDouble(extractedRaw);
+        } else if (extractedRaw is num) {
+          return DbDouble(extractedRaw.toDouble());
+        } else if (extractedRaw is bool) {
+          return DbInt(extractedRaw ? 1 : 0);
+        } else {
+          return DbJson(extractedRaw);
+        }
+      }
+    }
+    return DbNull();
+  }
+
   if (expr is PlaceholderExpr) {
     final idx = expr.index;
     if (idx != null) {
@@ -65,6 +133,14 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
     if (path.isEmpty) return DbNull();
 
     final fullName = expr.fullName;
+    final lowerName = fullName.toLowerCase();
+    if (lowerName == 'true') {
+      return DbJson(true);
+    }
+    if (lowerName == 'false') {
+      return DbJson(false);
+    }
+
     if (rowContext.containsKey(fullName)) {
       return rowContext[fullName]!;
     }
@@ -103,6 +179,11 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
       if (key == name || key.endsWith('.$name')) {
         return entry.value;
       }
+    }
+
+    final parentVal = SubqueryContext.lookup(expr.fullName);
+    if (parentVal != null) {
+      return parentVal;
     }
 
     return DbNull();
@@ -149,6 +230,19 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
         return DbInt(leftVal.compareTo(rightVal) >= 0 ? 1 : 0);
       case 'like':
         return DbInt(matchLike(leftVal.toString(), rightVal.toString()) ? 1 : 0);
+      case 'in':
+        if (rightVal is DbList) {
+          bool found = false;
+          for (final elem in rightVal.elements) {
+            if (leftVal.compareTo(elem) == 0) {
+              found = true;
+              break;
+            }
+          }
+          return DbInt(found ? 1 : 0);
+        } else {
+          return DbInt(leftVal.compareTo(rightVal) == 0 ? 1 : 0);
+        }
       case 'and':
         final leftTrue = (leftVal is DbInt && leftVal.value == 1) || (leftVal is DbDouble && leftVal.value > 0.0);
         final rightTrue = (rightVal is DbInt && rightVal.value == 1) || (rightVal is DbDouble && rightVal.value > 0.0);
@@ -165,6 +259,9 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
   if (expr is FunctionCallExpr) {
     final name = expr.name.toLowerCase();
     final args = expr.arguments.map((a) => evaluateExpression(a, rowContext)).toList();
+    if (name == 'in_list') {
+      return DbList(args);
+    }
 
     if (JitCompiler.activeInterpreter != null) {
       final active = JitCompiler.activeInterpreter!;
@@ -192,9 +289,16 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
       }
     }
 
-    if (name == 'vector_distance' && args.length == 2) {
+    if (name == 'vector_distance' && (args.length == 2 || args.length == 3)) {
       var v1 = args[0];
       var v2 = args[1];
+      String metric = 'euclidean';
+      if (args.length == 3) {
+        final metricVal = args[2];
+        if (metricVal is DbText) {
+          metric = metricVal.value.toLowerCase();
+        }
+      }
       if (v1 is DbText) {
         v1 = _parseVectorFromString(v1.value) ?? v1;
       }
@@ -202,7 +306,15 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
         v2 = _parseVectorFromString(v2.value) ?? v2;
       }
       if (v1 is DbVector && v2 is DbVector) {
-        return DbDouble(v1.distanceTo(v2));
+        switch (metric) {
+          case 'cosine':
+            return DbDouble(v1.cosineDistanceTo(v2));
+          case 'dot':
+            return DbDouble(v1.dotProductTo(v2));
+          case 'euclidean':
+          default:
+            return DbDouble(v1.distanceTo(v2));
+        }
       }
     }
     if (name == 'cast' && args.length == 2) {
@@ -221,6 +333,18 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
         return DbDouble(double.tryParse(val.toString()) ?? 0.0);
       }
     }
+    if (name == 'json_set' && args.length == 3) {
+      return evalJsonSet(args[0], args[1], args[2]);
+    }
+    if (name == 'json_remove' && args.length == 2) {
+      return evalJsonRemove(args[0], args[1]);
+    }
+    if (name == 'json_array') {
+      return evalJsonArray(args);
+    }
+    if (name == 'json_object') {
+      return evalJsonObject(args);
+    }
     return DbNull();
   }
 
@@ -232,6 +356,7 @@ class RowScanNode extends PlanNode {
   final RowTableFile tableFile;
   final TableSchema schema;
   final List<int>? projectedColIndexes;
+  final int? asOfTxId;
   Iterator<List<DbValue>>? _iterator;
 
   late final List<int> _colsToLoad;
@@ -239,7 +364,7 @@ class RowScanNode extends PlanNode {
   late final List<String> _shortKeys;
   late final Map<String, int> _staticKeyToIndex;
 
-  RowScanNode(this.tableFile, this.schema, [this.projectedColIndexes]) {
+  RowScanNode(this.tableFile, this.schema, [this.projectedColIndexes, this.asOfTxId]) {
     _colsToLoad = projectedColIndexes ?? List<int>.generate(schema.columnNames.length, (i) => i);
     _prefixKeys = _colsToLoad.map((idx) => '${schema.name}.${schema.columnNames[idx]}').toList();
     _shortKeys = _colsToLoad.map((idx) => schema.columnNames[idx]).toList();
@@ -261,11 +386,13 @@ class RowScanNode extends PlanNode {
         txManager: tableFile.cache.mvccTxManager,
         projectedColIndexes: _colsToLoad,
         expectedColumnCount: schema.columnNames.length,
+        asOfTxId: asOfTxId,
       ).iterator;
     } else {
       _iterator = tableFile.scanSync(
         projectedColIndexes: _colsToLoad,
         expectedColumnCount: schema.columnNames.length,
+        asOfTxId: asOfTxId,
       ).iterator;
     }
   }
@@ -290,6 +417,260 @@ class RowScanNode extends PlanNode {
     final padding = '  ' * indent;
     final colsStr = projectedColIndexes != null ? ', projected: $projectedColIndexes' : '';
     return '${padding}RowScanNode(table: ${schema.name}$colsStr)';
+  }
+}
+
+class SubqueryScanNode extends PlanNode {
+  final PlanNode child;
+  final String? alias;
+  final List<String> selectColumns;
+
+  SubqueryScanNode(this.child, {this.alias, required this.selectColumns});
+
+  @override
+  void open() {
+    child.open();
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    final row = child.next();
+    if (row == null) return null;
+
+    final newRow = <String, DbValue>{};
+    for (final entry in row.entries) {
+      final key = entry.key;
+      newRow[key] = entry.value;
+
+      final parts = key.split('.');
+      final shortName = parts.last;
+      newRow[shortName] = entry.value;
+      if (alias != null) {
+        newRow['${alias!.toLowerCase()}.$shortName'] = entry.value;
+      }
+    }
+    return newRow;
+  }
+
+  @override
+  void close() {
+    child.close();
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    final aliasStr = alias != null ? ' AS $alias' : '';
+    return '${padding}SubqueryScanNode$aliasStr\n${child.getPlanString(indent + 1)}';
+  }
+}
+
+class FunctionScanNode extends PlanNode {
+  final FunctionCallExpr functionCall;
+  final String? alias;
+  
+  List<Map<String, DbValue>>? _rows;
+  int _cursor = 0;
+
+  FunctionScanNode(this.functionCall, {this.alias});
+
+  @override
+  void open() {
+    _cursor = 0;
+    _rows = [];
+    
+    final active = JitCompiler.activeInterpreter;
+    if (active == null) {
+      return;
+    }
+    
+    final dbVal = evaluateExpression(functionCall, {});
+    List<dynamic> elements = [];
+    if (dbVal is DbList) {
+      elements = dbVal.elements;
+    } else if (dbVal is DbJson) {
+      if (dbVal.value is List) {
+        elements = dbVal.value as List;
+      }
+    } else if (dbVal is DbText) {
+      try {
+        final decoded = json.decode(dbVal.value);
+        if (decoded is List) {
+          elements = decoded;
+        }
+      } catch (_) {}
+    }
+    
+    for (final element in elements) {
+      final rowMap = <String, DbValue>{};
+      if (element is Map) {
+        element.forEach((k, v) {
+          final colName = k.toString();
+          final dbV = DbValue.parseLiteral(v);
+          rowMap[colName] = dbV;
+          if (alias != null) {
+            rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
+          } else {
+            rowMap['${functionCall.name.toLowerCase()}.$colName'] = dbV;
+          }
+        });
+      } else if (element is List) {
+        for (int i = 0; i < element.length; i++) {
+          final colName = 'col$i';
+          final dbV = DbValue.parseLiteral(element[i]);
+          rowMap[colName] = dbV;
+          if (alias != null) {
+            rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
+          } else {
+            rowMap['${functionCall.name.toLowerCase()}.$colName'] = dbV;
+          }
+        }
+      } else if (element is DbJson && element.value is Map) {
+        final map = element.value as Map;
+        map.forEach((k, v) {
+          final colName = k.toString();
+          final dbV = DbValue.parseLiteral(v);
+          rowMap[colName] = dbV;
+          if (alias != null) {
+            rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
+          } else {
+            rowMap['${functionCall.name.toLowerCase()}.$colName'] = dbV;
+          }
+        });
+      } else if (element is DbList) {
+        for (int i = 0; i < element.elements.length; i++) {
+          final colName = 'col$i';
+          final dbV = element.elements[i];
+          rowMap[colName] = dbV;
+          if (alias != null) {
+            rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
+          } else {
+            rowMap['${functionCall.name.toLowerCase()}.$colName'] = dbV;
+          }
+        }
+      } else if (element is DbJson && element.value is List) {
+        final list = element.value as List;
+        for (int i = 0; i < list.length; i++) {
+          final colName = 'col$i';
+          final dbV = DbValue.parseLiteral(list[i]);
+          rowMap[colName] = dbV;
+          if (alias != null) {
+            rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
+          } else {
+            rowMap['${functionCall.name.toLowerCase()}.$colName'] = dbV;
+          }
+        }
+      } else {
+        final colName = 'value';
+        final dbV = element is DbValue ? element : DbValue.parseLiteral(element);
+        rowMap[colName] = dbV;
+        if (alias != null) {
+          rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
+        } else {
+          rowMap['${functionCall.name.toLowerCase()}.$colName'] = dbV;
+        }
+      }
+      _rows!.add(rowMap);
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_rows == null || _cursor >= _rows!.length) return null;
+    return _rows![_cursor++];
+  }
+
+  @override
+  void close() {
+    _rows = null;
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    final aliasStr = alias != null ? ' AS $alias' : '';
+    return '${padding}FunctionScanNode(${exprToSqlString(functionCall)}$aliasStr)';
+  }
+}
+
+// Foreign Data Wrapper Scan Node
+class ForeignScanNode extends PlanNode {
+  final CreateForeignTableStmt stmt;
+  List<Map<String, DbValue>>? _rows;
+  int _cursor = 0;
+
+  ForeignScanNode(this.stmt);
+
+  @override
+  void open() {
+    _rows = [];
+    _cursor = 0;
+    // For simplicity in this synchronous execution model, we load all rows synchronously
+    // In a fully async engine, this would yield.
+    final server = stmt.serverName.toLowerCase();
+    var filename = stmt.options['filename'];
+    if (filename == null) throw Exception('Foreign table requires filename in options');
+    
+    // Strip quotes if any
+    if (filename.startsWith("'") && filename.endsWith("'")) {
+      filename = filename.substring(1, filename.length - 1);
+    }
+    
+    final file = File(filename);
+    if (!file.existsSync()) {
+      print('Foreign file does not exist: $filename (absolute: ${file.absolute.path})');
+      return;
+    }
+
+    if (server == 'csv') {
+      final lines = file.readAsLinesSync();
+      if (lines.isEmpty) return;
+      final header = lines[0].split(',');
+      for (int i = 1; i < lines.length; i++) {
+        if (lines[i].trim().isEmpty) continue;
+        final parts = lines[i].split(',');
+        final row = <String, DbValue>{};
+        for (int j = 0; j < header.length && j < parts.length; j++) {
+          final colName = header[j].trim();
+          final val = parts[j].trim();
+          final colNameLower = colName.toLowerCase();
+          final def = stmt.columns.firstWhere((c) => c.name.toLowerCase() == colNameLower, orElse: () => ColumnDef(colName, DataType.text));
+          
+          DbValue dbVal;
+          if (def.type == DataType.integer) {
+            dbVal = DbInt(int.tryParse(val) ?? 0);
+          } else if (def.type == DataType.double) {
+            dbVal = DbDouble(double.tryParse(val) ?? 0.0);
+          } else {
+            dbVal = DbText(val);
+          }
+          row['${stmt.tableName.toLowerCase()}.$colNameLower'] = dbVal;
+          row[colName] = dbVal;
+          row[colNameLower] = dbVal;
+        }
+        _rows!.add(row);
+      }
+      print('ForeignScanNode loaded ${_rows!.length} rows');
+    } else {
+      throw Exception('Unsupported foreign server: $server');
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_rows == null || _cursor >= _rows!.length) return null;
+    return _rows![_cursor++];
+  }
+
+  @override
+  void close() {
+    _rows = null;
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}ForeignScanNode(${stmt.tableName})';
   }
 }
 
@@ -584,13 +965,17 @@ class ProjectNode extends PlanNode {
     final projectedRow = <String, DbValue>{};
     for (int i = 0; i < projections.length; i++) {
       final proj = projections[i];
+      if (proj.expr is VariableExpr && (proj.expr as VariableExpr).path.first == '*') {
+        projectedRow.addAll(row);
+        continue;
+      }
       final val = _jitProjs[i](row);
       if (proj.alias != null) {
         projectedRow[proj.alias!] = val;
       } else if (proj.expr is VariableExpr) {
         projectedRow[(proj.expr as VariableExpr).fullName] = val;
       } else {
-        projectedRow[val.toString()] = val;
+        projectedRow[exprToSqlString(proj.expr)] = val;
       }
     }
     return projectedRow;
@@ -911,8 +1296,36 @@ class GroupByNode extends PlanNode {
       return;
     }
 
-    final groups = <DbValue, AggregationState>{};
-    final jitGroupKey = JitCompiler.compile(groupByExpr);
+    final groups = <String, AggregationState>{};
+    
+    List<List<Expression>> sets = [];
+    if (groupByExpr is GroupingSetsExpr) {
+      sets = (groupByExpr as GroupingSetsExpr).sets;
+    } else if (groupByExpr is RollupExpr) {
+      final exprs = (groupByExpr as RollupExpr).expressions;
+      for (int i = exprs.length; i >= 0; i--) {
+        sets.add(exprs.sublist(0, i));
+      }
+    } else if (groupByExpr is CubeExpr) {
+      final exprs = (groupByExpr as CubeExpr).expressions;
+      int n = exprs.length;
+      int numSets = 1 << n;
+      for (int i = 0; i < numSets; i++) {
+        List<Expression> subset = [];
+        for (int j = 0; j < n; j++) {
+          if ((i & (1 << j)) != 0) {
+            subset.add(exprs[j]);
+          }
+        }
+        sets.add(subset);
+      }
+    } else {
+      sets = [[groupByExpr]];
+    }
+
+    // JIT compile expressions for each grouping set
+    final setJits = sets.map((set) => set.map((e) => JitCompiler.compile(e)).toList()).toList();
+    final setExprStrings = sets.map((set) => set.map((e) => exprToSqlString(e)).toList()).toList();
 
     // JIT compile all aggregate inputs and projection expressions beforehand
     final argJits = <Projection, JitClosure>{};
@@ -931,16 +1344,61 @@ class GroupByNode extends PlanNode {
       if (row == null) {
         break;
       }
-      final key = jitGroupKey(row);
-      final state = groups.putIfAbsent(key, () => AggregationState(row));
-      state.update(row, projections, argJits);
+      for (int sIdx = 0; sIdx < sets.length; sIdx++) {
+        final currentSetJits = setJits[sIdx];
+        final currentSetExprs = setExprStrings[sIdx];
+        
+        // Build the key and the modified row for this grouping set
+        final keyParts = <String>[];
+        final groupedRow = Map<String, DbValue>.of(row);
+        
+        // Find which expressions are NOT in this grouping set and set their columns to DbNull()
+        // Wait, it's easier to just form a key from the set index and the values.
+        for (int i = 0; i < currentSetJits.length; i++) {
+          final val = currentSetJits[i](row);
+          keyParts.add(val.toString());
+        }
+        
+        final key = '$sIdx:' + keyParts.join(',');
+        
+        // To construct the group's "base row", we take the first row and set missing grouping columns to DbNull
+        final state = groups.putIfAbsent(key, () {
+          final stateRow = Map<String, DbValue>.of(row);
+          // For advanced grouping, columns that are grouped by in OTHER sets but not THIS set should be NULL.
+          // Since we don't know all columns easily, we'll just evaluate the projection properly.
+          // Wait, any column in the original row that is part of the overall grouping expressions but not in this set should be null.
+          if (sets.length > 1) {
+            // Find all unique expressions across all sets
+            final allExprs = sets.expand((s) => s.map((e) => exprToSqlString(e))).toSet();
+            for (final exprStr in allExprs) {
+              if (!currentSetExprs.contains(exprStr)) {
+                // Set the corresponding column in stateRow to NULL if it exists
+                // We assume the expr is a simple VariableExpr or column name
+                if (stateRow.containsKey(exprStr)) {
+                  stateRow[exprStr] = DbNull();
+                } else {
+                  // Handle dotted paths or simple names
+                  final shortName = exprStr.split('.').last;
+                  for (final k in stateRow.keys) {
+                    if (k.split('.').last == shortName) {
+                      stateRow[k] = DbNull();
+                    }
+                  }
+                }
+              }
+            }
+          }
+          return AggregationState(stateRow);
+        });
+        state.update(row, projections, argJits);
+      }
     }
 
     // If it's global aggregation (no GROUP BY but has aggregates) and no rows matched,
     // we still need to output one row with aggregate defaults (e.g. COUNT = 0)
     if (groups.isEmpty && groupByExpr is LiteralExpr) {
-      groups[DbInt(1)] = AggregationState({});
-      groups[DbInt(1)]!.update({}, projections, argJits);
+      groups['1'] = AggregationState({});
+      groups['1']!.update({}, projections, argJits);
     }
 
     _aggregatedRows = [];
@@ -997,6 +1455,9 @@ class HashJoinNode extends PlanNode {
   final String leftJoinCol;
   final String rightJoinCol;
   final bool isLeftJoin;
+  final bool isRightJoin;
+  final bool isFullJoin;
+  final List<String>? leftColumns;
   final TableSchema? rightSchema;
   late final JitClosure _jitLeftKey;
   late final JitClosure _jitRightKey;
@@ -1006,12 +1467,19 @@ class HashJoinNode extends PlanNode {
   List<Map<String, DbValue>>? _currentMatches;
   int _matchIdx = 0;
 
+  final List<Map<String, DbValue>> _allRightRows = [];
+  final Set<Map<String, DbValue>> _seenRightRows = {};
+  Iterator<Map<String, DbValue>>? _unmatchedRightIterator;
+
   HashJoinNode({
     required this.left,
     required this.right,
     required this.leftJoinCol,
     required this.rightJoinCol,
     this.isLeftJoin = false,
+    this.isRightJoin = false,
+    this.isFullJoin = false,
+    this.leftColumns,
     this.rightSchema,
   }) {
     _jitLeftKey = JitCompiler.compile(VariableExpr([leftJoinCol]));
@@ -1034,9 +1502,12 @@ class HashJoinNode extends PlanNode {
     left.open();
     right.open();
     _hashTable.clear();
+    _allRightRows.clear();
+    _seenRightRows.clear();
     _currentLeftRow = null;
     _currentMatches = null;
     _matchIdx = 0;
+    _unmatchedRightIterator = null;
 
     // Load right relation and build hash table in memory synchronously
     while (true) {
@@ -1045,22 +1516,55 @@ class HashJoinNode extends PlanNode {
 
       final keyVal = _jitRightKey(rightRow);
       final key = keyVal.toString();
-      _hashTable.putIfAbsent(key, () => []).add(Map<String, DbValue>.of(rightRow));
+      final rightRowCopy = Map<String, DbValue>.of(rightRow);
+      _hashTable.putIfAbsent(key, () => []).add(rightRowCopy);
+      if (isRightJoin || isFullJoin) {
+        _allRightRows.add(rightRowCopy);
+      }
     }
   }
 
   @override
   Map<String, DbValue>? next() {
     while (true) {
+      // 1. If we are currently streaming unmatched right rows:
+      if (_unmatchedRightIterator != null) {
+        if (_unmatchedRightIterator!.moveNext()) {
+          final rightRow = _unmatchedRightIterator!.current;
+          final leftNullRow = <String, DbValue>{};
+          if (leftColumns != null) {
+            for (final col in leftColumns!) {
+              leftNullRow[col] = DbNull();
+            }
+          }
+          return Map<String, DbValue>.from(leftNullRow)..addAll(rightRow);
+        } else {
+          return null; // All done!
+        }
+      }
+
+      // 2. If we are currently streaming matches for a left row:
       if (_currentMatches != null && _matchIdx < _currentMatches!.length) {
         final rightRow = _currentMatches![_matchIdx++];
+        if (isRightJoin || isFullJoin) {
+          _seenRightRows.add(rightRow);
+        }
         final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(rightRow);
         return mergedRow;
       }
 
-      // Read next left row
+      // 3. Read next left row
       _currentLeftRow = left.next();
-      if (_currentLeftRow == null) return null;
+      if (_currentLeftRow == null) {
+        // Left relation is exhausted.
+        // If this is a RIGHT or FULL join, we must now stream the unmatched right rows!
+        if (isRightJoin || isFullJoin) {
+          final unmatched = _allRightRows.where((r) => !_seenRightRows.contains(r)).toList();
+          _unmatchedRightIterator = unmatched.iterator;
+          continue; // Loop again to process the iterator
+        }
+        return null;
+      }
 
       final keyVal = _jitLeftKey(_currentLeftRow!);
       final key = keyVal.toString();
@@ -1070,7 +1574,7 @@ class HashJoinNode extends PlanNode {
         _matchIdx = 0;
       } else {
         _currentMatches = null;
-        if (isLeftJoin) {
+        if (isLeftJoin || isFullJoin) {
           final nullRow = _createNullRow();
           final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(nullRow);
           return mergedRow;
@@ -1151,22 +1655,406 @@ class SortNode extends PlanNode {
   }
 }
 
+class WindowNode extends PlanNode {
+  final PlanNode child;
+  final WindowFunctionExpr windowExpr;
+
+  List<Map<String, DbValue>>? _resultRows;
+  int _currentIndex = 0;
+
+  WindowNode(this.child, this.windowExpr);
+
+  @override
+  void open() {
+    child.open();
+    _resultRows = null;
+    _currentIndex = 0;
+  }
+
+  void _processWindow() {
+    final allRows = <Map<String, DbValue>>[];
+    while (true) {
+      final row = child.next();
+      if (row == null) break;
+      allRows.add(Map<String, DbValue>.of(row));
+    }
+
+    final partitionJits = windowExpr.partitionBy.map((expr) => JitCompiler.compile(expr)).toList();
+    final partitions = <String, List<Map<String, DbValue>>>{};
+    for (final row in allRows) {
+      final key = partitionJits.isEmpty
+          ? ''
+          : partitionJits.map((jit) => jit(row).toString()).join('\x00');
+      partitions.putIfAbsent(key, () => []).add(row);
+    }
+
+    final orderBy = windowExpr.orderBy;
+    if (orderBy != null) {
+      final jitOrder = JitCompiler.compile(orderBy.expr);
+      final ascending = orderBy.ascending;
+      for (final partitionRows in partitions.values) {
+        partitionRows.sort((a, b) {
+          final valA = jitOrder(a);
+          final valB = jitOrder(b);
+          final comp = valA.compareTo(valB);
+          return ascending ? comp : -comp;
+        });
+      }
+    }
+
+    final fnName = windowExpr.functionName.toLowerCase();
+    final colName = exprToSqlString(windowExpr);
+    _resultRows = [];
+
+    for (final partitionRows in partitions.values) {
+      if (fnName == 'rank') {
+        int currentRank = 1;
+        DbValue? prevVal;
+        final jitOrder = orderBy != null ? JitCompiler.compile(orderBy.expr) : null;
+        for (int i = 0; i < partitionRows.length; i++) {
+          final row = Map<String, DbValue>.of(partitionRows[i]);
+          if (jitOrder != null) {
+            final curVal = jitOrder(row);
+            if (prevVal != null && curVal.compareTo(prevVal) != 0) {
+              currentRank = i + 1;
+            }
+            prevVal = curVal;
+          } else {
+            currentRank = i + 1;
+          }
+          row[colName] = DbInt(currentRank);
+          _resultRows!.add(row);
+        }
+      } else if (fnName == 'dense_rank') {
+        int currentRank = 1;
+        DbValue? prevVal;
+        final jitOrder = orderBy != null ? JitCompiler.compile(orderBy.expr) : null;
+        for (int i = 0; i < partitionRows.length; i++) {
+          final row = Map<String, DbValue>.of(partitionRows[i]);
+          if (jitOrder != null) {
+            final curVal = jitOrder(row);
+            if (prevVal != null && curVal.compareTo(prevVal) != 0) {
+              currentRank++;
+            }
+            prevVal = curVal;
+          } else {
+            currentRank = i + 1;
+          }
+          row[colName] = DbInt(currentRank);
+          _resultRows!.add(row);
+        }
+      } else if (fnName == 'lag' || fnName == 'lead') {
+        int offset = 1;
+        final rawArg = windowExpr.arguments.isNotEmpty ? exprToSqlString(windowExpr.arguments.first) : '';
+        for (int i = 0; i < partitionRows.length; i++) {
+          final row = Map<String, DbValue>.of(partitionRows[i]);
+          final targetIdx = fnName == 'lag' ? i - offset : i + offset;
+          if (targetIdx >= 0 && targetIdx < partitionRows.length) {
+            final targetRow = partitionRows[targetIdx];
+            DbValue targetVal = DbNull();
+            if (rawArg.isNotEmpty) {
+              final targetColName = rawArg.split('.').last.toLowerCase();
+              for (final k in targetRow.keys) {
+                final kLower = k.split('.').last.toLowerCase();
+                if (kLower == targetColName) {
+                  targetVal = targetRow[k]!;
+                  break;
+                }
+              }
+            } else {
+              targetVal = targetRow.values.isNotEmpty ? targetRow.values.first : DbNull();
+            }
+            row[colName] = targetVal;
+          } else {
+            row[colName] = DbNull();
+          }
+          _resultRows!.add(row);
+        }
+      } else {
+        for (int i = 0; i < partitionRows.length; i++) {
+          final row = Map<String, DbValue>.of(partitionRows[i]);
+          row[colName] = DbInt(i + 1);
+          _resultRows!.add(row);
+        }
+      }
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_resultRows == null) {
+      _processWindow();
+    }
+    if (_currentIndex >= _resultRows!.length) {
+      return null;
+    }
+    return _resultRows![_currentIndex++];
+  }
+
+  @override
+  void close() {
+    child.close();
+    _resultRows = null;
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}WindowNode(func: ${windowExpr.functionName})';
+  }
+}
+
+class FtsScanNode extends PlanNode {
+  final String tableName;
+  final String columnName;
+  final String searchQuery;
+  final String dbDirectory;
+  final PageCache cache;
+  final Catalog catalog;
+
+  List<Map<String, DbValue>>? _matchingRows;
+  int _currentIndex = 0;
+
+  FtsScanNode({
+    required this.tableName,
+    required this.columnName,
+    required this.searchQuery,
+    required this.dbDirectory,
+    required this.cache,
+    required this.catalog,
+  });
+
+  @override
+  void open() {
+    _matchingRows = null;
+    _currentIndex = 0;
+  }
+
+  void _executeFtsScan() {
+    _matchingRows = [];
+    IndexSchema? idxSchema;
+    for (final idx in catalog.getIndexesForTable(tableName)) {
+      if (idx.usingMethod == 'fts' && idx.columnName.toLowerCase() == columnName.toLowerCase()) {
+        idxSchema = idx;
+        break;
+      }
+    }
+    final indexPath = '$dbDirectory/${idxSchema?.name.toLowerCase() ?? "fts_${tableName}_$columnName"}.fts';
+    final ftsIndex = FtsIndex(indexPath: indexPath);
+    ftsIndex.initSync();
+
+    final cleanQuery = searchQuery.replaceAll("'", "").replaceAll('"', "");
+    final postings = ftsIndex.searchSync(cleanQuery);
+    if (postings.isEmpty) return;
+
+    final schema = catalog.getTableSchema(tableName.toLowerCase());
+    if (schema == null) return;
+
+    final rowTable = RowTableFile(cache: cache, tableName: schema.name, dbDirectory: dbDirectory);
+    rowTable.flushActivePageSync();
+
+    for (final posting in postings) {
+      final page = cache.pinPageSync(rowTable.filePath, posting.pageId);
+      final recBytes = SlottedPageHelper.getRecord(page, posting.slotId);
+      if (recBytes != null) {
+        List<DbValue>? rowValues;
+        try {
+          final mvccRecord = MvccRecord.fromBytes(recBytes);
+          final currentTx = cache.currentMvccTx;
+          final txManager = cache.mvccTxManager;
+          final currentTxId = currentTx?.txId ?? 0;
+          final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+          if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+            rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+          }
+        } catch (_) {
+          rowValues = RecordSerializer.deserializeRow(recBytes);
+        }
+        if (rowValues != null) {
+          final rowMap = <String, DbValue>{};
+          for (int i = 0; i < schema.columnNames.length; i++) {
+            rowMap['${schema.name.toLowerCase()}.${schema.columnNamesLower[i]}'] = rowValues[i];
+            rowMap[schema.columnNamesLower[i]] = rowValues[i];
+          }
+          _matchingRows!.add(rowMap);
+        }
+      }
+      cache.unpinPageSync(rowTable.filePath, posting.pageId, isDirty: false);
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_matchingRows == null) {
+      _executeFtsScan();
+    }
+    if (_currentIndex >= _matchingRows!.length) {
+      return null;
+    }
+    return _matchingRows![_currentIndex++];
+  }
+
+  @override
+  void close() {
+    _matchingRows = null;
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}FtsScanNode(table: $tableName, column: $columnName, query: "$searchQuery")';
+  }
+}
+
+class MemoryScanNode extends PlanNode {
+  final List<Map<String, DbValue>> rows;
+  int _index = 0;
+  MemoryScanNode(this.rows);
+
+  @override
+  void open() {
+    _index = 0;
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_index >= rows.length) return null;
+    return rows[_index++];
+  }
+
+  @override
+  void close() {}
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}MemoryScanNode(rowCount: ${rows.length})';
+  }
+}
+
+class RecursiveCteNode extends PlanNode {
+  final PlanNode anchorChild;
+  final PlanNode Function(PlanNode workingChild) recursiveChildBuilder;
+
+  List<Map<String, DbValue>>? _allRows;
+  int _currentIndex = 0;
+
+  RecursiveCteNode(this.anchorChild, this.recursiveChildBuilder);
+
+  @override
+  void open() {
+    anchorChild.open();
+    _allRows = null;
+    _currentIndex = 0;
+  }
+
+  void _executeRecursiveCte() {
+    _allRows = [];
+    final workingTable = <Map<String, DbValue>>[];
+
+    anchorChild.open();
+    while (true) {
+      final row = anchorChild.next();
+      if (row == null) break;
+      _allRows!.add(Map<String, DbValue>.from(row));
+      workingTable.add(Map<String, DbValue>.from(row));
+    }
+    anchorChild.close();
+
+    int maxDepth = 100;
+    int depth = 0;
+    while (workingTable.isNotEmpty && depth < maxDepth) {
+      depth++;
+      final currentWorkingPlan = MemoryScanNode(List<Map<String, DbValue>>.from(workingTable));
+      final recursivePlan = recursiveChildBuilder(currentWorkingPlan);
+      recursivePlan.open();
+
+      final nextWorkingTable = <Map<String, DbValue>>[];
+      while (true) {
+        final row = recursivePlan.next();
+        if (row == null) break;
+
+        final standardizedRow = <String, DbValue>{};
+        if (_allRows!.isNotEmpty) {
+          final anchorKeys = _allRows!.first.keys.toList();
+          final rowValues = row.values.toList();
+          for (int k = 0; k < anchorKeys.length; k++) {
+            final val = k < rowValues.length ? rowValues[k] : DbNull();
+            standardizedRow[anchorKeys[k]] = val;
+            final shortKey = anchorKeys[k].split('.').last;
+            standardizedRow[shortKey] = val;
+          }
+        } else {
+          standardizedRow.addAll(row);
+        }
+
+        bool exists = _allRows!.any((existing) {
+          for (final key in standardizedRow.keys) {
+            if (existing[key] != standardizedRow[key]) return false;
+          }
+          return true;
+        });
+
+        if (!exists) {
+          _allRows!.add(standardizedRow);
+          nextWorkingTable.add(standardizedRow);
+        }
+      }
+      recursivePlan.close();
+      workingTable.clear();
+      workingTable.addAll(nextWorkingTable);
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_allRows == null) {
+      _executeRecursiveCte();
+    }
+    if (_currentIndex >= _allRows!.length) {
+      return null;
+    }
+    return _allRows![_currentIndex++];
+  }
+
+  @override
+  void close() {
+    anchorChild.close();
+    _allRows = null;
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}RecursiveCteNode()';
+  }
+}
+
 // Limit Node to cap results
 class LimitNode extends PlanNode {
   final PlanNode child;
   final int limit;
+  final int offset;
   int _count = 0;
+  int _skipped = 0;
 
-  LimitNode(this.child, this.limit);
+  LimitNode(this.child, this.limit, [this.offset = 0]);
 
   @override
   void open() {
     child.open();
     _count = 0;
+    _skipped = 0;
   }
 
   @override
   Map<String, DbValue>? next() {
+    while (_skipped < offset) {
+      final row = child.next();
+      if (row == null) return null;
+      _skipped++;
+    }
+
     if (_count >= limit) return null;
     final row = child.next();
     if (row == null) return null;
@@ -1183,7 +2071,7 @@ class LimitNode extends PlanNode {
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
     final childPlan = child.getPlanString(indent + 1);
-    return '${padding}LimitNode(limit: $limit)\n$childPlan';
+    return '${padding}LimitNode(limit: $limit, offset: $offset)\n$childPlan';
   }
 }
 
@@ -1225,11 +2113,18 @@ class IndexJoinNode extends PlanNode {
   final String leftJoinCol;
   final TableSchema rightSchema;
   final bool isLeftJoin;
+  final bool isRightJoin;
+  final bool isFullJoin;
+  final List<String>? leftColumns;
   late final JitClosure _jitLeftKey;
 
   Page? _pinnedPage;
   int? _pinnedPageId;
   final Map<double, Map<String, DbValue>?> _joinCache = {};
+
+  final List<Map<String, DbValue>> _allRightRows = [];
+  final Set<Map<String, DbValue>> _seenRightRows = {};
+  Iterator<Map<String, DbValue>>? _unmatchedRightIterator;
 
   IndexJoinNode({
     required this.left,
@@ -1238,6 +2133,9 @@ class IndexJoinNode extends PlanNode {
     required this.leftJoinCol,
     required this.rightSchema,
     this.isLeftJoin = false,
+    this.isRightJoin = false,
+    this.isFullJoin = false,
+    this.leftColumns,
   }) {
     _jitLeftKey = JitCompiler.compile(VariableExpr([leftJoinCol]));
   }
@@ -1258,13 +2156,75 @@ class IndexJoinNode extends PlanNode {
     _pinnedPage = null;
     _pinnedPageId = null;
     _joinCache.clear();
+    _allRightRows.clear();
+    _seenRightRows.clear();
+    _unmatchedRightIterator = null;
+
+    if (isRightJoin || isFullJoin) {
+      final currentTx = rightTable.cache.currentMvccTx;
+      final Iterable<List<DbValue>> rows;
+      if (currentTx != null) {
+        rows = rightTable.scanSync(
+          currentTxId: currentTx.txId,
+          activeTxIds: currentTx.activeTxIds,
+          txManager: rightTable.cache.mvccTxManager,
+          expectedColumnCount: rightSchema.columnNames.length,
+        );
+      } else {
+        rows = rightTable.scanSync(
+          expectedColumnCount: rightSchema.columnNames.length,
+        );
+      }
+
+      final keyToIndex = <String, int>{};
+      for (int i = 0; i < rightSchema.columnNames.length; i++) {
+        final colName = rightSchema.columnNames[i];
+        keyToIndex['${rightSchema.name}.$colName'] = i;
+        keyToIndex[colName] = i;
+      }
+
+      for (final rowVals in rows) {
+        _allRightRows.add(RowMap(rowVals, keyToIndex));
+      }
+    }
+  }
+
+  bool _rightRowsEqual(Map<String, DbValue> r1, Map<String, DbValue> r2) {
+    for (final col in rightSchema.columnNames) {
+      if (r1[col] != r2[col]) return false;
+    }
+    return true;
   }
 
   @override
   Map<String, DbValue>? next() {
     while (true) {
+      // 1. If we are streaming unmatched right rows
+      if (_unmatchedRightIterator != null) {
+        if (_unmatchedRightIterator!.moveNext()) {
+          final rightRow = _unmatchedRightIterator!.current;
+          final leftNullRow = <String, DbValue>{};
+          if (leftColumns != null) {
+            for (final col in leftColumns!) {
+              leftNullRow[col] = DbNull();
+            }
+          }
+          return Map<String, DbValue>.from(leftNullRow)..addAll(rightRow);
+        } else {
+          return null; // All done!
+        }
+      }
+
       final leftRow = left.next();
-      if (leftRow == null) return null;
+      if (leftRow == null) {
+        // Left is exhausted, stream unmatched right rows if RIGHT or FULL join
+        if (isRightJoin || isFullJoin) {
+          final unmatched = _allRightRows.where((r) => !_seenRightRows.contains(r)).toList();
+          _unmatchedRightIterator = unmatched.iterator;
+          continue;
+        }
+        return null;
+      }
 
       final keyVal = _jitLeftKey(leftRow);
       final double? searchKey = keyVal is DbInt
@@ -1275,10 +2235,18 @@ class IndexJoinNode extends PlanNode {
         if (_joinCache.containsKey(searchKey)) {
           final rightRow = _joinCache[searchKey];
           if (rightRow != null) {
+            if (isRightJoin || isFullJoin) {
+              for (final r in _allRightRows) {
+                if (_rightRowsEqual(r, rightRow)) {
+                  _seenRightRows.add(r);
+                  break;
+                }
+              }
+            }
             final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(rightRow);
             return mergedRow;
           }
-          if (isLeftJoin) {
+          if (isLeftJoin || isFullJoin) {
             final nullRow = _createNullRow();
             final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
             return mergedRow;
@@ -1308,19 +2276,27 @@ class IndexJoinNode extends PlanNode {
                 }
               }
               _joinCache[searchKey] = rightRow;
+              if (isRightJoin || isFullJoin) {
+                for (final r in _allRightRows) {
+                  if (_rightRowsEqual(r, rightRow)) {
+                    _seenRightRows.add(r);
+                    break;
+                  }
+                }
+              }
               final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(rightRow);
               return mergedRow;
             }
           }
         }
         _joinCache[searchKey] = null;
-        if (isLeftJoin) {
+        if (isLeftJoin || isFullJoin) {
           final nullRow = _createNullRow();
           final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
           return mergedRow;
         }
       } else {
-        if (isLeftJoin) {
+        if (isLeftJoin || isFullJoin) {
           final nullRow = _createNullRow();
           final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
           return mergedRow;
@@ -1511,6 +2487,7 @@ class HnswScanNode extends PlanNode {
   final DbVector queryVector;
   final int limit;
   final double? maxDistance;
+  final Expression? filterCondition;
 
   List<HnswNode>? _results;
   int _cursor = 0;
@@ -1522,15 +2499,81 @@ class HnswScanNode extends PlanNode {
     required this.queryVector,
     required this.limit,
     this.maxDistance,
+    this.filterCondition,
   });
 
   @override
   void open() {
     index.initSync();
-    _results = index.search(queryVector, limit);
+    bool Function(int pageId, int slotId)? filterPredicate;
+    if (filterCondition != null) {
+      final jitFilter = JitCompiler.compile(filterCondition!);
+      filterPredicate = (int pageId, int slotId) {
+        final map = <String, DbValue>{};
+        if (schema.isColumnar) {
+          final colTable = ColumnTableFile(
+            cache: tableFile.cache,
+            tableName: schema.name,
+            dbDirectory: tableFile.dbDirectory,
+            schema: schema,
+          );
+          for (int i = 0; i < schema.columnNames.length; i++) {
+            final colFilePath = colTable.getColumnFilePath(i);
+            final pager = tableFile.cache.getOrCreatePager(colFilePath);
+            if (pageId >= pager.getPageCountSync()) {
+              return false;
+            }
+            final page = tableFile.cache.pinPageSync(colFilePath, pageId);
+            try {
+              final recBytes = SlottedPageHelper.getRecord(page, slotId);
+              if (recBytes != null) {
+                final data = ByteData.sublistView(recBytes);
+                final val = DbValue.fromBytes(data, 0, recBytes.length);
+                final colName = schema.columnNames[i];
+                map['${schema.name}.$colName'] = val;
+                map[colName] = val;
+              }
+            } finally {
+              tableFile.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+            }
+          }
+        } else {
+          final page = tableFile.cache.pinPageSync(tableFile.filePath, pageId);
+          try {
+            final recBytes = SlottedPageHelper.getRecord(page, slotId);
+            if (recBytes == null) {
+              return false;
+            }
+            final values = RecordSerializer.deserializeRow(recBytes);
+            for (int i = 0; i < schema.columnNames.length; i++) {
+              if (i < values.length) {
+                final colName = schema.columnNames[i];
+                map['${schema.name}.$colName'] = values[i];
+                map[colName] = values[i];
+              }
+            }
+          } finally {
+            tableFile.cache.unpinPageSync(tableFile.filePath, pageId, isDirty: false);
+          }
+        }
+        final res = jitFilter(map);
+        return (res is DbInt && res.value == 1) || (res is DbDouble && res.value > 0.0);
+      };
+    }
+    _results = index.search(queryVector, limit, filter: filterPredicate);
     if (maxDistance != null) {
       _results = _results!
-          .where((n) => n.vector.distanceTo(queryVector) <= maxDistance!)
+          .where((n) {
+            switch (index.metric.toLowerCase()) {
+              case 'cosine':
+                return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
+              case 'dot':
+                return n.vector.dotProductTo(queryVector) <= maxDistance!;
+              case 'euclidean':
+              default:
+                return n.vector.distanceTo(queryVector) <= maxDistance!;
+            }
+          })
           .toList();
     }
     _cursor = 0;
@@ -1594,65 +2637,591 @@ class HnswScanNode extends PlanNode {
   @override
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
-    return '${padding}HnswScanNode(table: ${schema.name}, limit: $limit, maxDistance: $maxDistance)';
+    final condStr = filterCondition != null ? ', filter: ${exprToSqlString(filterCondition!)}' : '';
+    return '${padding}HnswScanNode(table: ${schema.name}, limit: $limit, maxDistance: $maxDistance$condStr)';
   }
 }
 
-// FTS Inverted Index Scan Node
-class FtsScanNode extends PlanNode {
+// IVF-FLAT Vector Index Scan Node
+class IvfFlatScanNode extends PlanNode {
   final RowTableFile tableFile;
   final TableSchema schema;
-  final FtsIndex index;
-  final String query;
+  final IvfFlatIndex index;
+  final DbVector queryVector;
+  final int limit;
+  final double? maxDistance;
+  final Expression? filterCondition;
 
-  List<FtsPosting>? _postings;
+  List<IvfFlatNode>? _results;
   int _cursor = 0;
 
-  FtsScanNode({
+  IvfFlatScanNode({
     required this.tableFile,
     required this.schema,
     required this.index,
-    required this.query,
+    required this.queryVector,
+    required this.limit,
+    this.maxDistance,
+    this.filterCondition,
   });
 
   @override
   void open() {
     index.initSync();
-    _postings = index.searchSync(query);
+    bool Function(int pageId, int slotId)? filterPredicate;
+    if (filterCondition != null) {
+      final jitFilter = JitCompiler.compile(filterCondition!);
+      filterPredicate = (int pageId, int slotId) {
+        final map = <String, DbValue>{};
+        if (schema.isColumnar) {
+          final colTable = ColumnTableFile(
+            cache: tableFile.cache,
+            tableName: schema.name,
+            dbDirectory: tableFile.dbDirectory,
+            schema: schema,
+          );
+          for (int i = 0; i < schema.columnNames.length; i++) {
+            final colFilePath = colTable.getColumnFilePath(i);
+            final pager = tableFile.cache.getOrCreatePager(colFilePath);
+            if (pageId >= pager.getPageCountSync()) {
+              return false;
+            }
+            final page = tableFile.cache.pinPageSync(colFilePath, pageId);
+            try {
+              final recBytes = SlottedPageHelper.getRecord(page, slotId);
+              if (recBytes != null) {
+                final data = ByteData.sublistView(recBytes);
+                final val = DbValue.fromBytes(data, 0, recBytes.length);
+                final colName = schema.columnNames[i];
+                map['${schema.name}.$colName'] = val;
+                map[colName] = val;
+              }
+            } finally {
+              tableFile.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+            }
+          }
+        } else {
+          final page = tableFile.cache.pinPageSync(tableFile.filePath, pageId);
+          try {
+            final recBytes = SlottedPageHelper.getRecord(page, slotId);
+            if (recBytes == null) {
+              return false;
+            }
+            final values = RecordSerializer.deserializeRow(recBytes);
+            for (int i = 0; i < schema.columnNames.length; i++) {
+              if (i < values.length) {
+                final colName = schema.columnNames[i];
+                map['${schema.name}.$colName'] = values[i];
+                map[colName] = values[i];
+              }
+            }
+          } finally {
+            tableFile.cache.unpinPageSync(tableFile.filePath, pageId, isDirty: false);
+          }
+        }
+        final res = jitFilter(map);
+        return (res is DbInt && res.value == 1) || (res is DbDouble && res.value > 0.0);
+      };
+    }
+    _results = index.search(queryVector, limit, filter: filterPredicate);
+    if (maxDistance != null) {
+      _results = _results!
+          .where((n) {
+            switch (index.metric.toLowerCase()) {
+              case 'cosine':
+                return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
+              case 'dot':
+                return n.vector.dotProductTo(queryVector) <= maxDistance!;
+              case 'euclidean':
+              default:
+                return n.vector.distanceTo(queryVector) <= maxDistance!;
+            }
+          })
+          .toList();
+    }
     _cursor = 0;
   }
 
   @override
   Map<String, DbValue>? next() {
-    if (_postings == null || _cursor >= _postings!.length) return null;
-    final posting = _postings![_cursor++];
-    final page = tableFile.cache.pinPageSync(tableFile.filePath, posting.pageId);
-    final recBytes = SlottedPageHelper.getRecord(page, posting.slotId);
-    if (recBytes == null) {
-      tableFile.cache.unpinPageSync(tableFile.filePath, posting.pageId, isDirty: false);
-      return next();
-    }
-    final values = RecordSerializer.deserializeRow(recBytes);
+    if (_results == null || _cursor >= _results!.length) return null;
+    final node = _results![_cursor++];
     final map = <String, DbValue>{};
-    for (int i = 0; i < schema.columnNames.length; i++) {
-      if (i < values.length) {
-        final colName = schema.columnNames[i];
-        map['${schema.name}.$colName'] = values[i];
-        map[colName] = values[i];
+    
+    if (schema.isColumnar) {
+      final colTable = ColumnTableFile(
+        cache: tableFile.cache,
+        tableName: schema.name,
+        dbDirectory: tableFile.dbDirectory,
+        schema: schema,
+      );
+      for (int i = 0; i < schema.columnNames.length; i++) {
+        final colFilePath = colTable.getColumnFilePath(i);
+        final pager = tableFile.cache.getOrCreatePager(colFilePath);
+        if (node.pageId >= pager.getPageCountSync()) {
+          return next();
+        }
+        final page = tableFile.cache.pinPageSync(colFilePath, node.pageId);
+        final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
+        if (recBytes != null) {
+          final data = ByteData.sublistView(recBytes);
+          final val = DbValue.fromBytes(data, 0, recBytes.length);
+          final colName = schema.columnNames[i];
+          map['${schema.name}.$colName'] = val;
+          map[colName] = val;
+        }
+        tableFile.cache.unpinPageSync(colFilePath, node.pageId, isDirty: false);
       }
+    } else {
+      final page = tableFile.cache.pinPageSync(tableFile.filePath, node.pageId);
+      final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
+      if (recBytes == null) {
+        tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
+        return next(); // Try next
+      }
+      final values = RecordSerializer.deserializeRow(recBytes);
+      for (int i = 0; i < schema.columnNames.length; i++) {
+        if (i < values.length) {
+          final colName = schema.columnNames[i];
+          map['${schema.name}.$colName'] = values[i];
+          map[colName] = values[i];
+        }
+      }
+      tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
     }
-    tableFile.cache.unpinPageSync(tableFile.filePath, posting.pageId, isDirty: false);
     return map;
   }
 
   @override
   void close() {
-    _postings = null;
+    _results = null;
   }
 
   @override
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
-    return '${padding}FtsScanNode(table: ${schema.name}, query: "$query")';
+    final condStr = filterCondition != null ? ', filter: ${exprToSqlString(filterCondition!)}' : '';
+    return '${padding}IvfFlatScanNode(table: ${schema.name}, limit: $limit, maxDistance: $maxDistance$condStr)';
   }
 }
+
+
+
+class RowValueList {
+  final List<DbValue> values;
+  RowValueList(this.values);
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! RowValueList) return false;
+    if (values.length != other.values.length) return false;
+    for (int i = 0; i < values.length; i++) {
+      if (values[i] != other.values[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode {
+    int hash = 17;
+    for (final val in values) {
+      hash = 37 * hash + val.hashCode;
+    }
+    return hash;
+  }
+}
+
+class UnionNode extends PlanNode {
+  final List<PlanNode> children;
+  final List<bool> isAllFlags;
+
+  int _currentChildIndex = 0;
+  final Set<RowValueList> _seenRows = {};
+  List<String>? _columnKeys;
+  int _lastUnionIndex = -1;
+
+  UnionNode(this.children, this.isAllFlags) {
+    for (int i = 0; i < isAllFlags.length; i++) {
+      if (!isAllFlags[i]) {
+        _lastUnionIndex = i;
+      }
+    }
+  }
+
+  @override
+  void open() {
+    _currentChildIndex = 0;
+    _seenRows.clear();
+    _columnKeys = null;
+    for (final child in children) {
+      child.open();
+    }
+  }
+
+  List<DbValue> _getRowValues(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      return row.values;
+    }
+    return row.values.toList();
+  }
+
+  List<String> _getRowKeys(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      final keys = List<String>.filled(row.values.length, '');
+      row.keyToIndex.forEach((key, idx) {
+        if (idx < keys.length) {
+          if (keys[idx].isEmpty || keys[idx].contains('.')) {
+            keys[idx] = key;
+          }
+        }
+      });
+      return keys;
+    }
+    return row.keys.toList();
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    while (_currentChildIndex < children.length) {
+      final child = children[_currentChildIndex];
+      final row = child.next();
+      if (row == null) {
+        _currentChildIndex++;
+        continue;
+      }
+
+      final vals = _getRowValues(row);
+      _columnKeys ??= _getRowKeys(row);
+
+      if (_lastUnionIndex != -1 && _currentChildIndex <= _lastUnionIndex + 1) {
+        final rowValList = RowValueList(vals);
+        if (!_seenRows.add(rowValList)) {
+          // Duplicate found, skip
+          continue;
+        }
+      }
+
+      // Return mapped row map aligning with _columnKeys
+      final resultRow = <String, DbValue>{};
+      for (int i = 0; i < _columnKeys!.length; i++) {
+        final key = _columnKeys![i];
+        final val = i < vals.length ? vals[i] : DbNull();
+        resultRow[key] = val;
+      }
+      return resultRow;
+    }
+    return null;
+  }
+
+  @override
+  void close() {
+    for (final child in children) {
+      child.close();
+    }
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    final buffer = StringBuffer();
+    buffer.write('${padding}UnionNode(isAllFlags: $isAllFlags)\n');
+    for (int i = 0; i < children.length; i++) {
+      buffer.write(children[i].getPlanString(indent + 1));
+      if (i < children.length - 1) {
+        buffer.write('\n');
+      }
+    }
+    return buffer.toString();
+  }
+}
+
+class IntersectNode extends PlanNode {
+  final List<PlanNode> children;
+  final Set<RowValueList> _seenRows = {};
+  List<Set<RowValueList>>? _targetSets;
+  List<String>? _columnKeys;
+  bool _initialized = false;
+
+  IntersectNode(this.children);
+
+  @override
+  void open() {
+    for (final child in children) {
+      child.open();
+    }
+    _seenRows.clear();
+    _targetSets = null;
+    _columnKeys = null;
+    _initialized = false;
+  }
+
+  List<DbValue> _getRowValues(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      return row.values;
+    }
+    return row.values.toList();
+  }
+
+  List<String> _getRowKeys(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      final keys = List<String>.filled(row.values.length, '');
+      row.keyToIndex.forEach((key, idx) {
+        if (idx < keys.length) {
+          if (keys[idx].isEmpty || keys[idx].contains('.')) {
+            keys[idx] = key;
+          }
+        }
+      });
+      return keys;
+    }
+    return row.keys.toList();
+  }
+
+  void _lazyInit() {
+    if (_initialized) return;
+    _initialized = true;
+
+    // Load children[1..] into targetSets
+    _targetSets = [];
+    for (int i = 1; i < children.length; i++) {
+      final set = <RowValueList>{};
+      final child = children[i];
+      while (true) {
+        final row = child.next();
+        if (row == null) break;
+        set.add(RowValueList(_getRowValues(row)));
+      }
+      _targetSets!.add(set);
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    _lazyInit();
+
+    while (true) {
+      final row = children[0].next();
+      if (row == null) return null;
+
+      final vals = _getRowValues(row);
+      _columnKeys ??= _getRowKeys(row);
+      final rowValList = RowValueList(vals);
+
+      // Check if present in ALL target sets
+      bool presentInAll = true;
+      for (final targetSet in _targetSets!) {
+        if (!targetSet.contains(rowValList)) {
+          presentInAll = false;
+          break;
+        }
+      }
+
+      if (!presentInAll) continue;
+
+      if (!_seenRows.add(rowValList)) {
+        // Already returned this row (INTERSECT is distinct by default)
+        continue;
+      }
+
+      // Return mapped row map aligning with _columnKeys
+      final resultRow = <String, DbValue>{};
+      for (int i = 0; i < _columnKeys!.length; i++) {
+        final key = _columnKeys![i];
+        final val = i < vals.length ? vals[i] : DbNull();
+        resultRow[key] = val;
+      }
+      return resultRow;
+    }
+  }
+
+  @override
+  void close() {
+    for (final child in children) {
+      child.close();
+    }
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    final buffer = StringBuffer();
+    buffer.write('${padding}IntersectNode\n');
+    for (int i = 0; i < children.length; i++) {
+      buffer.write(children[i].getPlanString(indent + 1));
+      if (i < children.length - 1) {
+        buffer.write('\n');
+      }
+    }
+    return buffer.toString();
+  }
+}
+
+class ExceptNode extends PlanNode {
+  final List<PlanNode> children;
+  final Set<RowValueList> _seenRows = {};
+  List<Set<RowValueList>>? _targetSets;
+  List<String>? _columnKeys;
+  bool _initialized = false;
+
+  ExceptNode(this.children);
+
+  @override
+  void open() {
+    for (final child in children) {
+      child.open();
+    }
+    _seenRows.clear();
+    _targetSets = null;
+    _columnKeys = null;
+    _initialized = false;
+  }
+
+  List<DbValue> _getRowValues(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      return row.values;
+    }
+    return row.values.toList();
+  }
+
+  List<String> _getRowKeys(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      final keys = List<String>.filled(row.values.length, '');
+      row.keyToIndex.forEach((key, idx) {
+        if (idx < keys.length) {
+          if (keys[idx].isEmpty || keys[idx].contains('.')) {
+            keys[idx] = key;
+          }
+        }
+      });
+      return keys;
+    }
+    return row.keys.toList();
+  }
+
+  void _lazyInit() {
+    if (_initialized) return;
+    _initialized = true;
+
+    // Load children[1..] into targetSets
+    _targetSets = [];
+    for (int i = 1; i < children.length; i++) {
+      final set = <RowValueList>{};
+      final child = children[i];
+      while (true) {
+        final row = child.next();
+        if (row == null) break;
+        set.add(RowValueList(_getRowValues(row)));
+      }
+      _targetSets!.add(set);
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    _lazyInit();
+
+    while (true) {
+      final row = children[0].next();
+      if (row == null) return null;
+
+      final vals = _getRowValues(row);
+      _columnKeys ??= _getRowKeys(row);
+      final rowValList = RowValueList(vals);
+
+      // Check if present in ANY target sets
+      bool presentInAny = false;
+      for (final targetSet in _targetSets!) {
+        if (targetSet.contains(rowValList)) {
+          presentInAny = true;
+          break;
+        }
+      }
+
+      if (presentInAny) continue;
+
+      if (!_seenRows.add(rowValList)) {
+        // Already returned this row (EXCEPT is distinct by default)
+        continue;
+      }
+
+      // Return mapped row map aligning with _columnKeys
+      final resultRow = <String, DbValue>{};
+      for (int i = 0; i < _columnKeys!.length; i++) {
+        final key = _columnKeys![i];
+        final val = i < vals.length ? vals[i] : DbNull();
+        resultRow[key] = val;
+      }
+      return resultRow;
+    }
+  }
+
+  @override
+  void close() {
+    for (final child in children) {
+      child.close();
+    }
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    final buffer = StringBuffer();
+    buffer.write('${padding}ExceptNode\n');
+    for (int i = 0; i < children.length; i++) {
+      buffer.write(children[i].getPlanString(indent + 1));
+      if (i < children.length - 1) {
+        buffer.write('\n');
+      }
+    }
+    return buffer.toString();
+  }
+}
+
+class DistinctNode extends PlanNode {
+  final PlanNode child;
+  final Set<RowValueList> _seenRows = {};
+
+  DistinctNode(this.child);
+
+  @override
+  void open() {
+    child.open();
+    _seenRows.clear();
+  }
+
+  List<DbValue> _getRowValues(Map<String, DbValue> row) {
+    if (row is RowMap) {
+      return row.values;
+    }
+    return row.values.toList();
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    while (true) {
+      final row = child.next();
+      if (row == null) return null;
+
+      final vals = _getRowValues(row);
+      final rowValList = RowValueList(vals);
+      if (!_seenRows.add(rowValList)) {
+        // Duplicate row, skip
+        continue;
+      }
+      return row;
+    }
+  }
+
+  @override
+  void close() {
+    child.close();
+    _seenRows.clear();
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}DistinctNode\n${child.getPlanString(indent + 1)}';
+  }
+}
+

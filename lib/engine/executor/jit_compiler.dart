@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 import '../parser/ast.dart';
 import 'value.dart';
 
@@ -88,6 +90,79 @@ class JitCompiler {
   }
 
   static JitClosure _compileDefault(Expression expr) {
+    if (expr is SubqueryExpr) {
+      return (row) {
+        final active = JitCompiler.activeInterpreter;
+        if (active == null) {
+          return DbNull();
+        }
+        SubqueryContext.push(row);
+        try {
+          final res = active.executeNodeSync(expr.selectStmt);
+          if (res != null) {
+            final rows = res.rows;
+            if (rows is List) {
+              if (rows.isEmpty) {
+                return DbList([]);
+              }
+              if (rows.length == 1 && rows[0].length == 1) {
+                return rows[0][0];
+              }
+              return DbList(rows.map<DbValue>((r) => r.isNotEmpty ? r[0] as DbValue : DbNull()).toList());
+            }
+          }
+          return DbNull();
+        } finally {
+          SubqueryContext.pop();
+        }
+      };
+    }
+
+    if (expr is JsonExtractExpr) {
+      final baseFn = JitCompiler.compile(expr.expr);
+      final path = expr.path;
+      final asText = expr.asText;
+
+      return (row) {
+        final baseVal = baseFn(row);
+        if (baseVal is DbJson) {
+          final jsonMapOrList = baseVal.value;
+          dynamic extractedRaw;
+          if (jsonMapOrList is Map) {
+            extractedRaw = jsonMapOrList[path];
+          } else if (jsonMapOrList is List) {
+            final idx = int.tryParse(path);
+            if (idx != null && idx >= 0 && idx < jsonMapOrList.length) {
+              extractedRaw = jsonMapOrList[idx];
+            }
+          }
+          if (extractedRaw == null) {
+            return DbNull();
+          }
+          if (asText) {
+            if (extractedRaw is String) {
+              return DbText(extractedRaw);
+            } else {
+              return DbText(json.encode(extractedRaw));
+            }
+          } else {
+            if (extractedRaw is int) {
+              return DbInt(extractedRaw);
+            } else if (extractedRaw is double) {
+              return DbDouble(extractedRaw);
+            } else if (extractedRaw is num) {
+              return DbDouble(extractedRaw.toDouble());
+            } else if (extractedRaw is bool) {
+              return DbInt(extractedRaw ? 1 : 0);
+            } else {
+              return DbJson(extractedRaw);
+            }
+          }
+        }
+        return DbNull();
+      };
+    }
+
     if (expr is PlaceholderExpr) {
       final idx = expr.index;
       return (row) {
@@ -114,6 +189,13 @@ class JitCompiler {
     if (expr is VariableExpr) {
       final path = expr.path;
       if (path.isEmpty) return (row) => DbNull();
+      final lowerName = expr.fullName.toLowerCase();
+      if (lowerName == 'true') {
+        return (row) => DbJson(true);
+      }
+      if (lowerName == 'false') {
+        return (row) => DbJson(false);
+      }
 
       String? resolvedKey;
       int? resolvedIndex;
@@ -182,6 +264,10 @@ class JitCompiler {
             return val;
           }
         }
+        final parentVal = SubqueryContext.lookup(fullName);
+        if (parentVal != null) {
+          return parentVal;
+        }
 
         return DbNull();
       };
@@ -202,6 +288,15 @@ class JitCompiler {
         case '/':
           return (row) => leftFn(row) / rightFn(row);
         case '%':
+          if (expr.left is VariableExpr && expr.right is VariableExpr) {
+            final leftVar = expr.left as VariableExpr;
+            final rightVar = expr.right as VariableExpr;
+            final rightAttr = rightVar.fullName.toLowerCase();
+            if (rightAttr == 'found' || rightAttr == 'notfound') {
+              final envKey = '${leftVar.fullName.toLowerCase()}%$rightAttr';
+              return (row) => row[envKey] ?? DbInt(0);
+            }
+          }
           return (row) {
             final leftVal = leftFn(row);
             final rightVal = rightFn(row);
@@ -412,6 +507,23 @@ class JitCompiler {
             };
           }
           return (row) => matchLike(leftFn(row).toString(), rightFn(row).toString()) ? DbInt.one : DbInt.zero;
+        case 'in':
+          return (row) {
+            final leftVal = leftFn(row);
+            final rightVal = rightFn(row);
+            if (rightVal is DbList) {
+              bool found = false;
+              for (final elem in rightVal.elements) {
+                if (leftVal.compareTo(elem) == 0) {
+                  found = true;
+                  break;
+                }
+              }
+              return DbInt(found ? 1 : 0);
+            } else {
+              return DbInt(leftVal.compareTo(rightVal) == 0 ? 1 : 0);
+            }
+          };
         case 'and':
           return (row) {
             final leftVal = leftFn(row);
@@ -436,6 +548,66 @@ class JitCompiler {
     if (expr is FunctionCallExpr) {
       final name = expr.name.toLowerCase();
       final argFns = expr.arguments.map((a) => _compileDefault(a)).toList();
+      if (name == 'in_list') {
+        return (row) {
+          final args = argFns.map((fn) => fn(row)).toList();
+          return DbList(args);
+        };
+      }
+
+      if (name == 'st_point' && argFns.length == 2) {
+        return (row) {
+          final x = argFns[0](row);
+          final y = argFns[1](row);
+          double dx = 0.0, dy = 0.0;
+          if (x is DbDouble) dx = x.value;
+          else if (x is DbInt) dx = x.value.toDouble();
+          if (y is DbDouble) dy = y.value;
+          else if (y is DbInt) dy = y.value.toDouble();
+          return DbText('POINT($dx $dy)');
+        };
+      }
+      if (name == 'st_distance' && argFns.length == 2) {
+        return (row) {
+          final p1 = argFns[0](row);
+          final p2 = argFns[1](row);
+          if (p1 is DbText && p2 is DbText) {
+            final pt1 = _parsePoint(p1.value);
+            final pt2 = _parsePoint(p2.value);
+            if (pt1 != null && pt2 != null) {
+              final dist = math.sqrt(math.pow(pt1[0] - pt2[0], 2) + math.pow(pt1[1] - pt2[1], 2));
+              return DbDouble(dist);
+            }
+          }
+          return DbNull();
+        };
+      }
+      if (name == 'st_contains' && argFns.length == 2) {
+        return (row) {
+          final poly = argFns[0](row);
+          final pt = argFns[1](row);
+          if (poly is DbText && pt is DbText) {
+            final polygon = _parsePolygon(poly.value);
+            final point = _parsePoint(pt.value);
+            if (polygon != null && point != null) {
+              // Ray casting algorithm
+              bool inside = false;
+              for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                if ((polygon[i][1] > point[1]) != (polygon[j][1] > point[1]) &&
+                    point[0] <
+                        (polygon[j][0] - polygon[i][0]) *
+                                (point[1] - polygon[i][1]) /
+                                (polygon[j][1] - polygon[i][1]) +
+                            polygon[i][0]) {
+                  inside = !inside;
+                }
+              }
+              return DbInt(inside ? 1 : 0);
+            }
+          }
+          return DbNull();
+        };
+      }
 
       return (row) {
         if (activeInterpreter != null) {
@@ -465,9 +637,42 @@ class JitCompiler {
           }
         }
 
-        if (name == 'vector_distance' && argFns.length == 2) {
+        if (name == 'time_bucket' && argFns.length == 2) {
+          final bucket = argFns[0](row);
+          final time = argFns[1](row);
+          if (bucket is DbText && time is DbText) {
+            final bucketStr = bucket.value;
+            final timeStr = time.value;
+            final dt = DateTime.tryParse(timeStr);
+            if (dt != null) {
+              int bucketMillis = 0;
+              if (bucketStr.endsWith('m')) {
+                bucketMillis = (int.tryParse(bucketStr.replaceAll('m', '')) ?? 0) * 60 * 1000;
+              } else if (bucketStr.endsWith('h')) {
+                bucketMillis = (int.tryParse(bucketStr.replaceAll('h', '')) ?? 0) * 60 * 60 * 1000;
+              } else if (bucketStr.endsWith('s')) {
+                bucketMillis = (int.tryParse(bucketStr.replaceAll('s', '')) ?? 0) * 1000;
+              }
+              if (bucketMillis > 0) {
+                final ms = dt.millisecondsSinceEpoch;
+                final bucketed = (ms ~/ bucketMillis) * bucketMillis;
+                return DbText(DateTime.fromMillisecondsSinceEpoch(bucketed, isUtc: dt.isUtc).toIso8601String());
+              }
+            }
+          }
+          return DbNull();
+        }
+
+        if (name == 'vector_distance' && (argFns.length == 2 || argFns.length == 3)) {
           var v1 = argFns[0](row);
           var v2 = argFns[1](row);
+          String metric = 'euclidean';
+          if (argFns.length == 3) {
+            final mVal = argFns[2](row);
+            if (mVal is DbText) {
+              metric = mVal.value.toLowerCase();
+            }
+          }
           if (v1 is DbText) {
             v1 = _parseVectorFromString(v1.value) ?? v1;
           }
@@ -475,7 +680,15 @@ class JitCompiler {
             v2 = _parseVectorFromString(v2.value) ?? v2;
           }
           if (v1 is DbVector && v2 is DbVector) {
-            return DbDouble(v1.distanceTo(v2));
+            switch (metric) {
+              case 'cosine':
+                return DbDouble(v1.cosineDistanceTo(v2));
+              case 'dot':
+                return DbDouble(v1.dotProductTo(v2));
+              case 'euclidean':
+              default:
+                return DbDouble(v1.distanceTo(v2));
+            }
           }
           return DbNull();
         }
@@ -496,6 +709,18 @@ class JitCompiler {
           }
           return DbNull();
         }
+        if (name == 'json_set' && argFns.length == 3) {
+          return evalJsonSet(argFns[0](row), argFns[1](row), argFns[2](row));
+        }
+        if (name == 'json_remove' && argFns.length == 2) {
+          return evalJsonRemove(argFns[0](row), argFns[1](row));
+        }
+        if (name == 'json_array') {
+          return evalJsonArray(argFns.map((fn) => fn(row)).toList());
+        }
+        if (name == 'json_object') {
+          return evalJsonObject(argFns.map((fn) => fn(row)).toList());
+        }
         return DbNull();
       };
     }
@@ -514,6 +739,44 @@ class JitCompiler {
       } catch (_) {
         return null;
       }
+    }
+    return null;
+  }
+
+  static List<double>? _parsePoint(String s) {
+    // Expected format: POINT(x y)
+    final regex = RegExp(r'POINT\s*\(\s*([0-9.-]+)\s+([0-9.-]+)\s*\)', caseSensitive: false);
+    final match = regex.firstMatch(s);
+    if (match != null) {
+      return [double.parse(match.group(1)!), double.parse(match.group(2)!)];
+    }
+    return null;
+  }
+
+  static List<List<double>>? _parsePolygon(String s) {
+    // Simple parser for POLYGON((x1 y1, x2 y2, ...)) or JSON [[x,y],...]
+    if (s.trim().startsWith('[')) {
+      try {
+        final decoded = json.decode(s) as List;
+        return decoded.map((e) => [ (e[0] as num).toDouble(), (e[1] as num).toDouble() ]).toList();
+      } catch (_) {
+        return null;
+      }
+    }
+    
+    final regex = RegExp(r'POLYGON\s*\(\s*\(([^)]+)\)\s*\)', caseSensitive: false);
+    final match = regex.firstMatch(s);
+    if (match != null) {
+      final pointsStr = match.group(1)!;
+      final parts = pointsStr.split(',');
+      final points = <List<double>>[];
+      for (final p in parts) {
+        final coords = p.trim().split(RegExp(r'\s+'));
+        if (coords.length >= 2) {
+          points.add([double.parse(coords[0]), double.parse(coords[1])]);
+        }
+      }
+      return points;
     }
     return null;
   }

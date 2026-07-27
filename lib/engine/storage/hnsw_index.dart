@@ -50,6 +50,7 @@ class HnswIndex {
   final int efSearch;
   final double mL;
   bool autoSave;
+  String metric;
 
   final List<HnswNode> nodes = [];
   int? enterNodeId;
@@ -63,6 +64,7 @@ class HnswIndex {
     this.efConstruction = 64,
     this.efSearch = 32,
     this.autoSave = true,
+    this.metric = 'euclidean',
   }) : mL = 1.0 / log(16); // M is 16
 
   void initSync() {
@@ -77,6 +79,9 @@ class HnswIndex {
         }
         enterNodeId = data['enterNodeId'];
         enterLevel = data['enterLevel'];
+        if (metric == 'euclidean' && data['metric'] != null) {
+          metric = data['metric'];
+        }
       } catch (_) {
         // Fallback if file is empty/corrupt
       }
@@ -91,9 +96,22 @@ class HnswIndex {
     final data = {
       'enterNodeId': enterNodeId,
       'enterLevel': enterLevel,
+      'metric': metric,
       'nodes': nodes.map((n) => n.toJson()).toList(),
     };
     file.writeAsStringSync(json.encode(data));
+  }
+
+  double _calculateDistance(DbVector a, DbVector b) {
+    switch (metric.toLowerCase()) {
+      case 'cosine':
+        return a.cosineDistanceTo(b);
+      case 'dot':
+        return a.dotProductTo(b);
+      case 'euclidean':
+      default:
+        return a.distanceTo(b);
+    }
   }
 
   void insertSync(DbVector vector, int pageId, int slotId) {
@@ -160,7 +178,7 @@ class HnswIndex {
 
   int _searchLayerGreedy(DbVector query, int enterNodeId, int level) {
     int currNodeId = enterNodeId;
-    double currDist = nodes[currNodeId].vector.distanceTo(query);
+    double currDist = _calculateDistance(nodes[currNodeId].vector, query);
     bool changed = true;
 
     while (changed) {
@@ -168,7 +186,7 @@ class HnswIndex {
       final node = nodes[currNodeId];
       if (level < node.neighbors.length) {
         for (final neighborId in node.neighbors[level]) {
-          final dist = nodes[neighborId].vector.distanceTo(query);
+          final dist = _calculateDistance(nodes[neighborId].vector, query);
           if (dist < currDist) {
             currDist = dist;
             currNodeId = neighborId;
@@ -180,22 +198,30 @@ class HnswIndex {
     return currNodeId;
   }
 
-  List<int> _searchLayer(DbVector query, List<int> enterNodes, int ef, int level) {
+  List<int> _searchLayer(DbVector query, List<int> enterNodes, int ef, int level, {bool Function(int pageId, int slotId)? filter}) {
     final visited = <int>{...enterNodes};
     final candidates = <_HnswDistance>[];
     for (final id in enterNodes) {
-      candidates.add(_HnswDistance(id, nodes[id].vector.distanceTo(query)));
+      candidates.add(_HnswDistance(id, _calculateDistance(nodes[id].vector, query)));
     }
     candidates.sort((a, b) => a.distance.compareTo(b.distance));
 
-    final results = List<_HnswDistance>.from(candidates);
+    final results = <_HnswDistance>[];
+    for (final c in candidates) {
+      final node = nodes[c.id];
+      if (filter == null || filter(node.pageId, node.slotId)) {
+        results.add(c);
+      }
+    }
 
     while (candidates.isNotEmpty) {
       final curr = candidates.removeAt(0);
-      final furthestResult = results.last;
 
-      if (curr.distance > furthestResult.distance) {
-        break;
+      if (results.isNotEmpty) {
+        final furthestResult = results.last;
+        if (results.length >= ef && curr.distance > furthestResult.distance) {
+          break;
+        }
       }
 
       final node = nodes[curr.id];
@@ -203,10 +229,9 @@ class HnswIndex {
         for (final neighborId in node.neighbors[level]) {
           if (!visited.contains(neighborId)) {
             visited.add(neighborId);
-            final dist = nodes[neighborId].vector.distanceTo(query);
-            final furthest = results.last;
+            final dist = _calculateDistance(nodes[neighborId].vector, query);
 
-            if (dist < furthest.distance || results.length < ef) {
+            if (results.isEmpty || dist < results.last.distance || results.length < ef) {
               final newDist = _HnswDistance(neighborId, dist);
 
               int insertPos = candidates.indexWhere((c) => c.distance > dist);
@@ -216,15 +241,18 @@ class HnswIndex {
                 candidates.insert(insertPos, newDist);
               }
 
-              int resPos = results.indexWhere((r) => r.distance > dist);
-              if (resPos == -1) {
-                results.add(newDist);
-              } else {
-                results.insert(resPos, newDist);
-              }
+              final neighborNode = nodes[neighborId];
+              if (filter == null || filter(neighborNode.pageId, neighborNode.slotId)) {
+                int resPos = results.indexWhere((r) => r.distance > dist);
+                if (resPos == -1) {
+                  results.add(newDist);
+                } else {
+                  results.insert(resPos, newDist);
+                }
 
-              if (results.length > ef) {
-                results.removeLast();
+                if (results.length > ef) {
+                  results.removeLast();
+                }
               }
             }
           }
@@ -238,13 +266,13 @@ class HnswIndex {
   List<int> _selectNeighbors(DbVector query, List<int> candidates, int count) {
     if (candidates.length <= count) return candidates;
     final list = candidates
-        .map((id) => _HnswDistance(id, nodes[id].vector.distanceTo(query)))
+        .map((id) => _HnswDistance(id, _calculateDistance(nodes[id].vector, query)))
         .toList();
     list.sort((a, b) => a.distance.compareTo(b.distance));
     return list.take(count).map((x) => x.id).toList();
   }
 
-  List<HnswNode> search(DbVector query, int k) {
+  List<HnswNode> search(DbVector query, int k, {bool Function(int pageId, int slotId)? filter}) {
     if (nodes.isEmpty || enterNodeId == null) return [];
 
     int currEnterNode = enterNodeId!;
@@ -254,10 +282,10 @@ class HnswIndex {
       currEnterNode = _searchLayerGreedy(query, currEnterNode, l);
     }
 
-    final candidates = _searchLayer(query, [currEnterNode], efSearch > k ? efSearch : k, 0);
+    final candidates = _searchLayer(query, [currEnterNode], efSearch > k ? efSearch : k, 0, filter: filter);
 
     final results = candidates
-        .map((id) => _HnswDistance(id, nodes[id].vector.distanceTo(query)))
+        .map((id) => _HnswDistance(id, _calculateDistance(nodes[id].vector, query)))
         .toList();
     results.sort((a, b) => a.distance.compareTo(b.distance));
 

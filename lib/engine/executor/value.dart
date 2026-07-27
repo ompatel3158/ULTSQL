@@ -387,18 +387,76 @@ class DbVector extends DbValue {
   String toString() => '[${value.join(", ")}]';
 
   double distanceTo(DbVector other) {
-    // Cosine similarity or Euclidean distance. Let's do Cosine Distance (1 - similarity)
-    if (value.length != other.value.length || value.isEmpty) return 1.0;
+    final v1 = value;
+    final v2 = other.value;
+    final len = v1.length;
+    if (len != v2.length || len == 0) return 0.0;
+    double sum = 0.0;
+    int i = 0;
+    final limit = len - 3;
+    for (; i < limit; i += 4) {
+      final d0 = v1[i] - v2[i];
+      final d1 = v1[i + 1] - v2[i + 1];
+      final d2 = v1[i + 2] - v2[i + 2];
+      final d3 = v1[i + 3] - v2[i + 3];
+      sum += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3;
+    }
+    for (; i < len; i++) {
+      final diff = v1[i] - v2[i];
+      sum += diff * diff;
+    }
+    return math.sqrt(sum);
+  }
+
+  double cosineDistanceTo(DbVector other) {
+    final v1 = value;
+    final v2 = other.value;
+    final len = v1.length;
+    if (len != v2.length || len == 0) return 1.0;
     double dotProd = 0.0;
     double normA = 0.0;
     double normB = 0.0;
-    for (int i = 0; i < value.length; i++) {
-      dotProd += value[i] * other.value[i];
-      normA += value[i] * value[i];
-      normB += other.value[i] * other.value[i];
+    int i = 0;
+    final limit = len - 3;
+    for (; i < limit; i += 4) {
+      final a0 = v1[i], b0 = v2[i];
+      final a1 = v1[i + 1], b1 = v2[i + 1];
+      final a2 = v1[i + 2], b2 = v2[i + 2];
+      final a3 = v1[i + 3], b3 = v2[i + 3];
+      dotProd += a0 * b0 + a1 * b1 + a2 * b2 + a3 * b3;
+      normA += a0 * a0 + a1 * a1 + a2 * a2 + a3 * a3;
+      normB += b0 * b0 + b1 * b1 + b2 * b2 + b3 * b3;
+    }
+    for (; i < len; i++) {
+      final a = v1[i], b = v2[i];
+      dotProd += a * b;
+      normA += a * a;
+      normB += b * b;
     }
     if (normA == 0.0 || normB == 0.0) return 1.0;
-    return 1.0 - (dotProd / (normA.isNaN ? 1.0 : (normB.isNaN ? 1.0 : (normA * normB == 0 ? 1.0 : (normA * normB < 0 ? 0.0 : (normA * normB).toDouble())).toDouble().sqrt().toDouble())));
+    final denominator = math.sqrt(normA) * math.sqrt(normB);
+    if (denominator == 0.0) return 1.0;
+    return 1.0 - (dotProd / denominator);
+  }
+
+  double dotProductTo(DbVector other) {
+    final v1 = value;
+    final v2 = other.value;
+    final len = v1.length;
+    if (len != v2.length || len == 0) return 0.0;
+    double dotProd = 0.0;
+    int i = 0;
+    final limit = len - 3;
+    for (; i < limit; i += 4) {
+      dotProd += v1[i] * v2[i] +
+          v1[i + 1] * v2[i + 1] +
+          v1[i + 2] * v2[i + 2] +
+          v1[i + 3] * v2[i + 3];
+    }
+    for (; i < len; i++) {
+      dotProd += v1[i] * v2[i];
+    }
+    return -dotProd;
   }
 }
 
@@ -668,3 +726,280 @@ class RowMap extends MapBase<String, DbValue> {
   @override
   DbValue? remove(Object? key) => null;
 }
+
+List<String> parseJsonPath(String pathStr) {
+  if (pathStr.startsWith('\$.')) {
+    pathStr = pathStr.substring(2);
+  } else if (pathStr.startsWith('\$')) {
+    pathStr = pathStr.substring(1);
+  }
+  if (pathStr.isEmpty) return [];
+  return pathStr.split('.');
+}
+
+dynamic deepCopyJson(dynamic val) {
+  if (val is Map || val is List) {
+    return json.decode(json.encode(val));
+  }
+  return val;
+}
+
+dynamic setJsonValue(dynamic current, List<String> segments, dynamic valueToSet) {
+  if (segments.isEmpty) {
+    return valueToSet;
+  }
+  final key = segments.first;
+  if (segments.length == 1) {
+    if (current is Map) {
+      final copy = Map<String, dynamic>.from(current);
+      copy[key] = valueToSet;
+      return copy;
+    } else if (current is List) {
+      final idx = int.tryParse(key);
+      if (idx != null && idx >= 0) {
+        final copy = List<dynamic>.from(current);
+        while (copy.length <= idx) {
+          copy.add(null);
+        }
+        copy[idx] = valueToSet;
+        return copy;
+      }
+    } else {
+      final idx = int.tryParse(key);
+      if (idx != null && idx >= 0) {
+        final copy = <dynamic>[];
+        while (copy.length <= idx) {
+          copy.add(null);
+        }
+        copy[idx] = valueToSet;
+        return copy;
+      } else {
+        return {key: valueToSet};
+      }
+    }
+  } else {
+    if (current is Map) {
+      final copy = Map<String, dynamic>.from(current);
+      final nextVal = copy[key];
+      copy[key] = setJsonValue(nextVal, segments.sublist(1), valueToSet);
+      return copy;
+    } else if (current is List) {
+      final idx = int.tryParse(key);
+      if (idx != null && idx >= 0) {
+        final copy = List<dynamic>.from(current);
+        while (copy.length <= idx) {
+          copy.add(null);
+        }
+        final nextVal = copy[idx];
+        copy[idx] = setJsonValue(nextVal, segments.sublist(1), valueToSet);
+        return copy;
+      }
+    } else {
+      final idx = int.tryParse(key);
+      if (idx != null && idx >= 0) {
+        final copy = <dynamic>[];
+        while (copy.length <= idx) {
+          copy.add(null);
+        }
+        copy[idx] = setJsonValue(null, segments.sublist(1), valueToSet);
+        return copy;
+      } else {
+        return {key: setJsonValue(null, segments.sublist(1), valueToSet)};
+      }
+    }
+  }
+  return current;
+}
+
+dynamic removeJsonValue(dynamic current, List<String> segments) {
+  if (segments.isEmpty) {
+    return current;
+  }
+  final key = segments.first;
+  if (segments.length == 1) {
+    if (current is Map) {
+      final copy = Map<String, dynamic>.from(current);
+      copy.remove(key);
+      return copy;
+    } else if (current is List) {
+      final idx = int.tryParse(key);
+      if (idx != null && idx >= 0 && idx < current.length) {
+        final copy = List<dynamic>.from(current);
+        copy.removeAt(idx);
+        return copy;
+      }
+    }
+  } else {
+    if (current is Map) {
+      if (current.containsKey(key)) {
+        final copy = Map<String, dynamic>.from(current);
+        copy[key] = removeJsonValue(copy[key], segments.sublist(1));
+        return copy;
+      }
+    } else if (current is List) {
+      final idx = int.tryParse(key);
+      if (idx != null && idx >= 0 && idx < current.length) {
+        final copy = List<dynamic>.from(current);
+        copy[idx] = removeJsonValue(copy[idx], segments.sublist(1));
+        return copy;
+      }
+    }
+  }
+  return current;
+}
+
+dynamic rawValueForJson(DbValue dbVal) {
+  if (dbVal is DbNull) return null;
+  if (dbVal is DbInt) return dbVal.value;
+  if (dbVal is DbDouble) return dbVal.value;
+  if (dbVal is DbText) return dbVal.value;
+  if (dbVal is DbJson) return dbVal.value;
+  if (dbVal is DbVector) return dbVal.value;
+  return dbVal.value;
+}
+
+DbValue evalJsonSet(DbValue jsonVal, DbValue pathVal, DbValue valueVal) {
+  if (pathVal is DbNull) return DbNull();
+  final pathStr = pathVal.toString();
+  final pathSegments = parseJsonPath(pathStr);
+
+  dynamic jsonParsed;
+  if (jsonVal is DbJson) {
+    jsonParsed = deepCopyJson(jsonVal.value);
+  } else if (jsonVal is DbText) {
+    try {
+      jsonParsed = json.decode(jsonVal.value);
+    } catch (_) {
+      jsonParsed = jsonVal.value;
+    }
+  } else if (jsonVal is DbNull) {
+    jsonParsed = null;
+  } else {
+    jsonParsed = jsonVal.value;
+  }
+
+  final rawVal = rawValueForJson(valueVal);
+  final updated = setJsonValue(jsonParsed, pathSegments, rawVal);
+  return DbJson(updated);
+}
+
+DbValue evalJsonRemove(DbValue jsonVal, DbValue pathVal) {
+  if (pathVal is DbNull) return DbNull();
+  final pathStr = pathVal.toString();
+  final pathSegments = parseJsonPath(pathStr);
+
+  dynamic jsonParsed;
+  if (jsonVal is DbJson) {
+    jsonParsed = deepCopyJson(jsonVal.value);
+  } else if (jsonVal is DbText) {
+    try {
+      jsonParsed = json.decode(jsonVal.value);
+    } catch (_) {
+      jsonParsed = jsonVal.value;
+    }
+  } else if (jsonVal is DbNull) {
+    jsonParsed = null;
+  } else {
+    jsonParsed = jsonVal.value;
+  }
+
+  final updated = removeJsonValue(jsonParsed, pathSegments);
+  return DbJson(updated);
+}
+
+DbValue evalJsonArray(List<DbValue> args) {
+  final list = args.map(rawValueForJson).toList();
+  return DbJson(list);
+}
+
+DbValue evalJsonObject(List<DbValue> args) {
+  if (args.length % 2 != 0) {
+    throw Exception('JSON_OBJECT requires an even number of arguments');
+  }
+  final map = <String, dynamic>{};
+  for (int i = 0; i < args.length; i += 2) {
+    final key = args[i].toString();
+    final value = rawValueForJson(args[i + 1]);
+    map[key] = value;
+  }
+  return DbJson(map);
+}
+
+class DbList extends DbValue {
+  final List<DbValue> elements;
+  const DbList(this.elements);
+
+  @override
+  DataType get type => DataType.json;
+
+  @override
+  dynamic get value => elements;
+
+  @override
+  Uint8List toBytes() => Uint8List(0);
+
+  @override
+  int compareTo(DbValue other) {
+    if (other is DbList) {
+      if (elements.length != other.elements.length) {
+        return elements.length.compareTo(other.elements.length);
+      }
+      for (int i = 0; i < elements.length; i++) {
+        final cmp = elements[i].compareTo(other.elements[i]);
+        if (cmp != 0) return cmp;
+      }
+      return 0;
+    }
+    return -1;
+  }
+
+  @override
+  DbValue operator +(DbValue other) => DbNull();
+  @override
+  DbValue operator -(DbValue other) => DbNull();
+  @override
+  DbValue operator *(DbValue other) => DbNull();
+  @override
+  DbValue operator /(DbValue other) => DbNull();
+  @override
+  DbValue concat(DbValue other) => DbNull();
+
+  @override
+  String toString() => '[${elements.map((e) => e.toString()).join(", ")}]';
+}
+
+class SubqueryContext {
+  static final List<Map<String, DbValue>> _contextStack = [];
+
+  static void push(Map<String, DbValue> context) {
+    _contextStack.add(context);
+  }
+
+  static void pop() {
+    if (_contextStack.isNotEmpty) {
+      _contextStack.removeLast();
+    }
+  }
+
+  static DbValue? lookup(String name) {
+    final lowerName = name.toLowerCase();
+    for (int i = _contextStack.length - 1; i >= 0; i--) {
+      final context = _contextStack[i];
+      if (context.containsKey(name)) {
+        return context[name];
+      }
+      for (final key in context.keys) {
+        if (key.toLowerCase() == lowerName) {
+          return context[key];
+        }
+      }
+      for (final entry in context.entries) {
+        if (entry.key.endsWith('.$name') || entry.key == name) {
+          return entry.value;
+        }
+      }
+    }
+    return null;
+  }
+}
+

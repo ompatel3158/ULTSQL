@@ -33,14 +33,15 @@ graph TD
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Setup and Installation](#setup-and-installation)
-3. [Supported SQL Syntax](#supported-sql-syntax)
-4. [Supported PL/SQL Syntax](#supported-plsql-syntax)
-5. [NoSQL Dotted-Path JSON Querying](#nosql-dotted-path-json-querying)
-6. [Vector Similarity / HNSW Semantic Search](#vector-similarity--hnsw-semantic-search)
-7. [Enterprise Security & Replication](#enterprise-security--replication)
-8. [Under-the-Hood Performance Features (How We Beat SQLite)](#under-the-hood-performance-features-how-we-beat-sqlite)
-9. [Side-by-Side Hardware Benchmarks](#side-by-side-hardware-benchmarks)
-10. [Codebase Index](#codebase-index)
+4. [Enterprise 6-Pillars Architecture (Speed, Capability, Durability, Reliability, Strength, Recovery)](#enterprise-6-pillars-architecture)
+5. [Supported SQL Syntax](#supported-sql-syntax)
+6. [Supported PL/SQL Syntax](#supported-plsql-syntax)
+7. [NoSQL Dotted-Path JSON Querying](#nosql-dotted-path-json-querying)
+8. [Vector Similarity / HNSW Semantic Search](#vector-similarity--hnsw-semantic-search)
+9. [Enterprise Security & Replication](#enterprise-security--replication)
+10. [Under-the-Hood Performance Features (How We Beat SQLite)](#under-the-hood-performance-features-how-we-beat-sqlite)
+11. [Side-by-Side Hardware Benchmarks](#side-by-side-hardware-benchmarks)
+12. [Codebase Index](#codebase-index)
 
 ---
 
@@ -82,6 +83,21 @@ The **Hybrid SQL Engine** consolidates all four models. It includes:
    ```
 
 The application provides a premium dark-themed interactive IDE ([EditorScreen](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/ui/editor_screen.dart#L9)) loaded with templates to easily run, measure, and analyze performance across relational JOIN, NoSQL, Vector, and PL/SQL scripts.
+
+---
+
+## Enterprise 6-Pillars Architecture
+
+ULTSQL has been upgraded with enterprise-grade capabilities across 6 fundamental pillars:
+
+| Pillar | Technology / Module | Key Benefit |
+| :--- | :--- | :--- |
+| ⚡ **Speed** | [PlanCache](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/executor/plan_cache.dart) & SIMD Unrolled Loops | Sub-millisecond query plan compilation reuse & SIMD-style vector distance calculations for HNSW. |
+| 🛠️ **Capability** | [DatabaseBackupManager](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/storage/backup_manager.dart) & ACID Savepoints | Online point-in-time database snapshot backups, checksum validation, and nested transactions. |
+| 🛡️ **Durability** | [Crc32](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/cache/crc32.dart) Checksums & Checkpointing | IEEE 802.3 CRC32 page checksumming and `CHECKPOINT` WAL flushing. |
+| 🔐 **Reliability** | Page Memory Caps & Corruption Guard | Strict capacity memory guards in `PageCache` and page corruption exception handling. |
+| 💪 **Strength** | Isolated Session Transaction Contexts | Safe concurrent execution with isolated thread/zone transaction context bindings. |
+| 🔄 **Recovery** | [WalRecoveryEngine](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/storage/wal_recovery.dart) | Automatic startup crash recovery: replays committed transactions and reverts uncommitted writes. |
 
 ---
 

@@ -36,6 +36,7 @@ class Lexer {
     'indexes': TokenType.indexesKeyword,
     'to': TokenType.to,
     'with': TokenType.withKeyword,
+    'in': TokenType.inKeyword,
     'generate': TokenType.generate,
     'group': TokenType.groupKeyword,
     'like': TokenType.likeKeyword,
@@ -53,6 +54,8 @@ class Lexer {
     'add': TokenType.addKeyword,
     'drop': TokenType.dropKeyword,
     'column': TokenType.columnKeyword,
+    'check': TokenType.checkKeyword,
+    'default': TokenType.defaultKeyword,
     'declare': TokenType.declare,
     'begin': TokenType.begin,
     'end': TokenType.end,
@@ -74,6 +77,47 @@ class Lexer {
     'returns': TokenType.returnsKeyword,
     'return': TokenType.returnKeyword,
     'call': TokenType.callKeyword,
+    'union': TokenType.union,
+    'all': TokenType.all,
+    'over': TokenType.over,
+    'partition': TokenType.partition,
+    'intersect': TokenType.intersect,
+    'except': TokenType.except,
+    'distinct': TokenType.distinct,
+    'offset': TokenType.offset,
+    'savepoint': TokenType.savepointKeyword,
+    'release': TokenType.releaseKeyword,
+    'cursor': TokenType.cursorKeyword,
+    'for': TokenType.forKeyword,
+    'open': TokenType.openKeyword,
+    'fetch': TokenType.fetchKeyword,
+    'close': TokenType.closeKeyword,
+    'trigger': TokenType.triggerKeyword,
+    'before': TokenType.beforeKeyword,
+    'after': TokenType.afterKeyword,
+    'each': TokenType.eachKeyword,
+    'row': TokenType.rowKeyword,
+    'exception': TokenType.exceptionKeyword,
+    'when': TokenType.whenKeyword,
+    'fts': TokenType.ftsKeyword,
+    'match': TokenType.matchKeyword,
+    'recursive': TokenType.recursiveKeyword,
+    'rollup': TokenType.rollupKeyword,
+    'cube': TokenType.cubeKeyword,
+    'grouping': TokenType.groupingKeyword,
+    'sets': TokenType.setsKeyword,
+    'foreign': TokenType.foreignKeyword,
+    'server': TokenType.serverKeyword,
+    'options': TokenType.optionsKeyword,
+    'checkpoint': TokenType.checkpointKeyword,
+    'vacuum': TokenType.vacuumKeyword,
+    'full': TokenType.fullKeyword,
+    'of': TokenType.ofKeyword,
+    'system': TokenType.systemKeyword,
+    'time': TokenType.timeKeyword,
+    'transaction': TokenType.transactionKeyword,
+    'range': TokenType.rangeKeyword,
+    'masked': TokenType.maskedKeyword,
   };
 
   bool get _isAtEnd => _position >= source.length;
@@ -182,6 +226,14 @@ class Lexer {
       case '+':
         return Token(TokenType.plus, '+', startLine, startCol);
       case '-':
+        if (_peek() == '>') {
+          _advance();
+          if (_peek() == '>') {
+            _advance();
+            return Token(TokenType.arrowText, '->>', startLine, startCol);
+          }
+          return Token(TokenType.arrow, '->', startLine, startCol);
+        }
         return Token(TokenType.minus, '-', startLine, startCol);
       case '*':
         return Token(TokenType.asterisk, '*', startLine, startCol);

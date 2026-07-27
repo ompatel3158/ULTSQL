@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import '../parser/ast.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
 import '../storage/hnsw_index.dart';
+import '../storage/ivf_flat_index.dart';
 import '../cache/page_cache.dart';
 import 'plan_nodes.dart';
 import 'value.dart';
@@ -22,14 +24,286 @@ class QueryPlanner {
     required this.dbDirectory,
   });
 
-  PlanNode planSelect(SelectStmt stmt) {
-    stmt = _rewriteSelectStmt(stmt);
-    final tableName = stmt.tableName.toLowerCase();
-    final schema = catalog.getTableSchema(tableName);
-    if (schema == null) {
-      throw Exception("Table '$tableName' does not exist in catalog.");
+  String _normalizeExprString(String sql, String tableName) {
+    String s = sql.trim();
+    
+    bool hasOuterParens(String str) {
+      if (!str.startsWith('(') || !str.endsWith(')')) return false;
+      int depth = 0;
+      for (int i = 0; i < str.length - 1; i++) {
+        if (str[i] == '(') depth++;
+        else if (str[i] == ')') depth--;
+        if (depth == 0) return false;
+      }
+      return depth == 1;
     }
 
+    while (hasOuterParens(s)) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+    
+    s = s.replaceAll(RegExp(r'\s+'), '');
+    
+    final lowerSql = s.toLowerCase();
+    final lowerTable = tableName.toLowerCase();
+    final prefix = '$lowerTable.';
+    if (lowerSql.startsWith(prefix)) {
+      return lowerSql.substring(prefix.length);
+    }
+    return lowerSql;
+  }
+
+  int _getKeyColumnsCount(IndexSchema idxSchema) {
+    final schema = catalog.getTableSchema(idxSchema.tableName.toLowerCase());
+    if (schema == null) return 1;
+    final bool isSimple = idxSchema.columnName.split(',').every((col) => schema.columnNamesLower.contains(col.trim().toLowerCase()));
+    return isSimple ? idxSchema.columnName.split(',').length : 1;
+  }
+
+  PlanNode planUnion(UnionStmt stmt) {
+    final children = stmt.selectStmts.map((s) => planSelect(s)).toList();
+    return UnionNode(children, stmt.isAllFlags);
+  }
+
+  PlanNode planIntersect(IntersectStmt stmt) {
+    final children = stmt.selectStmts.map((s) => planSelect(s)).toList();
+    return IntersectNode(children);
+  }
+
+  PlanNode planExcept(ExceptStmt stmt) {
+    final children = stmt.selectStmts.map((s) => planSelect(s)).toList();
+    return ExceptNode(children);
+  }
+
+  PlanNode planSelect(SelectStmt stmt) {
+    if (stmt is CteSelectStmt) {
+      if (stmt.isRecursive) {
+        final cteName = stmt.ctes.keys.first;
+        final cteStmt = stmt.ctes[cteName]!;
+        SelectStmt anchorStmt;
+        SelectStmt recursiveStmt;
+        if (cteStmt is UnionStmt) {
+          anchorStmt = cteStmt.selectStmts.first;
+          recursiveStmt = cteStmt.selectStmts.last;
+        } else if (cteStmt is SelectStmt) {
+          anchorStmt = cteStmt;
+          recursiveStmt = cteStmt;
+        } else {
+          final rewritten = _substituteCtes(stmt.mainSelect, stmt.ctes);
+          return planSelect(rewritten);
+        }
+        return _planWithRecursiveCte(stmt, anchorStmt, recursiveStmt, cteName);
+      } else {
+        final rewritten = _substituteCtes(stmt.mainSelect, stmt.ctes);
+        return planSelect(rewritten);
+      }
+    }
+    stmt = _rewriteSelectStmt(stmt);
+
+    TableSchema schema;
+    late PlanNode scanNode;
+    bool isParallelScan = false;
+    List<Projection> projections = stmt.projections;
+
+    IndexSchema? targetIndexSchema;
+    List<double>? lowKeys;
+    List<double>? highKeys;
+    bool useIndexScan = false;
+    bool needFilterNode = false;
+
+    if (stmt.fromSubquery != null) {
+      final subPlan = planSelect(stmt.fromSubquery!);
+      final List<String> colNames = [];
+      final List<DataType> colTypes = [];
+      for (final proj in stmt.fromSubquery!.projections) {
+        if (proj.alias != null) {
+          colNames.add(proj.alias!);
+        } else if (proj.expr is VariableExpr) {
+          colNames.add((proj.expr as VariableExpr).path.last);
+        } else {
+          colNames.add(exprToSqlString(proj.expr));
+        }
+        colTypes.add(DataType.text);
+      }
+      final subqueryAlias = stmt.tableAlias ?? 'subquery';
+      schema = TableSchema(
+        name: subqueryAlias,
+        columnNames: colNames,
+        columnTypes: colTypes,
+      );
+      scanNode = SubqueryScanNode(subPlan, alias: stmt.tableAlias, selectColumns: colNames);
+      projections = stmt.projections;
+      if (projections.length == 1 &&
+          projections[0].expr is VariableExpr &&
+          (projections[0].expr as VariableExpr).path.first == '*') {
+        final list = <Projection>[];
+        for (final col in schema.columnNames) {
+          list.add(Projection(VariableExpr([col]), null));
+        }
+        for (final join in stmt.joins) {
+          final joinTable = join.tableName.toLowerCase();
+          final joinSchema = catalog.getTableSchema(joinTable);
+          if (joinSchema != null) {
+            for (final col in joinSchema.columnNames) {
+              list.add(Projection(VariableExpr([joinSchema.name, col]), null));
+            }
+          }
+        }
+        projections = list;
+      }
+    } else if (stmt.fromFunction != null) {
+      final colNames = <String>[];
+      final colTypes = <DataType>[];
+      try {
+        final val = evaluateExpression(stmt.fromFunction!, {});
+        print("--- TVF EVAL VAL: $val (${val.runtimeType}) ---");
+        List<dynamic> elements = [];
+        if (val is DbList) {
+          elements = val.elements;
+        } else if (val is DbJson && val.value is List) {
+          elements = val.value as List;
+        } else if (val is DbText) {
+          try {
+            final decoded = json.decode(val.value);
+            if (decoded is List) elements = decoded;
+          } catch (_) {}
+        }
+        if (elements.isNotEmpty) {
+          final first = elements.first;
+          if (first is Map) {
+            for (final k in first.keys) {
+              colNames.add(k.toString());
+              colTypes.add(DataType.text);
+            }
+          } else if (first is List) {
+            for (int i = 0; i < first.length; i++) {
+              colNames.add('col$i');
+              colTypes.add(DataType.text);
+            }
+          } else if (first is DbJson && first.value is Map) {
+            final map = first.value as Map;
+            for (final k in map.keys) {
+              colNames.add(k.toString());
+              colTypes.add(DataType.text);
+            }
+          } else if (first is DbList) {
+            for (int i = 0; i < first.elements.length; i++) {
+              colNames.add('col$i');
+              colTypes.add(first.elements[i].type);
+            }
+          } else if (first is DbJson && first.value is List) {
+            final list = first.value as List;
+            for (int i = 0; i < list.length; i++) {
+              colNames.add('col$i');
+              colTypes.add(DataType.text);
+            }
+          } else {
+            colNames.add('value');
+            colTypes.add(first is DbValue ? first.type : DataType.text);
+          }
+        }
+      } catch (_) {}
+      if (colNames.isEmpty) {
+        colNames.add('value');
+        colTypes.add(DataType.text);
+      }
+      final funcAlias = stmt.tableAlias ?? stmt.fromFunction!.name;
+      schema = TableSchema(
+        name: funcAlias,
+        columnNames: colNames,
+        columnTypes: colTypes,
+      );
+      scanNode = FunctionScanNode(stmt.fromFunction!, alias: stmt.tableAlias);
+      projections = stmt.projections;
+      if (projections.length == 1 &&
+          projections[0].expr is VariableExpr &&
+          (projections[0].expr as VariableExpr).path.first == '*') {
+        final list = <Projection>[];
+        for (final col in schema.columnNames) {
+          list.add(Projection(VariableExpr([col]), null));
+        }
+        if (stmt.join != null) {
+          final joinTable = stmt.join!.tableName.toLowerCase();
+          final joinSchema = catalog.getTableSchema(joinTable);
+          if (joinSchema != null) {
+            for (final col in joinSchema.columnNames) {
+              list.add(Projection(VariableExpr([joinSchema.name, col]), null));
+            }
+          }
+        }
+        projections = list;
+      }
+    } else {
+      final tableName = stmt.tableName.toLowerCase();
+      final loadedSchema = catalog.getTableSchema(tableName);
+      print('Planner loaded schema for $tableName: isForeign=${loadedSchema?.isForeign}');
+      if (loadedSchema == null) {
+        if (tableName.isEmpty) {
+          final colNames = <String>[];
+          final colTypes = <DataType>[];
+          for (final proj in stmt.projections) {
+            if (proj.alias != null) {
+              colNames.add(proj.alias!);
+            } else if (proj.expr is VariableExpr) {
+              colNames.add((proj.expr as VariableExpr).path.last);
+            } else {
+              colNames.add(exprToSqlString(proj.expr));
+            }
+            colTypes.add(DataType.text);
+          }
+          if (colNames.isEmpty) {
+            colNames.add('dual');
+            colTypes.add(DataType.text);
+          }
+          schema = TableSchema(name: 'dual', columnNames: colNames, columnTypes: colTypes);
+          scanNode = MemoryScanNode([<String, DbValue>{}]);
+        } else {
+          throw Exception("Table '$tableName' does not exist in catalog.");
+        }
+      } else {
+        schema = loadedSchema;
+      }
+
+      projections = stmt.projections;
+      if (projections.length == 1 &&
+          projections[0].expr is VariableExpr &&
+          (projections[0].expr as VariableExpr).path.first == '*') {
+        final list = <Projection>[];
+        for (final col in schema.columnNames) {
+          list.add(Projection(VariableExpr([col]), null));
+        }
+        for (final join in stmt.joins) {
+          final joinTable = join.tableName.toLowerCase();
+          final joinSchema = catalog.getTableSchema(joinTable);
+          if (joinSchema != null) {
+            for (final col in joinSchema.columnNames) {
+              list.add(Projection(VariableExpr([joinSchema.name, col]), null));
+            }
+          }
+        }
+        projections = list;
+      }
+
+      if (schema.partitionChildren.isNotEmpty) {
+        final childrenNodes = <PlanNode>[];
+        for (final child in schema.partitionChildren) {
+          final childStmt = SelectStmt(
+            projections: [Projection(VariableExpr(['*']), null)],
+            tableName: child,
+          );
+          PlanNode childNode = planSelect(childStmt);
+          final parentAlias = stmt.tableAlias ?? stmt.tableName;
+          childNode = SubqueryScanNode(childNode, alias: parentAlias, selectColumns: schema.columnNames);
+          childrenNodes.add(childNode);
+        }
+        if (childrenNodes.isEmpty) {
+          scanNode = MemoryScanNode([]);
+        } else if (childrenNodes.length == 1) {
+          scanNode = childrenNodes.first;
+        } else {
+          scanNode = UnionNode(childrenNodes, List.filled(childrenNodes.length - 1, true));
+        }
+      } else {
     // Check if we can use HNSW index scan for ORDER BY vector_distance
     if (stmt.orderBy != null) {
       final orderExpr = stmt.orderBy!.expr;
@@ -49,12 +323,12 @@ class QueryPlanner {
         }
       }
 
-      if (vectorDistExpr != null && vectorDistExpr.arguments.length == 2) {
+      if (vectorDistExpr != null && (vectorDistExpr.arguments.length == 2 || vectorDistExpr.arguments.length == 3)) {
         final firstArg = vectorDistExpr.arguments[0];
         if (firstArg is VariableExpr) {
           final colName = firstArg.path.last.toLowerCase();
           final idx = catalog.getIndexForColumn(tableName, colName);
-          if (idx != null && idx.usingMethod == 'hnsw') {
+          if (idx != null && (idx.usingMethod == 'hnsw' || idx.usingMethod == 'ivf_flat')) {
             var queryVecVal = evaluateExpression(vectorDistExpr.arguments[1], {});
             if (queryVecVal is DbText) {
               final text = queryVecVal.value.trim();
@@ -66,18 +340,40 @@ class QueryPlanner {
               }
             }
             if (queryVecVal is DbVector) {
+              String metric = 'euclidean';
+              if (vectorDistExpr.arguments.length == 3) {
+                final metricVal = evaluateExpression(vectorDistExpr.arguments[2], {});
+                if (metricVal is DbText) {
+                  metric = metricVal.value.toLowerCase();
+                }
+              }
               final limit = stmt.limit ?? 10;
               final rowTableFile = RowTableFile(cache: cache, tableName: schema.name, dbDirectory: dbDirectory);
-              final indexFile = '$dbDirectory/${idx.name.toLowerCase()}.hnsw';
-              final hnswIndex = HnswIndex(indexPath: indexFile, autoSave: false);
+              final isIvf = idx.usingMethod == 'ivf_flat';
+              final indexFile = '$dbDirectory/${idx.name.toLowerCase()}.${isIvf ? 'ivf_flat' : 'hnsw'}';
               
-              PlanNode plan = HnswScanNode(
-                tableFile: rowTableFile,
-                schema: schema,
-                index: hnswIndex,
-                queryVector: queryVecVal,
-                limit: limit,
-              );
+              PlanNode plan;
+              if (isIvf) {
+                final ivfIndex = IvfFlatIndex(indexPath: indexFile, autoSave: false, metric: metric);
+                plan = IvfFlatScanNode(
+                  tableFile: rowTableFile,
+                  schema: schema,
+                  index: ivfIndex,
+                  queryVector: queryVecVal,
+                  limit: limit,
+                  filterCondition: stmt.whereCondition,
+                );
+              } else {
+                final hnswIndex = HnswIndex(indexPath: indexFile, autoSave: false, metric: metric);
+                plan = HnswScanNode(
+                  tableFile: rowTableFile,
+                  schema: schema,
+                  index: hnswIndex,
+                  queryVector: queryVecVal,
+                  limit: limit,
+                  filterCondition: stmt.whereCondition,
+                );
+              }
               
               if (schema.policies.isNotEmpty) {
                 Expression combinedPolicy = schema.policies.first.condition;
@@ -106,36 +402,28 @@ class QueryPlanner {
       }
     }
 
-    bool isParallelScan = false;
+    isParallelScan = false;
 
-    var projections = stmt.projections;
-    if (projections.length == 1 &&
-        projections[0].expr is VariableExpr &&
-        (projections[0].expr as VariableExpr).path.first == '*') {
-      final list = <Projection>[];
-      for (final col in schema.columnNames) {
-        list.add(Projection(VariableExpr([col]), null));
-      }
-      if (stmt.join != null) {
-        final joinTable = stmt.join!.tableName.toLowerCase();
-        final joinSchema = catalog.getTableSchema(joinTable);
-        if (joinSchema != null) {
-          for (final col in joinSchema.columnNames) {
-            list.add(Projection(VariableExpr([joinSchema.name, col]), null));
-          }
-        }
-      }
-      projections = list;
-    }
-
-    IndexSchema? targetIndexSchema;
-    List<double>? lowKeys;
-    List<double>? highKeys;
-    bool useIndexScan = false;
-    bool needFilterNode = false;
+    targetIndexSchema = null;
+    lowKeys = null;
+    highKeys = null;
+    useIndexScan = false;
+    needFilterNode = false;
 
     if (!schema.isColumnar && stmt.whereCondition != null) {
-      final indexes = catalog.getIndexesForTable(tableName);
+      final matchExpr = _findMatchExpr(stmt.whereCondition!);
+      if (matchExpr != null) {
+        scanNode = FtsScanNode(
+          tableName: tableName,
+          columnName: matchExpr.columnName,
+          searchQuery: matchExpr.searchQuery,
+          dbDirectory: dbDirectory,
+          cache: cache,
+          catalog: catalog,
+        );
+        useIndexScan = true;
+      } else {
+        final indexes = catalog.getIndexesForTable(tableName);
       IndexSchema? bestIndex;
       List<double>? bestLowKeys;
       List<double>? bestHighKeys;
@@ -219,8 +507,8 @@ class QueryPlanner {
         }
       }
     }
+  }
 
-    PlanNode scanNode;
     if (schema.isColumnar) {
       // Columnar Projection Push-down Optimization
       final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
@@ -234,7 +522,7 @@ class QueryPlanner {
     } else if (useIndexScan && targetIndexSchema != null) {
       final indexName = targetIndexSchema.name.toLowerCase();
       final indexFile = '$dbDirectory/$indexName.idx';
-      final btreeIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: targetIndexSchema.columnName.split(',').length);
+      final btreeIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: _getKeyColumnsCount(targetIndexSchema));
       final rowTableFile = RowTableFile(
         cache: cache,
         tableName: schema.name,
@@ -250,13 +538,22 @@ class QueryPlanner {
         high: highKeys,
         projectedColIndexes: neededColIndexes,
       );
-    } else {
+    } else if (!useIndexScan && stmt.fromSubquery == null && stmt.fromFunction == null && stmt.tableName.isNotEmpty) {
       final rowTableFile = RowTableFile(
         cache: cache,
         tableName: schema.name,
         dbDirectory: dbDirectory,
       );
-      final pager = cache.getOrCreatePager(rowTableFile.filePath);
+      if (schema.isForeign) {
+        final dummyStmt = CreateForeignTableStmt(
+          schema.name,
+          List.generate(schema.columnNames.length, (i) => ColumnDef(schema.columnNames[i], schema.columnTypes[i])),
+          schema.foreignServer!,
+          schema.foreignOptions!
+        );
+        scanNode = ForeignScanNode(dummyStmt);
+      } else {
+        final pager = cache.getOrCreatePager(rowTableFile.filePath);
       final pageCount = pager.getPageCountSync();
       final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
       
@@ -275,9 +572,23 @@ class QueryPlanner {
         );
         isParallelScan = true;
       } else {
-        scanNode = RowScanNode(rowTableFile, schema, neededColIndexes);
+        int? asOfTxId;
+        if (stmt.asOfClause != null) {
+          final val = evaluateExpression(stmt.asOfClause!.expr, {});
+          if (val is DbInt) {
+            asOfTxId = val.value;
+          } else if (val is DbDouble) {
+            asOfTxId = val.value.toInt();
+          } else {
+            asOfTxId = int.tryParse(val.toString());
+          }
+        }
+        scanNode = RowScanNode(rowTableFile, schema, neededColIndexes, asOfTxId);
       }
     }
+    }
+    }
+  }
 
     if (schema.policies.isNotEmpty) {
       Expression combinedPolicy = schema.policies.first.condition;
@@ -289,33 +600,65 @@ class QueryPlanner {
 
     PlanNode currentPlan = scanNode;
 
-    // 1. Handle JOIN
-    if (stmt.join != null) {
-      final joinTable = stmt.join!.tableName.toLowerCase();
-      final joinSchema = catalog.getTableSchema(joinTable);
-      if (joinSchema == null) {
-        throw Exception("Join table '$joinTable' does not exist.");
-      }
+    final List<String> leftColumns = [];
+    for (final col in schema.columnNames) {
+      leftColumns.add(col);
+      leftColumns.add('${schema.name}.$col');
+    }
 
+    // 1. Handle JOIN
+    for (final join in stmt.joins) {
       PlanNode joinScan;
-      if (joinSchema.isColumnar) {
-        // Collect all column indexes needed for join table
-        final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(stmt, joinSchema);
-        final colTableFile = ColumnTableFile(
-          cache: cache,
-          tableName: joinSchema.name,
-          dbDirectory: dbDirectory,
-          schema: joinSchema,
+      TableSchema joinSchema;
+      String joinTable = '';
+      if (join.fromSubquery != null) {
+        final subPlan = planSelect(join.fromSubquery!);
+        final List<String> colNames = [];
+        final List<DataType> colTypes = [];
+        for (final proj in join.fromSubquery!.projections) {
+          if (proj.alias != null) {
+            colNames.add(proj.alias!);
+          } else if (proj.expr is VariableExpr) {
+            colNames.add((proj.expr as VariableExpr).path.last);
+          } else {
+            colNames.add(exprToSqlString(proj.expr));
+          }
+          colTypes.add(DataType.text);
+        }
+        final joinAlias = join.alias ?? 'join_subquery';
+        joinSchema = TableSchema(
+          name: joinAlias,
+          columnNames: colNames,
+          columnTypes: colTypes,
         );
-        joinScan = ColumnScanNode(colTableFile, joinSchema, neededJoinColIndexes);
+        joinScan = SubqueryScanNode(subPlan, alias: join.alias, selectColumns: colNames);
+        joinTable = joinAlias;
       } else {
-        final rowTableFile = RowTableFile(
-          cache: cache,
-          tableName: joinSchema.name,
-          dbDirectory: dbDirectory,
-        );
-        final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(stmt, joinSchema);
-        joinScan = RowScanNode(rowTableFile, joinSchema, neededJoinColIndexes);
+        joinTable = join.tableName.toLowerCase();
+        final loadedJoinSchema = catalog.getTableSchema(joinTable);
+        if (loadedJoinSchema == null) {
+          throw Exception("Join table '$joinTable' does not exist.");
+        }
+        joinSchema = loadedJoinSchema;
+        if (joinSchema.isColumnar) {
+          // Collect all column indexes needed for join table
+          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(stmt, join, joinSchema);
+          final colTableFile = ColumnTableFile(
+            cache: cache,
+            tableName: joinSchema.name,
+            dbDirectory: dbDirectory,
+            schema: joinSchema,
+          );
+          joinScan = ColumnScanNode(colTableFile, joinSchema, neededJoinColIndexes);
+        } else {
+          final rowTableFile = RowTableFile(
+            cache: cache,
+            tableName: joinSchema.name,
+            dbDirectory: dbDirectory,
+          );
+          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(stmt, join, joinSchema);
+          joinScan = RowScanNode(rowTableFile, joinSchema, neededJoinColIndexes);
+        }
       }
 
       if (joinSchema.policies.isNotEmpty) {
@@ -327,7 +670,7 @@ class QueryPlanner {
       }
 
       // Extract join columns from condition (e.g. users.dept_id = depts.id)
-      final joinCond = stmt.join!.onCondition;
+      final joinCond = join.onCondition;
       String leftJoinCol = '';
       String rightJoinCol = '';
 
@@ -336,11 +679,16 @@ class QueryPlanner {
           final leftVar = joinCond.left as VariableExpr;
           final rightVar = joinCond.right as VariableExpr;
 
+          final tName = joinTable.toLowerCase();
+          final tAlias = join.alias?.toLowerCase();
+
           final leftTable = leftVar.path[0].toLowerCase();
-          if (leftTable == schema.name.toLowerCase()) {
+          final rightTable = rightVar.path[0].toLowerCase();
+
+          if (rightTable == tName || (tAlias != null && rightTable == tAlias)) {
             leftJoinCol = leftVar.path.sublist(1).join('.');
             rightJoinCol = rightVar.path.sublist(1).join('.');
-          } else {
+          } else if (leftTable == tName || (tAlias != null && leftTable == tAlias)) {
             leftJoinCol = rightVar.path.sublist(1).join('.');
             rightJoinCol = leftVar.path.sublist(1).join('.');
           }
@@ -362,14 +710,17 @@ class QueryPlanner {
           tableName: joinSchema.name,
           dbDirectory: dbDirectory,
         );
-        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: idx!.columnName.split(',').length);
+        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: _getKeyColumnsCount(idx!));
         currentPlan = IndexJoinNode(
           left: currentPlan,
           rightTable: rightTableFile,
           rightIndex: rightIndex,
           leftJoinCol: leftJoinCol,
           rightSchema: joinSchema,
-          isLeftJoin: stmt.join!.isLeftJoin,
+          isLeftJoin: join.isLeftJoin,
+          isRightJoin: join.isRightJoin,
+          isFullJoin: join.isFullJoin,
+          leftColumns: List<String>.from(leftColumns),
         );
       } else {
         currentPlan = HashJoinNode(
@@ -377,9 +728,17 @@ class QueryPlanner {
           right: joinScan,
           leftJoinCol: leftJoinCol,
           rightJoinCol: rightJoinCol,
-          isLeftJoin: stmt.join!.isLeftJoin,
+          isLeftJoin: join.isLeftJoin,
+          isRightJoin: join.isRightJoin,
+          isFullJoin: join.isFullJoin,
+          leftColumns: List<String>.from(leftColumns),
           rightSchema: joinSchema,
         );
+      }
+
+      for (final col in joinSchema.columnNames) {
+        leftColumns.add(col);
+        leftColumns.add('${joinSchema.name}.$col');
       }
     }
 
@@ -422,7 +781,7 @@ class QueryPlanner {
 
       BTreeIndex? targetIndex;
       if (hasIndex) {
-        targetIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: idx!.columnName.split(',').length);
+        targetIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: _getKeyColumnsCount(idx!));
       }
 
       currentPlan = GraphJoinNode(
@@ -441,19 +800,40 @@ class QueryPlanner {
       currentPlan = FilterNode(currentPlan, stmt.whereCondition!);
     }
 
-    // 2.5 Handle GROUP BY
-    if (stmt.groupBy != null && !isParallelScan) {
-      currentPlan = GroupByNode(currentPlan, stmt.groupBy!, projections, havingCondition: stmt.havingCondition);
-    } else if (_hasAggregate(projections) && !isParallelScan) {
-      currentPlan = GroupByNode(currentPlan, LiteralExpr(1), projections, havingCondition: stmt.havingCondition);
-    } else if (!isParallelScan) {
-      // 4. Handle Projection (if not grouped)
-      currentPlan = ProjectNode(currentPlan, projections);
+    // 2.5 Handle GROUP BY and Window Functions
+    final windowExprs = _findWindowExpressions(projections);
+    if (windowExprs.isNotEmpty) {
+      if (stmt.groupBy != null && !isParallelScan) {
+        currentPlan = GroupByNode(currentPlan, stmt.groupBy!, projections, havingCondition: stmt.havingCondition);
+      } else if (_hasAggregate(projections) && !isParallelScan) {
+        currentPlan = GroupByNode(currentPlan, LiteralExpr(1), projections, havingCondition: stmt.havingCondition);
+      }
+      
+      for (final windowExpr in windowExprs) {
+        currentPlan = WindowNode(currentPlan, windowExpr);
+      }
+      
+      if (stmt.groupBy == null && !_hasAggregate(projections) && !isParallelScan) {
+        currentPlan = ProjectNode(currentPlan, projections);
+      }
+    } else {
+      if (stmt.groupBy != null && !isParallelScan) {
+        currentPlan = GroupByNode(currentPlan, stmt.groupBy!, projections, havingCondition: stmt.havingCondition);
+      } else if (_hasAggregate(projections) && !isParallelScan) {
+        currentPlan = GroupByNode(currentPlan, LiteralExpr(1), projections, havingCondition: stmt.havingCondition);
+      } else if (!isParallelScan) {
+        // 4. Handle Projection (if not grouped)
+        currentPlan = ProjectNode(currentPlan, projections);
+      }
     }
 
     // For parallel scan with having condition, filter using a filter node post-aggregation
     if (isParallelScan && stmt.havingCondition != null) {
       currentPlan = FilterNode(currentPlan, stmt.havingCondition!);
+    }
+
+    if (stmt.isDistinct) {
+      currentPlan = DistinctNode(currentPlan);
     }
 
     // 3. Handle ORDER BY Clause
@@ -463,7 +843,7 @@ class QueryPlanner {
 
     // 5. Handle LIMIT Clause
     if (stmt.limit != null) {
-      currentPlan = LimitNode(currentPlan, stmt.limit!);
+      currentPlan = LimitNode(currentPlan, stmt.limit!, stmt.offset ?? 0);
     }
 
     return currentPlan;
@@ -490,8 +870,8 @@ class QueryPlanner {
     }
 
     // Join Condition
-    if (stmt.join != null) {
-      _collectVariables(stmt.join!.onCondition, referencedNames);
+    for (final join in stmt.joins) {
+      _collectVariables(join.onCondition, referencedNames);
     }
 
     // Order By
@@ -534,11 +914,9 @@ class QueryPlanner {
     return sorted;
   }
 
-  List<int> _getReferencedColumnIndexesForJoin(SelectStmt stmt, TableSchema joinSchema) {
+  List<int> _getReferencedColumnIndexesForJoin(SelectStmt stmt, Join join, TableSchema joinSchema) {
     final referencedNames = <String>{};
-    if (stmt.join != null) {
-      _collectVariables(stmt.join!.onCondition, referencedNames);
-    }
+    _collectVariables(join.onCondition, referencedNames);
     for (final proj in stmt.projections) {
       _collectVariables(proj.expr, referencedNames);
     }
@@ -563,12 +941,21 @@ class QueryPlanner {
   void _collectVariables(Expression expr, Set<String> collected) {
     if (expr is VariableExpr) {
       collected.add(expr.fullName);
+    } else if (expr is JsonExtractExpr) {
+      _collectVariables(expr.expr, collected);
     } else if (expr is BinaryExpr) {
       _collectVariables(expr.left, collected);
       _collectVariables(expr.right, collected);
     } else if (expr is FunctionCallExpr) {
       for (final arg in expr.arguments) {
         _collectVariables(arg, collected);
+      }
+    } else if (expr is WindowFunctionExpr) {
+      for (final partition in expr.partitionBy) {
+        _collectVariables(partition, collected);
+      }
+      if (expr.orderBy != null) {
+        _collectVariables(expr.orderBy!.expr, collected);
       }
     }
   }
@@ -586,6 +973,9 @@ class QueryPlanner {
       if (name == 'count' || name == 'sum' || name == 'avg' || name == 'min' || name == 'max') {
         return true;
       }
+    }
+    if (expr is JsonExtractExpr) {
+      return _hasAggregateExpr(expr.expr);
     }
     if (expr is BinaryExpr) {
       return _hasAggregateExpr(expr.left) || _hasAggregateExpr(expr.right);
@@ -630,16 +1020,13 @@ class QueryPlanner {
   }
 
   RangeCondition? _tryExtractSimpleRange(Expression expr, String tableName) {
-    final tName = tableName.toLowerCase();
     if (expr is BinaryExpr) {
       final op = expr.operator;
       final left = expr.left;
       final right = expr.right;
-      if (left is VariableExpr && (right is LiteralExpr || right is PlaceholderExpr)) {
-        if (left.path.length > 1 && left.path.first.toLowerCase() != tName) {
-          return null;
-        }
-        final colName = left.path.last.toLowerCase();
+      if (right is LiteralExpr || right is PlaceholderExpr) {
+        final leftSql = exprToSqlString(left);
+        final colName = _normalizeExprString(leftSql, tableName);
         final val = _resolveValue(right);
         if (val is num) {
           final valD = val.toDouble();
@@ -649,11 +1036,9 @@ class QueryPlanner {
           if (op == '<=') return RangeCondition(colName: colName, low: null, high: valD);
           if (op == '<') return RangeCondition(colName: colName, low: null, high: valD - 0.000001);
         }
-      } else if ((left is LiteralExpr || left is PlaceholderExpr) && right is VariableExpr) {
-        if (right.path.length > 1 && right.path.first.toLowerCase() != tName) {
-          return null;
-        }
-        final colName = right.path.last.toLowerCase();
+      } else if (left is LiteralExpr || left is PlaceholderExpr) {
+        final rightSql = exprToSqlString(right);
+        final colName = _normalizeExprString(rightSql, tableName);
         final val = _resolveValue(left);
         if (val is num) {
           final valD = val.toDouble();
@@ -691,6 +1076,13 @@ class QueryPlanner {
         }
         return expr;
       }
+      if (expr is JsonExtractExpr) {
+        return JsonExtractExpr(
+          rewriteExpr(expr.expr),
+          expr.path,
+          expr.asText,
+        );
+      }
       if (expr is BinaryExpr) {
         return BinaryExpr(
           expr.operator,
@@ -702,6 +1094,15 @@ class QueryPlanner {
         return FunctionCallExpr(
           expr.name,
           expr.arguments.map(rewriteExpr).toList(),
+        );
+      }
+      if (expr is WindowFunctionExpr) {
+        return WindowFunctionExpr(
+          functionName: expr.functionName,
+          partitionBy: expr.partitionBy.map(rewriteExpr).toList(),
+          orderBy: expr.orderBy != null
+              ? OrderBy(rewriteExpr(expr.orderBy!.expr), expr.orderBy!.ascending)
+              : null,
         );
       }
       return expr;
@@ -721,6 +1122,8 @@ class QueryPlanner {
     return SelectStmt(
       projections: newProjections,
       tableName: stmt.tableName,
+      fromSubquery: stmt.fromSubquery,
+      fromFunction: stmt.fromFunction,
       tableAlias: stmt.tableAlias,
       join: newJoin,
       whereCondition: newWhere,
@@ -742,7 +1145,10 @@ class QueryPlanner {
     int bestMatchCount = -1;
 
     for (final idx in indexes) {
-      final idxCols = idx.columnName.split(',').map((c) => c.trim().toLowerCase()).toList();
+      final bool isSimple = idx.columnName.split(',').every((col) => schema.columnNamesLower.contains(col.trim().toLowerCase()));
+      final List<String> idxCols = isSimple 
+          ? idx.columnName.split(',').map((c) => c.trim().toLowerCase()).toList()
+          : [idx.columnName.toLowerCase()];
       if (idxCols.isEmpty) continue;
       
       final keys = _extractCompositeKeys(condition, tableName, idxCols);
@@ -799,19 +1205,18 @@ class QueryPlanner {
       } else if (op == '=') {
         final left = cond.left;
         final right = cond.right;
-        final tName = tableName.toLowerCase();
-        if (left is VariableExpr && (right is LiteralExpr || right is PlaceholderExpr)) {
-          if (left.path.length > 1 && left.path.first.toLowerCase() != tName) {
-            return null;
-          }
-          if (left.path.last.toLowerCase() == colName) {
+        final targetNorm = _normalizeExprString(colName, tableName);
+        if (right is LiteralExpr || right is PlaceholderExpr) {
+          final leftSql = exprToSqlString(left);
+          final leftNorm = _normalizeExprString(leftSql, tableName);
+          if (leftNorm == targetNorm) {
             return _dbValueToDouble(_resolveValue(right));
           }
-        } else if ((left is LiteralExpr || left is PlaceholderExpr) && right is VariableExpr) {
-          if (right.path.length > 1 && right.path.first.toLowerCase() != tName) {
-            return null;
-          }
-          if (right.path.last.toLowerCase() == colName) {
+        }
+        if (left is LiteralExpr || left is PlaceholderExpr) {
+          final rightSql = exprToSqlString(right);
+          final rightNorm = _normalizeExprString(rightSql, tableName);
+          if (rightNorm == targetNorm) {
             return _dbValueToDouble(_resolveValue(left));
           }
         }
@@ -833,6 +1238,109 @@ class QueryPlanner {
     }
     return null;
   }
+
+  List<WindowFunctionExpr> _findWindowExpressions(List<Projection> projections) {
+    final list = <WindowFunctionExpr>[];
+    for (final proj in projections) {
+      _collectWindowExpressions(proj.expr, list);
+    }
+    return list;
+  }
+
+  void _collectWindowExpressions(Expression expr, List<WindowFunctionExpr> list) {
+    if (expr is WindowFunctionExpr) {
+      list.add(expr);
+    } else if (expr is BinaryExpr) {
+      _collectWindowExpressions(expr.left, list);
+      _collectWindowExpressions(expr.right, list);
+    } else if (expr is FunctionCallExpr) {
+      for (final arg in expr.arguments) {
+        _collectWindowExpressions(arg, list);
+      }
+    }
+  }
+
+  SelectStmt _substituteCtes(SelectStmt stmt, Map<String, dynamic> ctes) {
+    final lowerTableName = stmt.tableName.toLowerCase();
+    SelectStmt? fromSubquery = stmt.fromSubquery;
+    String tableName = stmt.tableName;
+    
+    if (ctes.containsKey(lowerTableName)) {
+      fromSubquery = ctes[lowerTableName];
+      tableName = stmt.tableAlias ?? stmt.tableName;
+    }
+    
+    if (fromSubquery != null) {
+      fromSubquery = _substituteCtes(fromSubquery, ctes);
+    }
+    
+    final newJoins = <Join>[];
+    for (final join in stmt.joins) {
+      final lowerJoinTable = join.tableName.toLowerCase();
+      SelectStmt? joinSubquery = join.fromSubquery;
+      String joinTable = join.tableName;
+      
+      if (ctes.containsKey(lowerJoinTable)) {
+        joinSubquery = ctes[lowerJoinTable];
+        joinTable = join.alias ?? join.tableName;
+      }
+      
+      if (joinSubquery != null) {
+        joinSubquery = _substituteCtes(joinSubquery, ctes);
+      }
+      
+      newJoins.add(Join(
+        joinTable,
+        join.onCondition,
+        fromSubquery: joinSubquery,
+        alias: join.alias,
+        isLeftJoin: join.isLeftJoin,
+        isRightJoin: join.isRightJoin,
+        isFullJoin: join.isFullJoin,
+      ));
+    }
+    
+    return SelectStmt(
+      projections: stmt.projections,
+      tableName: tableName,
+      fromSubquery: fromSubquery,
+      fromFunction: stmt.fromFunction,
+      tableAlias: stmt.tableAlias,
+      joins: newJoins,
+      whereCondition: stmt.whereCondition,
+      groupBy: stmt.groupBy,
+      havingCondition: stmt.havingCondition,
+      orderBy: stmt.orderBy,
+      limit: stmt.limit,
+      offset: stmt.offset,
+      withRelationship: stmt.withRelationship,
+      isDistinct: stmt.isDistinct,
+    );
+  }
+
+  PlanNode _planWithRecursiveCte(CteSelectStmt stmt, SelectStmt anchorStmt, SelectStmt recursiveStmt, String cteName) {
+    final anchorPlan = planSelect(anchorStmt);
+    final recursiveNode = RecursiveCteNode(anchorPlan, (workingChild) {
+      return _planRecursiveQuery(recursiveStmt, cteName, workingChild);
+    });
+
+    PlanNode currentPlan = recursiveNode;
+    final mainSelect = stmt.mainSelect;
+
+    if (mainSelect.whereCondition != null) {
+      currentPlan = FilterNode(currentPlan, mainSelect.whereCondition!);
+    }
+    if (mainSelect.projections.isNotEmpty) {
+      currentPlan = ProjectNode(currentPlan, mainSelect.projections);
+    }
+    if (mainSelect.orderBy != null) {
+      currentPlan = SortNode(currentPlan, mainSelect.orderBy!.expr, mainSelect.orderBy!.ascending);
+    }
+    if (mainSelect.limit != null || mainSelect.offset != null) {
+      currentPlan = LimitNode(currentPlan, mainSelect.limit ?? -1, mainSelect.offset ?? 0);
+    }
+    return currentPlan;
+  }
 }
 
 class RangeCondition {
@@ -847,4 +1355,40 @@ class IndexRange {
   final List<double>? low;
   final List<double>? high;
   IndexRange(this.indexSchema, this.low, this.high);
+}
+
+MatchExpr? _findMatchExpr(Expression expr) {
+  if (expr is MatchExpr) return expr;
+  if (expr is BinaryExpr) {
+    return _findMatchExpr(expr.left) ?? _findMatchExpr(expr.right);
+  }
+  return null;
+}
+
+PlanNode _planRecursiveQuery(SelectStmt stmt, String cteName, PlanNode workingChild) {
+  PlanNode current = workingChild;
+  if (stmt.whereCondition != null) {
+    current = FilterNode(current, stmt.whereCondition!);
+  }
+  if (stmt.projections.isNotEmpty) {
+    current = ProjectNode(current, stmt.projections);
+  }
+  return current;
+}
+
+PlanNode _replaceScanWithNode(PlanNode plan, String tableName, PlanNode replacement) {
+  final nameLower = tableName.toLowerCase();
+  if (plan is SubqueryScanNode) {
+    return replacement;
+  }
+  if (plan is RowScanNode && plan.schema.name.toLowerCase() == nameLower) {
+    return replacement;
+  }
+  if (plan is ProjectNode) {
+    return ProjectNode(_replaceScanWithNode(plan.child, tableName, replacement), plan.projections);
+  }
+  if (plan is FilterNode) {
+    return FilterNode(_replaceScanWithNode(plan.child, tableName, replacement), plan.condition);
+  }
+  return plan;
 }

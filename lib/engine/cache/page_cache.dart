@@ -154,11 +154,26 @@ class PageUndoInfo {
   PageUndoInfo(Uint8List data) : originalData = Uint8List.fromList(data);
 }
 
+class SavepointState {
+  final String name;
+  final Map<String, dynamic> catalogBackup;
+  final Map<String, int> pageCounts;
+  final Map<PageKey, Uint8List> pageData;
+
+  SavepointState({
+    required this.name,
+    required this.catalogBackup,
+    required this.pageCounts,
+    required this.pageData,
+  });
+}
+
 class TransactionState {
   final Map<String, int> originalPageCounts = {};
   final Map<PageKey, PageUndoInfo> originalPages = {};
   final Set<PageKey> loggedPages = {};
   Map<String, dynamic>? catalogBackup;
+  final Map<String, SavepointState> savepoints = {};
 }
 
 class SessionTxContext {
@@ -467,18 +482,19 @@ class PageCache {
           }
         }
         _appendWalRecordSync(3);
-        if (_walFile != null) {
-          try {
-            _walFile!.flushSync();
-            _walFile!.closeSync();
-          } catch (_) {}
-           _walFile = null;
-        }
       }
     }
     _txState = null;
 
     flushAllSync();
+
+    if (useWal && _walFile != null) {
+      try {
+        _walFile!.flushSync();
+        _walFile!.closeSync();
+      } catch (_) {}
+      _walFile = null;
+    }
 
     if (useWal && dbDirectory != null) {
       final walFile = File('$dbDirectory/wal.log');
@@ -497,22 +513,6 @@ class PageCache {
     }
     final state = _txState;
     if (state == null) return;
-
-    if (_walFile != null) {
-      try {
-        _walFile!.closeSync();
-      } catch (_) {}
-      _walFile = null;
-    }
-
-    if (dbDirectory != null) {
-      final walFile = File('$dbDirectory/wal.log');
-      if (walFile.existsSync()) {
-        try {
-          walFile.deleteSync();
-        } catch (_) {}
-      }
-    }
 
     // 1. Restore original page data for modified pages
     for (final entry in state.originalPages.entries) {
@@ -556,6 +556,143 @@ class PageCache {
 
     flushAllSync();
     _txState = null;
+
+    if (_walFile != null) {
+      try {
+        _walFile!.closeSync();
+      } catch (_) {}
+      _walFile = null;
+    }
+
+    if (useWal && dbDirectory != null) {
+      final walFile = File('$dbDirectory/wal.log');
+      if (walFile.existsSync()) {
+        try {
+          walFile.deleteSync();
+        } catch (_) {}
+      }
+    }
+  }
+
+  void createSavepoint(String name, Catalog catalog) {
+    final state = _txState;
+    if (state == null) {
+      throw Exception("No active transaction for savepoint.");
+    }
+
+    final pageCounts = <String, int>{};
+    for (final pager in _pagers.values) {
+      pageCounts[pager.filePath] = pager.getPageCountSync();
+    }
+    for (final entry in state.originalPageCounts.entries) {
+      pageCounts[entry.key] = entry.value;
+    }
+
+    final pageData = <PageKey, Uint8List>{};
+    _cache.forEach((key, page) {
+      pageData[key] = Uint8List.fromList(page.data);
+    });
+
+    state.savepoints[name.toLowerCase()] = SavepointState(
+      name: name,
+      catalogBackup: catalog.getBackupState(),
+      pageCounts: pageCounts,
+      pageData: pageData,
+    );
+  }
+
+  void rollbackToSavepoint(String name, Catalog catalog) {
+    final state = _txState;
+    if (state == null) {
+      throw Exception("No active transaction for savepoint.");
+    }
+    final sv = state.savepoints[name.toLowerCase()];
+    if (sv == null) {
+      throw Exception("Savepoint '$name' not found.");
+    }
+
+    // 1. Restore page data
+    _cache.forEach((key, page) {
+      final savedData = sv.pageData[key];
+      if (savedData != null) {
+        page.data.setAll(0, savedData);
+        page.isDirty = true;
+      } else {
+        final limit = sv.pageCounts[key.filePath] ?? 0;
+        if (key.pageId < limit) {
+          final undo = state.originalPages[key];
+          if (undo != null) {
+            page.data.setAll(0, undo.originalData);
+            page.isDirty = true;
+          }
+        }
+      }
+    });
+
+    state.originalPages.forEach((key, undo) {
+      if (!sv.pageData.containsKey(key)) {
+        final limit = sv.pageCounts[key.filePath] ?? 0;
+        if (key.pageId < limit) {
+          if (_cache.containsKey(key)) {
+            _cache[key]!.data.setAll(0, undo.originalData);
+            _cache[key]!.isDirty = true;
+          } else {
+            final pager = getOrCreatePager(key.filePath);
+            pager.writePageSync(key.pageId, undo.originalData);
+          }
+        }
+      }
+    });
+
+    // 2. Truncate files that grew
+    sv.pageCounts.forEach((filePath, originalCount) {
+      final pager = getOrCreatePager(filePath);
+      final currentCount = pager.getPageCountSync();
+      if (currentCount > originalCount) {
+        final keysToRemove = <PageKey>[];
+        _cache.forEach((key, _) {
+          if (key.filePath == filePath && key.pageId >= originalCount) {
+            keysToRemove.add(key);
+          }
+        });
+        for (final k in keysToRemove) {
+          _cache.remove(k);
+        }
+        pager.truncateToPagesSync(originalCount);
+      }
+    });
+
+    // 3. Restore catalog schemas
+    catalog.restoreBackupState(sv.catalogBackup);
+    catalog.save();
+
+    // 4. Discard savepoints created AFTER this one
+    final keys = state.savepoints.keys.toList();
+    final idx = keys.indexOf(name.toLowerCase());
+    if (idx != -1) {
+      for (int i = idx + 1; i < keys.length; i++) {
+        state.savepoints.remove(keys[i]);
+      }
+    }
+
+    flushAllSync();
+  }
+
+  void releaseSavepoint(String name) {
+    final state = _txState;
+    if (state == null) {
+      throw Exception("No active transaction for savepoint.");
+    }
+    if (!state.savepoints.containsKey(name.toLowerCase())) {
+      throw Exception("Savepoint '$name' not found.");
+    }
+    final keys = state.savepoints.keys.toList();
+    final idx = keys.indexOf(name.toLowerCase());
+    if (idx != -1) {
+      for (int i = idx; i < keys.length; i++) {
+        state.savepoints.remove(keys[i]);
+      }
+    }
   }
 
   void _ensureFileTrackedSync(String filePath) {
@@ -862,6 +999,9 @@ class MvccTransactionManager {
     0: TxStatus.committed,
   };
   final Set<int> _activeTxIds = {};
+
+  int get nextTxId => _nextTxId;
+  Set<int> get activeTxIds => Set.unmodifiable(_activeTxIds);
 
   MvccTransaction startTransaction() {
     final txId = _nextTxId++;

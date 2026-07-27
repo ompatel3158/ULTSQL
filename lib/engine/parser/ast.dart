@@ -43,9 +43,55 @@ class FunctionCallExpr extends Expression {
   FunctionCallExpr(this.name, this.arguments);
 }
 
+class WindowFunctionExpr extends Expression {
+  final String functionName;
+  final List<Expression> arguments;
+  final List<Expression> partitionBy;
+  final OrderBy? orderBy;
+  WindowFunctionExpr({
+    required this.functionName,
+    this.arguments = const [],
+    required this.partitionBy,
+    this.orderBy,
+  });
+}
+
 class VectorLiteralExpr extends Expression {
   final List<double> elements;
   VectorLiteralExpr(this.elements);
+}
+
+class JsonExtractExpr extends Expression {
+  final Expression expr;
+  final String path;
+  final bool asText;
+  JsonExtractExpr(this.expr, this.path, this.asText);
+}
+
+class SubqueryExpr extends Expression {
+  final SelectStmt selectStmt;
+  SubqueryExpr(this.selectStmt);
+}
+
+class RollupExpr extends Expression {
+  final List<Expression> expressions;
+  RollupExpr(this.expressions);
+}
+
+class CubeExpr extends Expression {
+  final List<Expression> expressions;
+  CubeExpr(this.expressions);
+}
+
+class GroupingSetsExpr extends Expression {
+  final List<List<Expression>> sets;
+  GroupingSetsExpr(this.sets);
+}
+
+class AsOfClause extends ASTNode {
+  final bool isSystemTime;
+  final Expression expr;
+  AsOfClause(this.isSystemTime, this.expr);
 }
 
 // Helper structures
@@ -57,6 +103,9 @@ class ColumnDef {
   final String? referencesTable;
   final String? referencesColumn;
   final bool onDeleteCascade;
+  final Expression? defaultValue;
+  final Expression? checkExpression;
+  final String? maskedWith;
 
   ColumnDef(
     this.name,
@@ -66,6 +115,9 @@ class ColumnDef {
     this.referencesTable,
     this.referencesColumn,
     this.onDeleteCascade = false,
+    this.defaultValue,
+    this.checkExpression,
+    this.maskedWith,
   });
 }
 
@@ -77,10 +129,19 @@ class Projection {
 
 class Join {
   final String tableName;
+  final SelectStmt? fromSubquery;
   final String? alias;
   final Expression onCondition;
   final bool isLeftJoin;
-  Join(this.tableName, this.onCondition, {this.alias, this.isLeftJoin = false});
+  final bool isRightJoin;
+  final bool isFullJoin;
+  Join(this.tableName, this.onCondition, {
+    this.fromSubquery,
+    this.alias,
+    this.isLeftJoin = false,
+    this.isRightJoin = false,
+    this.isFullJoin = false,
+  });
 }
 
 class OrderBy {
@@ -92,16 +153,53 @@ class OrderBy {
 // Statements
 abstract class Stmt extends ASTNode {}
 
+class VacuumStmt extends Stmt {
+  final String tableName;
+  final bool full;
+  VacuumStmt(this.tableName, {this.full = false});
+}
+
 // SQL Statements
+class PartitionByClause extends ASTNode {
+  final String type; // e.g., 'RANGE'
+  final String columnName;
+  PartitionByClause(this.type, this.columnName);
+}
+
+class PartitionOfClause extends ASTNode {
+  final String parentTableName;
+  final String fromValue;
+  final String toValue;
+  PartitionOfClause(this.parentTableName, this.fromValue, this.toValue);
+}
+
 class CreateTableStmt extends Stmt {
   final String tableName;
   final List<ColumnDef> columns;
-  CreateTableStmt(this.tableName, this.columns);
+  final PartitionByClause? partitionBy;
+  final PartitionOfClause? partitionOf;
+  CreateTableStmt(this.tableName, this.columns, {this.partitionBy, this.partitionOf});
+}
+
+class CreateForeignTableStmt extends Stmt {
+  final String tableName;
+  final List<ColumnDef> columns;
+  final String serverName;
+  final Map<String, String> options;
+  CreateForeignTableStmt(this.tableName, this.columns, this.serverName, this.options);
+}
+
+class MatchExpr extends Expression {
+  final String columnName;
+  final String searchQuery;
+  MatchExpr(this.columnName, this.searchQuery);
 }
 
 enum AlterAction {
   add,
-  drop
+  drop,
+  renameColumn,
+  alterColumnType
 }
 
 class AlterTableStmt extends Stmt {
@@ -109,20 +207,47 @@ class AlterTableStmt extends Stmt {
   final AlterAction action;
   final ColumnDef? columnToAdd; // For ADD
   final String? columnToDrop;  // For DROP
+  final String? oldColumnName; // For RENAME COLUMN
+  final String? newColumnName; // For RENAME COLUMN
+  final String? targetColumnName; // For ALTER COLUMN TYPE
+  final DataType? newDataType; // For ALTER COLUMN TYPE
 
   AlterTableStmt.add(this.tableName, this.columnToAdd)
       : action = AlterAction.add,
-        columnToDrop = null;
+        columnToDrop = null,
+        oldColumnName = null,
+        newColumnName = null,
+        targetColumnName = null,
+        newDataType = null;
 
   AlterTableStmt.drop(this.tableName, this.columnToDrop)
       : action = AlterAction.drop,
-        columnToAdd = null;
+        columnToAdd = null,
+        oldColumnName = null,
+        newColumnName = null,
+        targetColumnName = null,
+        newDataType = null;
+
+  AlterTableStmt.renameColumn(this.tableName, this.oldColumnName, this.newColumnName)
+      : action = AlterAction.renameColumn,
+        columnToAdd = null,
+        columnToDrop = null,
+        targetColumnName = null,
+        newDataType = null;
+
+  AlterTableStmt.alterColumnType(this.tableName, this.targetColumnName, this.newDataType)
+      : action = AlterAction.alterColumnType,
+        columnToAdd = null,
+        columnToDrop = null,
+        oldColumnName = null,
+        newColumnName = null;
 }
 
 class InsertStmt extends Stmt {
   final String tableName;
   final List<Expression> values;
-  InsertStmt(this.tableName, this.values);
+  final List<String>? columnNames;
+  InsertStmt(this.tableName, this.values, [this.columnNames]);
 }
 
 class DeleteStmt extends Stmt {
@@ -142,27 +267,84 @@ class UpdateStmt extends Stmt {
 class SelectStmt extends Stmt {
   final List<Projection> projections;
   final String tableName;
+  final SelectStmt? fromSubquery;
+  final FunctionCallExpr? fromFunction;
   final String? tableAlias;
-  final Join? join;
+  final List<Join> joins;
   final Expression? whereCondition;
   final Expression? groupBy;
   final Expression? havingCondition;
   final OrderBy? orderBy;
   final int? limit;
+  final int? offset;
   final String? withRelationship;
+  final bool isDistinct;
+  final AsOfClause? asOfClause;
 
   SelectStmt({
     required this.projections,
     required this.tableName,
+    this.fromSubquery,
+    this.fromFunction,
     this.tableAlias,
-    this.join,
+    List<Join>? joins,
+    Join? join,
     this.whereCondition,
     this.groupBy,
     this.havingCondition,
     this.orderBy,
     this.limit,
+    this.offset,
     this.withRelationship,
-  });
+    this.isDistinct = false,
+    this.asOfClause,
+  }) : this.joins = joins ?? (join != null ? [join] : const []);
+
+  Join? get join => joins.isNotEmpty ? joins.first : null;
+}
+
+class CteSelectStmt extends SelectStmt {
+  final Map<String, dynamic> ctes;
+  final SelectStmt mainSelect;
+  final bool isRecursive;
+
+  CteSelectStmt({
+    required this.ctes,
+    required this.mainSelect,
+    this.isRecursive = false,
+  }) : super(
+         projections: mainSelect.projections,
+         tableName: mainSelect.tableName,
+         fromSubquery: mainSelect.fromSubquery,
+         fromFunction: mainSelect.fromFunction,
+         tableAlias: mainSelect.tableAlias,
+         joins: mainSelect.joins,
+         whereCondition: mainSelect.whereCondition,
+         groupBy: mainSelect.groupBy,
+         havingCondition: mainSelect.havingCondition,
+         orderBy: mainSelect.orderBy,
+         limit: mainSelect.limit,
+         offset: mainSelect.offset,
+         withRelationship: mainSelect.withRelationship,
+         isDistinct: mainSelect.isDistinct,
+         asOfClause: mainSelect.asOfClause,
+       );
+}
+
+class UnionStmt extends Stmt {
+  final List<SelectStmt> selectStmts;
+  final List<bool> isAllFlags;
+  UnionStmt(this.selectStmts, this.isAllFlags);
+}
+
+class IntersectStmt extends Stmt {
+  final List<SelectStmt> selectStmts;
+  IntersectStmt(this.selectStmts);
+}
+
+class ExceptStmt extends Stmt {
+  final List<SelectStmt> selectStmts;
+  ExceptStmt(this.selectStmts);
 }
 
 // PL/SQL Statements
@@ -173,10 +355,24 @@ class VarDeclare {
   VarDeclare(this.name, this.type, this.initialValue);
 }
 
+class CursorDeclare {
+  final String name;
+  final SelectStmt selectStmt;
+  CursorDeclare(this.name, this.selectStmt);
+}
+
+class ExceptionHandler {
+  final String exceptionName;
+  final List<Stmt> body;
+  ExceptionHandler(this.exceptionName, this.body);
+}
+
 class PlSqlBlock extends Stmt {
   final List<VarDeclare> declarations;
+  final List<CursorDeclare> cursors;
   final List<Stmt> body;
-  PlSqlBlock(this.declarations, this.body);
+  final List<ExceptionHandler>? exceptionHandlers;
+  PlSqlBlock(this.declarations, this.body, {this.cursors = const [], this.exceptionHandlers});
 }
 
 class AssignStmt extends Stmt {
@@ -335,6 +531,59 @@ class ReturnException implements Exception {
   ReturnException(this.value);
 }
 
+class SavepointStmt extends Stmt {
+  final String name;
+  SavepointStmt(this.name);
+}
+
+class RollbackToSavepointStmt extends Stmt {
+  final String name;
+  RollbackToSavepointStmt(this.name);
+}
+
+class ReleaseSavepointStmt extends Stmt {
+  final String name;
+  ReleaseSavepointStmt(this.name);
+}
+
+class OpenCursorStmt extends Stmt {
+  final String cursorName;
+  OpenCursorStmt(this.cursorName);
+}
+
+class FetchCursorStmt extends Stmt {
+  final String cursorName;
+  final List<String> targetVars;
+  FetchCursorStmt(this.cursorName, this.targetVars);
+}
+
+class CloseCursorStmt extends Stmt {
+  final String cursorName;
+  CloseCursorStmt(this.cursorName);
+}
+
+class CreateTriggerStmt extends Stmt {
+  final String name;
+  final String timing; // BEFORE, AFTER
+  final String event; // INSERT, UPDATE, DELETE
+  final String tableName;
+  final bool forEachRow;
+  final List<VarDeclare> declarations;
+  final List<Stmt> body;
+  final String sql;
+
+  CreateTriggerStmt({
+    required this.name,
+    required this.timing,
+    required this.event,
+    required this.tableName,
+    required this.forEachRow,
+    required this.declarations,
+    required this.body,
+    required this.sql,
+  });
+}
+
 String exprToSqlString(Expression expr) {
   if (expr._cachedSqlString != null) return expr._cachedSqlString!;
   
@@ -350,8 +599,29 @@ String exprToSqlString(Expression expr) {
   } else if (expr is FunctionCallExpr) {
     final args = expr.arguments.map(exprToSqlString).join(', ');
     res = '${expr.name.toLowerCase()}($args)';
+  } else if (expr is WindowFunctionExpr) {
+    final partition = expr.partitionBy.isEmpty
+        ? ''
+        : 'PARTITION BY ${expr.partitionBy.map(exprToSqlString).join(', ')}';
+    final order = expr.orderBy != null
+        ? 'ORDER BY ${exprToSqlString(expr.orderBy!.expr)} ${expr.orderBy!.ascending ? 'ASC' : 'DESC'}'
+        : '';
+    final overInner = [if (partition.isNotEmpty) partition, if (order.isNotEmpty) order].join(' ');
+    res = '${expr.functionName.toUpperCase()}() OVER ($overInner)';
   } else if (expr is VectorLiteralExpr) {
     res = '[${expr.elements.join(', ')}]';
+  } else if (expr is JsonExtractExpr) {
+    final op = expr.asText ? '->>' : '->';
+    res = '${exprToSqlString(expr.expr)}$op\'${expr.path}\'';
+  } else if (expr is SubqueryExpr) {
+    res = '(SELECT ...)';
+  } else if (expr is RollupExpr) {
+    res = 'ROLLUP(${expr.expressions.map(exprToSqlString).join(', ')})';
+  } else if (expr is CubeExpr) {
+    res = 'CUBE(${expr.expressions.map(exprToSqlString).join(', ')})';
+  } else if (expr is GroupingSetsExpr) {
+    final setsStrings = expr.sets.map((s) => '(${s.map(exprToSqlString).join(', ')})').join(', ');
+    res = 'GROUPING SETS($setsStrings)';
   } else {
     res = expr.toString();
   }

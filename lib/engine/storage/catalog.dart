@@ -72,6 +72,62 @@ class FunctionSchema {
   }
 }
 
+class TriggerSchema {
+  final String name;
+  final String timing; // BEFORE, AFTER
+  final String event; // INSERT, UPDATE, DELETE
+  final String tableName;
+  final bool forEachRow;
+  final String sql;
+  
+  late final List<VarDeclare> declarations;
+  late final List<Stmt> body;
+
+  TriggerSchema({
+    required this.name,
+    required this.timing,
+    required this.event,
+    required this.tableName,
+    required this.forEachRow,
+    required this.sql,
+  }) {
+    _parse();
+  }
+
+  void _parse() {
+    final lexer = Lexer(sql);
+    final tokens = lexer.tokenize();
+    final parser = Parser(tokens);
+    final stmt = parser.parse();
+    if (stmt is CreateTriggerStmt) {
+      declarations = stmt.declarations;
+      body = stmt.body;
+    } else {
+      throw Exception("Invalid trigger SQL stored in catalog");
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'timing': timing,
+        'event': event,
+        'tableName': tableName,
+        'forEachRow': forEachRow,
+        'sql': sql,
+      };
+
+  factory TriggerSchema.fromJson(Map<String, dynamic> json) {
+    return TriggerSchema(
+      name: json['name'],
+      timing: json['timing'],
+      event: json['event'],
+      tableName: json['tableName'],
+      forEachRow: json['forEachRow'] ?? false,
+      sql: json['sql'],
+    );
+  }
+}
+
 class PolicySchema {
   final String name;
   final Expression condition;
@@ -103,7 +159,21 @@ class TableSchema {
   final List<String?> columnReferencesTable;
   final List<String?> columnReferencesColumn;
   final List<bool> columnOnDeleteCascade;
+  final List<Expression?> columnDefaultValues;
+  final List<Expression?> columnCheckExpressions;
   final List<PolicySchema> policies;
+  final List<String?> columnMaskedWith;
+  
+  final bool isForeign;
+  final String? foreignServer;
+  final Map<String, String>? foreignOptions;
+
+  final String? partitionByColumn;
+  final String? partitionOfParent;
+  final String? partitionFromValue;
+  final String? partitionToValue;
+  final List<String> partitionChildren;
+
   late final List<String> columnNamesLower;
   late final bool hasForeignKeys;
 
@@ -119,13 +189,28 @@ class TableSchema {
     List<String?>? columnReferencesTable,
     List<String?>? columnReferencesColumn,
     List<bool>? columnOnDeleteCascade,
+    List<Expression?>? columnDefaultValues,
+    List<Expression?>? columnCheckExpressions,
     List<PolicySchema>? policies,
+    List<String?>? columnMaskedWith,
+    this.isForeign = false,
+    this.foreignServer,
+    this.foreignOptions,
+    this.partitionByColumn,
+    this.partitionOfParent,
+    this.partitionFromValue,
+    this.partitionToValue,
+    List<String>? partitionChildren,
   })  : columnPrimaryKey = columnPrimaryKey ?? List.filled(columnNames.length, false),
         columnUnique = columnUnique ?? List.filled(columnNames.length, false),
         columnReferencesTable = columnReferencesTable ?? List.filled(columnNames.length, null),
         columnReferencesColumn = columnReferencesColumn ?? List.filled(columnNames.length, null),
         columnOnDeleteCascade = columnOnDeleteCascade ?? List.filled(columnNames.length, false),
-        policies = policies ?? [] {
+        columnDefaultValues = columnDefaultValues ?? List.filled(columnNames.length, null),
+        columnCheckExpressions = columnCheckExpressions ?? List.filled(columnNames.length, null),
+        policies = policies ?? [],
+        columnMaskedWith = columnMaskedWith ?? List.filled(columnNames.length, null),
+        partitionChildren = partitionChildren ?? [] {
     columnNamesLower = columnNames.map((c) => c.toLowerCase()).toList();
     hasForeignKeys = this.columnReferencesTable.any((t) => t != null);
     hasUniqueOrPrimaryKey = this.columnPrimaryKey.any((b) => b) || this.columnUnique.any((b) => b);
@@ -142,7 +227,10 @@ class TableSchema {
       columnReferencesTable: [...columnReferencesTable, col.referencesTable],
       columnReferencesColumn: [...columnReferencesColumn, col.referencesColumn],
       columnOnDeleteCascade: [...columnOnDeleteCascade, col.onDeleteCascade],
+      columnDefaultValues: [...columnDefaultValues, col.defaultValue],
+      columnCheckExpressions: [...columnCheckExpressions, col.checkExpression],
       policies: policies,
+      columnMaskedWith: [...columnMaskedWith, col.maskedWith],
     );
   }
 
@@ -158,6 +246,8 @@ class TableSchema {
     final newReferencesTable = List<String?>.from(columnReferencesTable)..removeAt(idx);
     final newReferencesColumn = List<String?>.from(columnReferencesColumn)..removeAt(idx);
     final newOnDeleteCascade = List<bool>.from(columnOnDeleteCascade)..removeAt(idx);
+    final newDefaultValues = List<Expression?>.from(columnDefaultValues)..removeAt(idx);
+    final newCheckExpressions = List<Expression?>.from(columnCheckExpressions)..removeAt(idx);
 
     return TableSchema(
       name: name,
@@ -169,6 +259,8 @@ class TableSchema {
       columnReferencesTable: newReferencesTable,
       columnReferencesColumn: newReferencesColumn,
       columnOnDeleteCascade: newOnDeleteCascade,
+      columnDefaultValues: newDefaultValues,
+      columnCheckExpressions: newCheckExpressions,
       policies: policies,
     );
   }
@@ -178,16 +270,47 @@ class TableSchema {
         'columnNames': columnNames,
         'columnTypes': columnTypes.map((t) => t.index).toList(),
         'isColumnar': isColumnar,
+        'isForeign': isForeign,
+        'foreignServer': foreignServer,
+        'foreignOptions': foreignOptions,
         'columnPrimaryKey': columnPrimaryKey,
         'columnUnique': columnUnique,
         'columnReferencesTable': columnReferencesTable,
         'columnReferencesColumn': columnReferencesColumn,
         'columnOnDeleteCascade': columnOnDeleteCascade,
+        'columnDefaultValues': columnDefaultValues.map((e) => e != null ? exprToSqlString(e) : null).toList(),
+        'columnCheckExpressions': columnCheckExpressions.map((e) => e != null ? exprToSqlString(e) : null).toList(),
         'policies': policies.map((p) => p.toJson()).toList(),
+        'partitionByColumn': partitionByColumn,
+        'partitionOfParent': partitionOfParent,
+        'partitionFromValue': partitionFromValue,
+        'partitionToValue': partitionToValue,
+        'partitionChildren': partitionChildren,
       };
 
   factory TableSchema.fromJson(Map<String, dynamic> json) {
     final names = List<String>.from(json['columnNames']);
+
+    final defaultExprs = json.containsKey('columnDefaultValues')
+        ? (json['columnDefaultValues'] as List).map((val) {
+            if (val == null) return null;
+            final lexer = Lexer(val as String);
+            final tokens = lexer.tokenize();
+            final parser = Parser(tokens);
+            return parser.parseExpression();
+          }).toList()
+        : List<Expression?>.filled(names.length, null);
+
+    final checkExprs = json.containsKey('columnCheckExpressions')
+        ? (json['columnCheckExpressions'] as List).map((val) {
+            if (val == null) return null;
+            final lexer = Lexer(val as String);
+            final tokens = lexer.tokenize();
+            final parser = Parser(tokens);
+            return parser.parseExpression();
+          }).toList()
+        : List<Expression?>.filled(names.length, null);
+
     return TableSchema(
       name: json['name'],
       columnNames: names,
@@ -210,11 +333,21 @@ class TableSchema {
       columnOnDeleteCascade: json.containsKey('columnOnDeleteCascade')
           ? List<bool>.from(json['columnOnDeleteCascade'])
           : null,
+      columnDefaultValues: defaultExprs,
+      columnCheckExpressions: checkExprs,
       policies: json.containsKey('policies')
           ? (json['policies'] as List)
               .map((p) => PolicySchema.fromJson(p))
               .toList()
           : null,
+      isForeign: json['isForeign'] ?? false,
+      foreignServer: json['foreignServer'],
+      foreignOptions: json['foreignOptions'] != null ? Map<String, String>.from(json['foreignOptions']) : null,
+      partitionByColumn: json['partitionByColumn'],
+      partitionOfParent: json['partitionOfParent'],
+      partitionFromValue: json['partitionFromValue'],
+      partitionToValue: json['partitionToValue'],
+      partitionChildren: json['partitionChildren'] != null ? List<String>.from(json['partitionChildren']) : null,
     );
   }
 }
@@ -289,6 +422,7 @@ class Catalog {
   final Map<String, Map<String, List<String>>> _permissions = {};
   final Map<String, ProcedureSchema> _procedures = {};
   final Map<String, FunctionSchema> _functions = {};
+  final Map<String, TriggerSchema> _triggers = {};
 
   Catalog(this.basePath);
 
@@ -306,6 +440,25 @@ class Catalog {
   void addFunction(FunctionSchema func, {bool saveToFile = true}) {
     _functions[func.name.toLowerCase()] = func;
     if (saveToFile) save();
+  }
+
+  TriggerSchema? getTrigger(String name) => _triggers[name.toLowerCase()];
+  bool hasTrigger(String name) => _triggers.containsKey(name.toLowerCase());
+
+  void addTrigger(TriggerSchema trig, {bool saveToFile = true}) {
+    _triggers[trig.name.toLowerCase()] = trig;
+    if (saveToFile) save();
+  }
+
+  List<TriggerSchema> getTriggersForTable(String tableName, String timing, String event) {
+    final tName = tableName.toLowerCase();
+    final tim = timing.toUpperCase();
+    final ev = event.toUpperCase();
+    return _triggers.values
+        .where((trig) => trig.tableName.toLowerCase() == tName &&
+                         trig.timing.toUpperCase() == tim &&
+                         trig.event.toUpperCase() == ev)
+        .toList();
   }
 
   void grantPrivilege(String user, String tableName, String privilege) {
@@ -360,6 +513,7 @@ class Catalog {
       'stats': Map<String, TableStats>.from(_stats),
       'procedures': Map<String, ProcedureSchema>.from(_procedures),
       'functions': Map<String, FunctionSchema>.from(_functions),
+      'triggers': Map<String, TriggerSchema>.from(_triggers),
     };
   }
 
@@ -433,6 +587,18 @@ class Catalog {
           _functions[k.toString()] = v;
         } else if (v is Map) {
           _functions[k.toString()] = FunctionSchema.fromJson(Map<String, dynamic>.from(v));
+        }
+      });
+    }
+
+    _triggers.clear();
+    if (state['triggers'] != null) {
+      final rawTrigs = state['triggers'] as Map;
+      rawTrigs.forEach((k, v) {
+        if (v is TriggerSchema) {
+          _triggers[k.toString()] = v;
+        } else if (v is Map) {
+          _triggers[k.toString()] = TriggerSchema.fromJson(Map<String, dynamic>.from(v));
         }
       });
     }
@@ -571,6 +737,13 @@ class Catalog {
           _functions[key.toLowerCase()] = FunctionSchema.fromJson(val);
         });
       }
+      _triggers.clear();
+      if (jsonMap.containsKey('triggers')) {
+        final trigsMap = jsonMap['triggers'] as Map<String, dynamic>;
+        trigsMap.forEach((key, val) {
+          _triggers[key.toLowerCase()] = TriggerSchema.fromJson(val);
+        });
+      }
     } catch (e) {
       // Catalog corrupt or empty, ignore
     }
@@ -613,6 +786,10 @@ class Catalog {
     _functions.forEach((key, val) {
       functionsMap[key] = val.toJson();
     });
+    final Map<String, dynamic> triggersMap = {};
+    _triggers.forEach((key, val) {
+      triggersMap[key] = val.toJson();
+    });
 
     final outputMap = {
       'tables': tablesMap,
@@ -622,6 +799,7 @@ class Catalog {
       'permissions': permissionsMap,
       'procedures': proceduresMap,
       'functions': functionsMap,
+      'triggers': triggersMap,
     };
     file.writeAsStringSync(json.encode(outputMap));
   }

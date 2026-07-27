@@ -11,6 +11,8 @@ import '../cache/page_cache.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
+import '../storage/fts_index.dart';
+import '../storage/audit_logger.dart';
 import '../storage/hnsw_index.dart';
 import 'value.dart';
 import 'plan_nodes.dart';
@@ -51,6 +53,7 @@ class Database {
   late final Catalog catalog;
   late final PageCache cache;
   late final QueryPlanner planner;
+  late final AuditLogger auditLogger;
   final Map<String, BTreeIndex> _indexCache = {};
 
   Database(this.directory, {String? passphrase, bool useWal = true, int maxCapacity = 1000}) {
@@ -60,6 +63,7 @@ class Database {
       cache.encryptionKey = Uint8List.fromList(utf8.encode(passphrase));
     }
     planner = QueryPlanner(catalog: catalog, cache: cache, dbDirectory: directory);
+    auditLogger = AuditLogger(directory);
   }
 
   Future<void> init() async {
@@ -400,6 +404,11 @@ class Interpreter {
       _env.clear();
 
       bool catalogModified = false;
+      
+      final lowerSql = sqlScript.toLowerCase();
+      if (lowerSql.contains('insert') || lowerSql.contains('update') || lowerSql.contains('delete') || lowerSql.contains('create') || lowerSql.contains('alter') || lowerSql.contains('drop')) {
+        db.auditLogger.logQuery(_currentUser, sqlScript);
+      }
 
       try {
         List<ASTNode> statements;
@@ -782,6 +791,15 @@ END;
       throw Exception("Table '$tableName' already exists.");
     }
 
+    if (stmt.partitionOf?.parentTableName != null && stmt.columns.isEmpty) {
+      final parentSchema = db.catalog.getTableSchema(stmt.partitionOf!.parentTableName.toLowerCase());
+      if (parentSchema != null) {
+        for (int i = 0; i < parentSchema.columnNames.length; i++) {
+          stmt.columns.add(ColumnDef(parentSchema.columnNames[i], parentSchema.columnTypes[i]));
+        }
+      }
+    }
+
     bool isColumnar = stmt.columns.any((c) => c.type == DataType.vector);
 
     final schema = TableSchema(
@@ -794,7 +812,21 @@ END;
       columnReferencesTable: stmt.columns.map((c) => c.referencesTable).toList(),
       columnReferencesColumn: stmt.columns.map((c) => c.referencesColumn).toList(),
       columnOnDeleteCascade: stmt.columns.map((c) => c.onDeleteCascade).toList(),
+      columnMaskedWith: stmt.columns.map((c) => c.maskedWith).toList(),
+      partitionByColumn: stmt.partitionBy?.columnName,
+      partitionOfParent: stmt.partitionOf?.parentTableName,
+      partitionFromValue: stmt.partitionOf?.fromValue,
+      partitionToValue: stmt.partitionOf?.toValue,
     );
+
+    if (schema.partitionOfParent != null) {
+      final parentSchema = db.catalog.getTableSchema(schema.partitionOfParent!.toLowerCase());
+      if (parentSchema == null) {
+        throw Exception("Parent table '${schema.partitionOfParent}' does not exist.");
+      }
+      parentSchema.partitionChildren.add(stmt.tableName);
+      db.catalog.addTable(parentSchema, saveToFile: false);
+    }
 
     db.catalog.addTable(schema, saveToFile: false);
 
@@ -1090,16 +1122,16 @@ END;
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'insert')) {
       throw Exception("Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
     }
-    final schema = _insertSchemaCache.putIfAbsent(stmt, () {
-      final tableName = stmt.tableName.toLowerCase();
-      final s = db.catalog.getTableSchema(tableName);
+    var schema = _insertSchemaCache.putIfAbsent(stmt, () {
+      final tName = stmt.tableName.toLowerCase();
+      final s = db.catalog.getTableSchema(tName);
       if (s == null) {
-        throw Exception("Table '$tableName' does not exist.");
+        throw Exception("Table '$tName' does not exist.");
       }
       return s;
     });
 
-    final tableName = schema.name.toLowerCase();
+    var tableName = schema.name.toLowerCase();
 
     if (stmt.values.length != schema.columnNames.length) {
       throw Exception("Column count mismatch. Expected ${schema.columnNames.length} values, found ${stmt.values.length}.");
@@ -1182,6 +1214,31 @@ END;
           }
         }
         rowValues[i] = coercedVal;
+      }
+    }
+
+    // Handle Partition Routing
+    if (schema.partitionChildren.isNotEmpty && schema.partitionByColumn != null) {
+      final partColIdx = schema.columnNamesLower.indexOf(schema.partitionByColumn!.toLowerCase());
+      if (partColIdx == -1) throw Exception("Partition column ${schema.partitionByColumn} not found in table $tableName.");
+      final val = rowValues[partColIdx];
+      String valStr = val.toString();
+      if (val is DbText) valStr = val.value;
+
+      bool found = false;
+      for (final child in schema.partitionChildren) {
+        final childSchema = db.catalog.getTableSchema(child.toLowerCase());
+        if (childSchema != null && childSchema.partitionFromValue != null && childSchema.partitionToValue != null) {
+           if (valStr.compareTo(childSchema.partitionFromValue!) >= 0 && valStr.compareTo(childSchema.partitionToValue!) <= 0) {
+             schema = childSchema;
+             tableName = childSchema.name.toLowerCase();
+             found = true;
+             break;
+           }
+        }
+      }
+      if (!found) {
+        throw Exception("No matching partition found for row in partitioned table '$tableName'. Partition value: '$valStr'");
       }
     }
 
@@ -2026,6 +2083,7 @@ END;
                       }
                       rows.add(projectedRow);
                       db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                      _applyDataMasking(stmt, columns, rows);
                       return QueryResult(columns: columns, rows: rows, message: "Index scan completed successfully.");
                     }
                   }
@@ -2103,6 +2161,7 @@ END;
         }
 
         planNode.close();
+        _applyDataMasking(stmt, columns, rows);
         return QueryResult(
           columns: columns,
           rows: rows,
@@ -2132,6 +2191,7 @@ END;
       }
 
       planNode.close();
+      _applyDataMasking(stmt, columns, rows);
       return QueryResult(
         columns: columns,
         rows: rows,
@@ -2921,6 +2981,93 @@ END;
       rows: [[DbText('SUCCESS')]],
       message: "Analyzed table '$tableName'. Row count: ${stats.rowCount}.",
     );
+  }
+
+  void _applyDataMasking(SelectStmt stmt, List<String> resultColumns, List<List<DbValue>> rows) {
+    if (_currentUser == 'admin' || _currentUser == 'system') return;
+
+    List<String?> maskTypes = List.filled(resultColumns.length, null);
+    
+    var localProjections = stmt.projections;
+    if (localProjections.length == 1 &&
+        localProjections[0].expr is VariableExpr &&
+        (localProjections[0].expr as VariableExpr).path.first == '*') {
+      final schema = db.catalog.getTableSchema(stmt.tableName);
+      if (schema != null) {
+        for (int i = 0; i < resultColumns.length && i < schema.columnNames.length; i++) {
+           final colName = resultColumns[i];
+           final idx = schema.columnNamesLower.indexOf(colName.toLowerCase());
+           if (idx != -1) {
+             maskTypes[i] = schema.columnMaskedWith[idx];
+           } else {
+             maskTypes[i] = schema.columnMaskedWith[i];
+           }
+        }
+      }
+    } else {
+      for (int i = 0; i < resultColumns.length && i < localProjections.length; i++) {
+        final expr = localProjections[i].expr;
+        if (expr is VariableExpr) {
+           String? tName;
+           String cName = '';
+           if (expr.path.length == 1) {
+             cName = expr.path.first;
+             var schema = db.catalog.getTableSchema(stmt.tableName);
+             if (schema != null && schema.columnNamesLower.contains(cName.toLowerCase())) {
+               tName = stmt.tableName;
+             } else if (stmt.joins.isNotEmpty) {
+               for (final join in stmt.joins) {
+                 schema = db.catalog.getTableSchema(join.tableName);
+                 if (schema != null && schema.columnNamesLower.contains(cName.toLowerCase())) {
+                   tName = join.tableName;
+                   break;
+                 }
+               }
+             }
+           } else if (expr.path.length >= 2) {
+             tName = expr.path[expr.path.length - 2];
+             cName = expr.path.last;
+           }
+           if (tName != null) {
+             final schema = db.catalog.getTableSchema(tName);
+             if (schema != null) {
+               final idx = schema.columnNamesLower.indexOf(cName.toLowerCase());
+               if (idx != -1) {
+                 maskTypes[i] = schema.columnMaskedWith[idx];
+               }
+             }
+           }
+        }
+      }
+    }
+
+    for (int i = 0; i < maskTypes.length; i++) {
+      final mask = maskTypes[i]?.toLowerCase();
+      if (mask != null) {
+        for (final row in rows) {
+          final val = row[i];
+          if (val is DbText) {
+            final str = val.value;
+            if (mask == 'credit_card') {
+              if (str.length >= 4) {
+                row[i] = DbText('XXXX-XXXX-XXXX-${str.substring(str.length - 4)}');
+              } else {
+                row[i] = DbText('XXXX');
+              }
+            } else if (mask == 'email') {
+              final parts = str.split('@');
+              if (parts.length == 2 && parts[0].isNotEmpty) {
+                row[i] = DbText('${parts[0][0]}***@${parts[1]}');
+              } else {
+                row[i] = DbText('***');
+              }
+            } else if (mask == 'default') {
+              row[i] = DbText('XXXX');
+            }
+          }
+        }
+      }
+    }
   }
 }
 

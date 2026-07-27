@@ -93,25 +93,70 @@ class Parser {
   // PL/SQL Parsing
   Stmt _parsePlSqlBlock() {
     List<VarDeclare> declarations = [];
+    List<CursorDeclare> cursors = [];
     if (_match([TokenType.declare])) {
-      while (_check(TokenType.identifier) && _checkNextIsDataType() && !_isAtEnd) {
-        declarations.add(_parseDeclaration());
+      while (!_check(TokenType.begin) && !_isAtEnd) {
+        if (_check(TokenType.identifier)) {
+          if (_peekNext().type == TokenType.cursorKeyword) {
+            cursors.add(_parseCursorDeclaration());
+          } else if (_checkNextIsDataType()) {
+            declarations.add(_parseDeclaration());
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
       }
     }
 
     if (_check(TokenType.begin)) {
       _consume(TokenType.begin, "Expected 'BEGIN' to start executable block.");
       List<Stmt> body = [];
-      while (!_check(TokenType.end) && !_isAtEnd) {
+      while (!_check(TokenType.end) && !_check(TokenType.exceptionKeyword) && !_isAtEnd) {
         body.add(_parsePlSqlStatement());
       }
+      
+      List<ExceptionHandler>? exceptionHandlers;
+      if (_match([TokenType.exceptionKeyword])) {
+        exceptionHandlers = [];
+        while (!_check(TokenType.end) && !_isAtEnd) {
+          _consume(TokenType.whenKeyword, "Expected 'WHEN' in EXCEPTION block.");
+          final excNameToken = _consume(TokenType.identifier, "Expected exception name.");
+          final excName = excNameToken.lexeme;
+          _consume(TokenType.then, "Expected 'THEN' after exception condition.");
+          
+          final handlerBody = <Stmt>[];
+          while (!_check(TokenType.whenKeyword) && !_check(TokenType.end) && !_isAtEnd) {
+            handlerBody.add(_parsePlSqlStatement());
+          }
+          exceptionHandlers.add(ExceptionHandler(excName, handlerBody));
+        }
+      }
+      
       _consume(TokenType.end, "Expected 'END' to close block.");
       _consume(TokenType.semicolon, "Expected ';' after 'END'.");
-      return PlSqlBlock(declarations, body);
+      return PlSqlBlock(declarations, body, cursors: cursors, exceptionHandlers: exceptionHandlers);
     } else {
       // T-SQL style top-level declarations
-      return PlSqlBlock(declarations, []);
+      return PlSqlBlock(declarations, [], cursors: cursors);
     }
+  }
+
+  CursorDeclare _parseCursorDeclaration() {
+    final nameToken = _consume(TokenType.identifier, "Expected cursor name.");
+    final name = nameToken.lexeme;
+    
+    _consume(TokenType.cursorKeyword, "Expected 'CURSOR' keyword.");
+    _consume(TokenType.forKeyword, "Expected 'FOR' after 'CURSOR'.");
+    
+    _consume(TokenType.select, "Expected 'SELECT' for cursor query.");
+    final selectStmt = _parseSelectStatement() as SelectStmt;
+    
+    if (_check(TokenType.semicolon)) {
+      _advance();
+    }
+    return CursorDeclare(name, selectStmt);
   }
 
   VarDeclare _parseDeclaration() {
@@ -139,6 +184,29 @@ class Parser {
   }
 
   Stmt _parsePlSqlStatement() {
+    if (_check(TokenType.declare) || (_check(TokenType.begin) && !_checkNextIsTransaction())) {
+      return _parsePlSqlBlock();
+    }
+    if (_match([TokenType.openKeyword])) {
+      final cursorName = _consume(TokenType.identifier, "Expected cursor name after OPEN.").lexeme;
+      if (_check(TokenType.semicolon)) _advance();
+      return OpenCursorStmt(cursorName);
+    }
+    if (_match([TokenType.fetchKeyword])) {
+      final cursorName = _consume(TokenType.identifier, "Expected cursor name after FETCH.").lexeme;
+      _consume(TokenType.into, "Expected 'INTO' after cursor name in FETCH.");
+      final targetVars = <String>[];
+      do {
+        targetVars.add(_consume(TokenType.identifier, "Expected variable name in FETCH INTO.").lexeme);
+      } while (_match([TokenType.comma]));
+      if (_check(TokenType.semicolon)) _advance();
+      return FetchCursorStmt(cursorName, targetVars);
+    }
+    if (_match([TokenType.closeKeyword])) {
+      final cursorName = _consume(TokenType.identifier, "Expected cursor name after CLOSE.").lexeme;
+      if (_check(TokenType.semicolon)) _advance();
+      return CloseCursorStmt(cursorName);
+    }
     if (_check(TokenType.ifKeyword)) {
       return _parseIfStatement();
     }
@@ -246,7 +314,11 @@ class Parser {
 
   Stmt _parseAssignmentStatement() {
     final varNameToken = _consume(TokenType.identifier, "Expected variable name.");
-    final varName = varNameToken.lexeme;
+    var varName = varNameToken.lexeme;
+    while (_match([TokenType.dot])) {
+      final segment = _consume(TokenType.identifier, "Expected segment after dot.");
+      varName += '.${segment.lexeme}';
+    }
     if (!_match([TokenType.assign, TokenType.equals])) {
       throw Exception("Expected ':=' or '=' for assignment.");
     }
@@ -272,6 +344,15 @@ class Parser {
   // SQL Parsing
   Stmt _parseStatement() {
     _placeholderCount = 0;
+    if (_match([TokenType.vacuumKeyword])) {
+      bool full = false;
+      if (_match([TokenType.fullKeyword])) {
+        full = true;
+      }
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name after VACUUM.");
+      if (_check(TokenType.semicolon)) _advance();
+      return VacuumStmt(tableNameToken.lexeme, full: full);
+    }
     if (_match([TokenType.alterKeyword])) {
       return _parseAlterTableStatement();
     }
@@ -295,14 +376,42 @@ class Parser {
     if (_match([TokenType.callKeyword])) {
       return _parseCallStatement();
     }
+    if (_match([TokenType.generate])) {
+      if (!_isAtEnd && _peek().lexeme.toLowerCase() == 'data') {
+        _advance();
+      }
+      if (_check(TokenType.semicolon)) _advance();
+      return GenerateStmt();
+    }
+    if (_match([TokenType.analyze])) {
+      final tableName = _consume(TokenType.identifier, "Expected table name to analyze.").lexeme;
+      if (_check(TokenType.semicolon)) _advance();
+      return AnalyzeStmt(tableName);
+    }
+    if (_match([TokenType.callKeyword])) {
+      return _parseCallStatement();
+    }
     if (_match([TokenType.create])) {
       return _parseCreateStatement();
     }
     if (_match([TokenType.insert])) {
       return _parseInsertStatement();
     }
+    if (_match([TokenType.withKeyword])) {
+      return _parseCteStatement();
+    }
     if (_match([TokenType.select])) {
-      return _parseSelectStatement();
+      return _parseSelectOrUnionStatement();
+    }
+    if (_match([TokenType.deleteKeyword])) {
+      _consume(TokenType.from, "Expected 'FROM' after 'DELETE'.");
+      final tableName = _consume(TokenType.identifier, "Expected table name.").lexeme;
+      Expression? whereCondition;
+      if (_match([TokenType.where])) {
+        whereCondition = _parseExpression();
+      }
+      if (_check(TokenType.semicolon)) _advance();
+      return DeleteStmt(tableName, whereCondition);
     }
     if (_match([TokenType.deleteKeyword])) {
       _consume(TokenType.from, "Expected 'FROM' after 'DELETE'.");
@@ -343,10 +452,38 @@ class Parser {
       return BeginTxStmt();
     }
     if (_match([TokenType.commit])) {
+      if (!_isAtEnd && (_peek().lexeme.toLowerCase() == 'transaction' || _peek().lexeme.toLowerCase() == 'work')) {
+        _advance();
+      }
       if (_check(TokenType.semicolon)) _advance();
       return CommitTxStmt();
     }
+    if (_match([TokenType.savepointKeyword])) {
+      final nameToken = _consume(TokenType.identifier, "Expected savepoint name.");
+      if (_check(TokenType.semicolon)) _advance();
+      return SavepointStmt(nameToken.lexeme);
+    }
+    if (_match([TokenType.releaseKeyword])) {
+      if (!_isAtEnd && _peek().lexeme.toLowerCase() == 'savepoint') {
+        _advance();
+      }
+      final nameToken = _consume(TokenType.identifier, "Expected savepoint name.");
+      if (_check(TokenType.semicolon)) _advance();
+      return ReleaseSavepointStmt(nameToken.lexeme);
+    }
     if (_match([TokenType.rollback])) {
+      if (!_isAtEnd && _peek().lexeme.toLowerCase() == 'to') {
+        _advance();
+        if (!_isAtEnd && _peek().lexeme.toLowerCase() == 'savepoint') {
+          _advance();
+        }
+        final nameToken = _consume(TokenType.identifier, "Expected savepoint name.");
+        if (_check(TokenType.semicolon)) _advance();
+        return RollbackToSavepointStmt(nameToken.lexeme);
+      }
+      if (!_isAtEnd && (_peek().lexeme.toLowerCase() == 'transaction' || _peek().lexeme.toLowerCase() == 'work')) {
+        _advance();
+      }
       if (_check(TokenType.semicolon)) _advance();
       return RollbackTxStmt();
     }
@@ -470,6 +607,81 @@ class Parser {
   }
 
   Stmt _parseCreateStatement() {
+    if (_match([TokenType.triggerKeyword])) {
+      final startIdx = _current - 2; // Since 'create' and 'trigger' are matched
+      final nameToken = _consume(TokenType.identifier, "Expected trigger name.");
+      final name = nameToken.lexeme;
+      
+      String timing;
+      if (_match([TokenType.beforeKeyword])) {
+        timing = 'BEFORE';
+      } else if (_match([TokenType.afterKeyword])) {
+        timing = 'AFTER';
+      } else {
+        throw Exception("Expected 'BEFORE' or 'AFTER' trigger timing.");
+      }
+      
+      String event;
+      if (_match([TokenType.insert])) {
+        event = 'INSERT';
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'update') {
+        _advance();
+        event = 'UPDATE';
+      } else if (_match([TokenType.deleteKeyword])) {
+        event = 'DELETE';
+      } else {
+        throw Exception("Expected 'INSERT', 'UPDATE', or 'DELETE' trigger event.");
+      }
+      
+      _consume(TokenType.on, "Expected 'ON' in trigger declaration.");
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
+      final tableName = tableNameToken.lexeme;
+      
+      bool forEachRow = false;
+      if (_match([TokenType.forKeyword])) {
+        _consume(TokenType.eachKeyword, "Expected 'EACH' after 'FOR'.");
+        _consume(TokenType.rowKeyword, "Expected 'ROW' after 'FOR EACH'.");
+        forEachRow = true;
+      }
+      
+      if (_match([TokenType.as])) {} // Consume optional AS
+      
+      List<VarDeclare> declarations = [];
+      if (_match([TokenType.declare])) {
+        while (_check(TokenType.identifier) && _checkNextIsDataType() && !_isAtEnd) {
+          declarations.add(_parseDeclaration());
+        }
+      }
+      
+      _consume(TokenType.begin, "Expected 'BEGIN' to start trigger body.");
+      final body = <Stmt>[];
+      while (!_check(TokenType.end) && !_isAtEnd) {
+        body.add(_parsePlSqlStatement());
+      }
+      _consume(TokenType.end, "Expected 'END' to close trigger body.");
+      if (_check(TokenType.semicolon)) _advance();
+      
+      final endIdx = _current;
+      final sql = tokens.sublist(startIdx, endIdx).map((t) {
+        if (t.type == TokenType.stringLiteral) {
+          final escaped = t.lexeme.replaceAll("'", "''");
+          return "'$escaped'";
+        }
+        return t.lexeme;
+      }).join(' ');
+      
+      return CreateTriggerStmt(
+        name: name,
+        timing: timing,
+        event: event,
+        tableName: tableName,
+        forEachRow: forEachRow,
+        declarations: declarations,
+        body: body,
+        sql: sql,
+      );
+    }
+
     if (_match([TokenType.procedureKeyword])) {
       final startIdx = _current - 2; // Since 'create' and 'procedure' are matched
       final nameToken = _consume(TokenType.identifier, "Expected procedure name.");
@@ -537,7 +749,10 @@ class Parser {
       if (_check(TokenType.semicolon)) _advance();
       return CreateDatabaseStmt(dbNameToken.lexeme);
     }
-    if (_match([TokenType.table])) {
+
+
+    if (_match([TokenType.foreignKeyword])) {
+      _consume(TokenType.table, "Expected 'TABLE' after 'FOREIGN'.");
       final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
       final tableName = tableNameToken.lexeme;
       
@@ -545,53 +760,68 @@ class Parser {
       
       List<ColumnDef> columns = [];
       do {
-        final colNameToken = _consume(TokenType.identifier, "Expected column name.");
-        final colType = _parseDataType();
-        
-        bool isPrimaryKey = false;
-        bool isUnique = false;
-        String? referencesTable;
-        String? referencesColumn;
-        bool onDeleteCascade = false;
-
-        while (true) {
-          if (_match([TokenType.primaryKeyword])) {
-            _consume(TokenType.keyKeyword, "Expected 'KEY' after 'PRIMARY'.");
-            isPrimaryKey = true;
-          } else if (_match([TokenType.uniqueKeyword])) {
-            isUnique = true;
-          } else if (_match([TokenType.referencesKeyword])) {
-            final refTableToken = _consume(TokenType.identifier, "Expected referenced table name.");
-            referencesTable = refTableToken.lexeme;
-            _consume(TokenType.lParen, "Expected '(' before referenced column name.");
-            final refColToken = _consume(TokenType.identifier, "Expected referenced column name.");
-            referencesColumn = refColToken.lexeme;
-            _consume(TokenType.rParen, "Expected ')' after referenced column name.");
-
-            if (_match([TokenType.on])) {
-              _consume(TokenType.deleteKeyword, "Expected 'DELETE' after 'ON'.");
-              _consume(TokenType.cascadeKeyword, "Expected 'CASCADE' after 'ON DELETE'.");
-              onDeleteCascade = true;
-            }
-          } else {
-            break;
-          }
-        }
-
-        columns.add(ColumnDef(
-          colNameToken.lexeme,
-          colType,
-          isPrimaryKey: isPrimaryKey,
-          isUnique: isUnique,
-          referencesTable: referencesTable,
-          referencesColumn: referencesColumn,
-          onDeleteCascade: onDeleteCascade,
-        ));
+        columns.add(_parseColumnDef());
       } while (_match([TokenType.comma]));
 
       _consume(TokenType.rParen, "Expected ')' to close column list.");
+      
+      _consume(TokenType.serverKeyword, "Expected 'SERVER'.");
+      final serverToken = _consume(TokenType.identifier, "Expected server name.");
+      final serverName = serverToken.lexeme;
+      
+      _consume(TokenType.optionsKeyword, "Expected 'OPTIONS'.");
+      _consume(TokenType.lParen, "Expected '(' after 'OPTIONS'.");
+      Map<String, String> options = {};
+      do {
+        final optKey = _consume(TokenType.identifier, "Expected option key.").lexeme;
+        final optVal = _consume(TokenType.stringLiteral, "Expected string literal for option value.").lexeme;
+        options[optKey] = optVal;
+      } while (_match([TokenType.comma]));
+      _consume(TokenType.rParen, "Expected ')' after options.");
+      
       if (_check(TokenType.semicolon)) _advance();
-      return CreateTableStmt(tableName, columns);
+      return CreateForeignTableStmt(tableName, columns, serverName, options);
+    } else if (_match([TokenType.table])) {
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
+      final tableName = tableNameToken.lexeme;
+      
+      PartitionOfClause? partitionOf;
+      List<ColumnDef> columns = [];
+      
+      if (_match([TokenType.partition])) {
+        _consume(TokenType.ofKeyword, "Expected 'OF' after 'PARTITION'.");
+        final parentName = _consume(TokenType.identifier, "Expected parent table name.").lexeme;
+        _consume(TokenType.forKeyword, "Expected 'FOR'.");
+        _consume(TokenType.valuesKeyword, "Expected 'VALUES'.");
+        _consume(TokenType.from, "Expected 'FROM'.");
+        _consume(TokenType.lParen, "Expected '('.");
+        final fromVal = _consume(TokenType.stringLiteral, "Expected string literal.").lexeme;
+        _consume(TokenType.rParen, "Expected ')'.");
+        _consume(TokenType.to, "Expected 'TO'.");
+        _consume(TokenType.lParen, "Expected '('.");
+        final toVal = _consume(TokenType.stringLiteral, "Expected string literal.").lexeme;
+        _consume(TokenType.rParen, "Expected ')'.");
+        partitionOf = PartitionOfClause(parentName, fromVal, toVal);
+      } else {
+        _consume(TokenType.lParen, "Expected '(' to list columns.");
+        do {
+          columns.add(_parseColumnDef());
+        } while (_match([TokenType.comma]));
+        _consume(TokenType.rParen, "Expected ')' to close column list.");
+      }
+      
+      PartitionByClause? partitionBy;
+      if (partitionOf == null && _match([TokenType.partition])) {
+        _consume(TokenType.by, "Expected 'BY' after 'PARTITION'.");
+        _consume(TokenType.rangeKeyword, "Expected 'RANGE' after 'PARTITION BY'.");
+        _consume(TokenType.lParen, "Expected '('.");
+        final colName = _consume(TokenType.identifier, "Expected column name.").lexeme;
+        _consume(TokenType.rParen, "Expected ')'.");
+        partitionBy = PartitionByClause('RANGE', colName);
+      }
+
+      if (_check(TokenType.semicolon)) _advance();
+      return CreateTableStmt(tableName, columns, partitionBy: partitionBy, partitionOf: partitionOf);
     } else if (_match([TokenType.relationship])) {
       final relNameToken = _consume(TokenType.identifier, "Expected relationship name.");
       final relName = relNameToken.lexeme;
@@ -633,15 +863,16 @@ class Parser {
       _consume(TokenType.lParen, "Expected '(' before column names.");
       final colNames = <String>[];
       do {
-        final colNameToken = _consume(TokenType.identifier, "Expected column name.");
-        colNames.add(colNameToken.lexeme);
+        final expr = _parseExpression();
+        colNames.add(exprToSqlString(expr));
       } while (_match([TokenType.comma]));
       _consume(TokenType.rParen, "Expected ')' after column names.");
       final columnName = colNames.join(',');
 
       String? usingMethod;
       if (_match([TokenType.usingKeyword])) {
-        usingMethod = _consume(TokenType.identifier, "Expected index method name (e.g. HNSW).").lexeme.toLowerCase();
+        usingMethod = _peek().lexeme.toLowerCase();
+        _advance();
       }
 
       if (_check(TokenType.semicolon)) _advance();
@@ -661,23 +892,105 @@ class Parser {
     throw Exception("Expected 'TABLE', 'RELATIONSHIP', 'INDEX', or 'POLICY' after 'CREATE'.");
   }
 
+  ColumnDef _parseColumnDef() {
+    final colNameToken = _consume(TokenType.identifier, "Expected column name.");
+    final colType = _parseDataType();
+
+    bool isPrimaryKey = false;
+    bool isUnique = false;
+    String? referencesTable;
+    String? referencesColumn;
+    bool onDeleteCascade = false;
+    Expression? defaultValue;
+    Expression? checkExpression;
+    String? maskedWith;
+
+    while (true) {
+      if (_match([TokenType.primaryKeyword])) {
+        _consume(TokenType.keyKeyword, "Expected 'KEY' after 'PRIMARY'.");
+        isPrimaryKey = true;
+      } else if (_match([TokenType.uniqueKeyword])) {
+        isUnique = true;
+      } else if (_match([TokenType.referencesKeyword])) {
+        final refTableToken = _consume(TokenType.identifier, "Expected referenced table name.");
+        referencesTable = refTableToken.lexeme;
+        _consume(TokenType.lParen, "Expected '(' before referenced column name.");
+        final refColToken = _consume(TokenType.identifier, "Expected referenced column name.");
+        referencesColumn = refColToken.lexeme;
+        _consume(TokenType.rParen, "Expected ')' after referenced column name.");
+
+        if (_match([TokenType.on])) {
+          _consume(TokenType.deleteKeyword, "Expected 'DELETE' after 'ON'.");
+          _consume(TokenType.cascadeKeyword, "Expected 'CASCADE' after 'ON DELETE'.");
+          onDeleteCascade = true;
+        }
+      } else if (_match([TokenType.defaultKeyword])) {
+        defaultValue = _parseExpression();
+      } else if (_match([TokenType.checkKeyword])) {
+        _consume(TokenType.lParen, "Expected '(' after 'CHECK'.");
+        checkExpression = _parseExpression();
+        _consume(TokenType.rParen, "Expected ')' after CHECK expression.");
+      } else if (_match([TokenType.maskedKeyword])) {
+        _consume(TokenType.withKeyword, "Expected 'WITH' after 'MASKED'.");
+        _consume(TokenType.lParen, "Expected '(' after 'MASKED WITH'.");
+        _consume(TokenType.functionKeyword, "Expected 'FUNCTION' in MASKED WITH clause.");
+        _consume(TokenType.equals, "Expected '=' after 'FUNCTION'.");
+        final funcNameToken = _consume(TokenType.stringLiteral, "Expected function name string.");
+        maskedWith = funcNameToken.lexeme;
+        _consume(TokenType.rParen, "Expected ')' after MASKED WITH clause.");
+      } else {
+        break;
+      }
+    }
+
+    return ColumnDef(
+      colNameToken.lexeme,
+      colType,
+      isPrimaryKey: isPrimaryKey,
+      isUnique: isUnique,
+      referencesTable: referencesTable,
+      referencesColumn: referencesColumn,
+      onDeleteCascade: onDeleteCascade,
+      defaultValue: defaultValue,
+      checkExpression: checkExpression,
+      maskedWith: maskedWith,
+    );
+  }
+
+
+
   Stmt _parseAlterTableStatement() {
     _consume(TokenType.table, "Expected 'TABLE' after 'ALTER'.");
     final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
     final tableName = tableNameToken.lexeme;
 
     if (_match([TokenType.addKeyword])) {
-      final colNameToken = _consume(TokenType.identifier, "Expected column name to add.");
-      final colType = _parseDataType();
+      final colDef = _parseColumnDef();
       if (_check(TokenType.semicolon)) _advance();
-      return AlterTableStmt.add(tableName, ColumnDef(colNameToken.lexeme, colType));
+      return AlterTableStmt.add(tableName, colDef);
     } else if (_match([TokenType.dropKeyword])) {
       _consume(TokenType.columnKeyword, "Expected 'COLUMN' after 'DROP'.");
       final colNameToken = _consume(TokenType.identifier, "Expected column name to drop.");
       if (_check(TokenType.semicolon)) _advance();
       return AlterTableStmt.drop(tableName, colNameToken.lexeme);
+    } else if (_peek().lexeme.toLowerCase() == 'rename') {
+      _advance(); // Consume 'rename'
+      if (_check(TokenType.columnKeyword)) _advance();
+      final oldCol = _consume(TokenType.identifier, "Expected old column name.").lexeme;
+      _consume(TokenType.to, "Expected 'TO' after old column name.");
+      final newCol = _consume(TokenType.identifier, "Expected new column name.").lexeme;
+      if (_check(TokenType.semicolon)) _advance();
+      return AlterTableStmt.renameColumn(tableName, oldCol, newCol);
+    } else if (_peek().lexeme.toLowerCase() == 'alter') {
+      _advance(); // Consume 'alter'
+      if (_check(TokenType.columnKeyword)) _advance();
+      final targetCol = _consume(TokenType.identifier, "Expected target column name.").lexeme;
+      if (_peek().lexeme.toLowerCase() == 'type') _advance();
+      final newType = _parseDataType();
+      if (_check(TokenType.semicolon)) _advance();
+      return AlterTableStmt.alterColumnType(tableName, targetCol, newType);
     } else {
-      throw Exception("Expected 'ADD' or 'DROP' in ALTER TABLE statement.");
+      throw Exception("Expected 'ADD', 'DROP', 'RENAME', or 'ALTER' in ALTER TABLE statement.");
     }
   }
 
@@ -685,6 +998,16 @@ class Parser {
     _consume(TokenType.into, "Expected 'INTO' keyword.");
     final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
     final tableName = tableNameToken.lexeme;
+
+    List<String>? targetColumns;
+    if (_match([TokenType.lParen])) {
+      targetColumns = [];
+      do {
+        final colToken = _consume(TokenType.identifier, "Expected column name.");
+        targetColumns.add(colToken.lexeme);
+      } while (_match([TokenType.comma]));
+      _consume(TokenType.rParen, "Expected ')' after column list.");
+    }
 
     _consume(TokenType.valuesKeyword, "Expected 'VALUES' keyword.");
     _consume(TokenType.lParen, "Expected '(' to list values.");
@@ -699,10 +1022,18 @@ class Parser {
     // Optional trailing semicolon
     if (_check(TokenType.semicolon)) _advance();
 
-    return InsertStmt(tableName, values);
+    return InsertStmt(tableName, values, targetColumns);
   }
 
   Stmt _parseSelectStatement() {
+    bool isDistinct = false;
+    if (_match([TokenType.distinct])) {
+      isDistinct = true;
+    } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'distinct') {
+      _advance();
+      isDistinct = true;
+    }
+
     List<Projection> projections = [];
     
     if (_match([TokenType.asterisk])) {
@@ -721,15 +1052,47 @@ class Parser {
       } while (_match([TokenType.comma]));
     }
 
-    _consume(TokenType.from, "Expected 'FROM' keyword.");
-    final tableNameToken = _consume(TokenType.identifier, "Expected source table name.");
-    final tableName = tableNameToken.lexeme;
+    String tableName = '';
+    SelectStmt? fromSubquery;
+    FunctionCallExpr? fromFunction;
+    if (_match([TokenType.from])) {
+      if (_check(TokenType.lParen) && 
+          (_peekNext().type == TokenType.select || _peekNext().type == TokenType.withKeyword)) {
+        _consume(TokenType.lParen, "Expected '(' before FROM subquery.");
+        final stmt = _parsePlSqlStatement();
+        _consume(TokenType.rParen, "Expected ')' after FROM subquery.");
+        if (stmt is SelectStmt) {
+          fromSubquery = stmt;
+        } else {
+          throw Exception("Expected SelectStmt inside FROM subquery.");
+        }
+      } else if (_check(TokenType.identifier) && _peekNext().type == TokenType.lParen) {
+        final funcNameToken = _consume(TokenType.identifier, "Expected function name.");
+        final funcName = funcNameToken.lexeme;
+        _consume(TokenType.lParen, "Expected '(' after function name.");
+        final args = <Expression>[];
+        if (!_check(TokenType.rParen)) {
+          do {
+            args.add(_parseExpression());
+          } while (_match([TokenType.comma]));
+        }
+        _consume(TokenType.rParen, "Expected ')' after function arguments.");
+        fromFunction = FunctionCallExpr(funcName, args);
+        tableName = funcName;
+      } else {
+        final tableNameToken = _consume(TokenType.identifier, "Expected source table name.");
+        tableName = tableNameToken.lexeme;
+      }
+    }
 
     String? tableAlias;
-    if (_match([TokenType.as])) {
+    if (_check(TokenType.as) && _peekNext().type != TokenType.ofKeyword) {
+      _advance();
       tableAlias = _consume(TokenType.identifier, "Expected table alias.").lexeme;
     } else if (_peek().type == TokenType.identifier && 
                _peek().lexeme.toLowerCase() != 'left' &&
+               _peek().lexeme.toLowerCase() != 'right' &&
+               _peek().lexeme.toLowerCase() != 'full' &&
                _peek().lexeme.toLowerCase() != 'outer' &&
                ![
                  TokenType.join,
@@ -744,28 +1107,88 @@ class Parser {
       tableAlias = _advance().lexeme;
     }
 
-    Join? join;
-    bool isLeftJoin = false;
-    bool hasJoin = false;
-    if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'left') {
-      _advance(); // consume 'left'
-      isLeftJoin = true;
-      if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'outer') {
-        _advance(); // consume 'outer'
+    AsOfClause? asOfClause;
+    if (_match([TokenType.as])) {
+      _consume(TokenType.ofKeyword, "Expected 'OF' after 'AS'.");
+      if (_match([TokenType.systemKeyword])) {
+        _consume(TokenType.timeKeyword, "Expected TIME after SYSTEM in AS OF SYSTEM TIME.");
+        final expr = _parseExpression();
+        asOfClause = AsOfClause(true, expr);
+      } else if (_match([TokenType.transactionKeyword])) {
+        final expr = _parseExpression();
+        asOfClause = AsOfClause(false, expr);
+      } else {
+        throw Exception("Expected SYSTEM TIME or TRANSACTION after AS OF.");
       }
-      _consume(TokenType.join, "Expected 'JOIN' after 'LEFT [OUTER]'.");
-      hasJoin = true;
-    } else if (_match([TokenType.join])) {
-      hasJoin = true;
     }
 
-    if (hasJoin) {
-      final joinTable = _consume(TokenType.identifier, "Expected table to join.").lexeme;
+    if (fromSubquery != null && tableName.isEmpty) {
+      tableName = tableAlias ?? 'subquery';
+    }
+
+    final joins = <Join>[];
+    while (true) {
+      bool isLeftJoin = false;
+      bool isRightJoin = false;
+      bool isFullJoin = false;
+      bool hasJoin = false;
+
+      if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'left') {
+        _advance();
+        isLeftJoin = true;
+        if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'outer') {
+          _advance();
+        }
+        _consume(TokenType.join, "Expected 'JOIN' after 'LEFT [OUTER]'.");
+        hasJoin = true;
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'right') {
+        _advance();
+        isRightJoin = true;
+        if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'outer') {
+          _advance();
+        }
+        _consume(TokenType.join, "Expected 'JOIN' after 'RIGHT [OUTER]'.");
+        hasJoin = true;
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'full') {
+        _advance();
+        isFullJoin = true;
+        if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'outer') {
+          _advance();
+        }
+        _consume(TokenType.join, "Expected 'JOIN' after 'FULL [OUTER]'.");
+        hasJoin = true;
+      } else if (_match([TokenType.join])) {
+        hasJoin = true;
+      }
+
+      if (!hasJoin) {
+        break;
+      }
+
+      String joinTable = '';
+      SelectStmt? joinSubquery;
+      if (_check(TokenType.lParen) && 
+          (_peekNext().type == TokenType.select || _peekNext().type == TokenType.withKeyword)) {
+        _consume(TokenType.lParen, "Expected '(' before JOIN subquery.");
+        final stmt = _parsePlSqlStatement();
+        _consume(TokenType.rParen, "Expected ')' after JOIN subquery.");
+        if (stmt is SelectStmt) {
+          joinSubquery = stmt;
+        } else {
+          throw Exception("Expected SelectStmt inside JOIN subquery.");
+        }
+      } else {
+        final joinTableToken = _consume(TokenType.identifier, "Expected table to join.");
+        joinTable = joinTableToken.lexeme;
+      }
+
       String? joinAlias;
       if (_match([TokenType.as])) {
         joinAlias = _consume(TokenType.identifier, "Expected table alias.").lexeme;
       } else if (_peek().type == TokenType.identifier &&
                  _peek().lexeme.toLowerCase() != 'left' &&
+                 _peek().lexeme.toLowerCase() != 'right' &&
+                 _peek().lexeme.toLowerCase() != 'full' &&
                  _peek().lexeme.toLowerCase() != 'outer' &&
                  ![
                    TokenType.on,
@@ -780,9 +1203,22 @@ class Parser {
                  ].contains(_peek().type)) {
         joinAlias = _advance().lexeme;
       }
+
+      if (joinSubquery != null && joinTable.isEmpty) {
+        joinTable = joinAlias ?? 'join_subquery';
+      }
+
       _consume(TokenType.on, "Expected 'ON' condition for JOIN.");
       final onCond = _parseExpression();
-      join = Join(joinTable, onCond, alias: joinAlias, isLeftJoin: isLeftJoin);
+      joins.add(Join(
+        joinTable,
+        onCond,
+        fromSubquery: joinSubquery,
+        alias: joinAlias,
+        isLeftJoin: isLeftJoin,
+        isRightJoin: isRightJoin,
+        isFullJoin: isFullJoin,
+      ));
     }
 
     Expression? whereCondition;
@@ -793,7 +1229,44 @@ class Parser {
     Expression? groupBy;
     if (_match([TokenType.groupKeyword])) {
       _consume(TokenType.by, "Expected 'BY' after 'GROUP'.");
-      groupBy = _parseExpression();
+      
+      if (_match([TokenType.rollupKeyword])) {
+          _consume(TokenType.lParen, "Expected '(' after ROLLUP.");
+          List<Expression> args = [];
+          do { args.add(_parseExpression()); } while (_match([TokenType.comma]));
+          _consume(TokenType.rParen, "Expected ')' after ROLLUP.");
+          groupBy = RollupExpr(args);
+      } else if (_match([TokenType.cubeKeyword])) {
+          _consume(TokenType.lParen, "Expected '(' after CUBE.");
+          List<Expression> args = [];
+          do { args.add(_parseExpression()); } while (_match([TokenType.comma]));
+          _consume(TokenType.rParen, "Expected ')' after CUBE.");
+          groupBy = CubeExpr(args);
+      } else if (_match([TokenType.groupingKeyword])) {
+          _consume(TokenType.setsKeyword, "Expected 'SETS' after 'GROUPING'.");
+          _consume(TokenType.lParen, "Expected '(' after GROUPING SETS.");
+          List<List<Expression>> sets = [];
+          do {
+              _consume(TokenType.lParen, "Expected '(' for a grouping set.");
+              List<Expression> args = [];
+              if (!_check(TokenType.rParen)) {
+                  do { args.add(_parseExpression()); } while (_match([TokenType.comma]));
+              }
+              _consume(TokenType.rParen, "Expected ')' to close a grouping set.");
+              sets.add(args);
+          } while (_match([TokenType.comma]));
+          _consume(TokenType.rParen, "Expected ')' after GROUPING SETS.");
+          groupBy = GroupingSetsExpr(sets);
+      } else {
+          // Normal GROUP BY
+          List<Expression> args = [];
+          do { args.add(_parseExpression()); } while (_match([TokenType.comma]));
+          if (args.length == 1) {
+              groupBy = args[0];
+          } else {
+              groupBy = GroupingSetsExpr([args]);
+          }
+      }
     }
 
     Expression? havingCondition;
@@ -815,9 +1288,18 @@ class Parser {
     }
 
     int? limit;
+    int? offset;
     if (_match([TokenType.limit])) {
       final limitToken = _consume(TokenType.numberLiteral, "Expected numeric limit.");
       limit = int.tryParse(limitToken.lexeme);
+
+      if (_match([TokenType.offset]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'offset')) {
+        if (_peek().lexeme.toLowerCase() == 'offset') {
+          _advance();
+        }
+        final offsetToken = _consume(TokenType.numberLiteral, "Expected numeric offset.");
+        offset = int.tryParse(offsetToken.lexeme);
+      }
     }
 
     String? withRelationship;
@@ -832,14 +1314,19 @@ class Parser {
     return SelectStmt(
       projections: projections,
       tableName: tableName,
+      fromSubquery: fromSubquery,
+      fromFunction: fromFunction,
       tableAlias: tableAlias,
-      join: join,
+      joins: joins,
       whereCondition: whereCondition,
       groupBy: groupBy,
       havingCondition: havingCondition,
       orderBy: orderBy,
       limit: limit,
+      offset: offset,
       withRelationship: withRelationship,
+      isDistinct: isDistinct,
+      asOfClause: asOfClause,
     );
   }
 
@@ -880,6 +1367,28 @@ class Parser {
         BinaryExpr('>=', expr, low),
         BinaryExpr('<=', expr, high),
       );
+    }
+
+    if (_match([TokenType.inKeyword])) {
+      _consume(TokenType.lParen, "Expected '(' after IN");
+      Expression right;
+      if (_check(TokenType.select) || _check(TokenType.withKeyword)) {
+        final stmt = _parsePlSqlStatement();
+        _consume(TokenType.rParen, "Expected ')' after subquery.");
+        if (stmt is SelectStmt) {
+          right = SubqueryExpr(stmt);
+        } else {
+          throw Exception("Expected SelectStmt inside subquery.");
+        }
+      } else {
+        final exprs = <Expression>[];
+        do {
+          exprs.add(_parseExpression());
+        } while (_match([TokenType.comma]));
+        _consume(TokenType.rParen, "Expected ')' after IN list.");
+        right = FunctionCallExpr('in_list', exprs);
+      }
+      return BinaryExpr('IN', expr, right);
     }
 
     while (_match([
@@ -924,29 +1433,25 @@ class Parser {
   }
 
   Expression _parsePrimary() {
+    Expression expr;
     if (_match([TokenType.placeholder])) {
       final lex = _previous().lexeme;
       if (lex == '?') {
         final idx = _placeholderCount++;
-        return PlaceholderExpr(lex, idx);
+        expr = PlaceholderExpr(lex, idx);
       } else if (lex.startsWith('\$')) {
         final idx = int.parse(lex.substring(1)) - 1;
-        return PlaceholderExpr(lex, idx);
+        expr = PlaceholderExpr(lex, idx);
+      } else {
+        throw Exception("Unknown placeholder format: $lex");
       }
-    }
-
-    if (_match([TokenType.numberLiteral])) {
+    } else if (_match([TokenType.numberLiteral])) {
       final lex = _previous().lexeme;
       final val = num.parse(lex);
-      return LiteralExpr(val);
-    }
-
-    if (_match([TokenType.stringLiteral])) {
-      return LiteralExpr(_previous().lexeme);
-    }
-
-    // Vector Lit: e.g. '[0.1, 0.2, 0.3]' or parsed LBRACKET numbers RBRACKET
-    if (_match([TokenType.lBracket])) {
+      expr = LiteralExpr(val);
+    } else if (_match([TokenType.stringLiteral])) {
+      expr = LiteralExpr(_previous().lexeme);
+    } else if (_match([TokenType.lBracket])) {
       final elements = <double>[];
       if (!_check(TokenType.rBracket)) {
         do {
@@ -956,22 +1461,26 @@ class Parser {
         } while (_match([TokenType.comma]));
       }
       _consume(TokenType.rBracket, "Expected ']' to close vector literal.");
-      return VectorLiteralExpr(elements);
-    }
-
-    if (_match([TokenType.identifier])) {
+      expr = VectorLiteralExpr(elements);
+    } else if (_match([TokenType.identifier, TokenType.matchKeyword])) {
       final firstId = _previous().lexeme;
-      if (firstId.toLowerCase() == 'cast') {
+      if (firstId.toLowerCase() == 'match' || firstId.toLowerCase() == 'contains') {
+        _consume(TokenType.lParen, "Expected '(' after MATCH.");
+        final colExpr = _parseExpression();
+        _consume(TokenType.comma, "Expected ',' after column name in MATCH.");
+        final queryExpr = _parseExpression();
+        _consume(TokenType.rParen, "Expected ')' after search query in MATCH.");
+        final colName = exprToSqlString(colExpr);
+        final searchQuery = (queryExpr is LiteralExpr) ? queryExpr.value.toString() : exprToSqlString(queryExpr);
+        expr = MatchExpr(colName, searchQuery);
+      } else if (firstId.toLowerCase() == 'cast') {
         _consume(TokenType.lParen, "Expected '(' after CAST.");
-        final expr = _parseExpression();
+        final innerExpr = _parseExpression();
         _consume(TokenType.as, "Expected 'AS' inside CAST.");
         final targetType = _parseDataType();
         _consume(TokenType.rParen, "Expected ')' to close CAST.");
-        return FunctionCallExpr('cast', [expr, LiteralExpr(targetType.toString())]);
-      }
-
-      // Check if it's a function call (e.g. vector_distance(embedding, '[1, 2, 3]'))
-      if (_check(TokenType.lParen)) {
+        expr = FunctionCallExpr('cast', [innerExpr, LiteralExpr(targetType.toString())]);
+      } else if (_check(TokenType.lParen)) {
         _advance(); // consume '('
         List<Expression> arguments = [];
         if (_check(TokenType.asterisk)) {
@@ -983,25 +1492,80 @@ class Parser {
           } while (_match([TokenType.comma]));
         }
         _consume(TokenType.rParen, "Expected ')' after function arguments.");
-        return FunctionCallExpr(firstId, arguments);
+        if (_match([TokenType.over])) {
+          _consume(TokenType.lParen, "Expected '(' after OVER.");
+          List<Expression> partitionBy = [];
+          if (_match([TokenType.partition])) {
+            _consume(TokenType.by, "Expected 'BY' after PARTITION.");
+            do {
+              partitionBy.add(_parseExpression());
+            } while (_match([TokenType.comma]));
+          }
+          OrderBy? orderBy;
+          if (_match([TokenType.orderBy])) {
+            _consume(TokenType.by, "Expected 'BY' after ORDER.");
+            final orderExpr = _parseExpression();
+            bool ascending = true;
+            if (_match([TokenType.asc])) {
+              ascending = true;
+            } else if (_match([TokenType.desc])) {
+              ascending = false;
+            }
+            orderBy = OrderBy(orderExpr, ascending);
+          }
+          _consume(TokenType.rParen, "Expected ')' to close OVER clause.");
+          expr = WindowFunctionExpr(
+            functionName: firstId,
+            arguments: arguments,
+            partitionBy: partitionBy,
+            orderBy: orderBy,
+          );
+        } else {
+          expr = FunctionCallExpr(firstId, arguments);
+        }
+      } else {
+        // Check for dotted path notation: table.column or column.json_path
+        final path = [firstId];
+        while (_match([TokenType.dot])) {
+          final segmentToken = _consume(TokenType.identifier, "Expected identifier after dot.");
+          path.add(segmentToken.lexeme);
+        }
+        expr = VariableExpr(path);
       }
-
-      // Check for dotted path notation: table.column or column.json_path
-      final path = [firstId];
-      while (_match([TokenType.dot])) {
-        final segmentToken = _consume(TokenType.identifier, "Expected identifier after dot.");
-        path.add(segmentToken.lexeme);
+    } else if (_check(TokenType.lParen) && 
+               (_peekNext().type == TokenType.select || _peekNext().type == TokenType.withKeyword)) {
+      _consume(TokenType.lParen, "Expected '(' before subquery.");
+      final stmt = _parsePlSqlStatement();
+      _consume(TokenType.rParen, "Expected ')' after subquery.");
+      if (stmt is SelectStmt) {
+        expr = SubqueryExpr(stmt);
+      } else {
+        throw Exception("Expected SelectStmt inside subquery.");
       }
-      return VariableExpr(path);
-    }
-
-    if (_match([TokenType.lParen])) {
-      final expr = _parseExpression();
+    } else if (_match([TokenType.lParen])) {
+      final innerExpr = _parseExpression();
       _consume(TokenType.rParen, "Expected ')' after expression.");
-      return expr;
+      expr = innerExpr;
+    } else {
+      throw Exception("Unexpected token '${_peek().lexeme}' in expression.");
     }
 
-    throw Exception("Unexpected token '${_peek().lexeme}' in expression.");
+    // Parse postfix operators (arrow and arrowText)
+    while (true) {
+      if (_check(TokenType.arrow)) {
+        _advance();
+        final pathToken = _consume(TokenType.stringLiteral, "Expected string literal path after JSON operator '->'.");
+        expr = JsonExtractExpr(expr, pathToken.lexeme, false);
+      } else if (_check(TokenType.arrowText)) {
+        _advance();
+        final pathToken = _consume(TokenType.stringLiteral, "Expected string literal path after JSON operator '->>'.");
+        expr = JsonExtractExpr(expr, pathToken.lexeme, true);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
   }
 
   List<Parameter> _parseParameters() {
@@ -1040,5 +1604,72 @@ class Parser {
     _consume(TokenType.rParen, "Expected ')' after CALL argument list.");
     if (_check(TokenType.semicolon)) _advance();
     return CallStmt(name, args);
+  }
+
+  Stmt _parseCteStatement() {
+    bool isRecursive = false;
+    if (_match([TokenType.recursiveKeyword])) {
+      isRecursive = true;
+    }
+    final ctes = <String, dynamic>{};
+    do {
+      final cteNameToken = _consume(TokenType.identifier, "Expected CTE name.");
+      final cteName = cteNameToken.lexeme.toLowerCase();
+      if (_match([TokenType.lParen])) {
+        do {
+          _consume(TokenType.identifier, "Expected column name in CTE parameter list.");
+        } while (_match([TokenType.comma]));
+        _consume(TokenType.rParen, "Expected ')' after CTE column names.");
+      }
+      _consume(TokenType.as, "Expected 'AS' after CTE name.");
+      _consume(TokenType.lParen, "Expected '(' before CTE query.");
+      _consume(TokenType.select, "Expected 'SELECT' inside CTE query.");
+      final cteQuery = _parseSelectOrUnionStatement();
+      _consume(TokenType.rParen, "Expected ')' after CTE query.");
+      ctes[cteName] = cteQuery;
+    } while (_match([TokenType.comma]));
+
+    _consume(TokenType.select, "Expected 'SELECT' after CTE definition.");
+    final mainSelect = _parseSelectStatement() as SelectStmt;
+
+    return CteSelectStmt(ctes: ctes, mainSelect: mainSelect, isRecursive: isRecursive);
+  }
+
+  Stmt _parseSelectOrUnionStatement() {
+    final firstSelect = _parseSelectStatement() as SelectStmt;
+    if (_peek().type == TokenType.union) {
+      final selectStmts = <SelectStmt>[firstSelect];
+      final isAllFlags = <bool>[];
+      while (_match([TokenType.union])) {
+        bool isAll = false;
+        if (_match([TokenType.all])) {
+          isAll = true;
+        }
+        _consume(TokenType.select, "Expected 'SELECT' after 'UNION'.");
+        final nextSelect = _parseSelectStatement() as SelectStmt;
+        selectStmts.add(nextSelect);
+        isAllFlags.add(isAll);
+      }
+      return UnionStmt(selectStmts, isAllFlags);
+    }
+    if (_peek().type == TokenType.intersect) {
+      final selectStmts = <SelectStmt>[firstSelect];
+      while (_match([TokenType.intersect])) {
+        _consume(TokenType.select, "Expected 'SELECT' after 'INTERSECT'.");
+        final nextSelect = _parseSelectStatement() as SelectStmt;
+        selectStmts.add(nextSelect);
+      }
+      return IntersectStmt(selectStmts);
+    }
+    if (_peek().type == TokenType.except) {
+      final selectStmts = <SelectStmt>[firstSelect];
+      while (_match([TokenType.except])) {
+        _consume(TokenType.select, "Expected 'SELECT' after 'EXCEPT'.");
+        final nextSelect = _parseSelectStatement() as SelectStmt;
+        selectStmts.add(nextSelect);
+      }
+      return ExceptStmt(selectStmts);
+    }
+    return firstSelect;
   }
 }

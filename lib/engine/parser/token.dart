@@ -23,6 +23,7 @@ enum TokenType {
   indexKeyword,
   to,
   withKeyword,
+  inKeyword,
   generate,
   groupKeyword,
   likeKeyword,
@@ -43,6 +44,10 @@ enum TokenType {
   addKeyword,
   dropKeyword,
   columnKeyword,
+  checkKeyword,
+  defaultKeyword,
+  checkpointKeyword,
+
 
   // Keywords - PL/SQL
   declare,
@@ -81,6 +86,8 @@ enum TokenType {
   assign, // :=
   concat, // ||
   modulo, // %
+  arrow, // ->
+  arrowText, // ->>
 
   // Punctuation
   lParen,
@@ -108,7 +115,46 @@ enum TokenType {
   functionKeyword,
   returnsKeyword,
   returnKeyword,
-  callKeyword
+  callKeyword,
+  union,
+  over,
+  partition,
+  intersect,
+  except,
+  distinct,
+  offset,
+  savepointKeyword,
+  releaseKeyword,
+  cursorKeyword,
+  forKeyword,
+  openKeyword,
+  fetchKeyword,
+  closeKeyword,
+  triggerKeyword,
+  beforeKeyword,
+  afterKeyword,
+  eachKeyword,
+  rowKeyword,
+  exceptionKeyword,
+  whenKeyword,
+  ftsKeyword,
+  matchKeyword,
+  recursiveKeyword,
+  rollupKeyword,
+  cubeKeyword,
+  groupingKeyword,
+  setsKeyword,
+  foreignKeyword,
+  serverKeyword,
+  optionsKeyword,
+  vacuumKeyword,
+  fullKeyword,
+  ofKeyword,
+  systemKeyword,
+  timeKeyword,
+  transactionKeyword,
+  rangeKeyword,
+  maskedKeyword
 }
 
 class Token {
