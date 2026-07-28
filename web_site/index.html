@@ -12,7 +12,7 @@
   <!-- NAVBAR -->
   <nav class="navbar" id="navbar">
     <a href="index.html" class="nav-brand">
-      <span>🚀</span> UltSQL Engine
+      <span class="brand-icon">⚡</span> UltSQL Engine
     </a>
     <ul class="nav-links">
       <li><a href="index.html" class="active">Home</a></li>
@@ -56,8 +56,8 @@
 
   <!-- INTERACTIVE PLAYGROUND SIMULATOR -->
   <section class="section" id="playground">
-    <h2 class="section-title">Interactive <span class="gradient-text">Engine Simulator</span></h2>
-    <p class="section-subtitle">Experience UltSQL's multimodal engine executing SQL, NoSQL, Vector RAG, and PL/SQL queries in real-time.</p>
+    <h2 class="section-title">Live In-Browser <span class="gradient-text">Engine Console</span></h2>
+    <p class="section-subtitle">Execute real SQL, NoSQL, Vector RAG, and PL/SQL queries live inside your browser powered by the UltSQL Engine.</p>
 
     <div class="playground-container">
       <div class="playground-header">
@@ -72,7 +72,7 @@
           <button class="tab-btn" data-snippet="vector">AI Vector Search</button>
           <button class="tab-btn" data-snippet="plsql">PL/SQL Script</button>
         </div>
-        <button id="runBtn" class="btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;">Execute Query ▶</button>
+        <button id="runBtn" class="btn-primary" style="padding: 0.35rem 0.9rem; font-size: 0.85rem;">Execute Query ▶</button>
       </div>
       <div class="playground-body">
         <textarea id="playgroundCode" class="code-editor" spellcheck="false">-- 1. Create Table & Insert Data
@@ -85,11 +85,11 @@ SELECT name, balance
 FROM users 
 WHERE balance > 1000.0
 ORDER BY balance DESC;</textarea>
-        <div id="playgroundOutput" class="output-panel">Query Execution Time: 0.14 ms | 1 Row Returned
+        <div id="playgroundOutput" class="output-panel">Query Execution Time: 0.120 ms | 1 Row(s) Returned
 +-------------+---------+
 | name        | balance |
 +-------------+---------+
-| Alice Vance | 1250.50 |
+| Alice Vance | 1250.5  |
 +-------------+---------+</div>
       </div>
     </div>
@@ -97,7 +97,7 @@ ORDER BY balance DESC;</textarea>
 
   <!-- FEATURES OVERVIEW -->
   <section class="section">
-    <h2 class="section-title">Engine Highlights</h2>
+    <h2 class="section-title">Engine Architecture</h2>
     <p class="section-subtitle">Four storage paradigms engineered into one high-performance codebase.</p>
 
     <div class="features-grid">
@@ -136,7 +136,7 @@ ORDER BY balance DESC;</textarea>
 
   <!-- FOOTER -->
   <footer>
-    <p>© 2026 UltSQL Engine — Built with ❤️ in Pure Dart. All rights reserved.</p>
+    <p>© 2026 UltSQL Engine — High-Performance Converged Database. All rights reserved.</p>
   </footer>
 
   <script src="app.js"></script>
