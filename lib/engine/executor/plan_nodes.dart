@@ -783,8 +783,7 @@ class IndexScanNode extends PlanNode {
 
   int? getFastCount() {
     index.initSync();
-    _pointers ??= index.searchRangeSync(low, high);
-    return _pointers?.length;
+    return index.countRangeSync(low, high);
   }
 
   @override
@@ -800,8 +799,8 @@ class IndexScanNode extends PlanNode {
     }
     index.initSync();
     _pointers = index.searchRangeSync(low, high);
-    // Sort physically by pageId & slotId to maximize sequential cache hits if result set is large
-    if (_pointers!.length > 250) {
+    // Sort physically by pageId & slotId to maximize sequential cache hits if result set is large and rows are projected
+    if (projectedColIndexes.isNotEmpty && _pointers!.length > 250) {
       _pointers!.sort((a, b) {
         final cmp = a.pageId.compareTo(b.pageId);
         if (cmp != 0) return cmp;
