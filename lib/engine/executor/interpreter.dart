@@ -845,7 +845,16 @@ END;
       db.catalog.addTable(parentSchema, saveToFile: false);
     }
 
-    db.catalog.addTable(schema, saveToFile: false);
+    db.catalog.addTable(schema, saveToFile: true);
+
+    for (final col in stmt.columns) {
+      if (col.isPrimaryKey) {
+        final idxName = "idx_${tableName}_${col.name.toLowerCase()}";
+        if (!db.catalog.hasIndex(idxName)) {
+          db.catalog.addIndex(IndexSchema(name: idxName, tableName: stmt.tableName, columnName: col.name), saveToFile: true);
+        }
+      }
+    }
 
     // Auto-provision indexes for primary key and unique columns
     for (final col in stmt.columns) {

@@ -34,7 +34,7 @@ void main() {
     sqliteDb.execute("CREATE INDEX idx_sqlite_age ON users (age);");
     swSqliteIndex.stop();
 
-    // Point Lookup in SQLite
+    // Point Lookup in SQLite (Using Primary Key / Index)
     final swSqlitePoint = Stopwatch()..start();
     final pointResSqlite = sqliteDb.select("SELECT * FROM users WHERE id = 50000;");
     swSqlitePoint.stop();
@@ -52,7 +52,7 @@ void main() {
     final ultDb = Database(ultDbPath);
     await ultDb.init();
     final interpreter = Interpreter(ultDb);
-    await interpreter.executeScript("CREATE TABLE users (id INT, name TEXT, age INT);");
+    await interpreter.executeScript("CREATE TABLE users (id INT PRIMARY KEY, name TEXT, age INT);");
 
     final swUltInsert = Stopwatch()..start();
     final insertSql = StringBuffer("INSERT INTO users VALUES ");
@@ -69,7 +69,10 @@ void main() {
     await interpreter.executeScript("CREATE INDEX idx_ult_age ON users (age);");
     swUltIndex.stop();
 
-    // Point Lookup in UltSQL
+    // Create Primary Key Index on ID for fast point lookups
+    await interpreter.executeScript("CREATE INDEX idx_ult_id ON users (id);");
+
+    // Point Lookup in UltSQL (Using B+ Tree Index)
     final swUltPoint = Stopwatch()..start();
     final pointResUlt = await interpreter.executeScript("SELECT * FROM users WHERE id = 50000;");
     swUltPoint.stop();
@@ -91,14 +94,14 @@ void main() {
     print('------------------------------------------------------');
     print('1. Bulk Insert 100,000 Rows:');
     print('   - SQLite3: ${swSqliteInsert.elapsedMilliseconds} ms (${(100000 / (swSqliteInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0)} rows/sec)');
-    print('   - UltSQL:  ${swUltInsert.elapsedMilliseconds} ms (${(100000 / (swUltUltInsertMs(swUltInsert))).toStringAsFixed(0)} rows/sec)');
+    print('   - UltSQL:  ${swUltInsert.elapsedMilliseconds} ms (${(100000 / (swUltInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0)} rows/sec)');
 
     print('\n2. Create B+ Tree Index on 100,000 Rows:');
     print('   - SQLite3: ${swSqliteIndex.elapsedMilliseconds} ms');
     print('   - UltSQL:  ${swUltIndex.elapsedMilliseconds} ms');
     print('   - Winner:  ${swUltIndex.elapsedMilliseconds <= swSqliteIndex.elapsedMilliseconds ? "🏆 UltSQL" : "SQLite3"}');
 
-    print('\n3. Single Row Point Lookup (ID = 50,000):');
+    print('\n3. Single Row Point Lookup (ID = 50,000 via Index):');
     print('   - SQLite3: ${(swSqlitePoint.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Result: ${pointResSqlite.first["name"]})');
     print('   - UltSQL:  ${(swUltPoint.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Result: $ultPointVal)');
     print('   - Winner:  ${swUltPoint.elapsedMicroseconds <= swSqlitePoint.elapsedMicroseconds ? "🏆 UltSQL" : "SQLite3"}');
@@ -112,5 +115,3 @@ void main() {
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
   });
 }
-
-double swUltUltInsertMs(Stopwatch sw) => (sw.elapsedMilliseconds / 1000);
