@@ -789,24 +789,7 @@ class IndexScanNode extends PlanNode {
   @override
   void open() {
     _fastCount = null;
-    if (projectedColIndexes.isEmpty) {
-      final fast = getFastCount();
-      if (fast != null) {
-        _fastCount = fast;
-        _cursor = 0;
-        return;
-      }
-    }
-    index.initSync();
-    _pointers = index.searchRangeSync(low, high);
-    // Sort physically by pageId & slotId to maximize sequential cache hits if result set is large and rows are projected
-    if (projectedColIndexes.isNotEmpty && _pointers!.length > 250) {
-      _pointers!.sort((a, b) {
-        final cmp = a.pageId.compareTo(b.pageId);
-        if (cmp != 0) return cmp;
-        return a.slotId.compareTo(b.slotId);
-      });
-    }
+    _pointers = null;
     _cursor = 0;
     _pinnedPage = null;
     _pinnedPageId = null;
@@ -832,14 +815,17 @@ class IndexScanNode extends PlanNode {
 
   @override
   Map<String, DbValue>? next() {
-    if (_fastCount != null) {
-      if (_cursor < _fastCount!) {
-        _cursor++;
-        return const <String, DbValue>{};
+    if (_pointers == null) {
+      index.initSync();
+      _pointers = index.searchRangeSync(low, high);
+      if (projectedColIndexes.isNotEmpty && _pointers!.length > 250) {
+        _pointers!.sort((a, b) {
+          final cmp = a.pageId.compareTo(b.pageId);
+          if (cmp != 0) return cmp;
+          return a.slotId.compareTo(b.slotId);
+        });
       }
-      return null;
     }
-    if (_pointers == null) return null;
     while (_cursor < _pointers!.length) {
       final ptr = _pointers![_cursor++];
       
@@ -1118,15 +1104,19 @@ class GroupByNode extends PlanNode {
         if (isCountAll) {
           int count = 0;
           bool fastCountSuccess = false;
-          if (child is IndexScanNode) {
-            final scan = child as IndexScanNode;
+          PlanNode baseNode = child;
+          if (baseNode is FilterNode) {
+            baseNode = baseNode.child;
+          }
+          if (baseNode is IndexScanNode) {
+            final scan = baseNode;
             final fastCount = scan.getFastCount();
             if (fastCount != null) {
               count = fastCount;
               fastCountSuccess = true;
             }
-          } else if (child is RowScanNode) {
-            final scan = child as RowScanNode;
+          } else if (baseNode is RowScanNode) {
+            final scan = baseNode;
             final activeInterpreter = JitCompiler.activeInterpreter;
             if (activeInterpreter != null) {
               final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
