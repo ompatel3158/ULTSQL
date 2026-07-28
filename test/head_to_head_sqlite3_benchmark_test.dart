@@ -15,7 +15,7 @@ void main() {
     print('======================================================\n');
 
     // -------------------------------------------------------------------
-    // 1. BENCHMARK: SQLite3 Execution
+    // 1. BENCHMARK: SQLite3 Execution (100,000 Rows)
     // -------------------------------------------------------------------
     final sqliteDb = sqlite.sqlite3.open(sqliteDbPath);
     sqliteDb.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER);");
@@ -48,7 +48,7 @@ void main() {
     sqliteDb.dispose();
 
     // -------------------------------------------------------------------
-    // 2. BENCHMARK: UltSQL Execution
+    // 2. BENCHMARK: UltSQL Direct Engine Execution (100,000 Rows)
     // -------------------------------------------------------------------
     final ultDb = Database(ultDbPath);
     await ultDb.init();
@@ -87,34 +87,31 @@ void main() {
     final ultPointVal = pointResUlt.rows.isNotEmpty ? pointResUlt.rows.first[1].value : "User_50000";
     final ultCountVal = countResUlt.rows.isNotEmpty ? countResUlt.rows.first[0].value : 2000;
 
+    final sqliteInsertRps = (100000 / (swSqliteInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0);
+    final ultDiskInsertRps = (100000 / (swUltInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0);
+
     // -------------------------------------------------------------------
     // 3. EMPIRICAL RESULTS SUMMARY
     // -------------------------------------------------------------------
     print('📊 EMPIRICAL BENCHMARK RESULTS (100,000 ROWS ON DISK):');
     print('------------------------------------------------------');
-    print('1. Bulk Insert 100,000 Rows:');
-    print('   - SQLite3: ${swSqliteInsert.elapsedMilliseconds} ms (${(100000 / (swSqliteInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0)} rows/sec)');
-    print('   - UltSQL:  ${swUltInsert.elapsedMilliseconds} ms (${(100000 / (swUltUltInsertMs(swUltInsert))).toStringAsFixed(0)} rows/sec)');
-    print('   - Winner:  ${swUltInsert.elapsedMilliseconds <= swSqliteInsert.elapsedMilliseconds ? "🏆 UltSQL" : "SQLite3"}');
+    print('1. Bulk Insert Throughput (100,000 Rows):');
+    print('   - SQLite3: ${swSqliteInsert.elapsedMilliseconds} ms ($sqliteInsertRps rows/sec)');
+    print('   - UltSQL:  ${swUltInsert.elapsedMilliseconds} ms ($ultDiskInsertRps rows/sec)');
 
     print('\n2. Create B+ Tree Index on 100,000 Rows:');
     print('   - SQLite3: ${swSqliteIndex.elapsedMilliseconds} ms');
     print('   - UltSQL:  ${swUltIndex.elapsedMilliseconds} ms');
-    print('   - Winner:  ${swUltIndex.elapsedMilliseconds <= swSqliteIndex.elapsedMilliseconds ? "🏆 UltSQL" : "SQLite3"}');
 
     print('\n3. Single Row Point Lookup (ID = 50,000 via Index):');
     print('   - SQLite3: ${(swSqlitePoint.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Result: ${pointResSqlite.first["name"]})');
     print('   - UltSQL:  ${(swUltPoint.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Result: $ultPointVal)');
-    print('   - Winner:  ${swUltPoint.elapsedMicroseconds <= swSqlitePoint.elapsedMicroseconds ? "🏆 UltSQL" : "SQLite3"}');
 
     print('\n4. Indexed COUNT(*) Query (WHERE age = 25):');
     print('   - SQLite3: ${(swSqliteCount.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Count: ${countResSqlite.first.values[0]})');
     print('   - UltSQL:  ${(swUltCount.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Count: $ultCountVal)');
-    print('   - Winner:  ${swUltPoint.elapsedMicroseconds <= swSqlitePoint.elapsedMicroseconds ? "🏆 UltSQL" : "SQLite3"}');
     print('------------------------------------------------------\n');
 
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
   });
 }
-
-double swUltUltInsertMs(Stopwatch sw) => (sw.elapsedMilliseconds / 1000);

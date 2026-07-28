@@ -496,12 +496,10 @@ class RowTableFile {
       final currentSlotEnd = 5 + rowCount * 4;
 
       if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
-        // Save current page headers
         data.setUint16(1, rowCount);
         data.setUint16(3, freeSpaceOffset);
         cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
 
-        // Pin new page
         currentPageId++;
         page = cache.pinPageSync(filePath, currentPageId);
         SlottedPageHelper.initPage(page);
@@ -512,19 +510,20 @@ class RowTableFile {
       }
 
       final newFreeSpaceOffset = freeSpaceOffset - recordLen;
-      page.data.setRange(newFreeSpaceOffset, newFreeSpaceOffset + recordLen, _sharedTempBuffer, 0);
+      final pageBytes = page.data;
+      pageBytes.setRange(newFreeSpaceOffset, newFreeSpaceOffset + recordLen, _sharedTempBuffer, 0);
 
       final slotOffset = 5 + rowCount * 4;
       data.setUint16(slotOffset, newFreeSpaceOffset);
       data.setUint16(slotOffset + 2, recordLen);
 
+      if (generatePointers) {
+        pointers!.add(BTreePointer(currentPageId, rowCount));
+      }
+
       rowCount++;
       freeSpaceOffset = newFreeSpaceOffset;
       pageDirty = true;
-
-      if (generatePointers) {
-        pointers!.add(BTreePointer(currentPageId, rowCount - 1));
-      }
     }
 
     // Save final page headers

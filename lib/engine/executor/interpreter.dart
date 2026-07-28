@@ -205,23 +205,35 @@ class PreparedStatement {
     // Evaluate row values for all parameter rows
     final List<List<DbValue>> rowsValues;
     if (isSimplePlaceholders) {
-      final colTypes = schema.columnTypes;
-      final numCols = colTypes.length;
-      for (int r = 0; r < batchParams.length; r++) {
-        final params = batchParams[r];
-        for (int i = 0; i < numCols; i++) {
-          final val = params[i];
-          final expectedType = colTypes[i];
-          if (val is! DbNull && val.type != expectedType) {
-            if (expectedType == DataType.double && val is DbInt) {
-              params[i] = DbDouble(val.value.toDouble());
-            } else if (expectedType == DataType.json && val is DbText) {
-              try {
-                params[i] = DbJson(json.decode(val.value));
-              } catch (_) {}
-            } else if (expectedType == DataType.vector && val is DbText) {
-              final vec = _parseVectorFromString(val.value);
-              if (vec != null) params[i] = vec;
+      if (batchParams.isNotEmpty) {
+        final colTypes = schema.columnTypes;
+        final numCols = colTypes.length;
+        bool needsCoercion = false;
+        final firstRow = batchParams[0];
+        for (int i = 0; i < numCols && i < firstRow.length; i++) {
+          if (firstRow[i] is! DbNull && firstRow[i].type != colTypes[i]) {
+            needsCoercion = true;
+            break;
+          }
+        }
+        if (needsCoercion) {
+          for (int r = 0; r < batchParams.length; r++) {
+            final params = batchParams[r];
+            for (int i = 0; i < numCols; i++) {
+              final val = params[i];
+              final expectedType = colTypes[i];
+              if (val is! DbNull && val.type != expectedType) {
+                if (expectedType == DataType.double && val is DbInt) {
+                  params[i] = DbDouble(val.value.toDouble());
+                } else if (expectedType == DataType.json && val is DbText) {
+                  try {
+                    params[i] = DbJson(json.decode(val.value));
+                  } catch (_) {}
+                } else if (expectedType == DataType.vector && val is DbText) {
+                  final vec = _parseVectorFromString(val.value);
+                  if (vec != null) params[i] = vec;
+                }
+              }
             }
           }
         }
