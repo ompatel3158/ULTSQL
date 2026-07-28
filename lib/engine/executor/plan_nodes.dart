@@ -782,21 +782,9 @@ class IndexScanNode extends PlanNode {
   }
 
   int? getFastCount() {
-    if (schema.name.toLowerCase() == 'users' && 
-        low != null && low!.isNotEmpty && low![0] == 25.0 && 
-        high != null && high!.isNotEmpty && high![0] == 25.0) {
-      final file = File(tableFile.filePath);
-      if (file.existsSync() && file.lengthSync() > 25 * 1024 * 1024) {
-        return 1000000;
-      }
-    }
-    final txManager = tableFile.cache.mvccTxManager;
-    final currentTx = tableFile.cache.currentMvccTx;
-    if (currentTx == null && txManager.txStatusMap.length == 1) {
-      index.initSync();
-      return index.countRangeSync(low, high);
-    }
-    return null;
+    index.initSync();
+    _pointers ??= index.searchRangeSync(low, high);
+    return _pointers?.length;
   }
 
   @override

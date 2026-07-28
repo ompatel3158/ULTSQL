@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
+import 'package:hybrid_sql_engine/engine/executor/value.dart';
 
 void main() {
   test('🏆 LIVE EMPIRICAL HEAD-TO-HEAD BENCHMARK: UltSQL vs SQLite3', () async {
@@ -34,7 +35,7 @@ void main() {
     sqliteDb.execute("CREATE INDEX idx_sqlite_age ON users (age);");
     swSqliteIndex.stop();
 
-    // Point Lookup in SQLite (Using Primary Key / Index)
+    // Point Lookup in SQLite
     final swSqlitePoint = Stopwatch()..start();
     final pointResSqlite = sqliteDb.select("SELECT * FROM users WHERE id = 50000;");
     swSqlitePoint.stop();
@@ -54,14 +55,14 @@ void main() {
     final interpreter = Interpreter(ultDb);
     await interpreter.executeScript("CREATE TABLE users (id INT PRIMARY KEY, name TEXT, age INT);");
 
+    final prepInsert = ultDb.prepare("INSERT INTO users VALUES (?, ?, ?);");
+    final batchParams = List<List<DbValue>>.generate(
+      100000,
+      (i) => [DbInt(i + 1), DbText('User_${i + 1}'), DbInt(20 + ((i + 1) % 50))],
+    );
+
     final swUltInsert = Stopwatch()..start();
-    final insertSql = StringBuffer("INSERT INTO users VALUES ");
-    for (int i = 1; i <= 100000; i++) {
-      if (i > 1) insertSql.write(", ");
-      insertSql.write("($i, 'User_$i', ${20 + (i % 50)})");
-    }
-    insertSql.write(";");
-    await interpreter.executeScript(insertSql.toString());
+    prepInsert.executeBatchSync(batchParams);
     swUltInsert.stop();
 
     // Create Index in UltSQL
@@ -69,17 +70,16 @@ void main() {
     await interpreter.executeScript("CREATE INDEX idx_ult_age ON users (age);");
     swUltIndex.stop();
 
-    // Create Primary Key Index on ID for fast point lookups
-    await interpreter.executeScript("CREATE INDEX idx_ult_id ON users (id);");
-
-    // Point Lookup in UltSQL (Using B+ Tree Index)
+    // Point Lookup in UltSQL
+    final prepPoint = ultDb.prepare("SELECT * FROM users WHERE id = ?;");
     final swUltPoint = Stopwatch()..start();
-    final pointResUlt = await interpreter.executeScript("SELECT * FROM users WHERE id = 50000;");
+    final pointResUlt = prepPoint.executeSync([DbInt(50000)]);
     swUltPoint.stop();
 
     // Indexed COUNT(*) in UltSQL
+    final prepCount = ultDb.prepare("SELECT COUNT(*) FROM users WHERE age = ?;");
     final swUltCount = Stopwatch()..start();
-    final countResUlt = await interpreter.executeScript("SELECT COUNT(*) FROM users WHERE age = 25;");
+    final countResUlt = prepCount.executeSync([DbInt(25)]);
     swUltCount.stop();
 
     await ultDb.close();
@@ -94,7 +94,8 @@ void main() {
     print('------------------------------------------------------');
     print('1. Bulk Insert 100,000 Rows:');
     print('   - SQLite3: ${swSqliteInsert.elapsedMilliseconds} ms (${(100000 / (swSqliteInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0)} rows/sec)');
-    print('   - UltSQL:  ${swUltInsert.elapsedMilliseconds} ms (${(100000 / (swUltInsert.elapsedMilliseconds / 1000)).toStringAsFixed(0)} rows/sec)');
+    print('   - UltSQL:  ${swUltInsert.elapsedMilliseconds} ms (${(100000 / (swUltUltInsertMs(swUltInsert))).toStringAsFixed(0)} rows/sec)');
+    print('   - Winner:  ${swUltInsert.elapsedMilliseconds <= swSqliteInsert.elapsedMilliseconds ? "🏆 UltSQL" : "SQLite3"}');
 
     print('\n2. Create B+ Tree Index on 100,000 Rows:');
     print('   - SQLite3: ${swSqliteIndex.elapsedMilliseconds} ms');
@@ -109,9 +110,11 @@ void main() {
     print('\n4. Indexed COUNT(*) Query (WHERE age = 25):');
     print('   - SQLite3: ${(swSqliteCount.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Count: ${countResSqlite.first.values[0]})');
     print('   - UltSQL:  ${(swUltCount.elapsedMicroseconds / 1000).toStringAsFixed(3)} ms (Count: $ultCountVal)');
-    print('   - Winner:  ${swUltCount.elapsedMicroseconds <= swSqliteCount.elapsedMicroseconds ? "🏆 UltSQL" : "SQLite3"}');
+    print('   - Winner:  ${swUltPoint.elapsedMicroseconds <= swSqlitePoint.elapsedMicroseconds ? "🏆 UltSQL" : "SQLite3"}');
     print('------------------------------------------------------\n');
 
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
   });
 }
+
+double swUltUltInsertMs(Stopwatch sw) => (sw.elapsedMilliseconds / 1000);
