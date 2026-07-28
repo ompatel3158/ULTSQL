@@ -431,6 +431,12 @@ class SetUserStmt extends Stmt {
   SetUserStmt(this.username);
 }
 
+class SetEngineOptionStmt extends Stmt {
+  final String optionName;
+  final bool optionValue;
+  SetEngineOptionStmt(this.optionName, this.optionValue);
+}
+
 class CreateDatabaseStmt extends Stmt {
   final String name;
   CreateDatabaseStmt(this.name);

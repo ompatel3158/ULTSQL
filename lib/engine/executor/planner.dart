@@ -606,6 +606,35 @@ class QueryPlanner {
       leftColumns.add('${schema.name}.$col');
     }
 
+    if (stmt.joins.length > 1 && catalog.enableCBO) {
+      stmt.joins.sort((a, b) {
+        double getCost(Join j) {
+          final table = j.tableName.toLowerCase();
+          final stats = catalog.getTableStats(table);
+          if (stats == null) return 10000.0;
+          
+          double selectivity = 0.1;
+          String joinCol = '';
+          if (j.onCondition is BinaryExpr && (j.onCondition as BinaryExpr).operator == '=') {
+            final bin = j.onCondition as BinaryExpr;
+            if (bin.left is VariableExpr && (bin.left as VariableExpr).path.first.toLowerCase() == table) {
+              joinCol = (bin.left as VariableExpr).path.last.toLowerCase();
+            } else if (bin.right is VariableExpr && (bin.right as VariableExpr).path.first.toLowerCase() == table) {
+              joinCol = (bin.right as VariableExpr).path.last.toLowerCase();
+            }
+          }
+          if (joinCol.isNotEmpty && stats.histograms.containsKey(joinCol)) {
+            selectivity = stats.histograms[joinCol]!.calculateSelectivity(0.0);
+          } else if (joinCol.isNotEmpty && stats.columnStats.containsKey(joinCol)) {
+            final dist = stats.columnStats[joinCol]!.distinctCount;
+            if (dist > 0) selectivity = 1.0 / dist;
+          }
+          return stats.rowCount * selectivity;
+        }
+        return getCost(a).compareTo(getCost(b));
+      });
+    }
+
     // 1. Handle JOIN
     for (final join in stmt.joins) {
       PlanNode joinScan;

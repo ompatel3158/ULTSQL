@@ -5,6 +5,7 @@ import 'dart:async';
 import 'page.dart';
 import '../storage/catalog.dart';
 import 'aes_crypt.dart';
+import 'engine_config.dart';
 
 final Uint8List _sharedFlushBuffer = Uint8List(256 * 4096);
 
@@ -288,7 +289,10 @@ class PageCache {
   bool get isTransactionActive => _txState != null;
 
   bool useWal;
-  PageCache({this.maxCapacity = 4000, this.pageSize = 4096, this.dbDirectory, this.useWal = true}); // Default 4000 pages (~16MB)
+  late EngineConfig config;
+  PageCache({this.maxCapacity = 4000, this.pageSize = 4096, this.dbDirectory, this.useWal = true}) {
+    config = EngineConfig.defaultConfig();
+  }
 
   void _cryptPageData(int pageId, Uint8List data) {
     if (encryptionKey == null) return;

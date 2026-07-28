@@ -68,7 +68,11 @@ class _PgConnectionHandler {
 
         final protocol = _readInt32(4);
         if (protocol == 80877103) { // SSLRequest
-          _safeAdd([78]); // 'N'
+          if (db.config.enableTlsEncryption) {
+            _safeAdd([83]); // 'S'
+          } else {
+            _safeAdd([78]); // 'N'
+          }
           _buffer.removeRange(0, length);
           continue;
         }

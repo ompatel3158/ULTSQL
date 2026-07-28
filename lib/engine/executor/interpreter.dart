@@ -19,6 +19,7 @@ import 'plan_nodes.dart';
 import 'planner.dart';
 import 'jit_compiler.dart';
 import 'parallel_scan_nodes.dart';
+import '../cache/engine_config.dart';
 
 class QueryResult {
   final List<String> columns;
@@ -54,9 +55,11 @@ class Database {
   late final PageCache cache;
   late final QueryPlanner planner;
   late final AuditLogger auditLogger;
+  late EngineConfig config;
   final Map<String, BTreeIndex> _indexCache = {};
 
   Database(this.directory, {String? passphrase, bool useWal = true, int maxCapacity = 1000}) {
+    config = EngineConfig.defaultConfig();
     catalog = Catalog(directory);
     cache = PageCache(maxCapacity: maxCapacity, dbDirectory: directory, useWal: useWal); // Configurable cache limit
     if (passphrase != null) {
@@ -67,6 +70,7 @@ class Database {
   }
 
   Future<void> init() async {
+    Interpreter._astCache.clear();
     await catalog.load();
     cache.recoverSync(catalog);
   }
@@ -426,7 +430,9 @@ class Interpreter {
           final parser = Parser(tokens);
           statements = parser.parseScript();
           
-          _astCache[sqlScript] = statements;
+          if (!sqlScript.toLowerCase().contains('set engine_option')) {
+            _astCache[sqlScript] = statements;
+          }
         }
 
         if (statements.isEmpty) {
@@ -612,6 +618,17 @@ class Interpreter {
     if (node is SetUserStmt) {
       currentUser = node.username;
       return QueryResult(columns: [], rows: [], message: 'User changed to $currentUser.');
+    }
+    if (node is SetEngineOptionStmt) {
+      final name = node.optionName.toLowerCase().replaceAll("'", "").replaceAll('"', '').trim();
+      if (name == 'enableblockcompression' || name == 'blockcompression') db.config.enableBlockCompression = node.optionValue;
+      else if (name == 'enableautovacuum' || name == 'autovacuum') db.config.enableAutovacuum = node.optionValue;
+      else if (name == 'enableauditlogging' || name == 'auditlogging') db.config.enableAuditLogging = node.optionValue;
+      else if (name == 'enabledatamasking' || name == 'datamasking') db.config.enableDataMasking = node.optionValue;
+      else if (name == 'enablecostbasedoptimizer' || name == 'costbasedoptimizer' || name == 'cbo') db.config.enableCostBasedOptimizer = node.optionValue;
+      else if (name == 'enabletlsencryption' || name == 'tlsencryption' || name == 'tls') db.config.enableTlsEncryption = node.optionValue;
+      else throw Exception('Unknown engine option: ${node.optionName}');
+      return QueryResult(columns: [], rows: [], message: 'Engine option ${node.optionName} set to ${node.optionValue ? "ON" : "OFF"}.');
     }
     if (node is CreateDatabaseStmt) {
       return _executeCreateDatabase(node);

@@ -226,8 +226,8 @@ class Parser {
         }
         if (id == 'set') {
           final nextLexeme = _peekNext().lexeme.toLowerCase();
-          if (nextLexeme == 'user' || nextLexeme == 'current_user') {
-            // Fall through to standard SQL statement for DCL SetUserStmt
+          if (nextLexeme == 'user' || nextLexeme == 'current_user' || nextLexeme == 'engine_option') {
+            // Fall through to standard SQL statement for DCL / Engine Option SetStmt
           } else {
             _advance(); // Consume 'set'
             return _parseAssignmentStatement();
@@ -586,6 +586,22 @@ class Parser {
       
       if (_check(TokenType.semicolon)) _advance();
       return SetUserStmt(username);
+    } else if (nextLexeme == 'engine_option') {
+      _advance(); // Consume engine_option token
+      final optionName = _consume(TokenType.stringLiteral, "Expected string literal for option name.").lexeme;
+      _consume(TokenType.equals, "Expected '=' after option name.");
+      final valueToken = _advance();
+      bool optionValue;
+      final valClean = valueToken.lexeme.toLowerCase().replaceAll("'", "").replaceAll('"', '').trim();
+      if (valClean == 'on' || valClean == 'true' || valClean == '1') {
+        optionValue = true;
+      } else if (valClean == 'off' || valClean == 'false' || valClean == '0') {
+        optionValue = false;
+      } else {
+        throw Exception("Expected 'ON' or 'OFF' for engine option value.");
+      }
+      if (_check(TokenType.semicolon)) _advance();
+      return SetEngineOptionStmt(optionName, optionValue);
     }
     throw Exception("Unsupported SET statement: ${_peek().lexeme}");
   }

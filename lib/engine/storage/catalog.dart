@@ -414,6 +414,7 @@ class IndexSchema {
 
 class Catalog {
   final String basePath;
+  bool enableCBO = true;
   final Map<String, TableSchema> _tables = {};
   final Map<String, RelationshipSchema> _relationships = {};
   final Map<String, IndexSchema> _indexes = {};
@@ -825,16 +826,65 @@ class MinMaxStats {
       );
 }
 
+class ColumnHistogram {
+  List<double> buckets = [];
+
+  ColumnHistogram([List<double>? initialBuckets]) {
+    if (initialBuckets != null) {
+      buckets = List<double>.from(initialBuckets);
+    }
+  }
+
+  void buildFromValues(List<double> values) {
+    if (values.isEmpty) {
+      buckets.clear();
+      return;
+    }
+    values.sort();
+    buckets.clear();
+    int bucketCount = 100;
+    if (values.length < bucketCount) {
+      bucketCount = values.length;
+    }
+    double step = values.length / bucketCount;
+    for (int i = 1; i <= bucketCount; i++) {
+      int idx = (i * step).round() - 1;
+      if (idx < 0) idx = 0;
+      if (idx >= values.length) idx = values.length - 1;
+      buckets.add(values[idx]);
+    }
+  }
+
+  double calculateSelectivity(double val) {
+    if (buckets.isEmpty) return 0.05;
+    if (val < buckets.first) return 0.01;
+    if (val > buckets.last) return 0.01;
+    // equi-depth: each bucket has roughly 1/buckets.length of the data
+    return 1.0 / buckets.length;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'buckets': buckets,
+      };
+
+  factory ColumnHistogram.fromJson(Map<String, dynamic> json) {
+    return ColumnHistogram(List<double>.from(json['buckets'] ?? []));
+  }
+}
+
 class TableStats {
   int rowCount;
   final Map<String, MinMaxStats> columnStats;
+  final Map<String, ColumnHistogram> histograms;
 
-  TableStats({this.rowCount = 0, Map<String, MinMaxStats>? columnStats})
-      : columnStats = columnStats ?? {};
+  TableStats({this.rowCount = 0, Map<String, MinMaxStats>? columnStats, Map<String, ColumnHistogram>? histograms})
+      : columnStats = columnStats ?? {},
+        histograms = histograms ?? {};
 
   Map<String, dynamic> toJson() => {
         'rowCount': rowCount,
         'columnStats': columnStats.map((k, v) => MapEntry(k, v.toJson())),
+        'histograms': histograms.map((k, v) => MapEntry(k, v.toJson())),
       };
 
   factory TableStats.fromJson(Map<String, dynamic> json) {
@@ -843,6 +893,12 @@ class TableStats {
       final colMap = json['columnStats'] as Map<String, dynamic>;
       colMap.forEach((k, v) {
         stats.columnStats[k] = MinMaxStats.fromJson(v);
+      });
+    }
+    if (json.containsKey('histograms')) {
+      final histMap = json['histograms'] as Map<String, dynamic>;
+      histMap.forEach((k, v) {
+        stats.histograms[k] = ColumnHistogram.fromJson(v);
       });
     }
     return stats;
