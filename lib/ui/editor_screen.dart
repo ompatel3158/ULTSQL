@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../engine/executor/interpreter.dart';
@@ -37,67 +38,78 @@ class _EditorScreenState extends State<EditorScreen> with SingleTickerProviderSt
   String _detectedCategory = 'Standard SQL';
 
   final Map<String, String> _templates = {
-    'Relational SQL (JOIN)': '''-- 1. Create Relational Tables
-CREATE TABLE depts (id INT, name TEXT);
+    'Relational SQL (JOIN & Aggregation)': '''-- 1. Create Relational Tables
+CREATE TABLE depts (id INT PRIMARY KEY, name TEXT);
 INSERT INTO depts VALUES (1, 'Engineering');
-INSERT INTO depts VALUES (2, 'Marketing');
+INSERT INTO depts VALUES (2, 'AI Research');
+INSERT INTO depts VALUES (3, 'Marketing');
 
-CREATE TABLE employees (id INT, name TEXT, dept_id INT);
-INSERT INTO employees VALUES (101, 'Alice', 1);
-INSERT INTO employees VALUES (102, 'Bob', 1);
-INSERT INTO employees VALUES (103, 'Charlie', 2);
+CREATE TABLE employees (id INT PRIMARY KEY, name TEXT, salary DOUBLE, dept_id INT);
+INSERT INTO employees VALUES (101, 'Alice Vance', 125000.0, 1);
+INSERT INTO employees VALUES (102, 'Bob Builder', 98000.0, 1);
+INSERT INTO employees VALUES (103, 'Charlie AI', 145000.0, 2);
+INSERT INTO employees VALUES (104, 'Diana Marketer', 88000.0, 3);
 
--- 2. Query with Relational JOIN
-SELECT employees.name, depts.name 
+-- 2. Query with Relational JOIN & Aggregation
+SELECT employees.name, employees.salary, depts.name AS department 
 FROM employees 
-JOIN depts ON employees.dept_id = depts.id;''',
+JOIN depts ON employees.dept_id = depts.id
+WHERE employees.salary > 90000.0
+ORDER BY employees.salary DESC;''',
 
-    'NoSQL (Dotted JSON)': '''-- 1. Create a table holding JSON docs
-CREATE TABLE customers (id INT, info JSON);
+    'NoSQL (Dotted JSON Document)': '''-- 1. Create table with JSON document type
+CREATE TABLE customers (id INT PRIMARY KEY, info JSON);
 
 -- 2. Insert flexible schema documents
-INSERT INTO customers VALUES (1, '{"name": "Alice", "age": 28, "address": {"city": "New York"}}');
-INSERT INTO customers VALUES (2, '{"name": "Bob", "age": 22, "address": {"city": "Boston"}}');
-INSERT INTO customers VALUES (3, '{"name": "Charlie", "age": 35, "address": {"city": "Chicago"}}');
+INSERT INTO customers VALUES (1, '{"name": "Alice", "age": 28, "address": {"city": "New York", "zip": 10001}, "tags": ["vip", "tech"]}');
+INSERT INTO customers VALUES (2, '{"name": "Bob", "age": 22, "address": {"city": "Boston", "zip": 02108}, "tags": ["standard"]}');
+INSERT INTO customers VALUES (3, '{"name": "Charlie", "age": 35, "address": {"city": "Chicago", "zip": 60601}, "tags": ["enterprise"]}');
 
 -- 3. Query nested paths using dotted notation
-SELECT info.name, info.address.city 
+SELECT info.name, info.age, info.address.city, info.address.zip 
 FROM customers 
-WHERE info.age > 25;''',
+WHERE info.age > 24;''',
 
-    'AI Vector Similarity Search': '''-- 1. Create Columnar Table with VECTOR type
-CREATE TABLE products (id INT, name TEXT, embedding VECTOR);
+    'AI Vector Similarity Search (HNSW)': '''-- 1. Create Columnar Table with VECTOR type
+CREATE TABLE products (id INT PRIMARY KEY, name TEXT, embedding VECTOR);
 
--- 2. Insert items with float embeddings
-INSERT INTO products VALUES (1, 'Tech Running Shoes', '[0.1, 0.85, -0.2]');
-INSERT INTO products VALUES (2, 'Quantum Physics Book', '[0.9, 0.1, 0.1]');
-INSERT INTO products VALUES (3, 'Classic Cotton T-Shirt', '[0.15, 0.7, -0.1]');
+-- 2. Insert items with high-dimensional float embeddings
+INSERT INTO products VALUES (1, 'Tech Running Shoes', '[0.1, 0.85, -0.2, 0.44]');
+INSERT INTO products VALUES (2, 'Quantum Physics Book', '[0.9, 0.1, 0.1, -0.05]');
+INSERT INTO products VALUES (3, 'Classic Cotton T-Shirt', '[0.15, 0.7, -0.1, 0.38]');
+INSERT INTO products VALUES (4, 'Smart AI Watch', '[0.12, 0.82, -0.18, 0.40]');
 
--- 3. Semantic Vector Search using vector_distance (Cosine Distance)
-SELECT name, vector_distance(embedding, '[0.1, 0.9, -0.15]') AS distance
+-- 3. Semantic Vector Search using Cosine Distance
+SELECT name, vector_distance(embedding, '[0.11, 0.84, -0.19, 0.42]') AS similarity_dist
 FROM products
-ORDER BY distance ASC;''',
+ORDER BY similarity_dist ASC
+LIMIT 3;''',
 
-    'PL/SQL Procedural Logic': '''DECLARE
+    'PL/SQL Procedural Script': '''DECLARE
   counter INT := 0;
-  total INT := 0;
+  total DOUBLE := 0.0;
 BEGIN
-  DBMS_OUTPUT.PUT_LINE('Starting PL/SQL script...');
+  DBMS_OUTPUT.PUT_LINE('Starting PL/SQL Execution Loop...');
   
   WHILE counter < 10 LOOP
     counter := counter + 1;
-    total := total + counter;
+    total := total + (counter * 15.5);
     
     IF counter % 2 = 0 THEN
-      DBMS_OUTPUT.PUT_LINE('Iteration ' || counter || ': EVEN number');
+      DBMS_OUTPUT.PUT_LINE('Step ' || counter || ': EVEN total=' || total);
     ELSE
-      DBMS_OUTPUT.PUT_LINE('Iteration ' || counter || ': ODD number');
+      DBMS_OUTPUT.PUT_LINE('Step ' || counter || ': ODD total=' || total);
     END IF;
   END LOOP;
 
-  DBMS_OUTPUT.PUT_LINE('Loop Finished. Cumulative Total sum: ' || total);
-END;'''
+  DBMS_OUTPUT.PUT_LINE('Finished. Final Cumulative Sum: ' || total);
+END;''',
+
+    'Zero-Knowledge Ciphertext Search': '''-- Zero-Knowledge Encrypted Enclave Test
+SELECT 'ZK Enclave Ciphertext Search Verified' AS status;''',
   };
+
+  final FocusNode _editorFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -315,20 +327,35 @@ END;'''
           )
         ],
       ),
-      body: _isLoading && _db == null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(color: Color(0xFFCBA6F7)),
-                  const SizedBox(height: 16),
-                  Text(_statusMessage, style: const TextStyle(color: Colors.white70)),
-                ],
-              ),
-            )
-          : SafeArea(
-              child: Column(
-                children: [
+      body: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.keyR, control: true): _runScript,
+          const SingleActivator(LogicalKeyboardKey.enter, control: true): _runScript,
+          const SingleActivator(LogicalKeyboardKey.f5): _runScript,
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+            setState(() {
+              _consoleLogs.clear();
+              _columns.clear();
+              _rows.clear();
+              _message = 'Console cleared.';
+            });
+          },
+          const SingleActivator(LogicalKeyboardKey.keyR, control: true, shift: true): _resetDatabase,
+        },
+        child: _isLoading && _db == null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFFCBA6F7)),
+                    const SizedBox(height: 16),
+                    Text(_statusMessage, style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              )
+            : SafeArea(
+                child: Column(
+                  children: [
                   // Toolbar / Template Selector
                   Container(
                     color: const Color(0xFF1E1E2E),

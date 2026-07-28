@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UltSQL — Ultra-High Performance Converged Database Engine</title>
+  <meta name="description" content="UltSQL is a 4-in-1 converged database engine written in 100% pure Dart, combining SQL, PL/SQL, NoSQL Dotted JSON, and AI Vector RAG search.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <a href="index.html" class="nav-brand">
+      <span>🚀</span> UltSQL Engine
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="active">Home</a></li>
+      <li><a href="features.html">Features & Innovations</a></li>
+      <li><a href="benchmarks.html">Benchmarks</a></li>
+      <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn-primary">GitHub Repository</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="hero">
+    <div class="hero-badge">⚡ 100% Pure Dart Multimodal Engine</div>
+    <h1>The Ultimate Converged <br><span class="gradient-text">SQL + NoSQL + Vector Database</span></h1>
+    <p>UltSQL consolidates Relational SQL, PL/SQL Procedural Execution, NoSQL Document Querying, and AI Vector RAG Search into a single high-throughput engine with zero native C dependencies.</p>
+    
+    <div class="hero-actions">
+      <a href="features.html" class="btn-primary">Explore All 15 Innovations</a>
+      <a href="benchmarks.html" class="btn-secondary">View Engine Benchmarks</a>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value gradient-text">1.2M+</div>
+        <div class="stat-label">In-Memory Rows / Sec</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value gradient-text">17 ms</div>
+        <div class="stat-label">100K-Row B+ Tree Build</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value gradient-text">6 ms</div>
+        <div class="stat-label">768-Dim HNSW Search</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value gradient-text">Port 5432</div>
+        <div class="stat-label">TCP Wire Protocol Server</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- INTERACTIVE PLAYGROUND SIMULATOR -->
+  <section class="section" id="playground">
+    <h2 class="section-title">Interactive <span class="gradient-text">Engine Simulator</span></h2>
+    <p class="section-subtitle">Experience UltSQL's multimodal engine executing SQL, NoSQL, Vector RAG, and PL/SQL queries in real-time.</p>
+
+    <div class="playground-container">
+      <div class="playground-header">
+        <div class="window-dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+        <div class="playground-tabs">
+          <button class="tab-btn active" data-snippet="sql">Relational JOIN</button>
+          <button class="tab-btn" data-snippet="nosql">NoSQL Dotted JSON</button>
+          <button class="tab-btn" data-snippet="vector">AI Vector Search</button>
+          <button class="tab-btn" data-snippet="plsql">PL/SQL Script</button>
+        </div>
+        <button id="runBtn" class="btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;">Execute Query ▶</button>
+      </div>
+      <div class="playground-body">
+        <textarea id="playgroundCode" class="code-editor" spellcheck="false">-- 1. Create Table & Insert Data
+CREATE TABLE users (id INT PRIMARY KEY, name TEXT, balance DOUBLE);
+INSERT INTO users VALUES (1, 'Alice Vance', 1250.50);
+INSERT INTO users VALUES (2, 'Bob Builder', 980.00);
+
+-- 2. Query with Where & Order By
+SELECT name, balance 
+FROM users 
+WHERE balance > 1000.0
+ORDER BY balance DESC;</textarea>
+        <div id="playgroundOutput" class="output-panel">Query Execution Time: 0.14 ms | 1 Row Returned
++-------------+---------+
+| name        | balance |
++-------------+---------+
+| Alice Vance | 1250.50 |
++-------------+---------+</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES OVERVIEW -->
+  <section class="section">
+    <h2 class="section-title">Engine Highlights</h2>
+    <p class="section-subtitle">Four storage paradigms engineered into one high-performance codebase.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Switchable Storage Modes</h3>
+        <p>Dynamic switching between 1.2M+ rows/sec In-Memory storage (`:memory:`) and durable disk storage with ACID WAL journaling.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <h3>Native AI Vector RAG</h3>
+        <p>Sub-7ms Cosine and Euclidean similarity search over 768-dimensional float embeddings using HNSW graph indexing.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3>TCP Wire Server</h3>
+        <p>Embedded PostgreSQL Wire Protocol server listening on Port 5432 for remote database network connections.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛠️</div>
+        <h3>Self-Healing Storage</h3>
+        <p>Auto-detects CRC32 page corruption and reconstructs clean storage page states directly from transaction logs.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📲</div>
+        <h3>P2P Offline CRDT Sync</h3>
+        <p>Merges peer database changes over local network without central server infrastructure using Conflict-Free Replicated Data Types.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📁</div>
+        <h3>Direct File SQL Query</h3>
+        <p>Executes live SQL queries directly over external CSV, JSON, and LOG files without table imports or ETL.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2026 UltSQL Engine — Built with ❤️ in Pure Dart. All rights reserved.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

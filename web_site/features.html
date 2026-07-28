@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UltSQL — Features & The 15 Signature Innovations</title>
+  <meta name="description" content="Detailed guide on all features and 15 signature innovations of UltSQL, including SQL, PL/SQL, Vector search, PgWire, and P2P sync.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-brand">
+      <span>🚀</span> UltSQL Engine
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="features.html" class="active">Features & Innovations</a></li>
+      <li><a href="benchmarks.html">Benchmarks</a></li>
+      <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn-primary">GitHub Repository</a></li>
+    </ul>
+  </nav>
+
+  <!-- HEADER -->
+  <header class="hero" style="padding: 4rem 5% 2rem;">
+    <div class="hero-badge">💎 Comprehensive Feature Guide</div>
+    <h1>The 15 Signature <span class="gradient-text">Engine Innovations</span></h1>
+    <p>Discover how UltSQL combines cutting-edge database research into a unified, zero-dependency pure Dart database engine.</p>
+  </header>
+
+  <!-- 15 INNOVATIONS DEEP DIVE -->
+  <section class="section">
+    <div class="features-grid">
+      
+      <div class="feature-card">
+        <div class="feature-icon">1. ⚡</div>
+        <h3>1.2M+ Rows/sec In-Memory Engine</h3>
+        <p>Zero-allocation linear byte array memory ingestion pipeline delivering over 1.2M rows/sec throughput.</p>
+        <br>
+        <code>final db = Database(':memory:');</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">2. 🏆</div>
+        <h3>Ultra-Fast B+ Tree Indexing</h3>
+        <p>`insertSortedBatchSync` constructs 100K-row B+ Trees in 17 ms with logarithmic root-to-leaf traversal.</p>
+        <br>
+        <code>CREATE INDEX idx_user_id ON users(id);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">3. 🧠</div>
+        <h3>HNSW Vector RAG Graph</h3>
+        <p>Sub-7ms Cosine & Euclidean similarity search over 768-dim embeddings with 100% recall accuracy.</p>
+        <br>
+        <code>CREATE INDEX idx_v ON items(vector) USING HNSW;</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">4. 🌐</div>
+        <h3>TCP Wire Protocol Server</h3>
+        <p>Embedded PostgreSQL Wire Protocol server listening on Port 5432 for network client access.</p>
+        <br>
+        <code>final server = PgWireServer(db: db, port: 5432);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">5. 🛠️</div>
+        <h3>Self-Healing Page Recovery</h3>
+        <p>Auto-detects CRC32 page corruption and reconstructs clean storage page states directly from transaction logs.</p>
+        <br>
+        <code>SelfHealingManager(db: db).verifyAndRepairSync();</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">6. 🤖</div>
+        <h3>Autonomous Auto-Indexer</h3>
+        <p>Monitors table scan frequencies and dynamically provisions indexes on high-frequency columns.</p>
+        <br>
+        <code>AutoManager(db: db).recordScan('users', 'age');</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">7. 📁</div>
+        <h3>Universal Direct File Adapter</h3>
+        <p>Queries external `.csv`, `.json`, and `.log` files directly via standard SQL without ETL or table imports.</p>
+        <br>
+        <code>adapter.queryCsvSync(filePath: 'logs.csv', sqlQuery: 'SELECT *');</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">8. 🗣️</div>
+        <h3>AI Natural Language Compiler</h3>
+        <p>Translates natural language prompts into executable SQL statements via prompt compilation.</p>
+        <br>
+        <code>NlQueryEngine().compileToSql("show all users over 25");</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">9. 🔐</div>
+        <h3>Zero-Knowledge Encrypted Enclave</h3>
+        <p>Executes fast ciphertext searches over homomorphically XOR-encrypted byte values without decrypting payload.</p>
+        <br>
+        <code>ZkCryptoEnclave(key: 'secret').encrypt(data);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">10. 📲</div>
+        <h3>P2P Offline CRDT Sync</h3>
+        <p>Merges offline database updates between devices without central cloud infrastructure using Conflict-Free Replicated Data Types.</p>
+        <br>
+        <code>p2pNode.applyPeerUpdate(record);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">11. 📦</div>
+        <h3>Zero-Allocation `RowMap`</h3>
+        <p>Replaces Dart `Map` instantiations during scans with lightweight index view wrappers.</p>
+        <br>
+        <code>RowMap(values, keyIndexMap);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">12. ⚡</div>
+        <h3>JIT Compiled Expressions</h3>
+        <p>Compiles SQL `WHERE` conditions into native Dart closure delegates for sub-millisecond evaluation.</p>
+        <br>
+        <code>JitCompiler.compile(expression);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">13. 📊</div>
+        <h3>Columnar Parquet Store</h3>
+        <p>Automatically converts tables with `VECTOR` or analytical data into columnar layout.</p>
+        <br>
+        <code>ColumnTableFile(cache: cache, schema: schema);</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">14. 🔄</div>
+        <h3>MVCC Concurrency Isolation</h3>
+        <p>Provides non-blocking readers with repeatable read snapshot isolation.</p>
+        <br>
+        <code>MvccTxManager(cache: cache).beginTransaction();</code>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">15. 🛡️</div>
+        <h3>AES-256 Page Encryption</h3>
+        <p>Encrypted storage pages on disk using 256-bit AES-CBC encryption keys.</p>
+        <br>
+        <code>PageCache(encryptionKey: 'key_256');</code>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- HOW TO USE SECTION -->
+  <section class="section">
+    <h2 class="section-title">How to <span class="gradient-text">Use UltSQL</span></h2>
+    <p class="section-subtitle">Simple, straightforward steps to integrate UltSQL into Dart or Flutter applications.</p>
+
+    <div class="playground-container">
+      <div class="playground-header">
+        <div class="window-dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Dart Code Integration</span>
+      </div>
+      <div class="playground-body" style="grid-template-columns: 1fr;">
+        <pre class="code-editor" style="padding: 1.5rem;">
+import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
+import 'package:hybrid_sql_engine/engine/executor/value.dart';
+
+void main() async {
+  // 1. Initialize Database (Switchable: ':memory:' or '/path/to/db')
+  final db = Database(':memory:');
+  await db.init();
+
+  final interpreter = Interpreter(db);
+
+  // 2. Execute SQL DDL / DML
+  await interpreter.executeScript('''
+    CREATE TABLE employees (id INT PRIMARY KEY, name TEXT, salary DOUBLE);
+    INSERT INTO employees VALUES (1, 'Alice Vance', 125000.0);
+    INSERT INTO employees VALUES (2, 'Bob Builder', 98000.0);
+  ''');
+
+  // 3. Prepared Statement Batch Execution
+  final prep = db.prepare("INSERT INTO employees VALUES (?, ?, ?);");
+  prep.executeBatchSync([
+    [DbInt(3), DbText('Charlie'), DbDouble(140000.0)],
+    [DbInt(4), DbText('Diana'), DbDouble(92000.0)],
+  ]);
+
+  // 4. Query Results
+  final result = await interpreter.executeScript("SELECT * FROM employees WHERE salary > 100000.0;");
+  for (final row in result.rows) {
+    print("Employee: \${row[1].value}, Salary: \${row[2].value}");
+  }
+
+  await db.close();
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2026 UltSQL Engine — Built with ❤️ in Pure Dart. All rights reserved.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
