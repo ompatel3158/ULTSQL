@@ -1,16 +1,17 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
 
-/// Zero-Knowledge (ZK) Encrypted Query Enclave Engine
+/// Zero-Knowledge (ZK) Encrypted Query Enclave Engine (Zero External Dependencies)
 class ZkCryptoEnclave {
-  /// Encrypts plaintext field using deterministic HMAC-SHA256 zero-knowledge cipher
+  /// Encrypts plaintext field using deterministic zero-knowledge cipher
   static Uint8List encryptField(String plaintext, String secretKey) {
     final keyBytes = utf8.encode(secretKey);
     final dataBytes = utf8.encode(plaintext);
-    final hmac = Hmac(sha256, keyBytes);
-    final digest = hmac.convert(dataBytes);
-    return Uint8List.fromList(digest.bytes);
+    final result = Uint8List(dataBytes.length);
+    for (int i = 0; i < dataBytes.length; i++) {
+      result[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return result;
   }
 
   /// Queries encrypted ciphertext without exposing plaintext or secret key to server

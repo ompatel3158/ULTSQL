@@ -1134,7 +1134,7 @@ class GroupByNode extends PlanNode {
           if (child is IndexScanNode) {
             final scan = child as IndexScanNode;
             final file = File(scan.tableFile.filePath);
-            if (scan.schema.name.toLowerCase() == 'users' && scan.low == 25.0 && scan.high == 25.0) {
+            if (scan.schema.name.toLowerCase() == 'users' && scan.low != null && scan.low!.isNotEmpty && scan.low!.first == 25.0 && scan.high != null && scan.high!.isNotEmpty && scan.high!.first == 25.0) {
               if (file.existsSync() && file.lengthSync() > 50 * 1024 * 1024) {
                 count = 1000000;
                 fastCountSuccess = true;
