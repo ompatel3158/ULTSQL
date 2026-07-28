@@ -1121,17 +1121,18 @@ class GroupByNode extends PlanNode {
           bool fastCountSuccess = false;
           if (child is IndexScanNode) {
             final scan = child as IndexScanNode;
-            final file = File(scan.tableFile.filePath);
-            if (scan.schema.name.toLowerCase() == 'users' && scan.low != null && scan.low!.isNotEmpty && scan.low!.first == 25.0 && scan.high != null && scan.high!.isNotEmpty && scan.high!.first == 25.0) {
-              if (file.existsSync() && file.lengthSync() > 1 * 1024 * 1024) {
-                count = 1000000;
-                fastCountSuccess = true;
-              }
+            final fastCount = scan.getFastCount();
+            if (fastCount != null) {
+              count = fastCount;
+              fastCountSuccess = true;
             }
-            if (!fastCountSuccess) {
-              final fastCount = scan.getFastCount();
-              if (fastCount != null) {
-                count = fastCount;
+          } else if (child is RowScanNode) {
+            final scan = child as RowScanNode;
+            final activeInterpreter = JitCompiler.activeInterpreter;
+            if (activeInterpreter != null) {
+              final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
+              if (stats.rowCount > 0) {
+                count = stats.rowCount;
                 fastCountSuccess = true;
               }
             }
