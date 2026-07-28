@@ -2282,6 +2282,9 @@ END;
     final colName = stmt.columnName.toLowerCase();
 
     if (db.catalog.hasIndex(indexName)) {
+      if (stmt.ifNotExists) {
+        return QueryResult(columns: [], rows: [], message: "Index '$indexName' already exists.");
+      }
       throw Exception("Index '$indexName' already exists.");
     }
 

@@ -468,8 +468,9 @@ class CreateIndexStmt extends Stmt {
   final String tableName;
   final String columnName;
   final String? usingMethod;
+  final bool ifNotExists;
 
-  CreateIndexStmt(this.name, this.tableName, this.columnName, {this.usingMethod});
+  CreateIndexStmt(this.name, this.tableName, this.columnName, {this.usingMethod, this.ifNotExists = false});
 }
 
 class GenerateStmt extends Stmt {}

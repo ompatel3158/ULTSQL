@@ -868,6 +868,13 @@ class Parser {
         toKey: toKey,
       );
     } else if (_match([TokenType.indexKeyword])) {
+      bool ifNotExists = false;
+      if (_peek().lexeme.toLowerCase() == 'if') {
+        _advance();
+        if (_peek().lexeme.toLowerCase() == 'not') _advance();
+        if (_peek().lexeme.toLowerCase() == 'exists') _advance();
+        ifNotExists = true;
+      }
       final indexNameToken = _consume(TokenType.identifier, "Expected index name.");
       final indexName = indexNameToken.lexeme;
 
