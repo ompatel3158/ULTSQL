@@ -9,18 +9,18 @@
 
 ---
 
-## 🌟 Why UltSQL?
+## 🌟 Standalone Engine Metrics
 
-| Capability / Benchmark | SQLite 3.5.0 | UltSQL Engine | Advantage |
-| :--- | :--- | :--- | :--- |
-| **In-Memory Batch Write Throughput** | ~800,000 rows/sec | **1,200,000+ rows/sec** | ⚡ **1.5x FASTER (1.2M+ Target)** |
-| **B+ Tree Index Build (100K Rows)** | 67 ms | **17 ms** | 🏆 **3.9x FASTER Index Build** |
-| **768-Dim HNSW AI Vector RAG** | ❌ Not Supported | **6 ms** (100% Recall) | 🧠 **Native AI Embedded Vector DB** |
-| **PostgreSQL Wire TCP Server** | ❌ Single-Process C-Lib | ✅ **Full `psql` Network Server** | 🌐 **Remote Client Access (`psql`)** |
-| **Self-Healing Corrupted Recovery** | ❌ Disk Malformed Error | ✅ **Auto-Repairs CRC Page Corruption** | 🛠️ **Zero-DBA Self-Healing** |
-| **P2P Offline Device-to-Device Sync** | ❌ Centralized File | ✅ **LWW-Element-Set CRDT Sync** | 📲 **Local-First P2P Mesh Sync** |
-| **Universal Direct File SQL Queries** | ❌ SQL Import Required | ✅ **Queries CSV, JSON, LOG directly** | 📁 **Zero-ETL Direct Queries** |
-| **Zero-Knowledge Ciphertext Search** | ❌ Plaintext Only | ✅ **Homomorphic XOR Search Enclave** | 🔐 **Secure Privacy Enclave** |
+| Capability / Benchmark | UltSQL Performance | Feature Status |
+| :--- | :--- | :--- |
+| **In-Memory Batch Write Throughput** | **1,200,000+ rows/sec** | ⚡ High-Throughput Memory Engine |
+| **B+ Tree Index Build (100K Rows)** | **17 ms** | 🏆 Ultra-Fast Sub-Second Indexing |
+| **768-Dim HNSW AI Vector RAG** | **6 ms** (100% Recall) | 🧠 Native AI Embedded Vector Engine |
+| **Network TCP Wire Protocol Server** | **Port 5432 Supported** | 🌐 Remote Client Network Connections |
+| **Self-Healing Corrupted Recovery** | **Auto-Repairs CRC Mismatches** | 🛠️ Zero-DBA Self-Healing |
+| **P2P Offline Device-to-Device Sync** | **LWW-Element-Set CRDT Sync** | 📲 Local-First P2P Mesh Sync |
+| **Universal Direct File SQL Queries** | **CSV, JSON, LOG Files** | 📁 Zero-ETL Direct Queries |
+| **Zero-Knowledge Ciphertext Search** | **Homomorphic XOR Search** | 🔐 Secure Privacy Enclave |
 
 ---
 
@@ -50,7 +50,7 @@ graph TD
       FileAdapter[Universal CSV / JSON / LOG Adapter]
     end
     
-    VolcanoEngine -->|Network Server| PgWireServer[PostgreSQL TCP Wire Protocol Server]
+    VolcanoEngine -->|Network Server| PgWireServer[TCP Wire Protocol Server]
     VolcanoEngine -->|P2P Mesh| P2pNode[CRDT P2P Peer Node]
 ```
 
@@ -65,12 +65,12 @@ graph TD
 5. [SQL & PL/SQL Feature Guide](#sql--plsql-feature-guide)
 6. [NoSQL Dotted-Path JSON Querying](#nosql-dotted-path-json-querying)
 7. [AI-Native HNSW Vector RAG Search](#ai-native-hnsw-vector-rag-search)
-8. [PostgreSQL TCP Wire Server](#postgresql-tcp-wire-server)
+8. [Network TCP Wire Protocol Server](#network-tcp-wire-protocol-server)
 9. [Self-Healing & Auto-Indexing Telemetry](#self-healing--auto-indexing-telemetry)
 10. [P2P Offline Device-to-Device Sync](#p2p-offline-device-to-device-sync)
 11. [Direct File SQL Queries (CSV / JSON / LOG)](#direct-file-sql-queries-csv--json--log)
 12. [Zero-Knowledge Security Enclave](#zero-knowledge-security-enclave)
-13. [Side-by-Side Benchmark Results](#side-by-side-benchmark-results)
+13. [Engine Performance Metrics](#engine-performance-metrics)
 14. [Getting Started & Installation](#getting-started--installation)
 
 ---
@@ -80,9 +80,9 @@ graph TD
 UltSQL introduces 15 signature database innovations engineered specifically for high-throughput client and cloud workloads:
 
 1. ⚡ **1.2M+ Rows/sec In-Memory Batch Engine**: Zero-allocation linear byte array memory ingestion.
-2. 🏆 **3.9x Faster B+ Tree Bulk Indexing**: `insertSortedBatchSync` constructs 100K-row B+ Trees in 17 ms.
+2. 🏆 **Ultra-Fast B+ Tree Bulk Indexing**: `insertSortedBatchSync` constructs 100K-row B+ Trees in 17 ms.
 3. 🧠 **Native HNSW Vector RAG Graph**: Cosine & Euclidean similarity search over 768-dim embeddings in 6 ms.
-4. 🌐 **PostgreSQL TCP Wire Protocol Server**: Accepts incoming connections from standard `psql` and PostgreSQL drivers.
+4. 🌐 **Network TCP Wire Protocol Server**: Accepts incoming connections from standard database drivers.
 5. 🛠️ **Self-Healing Page Auto-Repair**: Auto-detects CRC32 page corruption and rebuilds intact state from WAL logs.
 6. 🤖 **Autonomous Telemetry Auto-Indexer**: Monitors query scan frequencies and automatically provisions B+ Tree indexes.
 7. 📁 **Universal Direct File SQL Adapter**: Runs live SQL queries over standard `.csv`, `.json`, and `.log` files without importing into tables.
@@ -168,19 +168,14 @@ END;
 
 ---
 
-## 🌐 PostgreSQL TCP Wire Server
+## 🌐 Network TCP Wire Protocol Server
 
-UltSQL embeds a full PostgreSQL Wire Protocol server ([`pgwire_server.dart`](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/network/pgwire_server.dart)). Connect directly using standard `psql`:
+UltSQL embeds a full Network TCP Wire Protocol server ([`pgwire_server.dart`](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/network/pgwire_server.dart)). Connect directly using network database drivers:
 
 ```dart
 final pgServer = PgWireServer(db: db, port: 5432);
 await pgServer.start();
-print('PostgreSQL Wire Protocol Server running on port 5432...');
-```
-
-From terminal:
-```bash
-psql -h localhost -p 5432 -U postgres -d defaultdb
+print('TCP Wire Protocol Server running on port 5432...');
 ```
 
 ---
@@ -233,28 +228,26 @@ final csvResults = fileAdapter.queryCsvSync(
 
 ---
 
-## 📊 Live Head-to-Head Benchmarks
+## 📊 Standalone Engine Performance Metrics
 
 Empirical performance measurements recorded on 100,000 records on local disk:
 
 ```text
 ======================================================
-🔥 EMPIRICAL HEAD-TO-HEAD BENCHMARK (100,000 ROWS) 🔥
+🔥 ULTSQL STANDALONE ENGINE PERFORMANCE (100,000 ROWS) 🔥
 ======================================================
-1. Bulk Insert 100,000 Rows:
-   - SQLite 3.5.0: 101 ms
-   - UltSQL (Memory Mode): 82 ms (1,219,512 rows/sec) 🏆 UltSQL Wins
+1. Bulk Insert Throughput (100,000 Rows):
+   - UltSQL (Memory Mode): 82 ms (1,219,512 rows/sec)
    - UltSQL (Disk Mode): 278 ms (359,712 rows/sec)
 
 2. B+ Tree Index Build (100,000 Rows):
-   - SQLite 3.5.0: 67 ms
-   - UltSQL: 17 ms 🏆 UltSQL Wins (3.9x FASTER)
+   - UltSQL: 17 ms (Ultra-Fast B+ Tree Indexing)
 
 3. Multimodal Features:
-   - 768-Dim HNSW Vector Search: UltSQL 6 ms (SQLite3 = ❌ 0% / Not Supported)
-   - PostgreSQL Wire Server: Supported (SQLite3 = ❌ Single Process Only)
-   - Self-Healing Page Repair: Supported (SQLite3 = ❌ Malformed Error)
-   - P2P Device-to-Device Sync: Supported (SQLite3 = ❌ Not Supported)
+   - 768-Dim HNSW Vector Search: 6 ms (100% Recall Accuracy)
+   - Network TCP Wire Server: Port 5432 Supported
+   - Self-Healing Page Repair: CRC Auto-Recovery Supported
+   - P2P Device-to-Device Sync: LWW-CRDT Sync Supported
 ======================================================
 ```
 
