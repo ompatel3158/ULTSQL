@@ -54,30 +54,14 @@ class RecordSerializer {
         dest[currentOffset] = 3;
         final str = val.value;
         final strLen = str.length;
-        bool isAscii = true;
-        for (int j = 0; j < strLen; j++) {
-          if (str.codeUnitAt(j) > 127) {
-            isAscii = false;
-            break;
-          }
-        }
-        if (isAscii) {
-          if (toastManager != null && strLen > 1024) {
-            final bytes = Uint8List.fromList(str.codeUnits);
-            int startPage = toastManager.writeDataSync(bytes);
-            dest[currentOffset] = 6; // TOAST Text
-            bd.setUint32(currentOffset + 1, startPage);
-            bd.setUint32(currentOffset + 5, bytes.length);
-            currentOffset += 9;
-          } else {
-            dest.setRange(currentOffset + 1, currentOffset + 1 + strLen, str.codeUnits);
-            currentOffset += 1 + strLen;
-          }
+        if (strLen <= 1024) {
+          dest.setRange(currentOffset + 1, currentOffset + 1 + strLen, str.codeUnits);
+          currentOffset += 1 + strLen;
         } else {
           final bytes = utf8.encoder.convert(str);
-          if (toastManager != null && bytes.length > 1024) {
+          if (toastManager != null) {
             int startPage = toastManager.writeDataSync(bytes);
-            dest[currentOffset] = 6; // TOAST Text
+            dest[currentOffset] = 6;
             bd.setUint32(currentOffset + 1, startPage);
             bd.setUint32(currentOffset + 5, bytes.length);
             currentOffset += 9;
