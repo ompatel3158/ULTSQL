@@ -212,9 +212,13 @@ class TableSchema {
         columnMaskedWith = columnMaskedWith ?? List.filled(columnNames.length, null),
         partitionChildren = partitionChildren ?? [] {
     columnNamesLower = columnNames.map((c) => c.toLowerCase()).toList();
+    columnIndexMap = {for (int i = 0; i < columnNamesLower.length; i++) columnNamesLower[i]: i};
     hasForeignKeys = this.columnReferencesTable.any((t) => t != null);
     hasUniqueOrPrimaryKey = this.columnPrimaryKey.any((b) => b) || this.columnUnique.any((b) => b);
   }
+
+  late final Map<String, int> columnIndexMap;
+  int getColumnIndex(String colName) => columnIndexMap[colName.toLowerCase()] ?? -1;
 
   TableSchema addColumn(ColumnDef col) {
     return TableSchema(
