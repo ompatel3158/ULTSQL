@@ -340,6 +340,14 @@ class BTreeIndex {
       final page = cache.pinPageSync(indexPath, currentPageId);
       final keyCount = page.byteData.getUint16(2);
       
+      if (keyCount > 0 && low == null && high == null) {
+        count += keyCount;
+        final nextPageId = page.byteData.getInt32(siblingOffset);
+        cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
+        currentPageId = nextPageId;
+        continue;
+      }
+
       if (keyCount > 0 && keyColumns == 1 && low != null && high != null && low[0] == high[0]) {
         final targetVal = low[0];
         final firstVal = page.byteData.getFloat64(4);

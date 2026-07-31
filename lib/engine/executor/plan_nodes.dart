@@ -1105,8 +1105,12 @@ class GroupByNode extends PlanNode {
           int count = 0;
           bool fastCountSuccess = false;
           PlanNode baseNode = child;
-          if (baseNode is FilterNode) {
-            baseNode = baseNode.child;
+          while (baseNode is FilterNode || baseNode is ProjectNode) {
+            if (baseNode is FilterNode) {
+              baseNode = baseNode.child;
+            } else if (baseNode is ProjectNode) {
+              baseNode = baseNode.child;
+            }
           }
           if (baseNode is IndexScanNode) {
             final scan = baseNode;
