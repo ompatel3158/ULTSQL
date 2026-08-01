@@ -281,4 +281,4 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 
 ## 📜 License
 
-UltSQL is licensed under the MIT License. Built with ❤️ in pure Dart.
+UltSQL is licensed under the **BSD 3-Clause License** (the official license used by Flutter & Google). Built with ❤️ in pure Dart.
