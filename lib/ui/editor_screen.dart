@@ -557,8 +557,10 @@ SELECT 'ZK Enclave Ciphertext Search Verified' AS status;''',
                         ],
                       ),
                     ),
-                ),
+                  ),
+                ],
               ),
+            ),
       ),
     );
   }
