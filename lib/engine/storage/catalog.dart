@@ -615,7 +615,7 @@ class Catalog {
     return _stats.putIfAbsent(name.toLowerCase(), () => TableStats());
   }
 
-  // Deprecated compatibility methods
+  Map<String, TableSchema> get tables => _tables;
   Map<String, TableSchema> getTablesInternal() => _tables;
   void restoreTablesInternal(Map<String, TableSchema> backup) {
     _tables.clear();
