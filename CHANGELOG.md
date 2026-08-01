@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4
+
+- Fixed relative imports in `lib/ui/editor_screen.dart` to match `lib/src/engine/` package layout.
+- Added `library ultsql;` directive in `lib/ultsql.dart` to resolve Pana library doc warnings.
+
 ## 1.0.3
 
 - Added `example/example.dart` (+10 Pana points).

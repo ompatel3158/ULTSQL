@@ -2,6 +2,8 @@
 ///
 /// Combines Relational SQL, PL/SQL, NoSQL Dotted JSON, and HNSW Vector RAG
 /// with zero C/C++ native dependencies.
+library ultsql;
+
 export 'src/engine/executor/interpreter.dart';
 export 'src/engine/executor/value.dart';
 export 'src/engine/executor/plan_nodes.dart';

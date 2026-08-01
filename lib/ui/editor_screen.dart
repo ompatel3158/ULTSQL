@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import '../engine/executor/interpreter.dart';
-import '../engine/executor/value.dart';
+import '../src/engine/executor/interpreter.dart';
+import '../src/engine/executor/value.dart';
 import 'result_grid.dart';
 import 'console_output.dart';
 
