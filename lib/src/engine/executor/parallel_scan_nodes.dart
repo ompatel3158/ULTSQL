@@ -4,14 +4,14 @@ import 'dart:typed_data';
 import 'dart:convert';
 
 // Import local packages
-import 'package:ultsql/engine/cache/page.dart';
-import 'package:ultsql/engine/storage/catalog.dart';
-import 'package:ultsql/engine/storage/table_file.dart';
-import 'package:ultsql/engine/executor/value.dart';
-import 'package:ultsql/engine/executor/plan_nodes.dart';
-import 'package:ultsql/engine/executor/jit_compiler.dart';
-import 'package:ultsql/engine/parser/ast.dart';
-import 'package:ultsql/engine/cache/page_cache.dart';
+import 'package:ultsql/src/engine/cache/page.dart';
+import 'package:ultsql/src/engine/storage/catalog.dart';
+import 'package:ultsql/src/engine/storage/table_file.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/src/engine/executor/plan_nodes.dart';
+import 'package:ultsql/src/engine/executor/jit_compiler.dart';
+import 'package:ultsql/src/engine/parser/ast.dart';
+import 'package:ultsql/src/engine/cache/page_cache.dart';
 
 class ParallelScanTask {
   final String filePath;

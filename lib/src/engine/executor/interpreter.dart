@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -11,7 +10,6 @@ import '../cache/page_cache.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
-import '../storage/fts_index.dart';
 import '../storage/audit_logger.dart';
 import '../storage/hnsw_index.dart';
 import 'value.dart';

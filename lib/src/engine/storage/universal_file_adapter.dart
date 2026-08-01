@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
 
 /// Universal Native File System SQL Adapter: Query raw CSV, JSON & LOG files directly via SQL
 class UniversalFileAdapter {

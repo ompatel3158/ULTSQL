@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/parser/ast.dart';
-import 'package:ultsql/engine/executor/value.dart';
-import 'package:ultsql/engine/executor/jit_compiler.dart';
-import 'package:ultsql/engine/executor/plan_nodes.dart';
+import 'package:ultsql/src/engine/parser/ast.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/src/engine/executor/jit_compiler.dart';
+import 'package:ultsql/src/engine/executor/plan_nodes.dart';
 
 void main() {
   test('Expression JIT Compiler achieves >= 3x speedup over interpreter', () {

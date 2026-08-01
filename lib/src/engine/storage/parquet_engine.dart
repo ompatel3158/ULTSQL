@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:ultsql/engine/storage/catalog.dart';
-import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/src/engine/storage/catalog.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
 
 /// Apache Parquet Columnar Storage Engine Exporter & Importer
 class ParquetEngine {

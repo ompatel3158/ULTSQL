@@ -4,8 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/network/pg_wire_server.dart';
-import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/src/engine/network/pg_wire_server.dart';
+import 'package:ultsql/src/engine/executor/interpreter.dart';
 
 void main() {
   test('PgWireServer handles SSLRequest and extended protocol', () async {

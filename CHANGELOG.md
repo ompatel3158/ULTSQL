@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+- Added `example/example.dart` (+10 Pana points).
+- Moved internal engine implementation code into `lib/src/engine/` per Dart package structure guidelines.
+- Fixed badge relative link in `README.md` to secure `https://` URL (+5 Pana points).
+- Removed unused imports and unreferenced declarations to boost static analysis score (+20 Pana points).
+
 ## 1.0.2
 
 - Comprehensive public API documentation additions (`///`) across all exported classes (`LocalDatabaseService`, `Database`, `Interpreter`, `QueryResult`, `DbValue`, `TableSchema`, `Catalog`, `PlanNode`, `PgWireServer`) for 100% Pana doc coverage.

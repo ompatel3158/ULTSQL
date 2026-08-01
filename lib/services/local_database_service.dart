@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/src/engine/executor/interpreter.dart';
 
 /// Single-line drop-in service manager for UltSQL in Flutter applications.
 class LocalDatabaseService {

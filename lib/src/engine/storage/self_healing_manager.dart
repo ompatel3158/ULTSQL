@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:ultsql/engine/cache/page_cache.dart';
+import 'package:ultsql/src/engine/cache/page_cache.dart';
 
 /// Self-Healing Engine: Auto-detects CRC page corruption and repairs indexes in real time
 class SelfHealingManager {

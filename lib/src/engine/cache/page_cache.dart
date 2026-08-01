@@ -214,7 +214,7 @@ class PageCache {
     return ctx;
   }
 
-  SessionTxContext get _activeContext {
+  SessionTxContext get activeContext {
     final ctx = Zone.current[#sessionTxContext] as SessionTxContext?;
     return ctx ?? _globalContext;
   }
