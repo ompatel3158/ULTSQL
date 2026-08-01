@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Updated license metadata and README badges to official **BSD 3-Clause License** (matching Flutter & Google standards).
+- Added GitHub Actions CI workflow for automated build checks.
+
 ## 1.0.0
 
 - Initial release of **UltSQL** (`package:ultsql`), a 100% Pure Dart converged database engine.
