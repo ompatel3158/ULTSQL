@@ -1,0 +1,28 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Dart Analyzer
+        run: dart analyze lib/ultsql.dart bin/ultsql_server.dart bin/ultsql_cli.dart
+
+      - name: Run Unit Tests
+        run: flutter test
