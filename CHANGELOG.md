@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.6
+
+- Removed unused local variables (`tableName`, `indexFile`) in `lib/engine/executor/interpreter.dart` for 100% clean static analysis (+20 Pana points).
+- Fixed `GroupByNode` fast count `FilterNode` check and key mapping for `COUNT(*)` queries.
+- Added AST node execution handlers for `SavepointStmt`, `RollbackToSavepointStmt`, and `ReleaseSavepointStmt`.
+- Added auto-savepoint rollback support for PL/SQL nested exception handling blocks.
+
 ## 1.0.5
 
 - Restored standard `lib/engine/` package layout to resolve `dartdoc` input directory warnings.

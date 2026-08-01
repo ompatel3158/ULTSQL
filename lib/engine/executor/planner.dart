@@ -495,13 +495,27 @@ class QueryPlanner {
           final condVars = <String>{};
           _collectVariables(stmt.whereCondition!, condVars);
           final indexColsSet = targetIndexSchema.columnName.split(',').map((c) => c.trim().toLowerCase()).toSet();
-          for (final v in condVars) {
-            final vClean = v.toLowerCase().trim();
-            final vParts = vClean.split('.');
-            final colName = vParts.last;
-            if (!indexColsSet.contains(colName)) {
-              needFilterNode = true;
-              break;
+          bool isPureEquality = false;
+          if (stmt.whereCondition is BinaryExpr) {
+            final bin = stmt.whereCondition as BinaryExpr;
+            if (bin.operator == '=' && bin.left is VariableExpr) {
+              final varCol = (bin.left as VariableExpr).path.last.toLowerCase().trim();
+              if (indexColsSet.contains(varCol)) {
+                isPureEquality = true;
+              }
+            }
+          }
+          if (!isPureEquality) {
+            needFilterNode = true;
+          } else {
+            for (final v in condVars) {
+              final vClean = v.toLowerCase().trim();
+              final vParts = vClean.split('.');
+              final colName = vParts.last;
+              if (!indexColsSet.contains(colName)) {
+                needFilterNode = true;
+                break;
+              }
             }
           }
         }

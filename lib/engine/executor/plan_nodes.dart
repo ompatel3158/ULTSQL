@@ -1105,29 +1105,33 @@ class GroupByNode extends PlanNode {
         if (isCountAll) {
           int count = 0;
           bool fastCountSuccess = false;
+          bool hasFilter = false;
           PlanNode baseNode = child;
           while (baseNode is FilterNode || baseNode is ProjectNode) {
             if (baseNode is FilterNode) {
+              hasFilter = true;
               baseNode = baseNode.child;
             } else if (baseNode is ProjectNode) {
               baseNode = baseNode.child;
             }
           }
-          if (baseNode is IndexScanNode) {
-            final scan = baseNode;
-            final fastCount = scan.getFastCount();
-            if (fastCount != null) {
-              count = fastCount;
-              fastCountSuccess = true;
-            }
-          } else if (baseNode is RowScanNode) {
-            final scan = baseNode;
-            final activeInterpreter = JitCompiler.activeInterpreter;
-            if (activeInterpreter != null) {
-              final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
-              if (stats.rowCount > 0) {
-                count = stats.rowCount;
+          if (!hasFilter) {
+            if (baseNode is IndexScanNode) {
+              final scan = baseNode;
+              final fastCount = scan.getFastCount();
+              if (fastCount != null) {
+                count = fastCount;
                 fastCountSuccess = true;
+              }
+            } else if (baseNode is RowScanNode) {
+              final scan = baseNode;
+              final activeInterpreter = JitCompiler.activeInterpreter;
+              if (activeInterpreter != null) {
+                final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
+                if (stats.rowCount > 0) {
+                  count = stats.rowCount;
+                  fastCountSuccess = true;
+                }
               }
             }
           }
@@ -1138,9 +1142,15 @@ class GroupByNode extends PlanNode {
               count++;
             }
           }
-          final colName = projections[0].alias ?? 'COUNT(*)';
+          final aliasStr = projections[0].alias ?? 'COUNT(*)';
+          final sqlStr = exprToSqlString(projections[0].expr);
           _aggregatedRows = [
-            {colName: DbInt(count)}
+            {
+              aliasStr: DbInt(count),
+              sqlStr: DbInt(count),
+              'COUNT(*)': DbInt(count),
+              'count(*)': DbInt(count),
+            }
           ];
           return;
         }

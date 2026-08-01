@@ -611,6 +611,20 @@ class Interpreter {
       db.cache.rollbackTransactionSync(db.catalog);
       return QueryResult(columns: [], rows: [], message: 'Transaction rolled back.');
     }
+    if (node is SavepointStmt) {
+      db.cache.createSavepoint(node.name, db.catalog);
+      return QueryResult(columns: [], rows: [], message: 'Savepoint ${node.name} created.');
+    }
+    if (node is RollbackToSavepointStmt) {
+      _delayedIndexUpdates.clear();
+      _flushActiveTablePages();
+      db.cache.rollbackToSavepoint(node.name, db.catalog);
+      return QueryResult(columns: [], rows: [], message: 'Rolled back to savepoint ${node.name}.');
+    }
+    if (node is ReleaseSavepointStmt) {
+      db.cache.releaseSavepoint(node.name);
+      return QueryResult(columns: [], rows: [], message: 'Savepoint ${node.name} released.');
+    }
     if (node is CreateRelationshipStmt) {
       return _executeCreateRelationship(node);
     }
@@ -1962,7 +1976,6 @@ END;
 
     // Iterate over all tables in catalog to find referencing tables
     for (final schema in db.catalog.getTablesInternal().values) {
-      final tableName = schema.name.toLowerCase();
       for (int i = 0; i < schema.columnNames.length; i++) {
         final refTable = schema.columnReferencesTable[i];
         final refCol = schema.columnReferencesColumn[i];
@@ -2074,7 +2087,6 @@ END;
               final double? searchKey = val is num ? val.toDouble() : null;
               if (searchKey != null) {
                 final indexName = idx.name.toLowerCase();
-                final indexFile = '${db.directory}/$indexName.idx';
                 final btree = db.getOrInitIndexSync(indexName);
                 final ptr = btree.searchSync([searchKey]);
                 
@@ -2714,6 +2726,8 @@ END;
     );
   }
 
+  static int _autoSavepointSeq = 0;
+
   QueryResult _executePlSqlBlockSync(PlSqlBlock block) {
     for (final decl in block.declarations) {
       DbValue initialVal = DbNull();
@@ -2731,14 +2745,45 @@ END;
       _env[decl.name] = initialVal;
     }
 
+    String? autoSp;
+    if (db.cache.isTransactionActive && block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
+      autoSp = '_auto_sp_${_autoSavepointSeq++}';
+      db.cache.createSavepoint(autoSp, db.catalog);
+    }
+
     QueryResult? lastResult;
-    for (final stmt in block.body) {
-      final res = _executeNodeSync(stmt);
-      if (res is Future) {
-        throw Exception("Asynchronous operations are not supported inside PL/SQL blocks.");
+    try {
+      for (final stmt in block.body) {
+        final res = _executeNodeSync(stmt);
+        if (res is Future) {
+          throw Exception("Asynchronous operations are not supported inside PL/SQL blocks.");
+        }
+        if (res is QueryResult) {
+          lastResult = res;
+        }
       }
-      if (res is QueryResult) {
-        lastResult = res;
+    } catch (e) {
+      if (autoSp != null) {
+        _delayedIndexUpdates.clear();
+        _flushActiveTablePages();
+        db.cache.rollbackToSavepoint(autoSp, db.catalog);
+      }
+      if (block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
+        final handler = block.exceptionHandlers!.firstWhere(
+          (h) => h.exceptionName.toLowerCase() == 'others' || e.toString().toLowerCase().contains(h.exceptionName.toLowerCase()),
+          orElse: () => block.exceptionHandlers!.first,
+        );
+        for (final stmt in handler.body) {
+          final res = _executeNodeSync(stmt);
+          if (res is Future) {
+            throw Exception("Asynchronous operations are not supported inside exception handlers.");
+          }
+          if (res is QueryResult) {
+            lastResult = res;
+          }
+        }
+      } else {
+        rethrow;
       }
     }
 
