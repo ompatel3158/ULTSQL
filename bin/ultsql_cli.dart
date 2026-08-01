@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 void main(List<String> args) async {
   String dbTarget = ':memory:';

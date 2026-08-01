@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
 
 class LocalDatabaseService {
   static final LocalDatabaseService instance = LocalDatabaseService._internal();
