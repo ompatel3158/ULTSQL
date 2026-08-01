@@ -4,12 +4,12 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/src/engine/executor/interpreter.dart';
-import 'package:ultsql/src/engine/executor/value.dart';
-import 'package:ultsql/src/engine/storage/catalog.dart';
-import 'package:ultsql/src/engine/storage/btree_index.dart';
-import 'package:ultsql/src/engine/storage/hnsw_index.dart';
-import 'package:ultsql/src/engine/executor/replication.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/storage/btree_index.dart';
+import 'package:ultsql/engine/storage/hnsw_index.dart';
+import 'package:ultsql/engine/executor/replication.dart';
 
 @Timeout(Duration(minutes: 5))
 void main() {

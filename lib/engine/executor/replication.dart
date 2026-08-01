@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:ultsql/src/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
 
 class WalReplicationRecord {
   final int type; // 1: START, 2: PAGE, 3: COMMIT

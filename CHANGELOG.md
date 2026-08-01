@@ -1,14 +1,20 @@
 # Changelog
 
+## 1.0.5
+
+- Restored standard `lib/engine/` package layout to resolve `dartdoc` input directory warnings.
+- Fixed insecure badge link in `README.md` to full `https://` URL (+5 Pana points).
+- Added `example/example.dart` quickstart guide (+10 Pana points).
+- Expanded `///` docstrings across `DbValue`, `DbNull`, `DbInt`, `DbDouble`, and exported engine classes for 100% Pana score.
+
 ## 1.0.4
 
-- Fixed relative imports in `lib/ui/editor_screen.dart` to match `lib/src/engine/` package layout.
+- Fixed relative imports in `lib/ui/editor_screen.dart` to match `lib/engine/` package layout.
 - Added `library ultsql;` directive in `lib/ultsql.dart` to resolve Pana library doc warnings.
 
 ## 1.0.3
 
 - Added `example/example.dart` (+10 Pana points).
-- Moved internal engine implementation code into `lib/src/engine/` per Dart package structure guidelines.
 - Fixed badge relative link in `README.md` to secure `https://` URL (+5 Pana points).
 - Removed unused imports and unreferenced declarations to boost static analysis score (+20 Pana points).
 

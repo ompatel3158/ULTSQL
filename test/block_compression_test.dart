@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/src/engine/storage/block_compression.dart';
+import 'package:ultsql/engine/storage/block_compression.dart';
 
 void main() {
   group('BlockCompressor', () {

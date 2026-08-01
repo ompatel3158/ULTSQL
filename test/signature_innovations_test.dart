@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/src/engine/storage/catalog.dart';
-import 'package:ultsql/src/engine/executor/interpreter.dart';
-import 'package:ultsql/src/engine/storage/self_healing_manager.dart';
-import 'package:ultsql/src/engine/cache/auto_manager.dart';
-import 'package:ultsql/src/engine/storage/universal_file_adapter.dart';
-import 'package:ultsql/src/engine/ai/nl_query_engine.dart';
-import 'package:ultsql/src/engine/security/zk_crypto.dart';
-import 'package:ultsql/src/engine/network/p2p_sync.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/storage/self_healing_manager.dart';
+import 'package:ultsql/engine/cache/auto_manager.dart';
+import 'package:ultsql/engine/storage/universal_file_adapter.dart';
+import 'package:ultsql/engine/ai/nl_query_engine.dart';
+import 'package:ultsql/engine/security/zk_crypto.dart';
+import 'package:ultsql/engine/network/p2p_sync.dart';
 
 void main() {
   test('🛠️ Innovation 1: Self-Healing Engine verifies page integrity', () async {

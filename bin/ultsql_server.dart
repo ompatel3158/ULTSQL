@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:ultsql/src/engine/executor/interpreter.dart';
-import 'package:ultsql/src/engine/network/pg_wire_server.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/network/pg_wire_server.dart';
 
 void main(List<String> args) async {
   int port = 5432;

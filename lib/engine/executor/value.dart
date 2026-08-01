@@ -123,6 +123,7 @@ abstract class DbValue implements Comparable<DbValue> {
   DbValue concat(DbValue other);
 }
 
+/// Represents a SQL NULL value.
 class DbNull extends DbValue {
   @override
   DataType get type => DataType.text; // Default fallback
@@ -157,6 +158,7 @@ class DbNull extends DbValue {
   String toString() => 'NULL';
 }
 
+/// Represents an 8-bit to 64-bit integer database value.
 class DbInt extends DbValue {
   @override
   final int value;
@@ -249,6 +251,7 @@ class DbInt extends DbValue {
   String toString() => value.toString();
 }
 
+/// Represents a double precision floating-point database value.
 class DbDouble extends DbValue {
   @override
   final double value;

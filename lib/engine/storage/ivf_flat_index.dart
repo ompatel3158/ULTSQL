@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 class IvfFlatNode {
   final DbVector vector;

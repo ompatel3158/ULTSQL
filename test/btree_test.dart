@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/src/engine/cache/page_cache.dart';
-import 'package:ultsql/src/engine/storage/btree_index.dart';
+import 'package:ultsql/engine/cache/page_cache.dart';
+import 'package:ultsql/engine/storage/btree_index.dart';
 
 void main() {
   const dbDir = 'test_data_btree';
