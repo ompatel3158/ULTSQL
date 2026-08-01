@@ -15,6 +15,7 @@ import '../storage/fts_index.dart';
 import '../storage/ivf_flat_index.dart';
 import '../fdw/fdw_manager.dart';
 
+/// Abstract base class for Volcano-iterator physical execution plan nodes.
 abstract class PlanNode {
   void open();
   Map<String, DbValue>? next();

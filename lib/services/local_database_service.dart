@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:ultsql/engine/executor/interpreter.dart';
 
+/// Single-line drop-in service manager for UltSQL in Flutter applications.
 class LocalDatabaseService {
+  /// Singleton instance of [LocalDatabaseService].
   static final LocalDatabaseService instance = LocalDatabaseService._internal();
+
   LocalDatabaseService._internal();
 
   Database? _activeDb;
@@ -13,22 +16,27 @@ class LocalDatabaseService {
   final Map<String, Database> _openedDatabases = {};
   final Map<String, Interpreter> _openedInterpreters = {};
 
+  /// Gets the currently active database file name.
   String get activeDatabaseName => _activeDbName;
+
+  /// Gets the active [Database] engine reference.
   Database? get activeDatabase => _activeDb;
+
+  /// Gets the active [Interpreter] execution reference.
   Interpreter? get activeInterpreter => _interpreter;
 
-  /// Set directory for local database files
+  /// Set directory path for storing local database files.
   void setDataDirectory(String path) {
     _dataDirectory = path;
   }
 
-  /// Initialize default database and local tables
+  /// Initialize default database engine and auto-provision standard local tables.
   Future<Interpreter> init({String defaultDbName = 'main_local.db'}) async {
     _activeDbName = defaultDbName;
     return await switchDatabase(_activeDbName);
   }
 
-  /// Switch active database file on the fly
+  /// Switch active database file on the fly, or use `:memory:` for high-speed in-memory execution.
   Future<Interpreter> switchDatabase(String dbName) async {
     if (_openedInterpreters.containsKey(dbName)) {
       _activeDbName = dbName;
@@ -61,7 +69,7 @@ class LocalDatabaseService {
     return interpreter;
   }
 
-  /// Ensure all 4 standard local tables exist
+  /// Ensures all 4 standard local app tables exist.
   Future<void> _ensureLocalTablesExist(Interpreter interpreter) async {
     await interpreter.executeScript('''
       CREATE TABLE IF NOT EXISTS query_history (
@@ -108,7 +116,7 @@ class LocalDatabaseService {
     ''');
   }
 
-  /// Execute user SQL/PL-SQL query with precise Stopwatch performance timing (ms)
+  /// Execute user SQL/PL-SQL query with precise Stopwatch performance timing in milliseconds.
   Future<Map<String, dynamic>> executeQuery(String sqlScript) async {
     final interpreter = _interpreter ?? await switchDatabase(_activeDbName);
     final stopwatch = Stopwatch()..start();
@@ -189,7 +197,7 @@ class LocalDatabaseService {
     }
   }
 
-  /// Get list of all table names & schema details for ER Diagram Screen
+  /// Get list of all table names & schema details for ER Diagram Screen visualization.
   Future<List<Map<String, dynamic>>> getTablesAndSchemas() async {
     final db = _activeDb;
     if (db == null) return [];
@@ -228,7 +236,7 @@ class LocalDatabaseService {
     return schemas;
   }
 
-  /// Save AI Chat History
+  /// Save AI Chat History prompt and response.
   Future<void> saveAiChatMessage(String prompt, String response) async {
     final interpreter = _interpreter ?? await switchDatabase(_activeDbName);
     final id = DateTime.now().millisecondsSinceEpoch;
@@ -244,7 +252,7 @@ class LocalDatabaseService {
     ''');
   }
 
-  /// Close active and all opened database instances
+  /// Close active and all opened database instances cleanly.
   Future<void> closeAll() async {
     for (final db in _openedDatabases.values) {
       await db.close();

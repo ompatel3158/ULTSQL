@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:collection';
 import '../parser/ast.dart';
 
+/// Base class representing strongly-typed column values in UltSQL.
 abstract class DbValue implements Comparable<DbValue> {
   const DbValue();
   DataType get type;

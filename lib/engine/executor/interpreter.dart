@@ -21,6 +21,7 @@ import 'jit_compiler.dart';
 import 'parallel_scan_nodes.dart';
 import '../cache/engine_config.dart';
 
+/// Represents the formatted result set returned by UltSQL query execution.
 class QueryResult {
   final List<String> columns;
   final List<List<DbValue>> rows;
@@ -49,6 +50,7 @@ class QueryResult {
   }
 }
 
+/// Represents a physical or in-memory UltSQL database instance.
 class Database {
   final String directory;
   late final Catalog catalog;
@@ -349,6 +351,7 @@ class PreparedStatement {
 }
 
 
+/// High-performance SQL and PL/SQL script executor for UltSQL.
 class Interpreter {
   static final Map<String, List<ASTNode>> _astCache = {};
 

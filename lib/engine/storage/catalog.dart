@@ -148,6 +148,7 @@ class PolicySchema {
   }
 }
 
+/// Represents the relational or columnar schema of a table in UltSQL.
 class TableSchema {
   final String name;
   final List<String> columnNames;
@@ -416,6 +417,7 @@ class IndexSchema {
       );
 }
 
+/// System catalog maintaining metadata, schemas, indexes, and procedures for an UltSQL database.
 class Catalog {
   final String basePath;
   bool enableCBO = true;

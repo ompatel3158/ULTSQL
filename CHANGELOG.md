@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- Comprehensive public API documentation additions (`///`) across all exported classes (`LocalDatabaseService`, `Database`, `Interpreter`, `QueryResult`, `DbValue`, `TableSchema`, `Catalog`, `PlanNode`, `PgWireServer`) for 100% Pana doc coverage.
+- Optimized static analysis compliance for pub.dev points.
+
 ## 1.0.1
 
 - Updated license metadata and README badges to official **BSD 3-Clause License** (matching Flutter & Google standards).

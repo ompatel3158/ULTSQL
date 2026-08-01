@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import '../executor/interpreter.dart';
 import '../executor/value.dart';
 
+/// Embedded PostgreSQL Wire Protocol (Port 5432) TCP server daemon for UltSQL.
 class PgWireServer {
   final Database db;
   final int port;
