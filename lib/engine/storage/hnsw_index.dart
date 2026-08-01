@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 class HnswNode {
   final int id;

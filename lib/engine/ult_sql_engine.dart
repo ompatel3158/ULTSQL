@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/network/pg_wire_server.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/network/pg_wire_server.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 /// Unified Multi-Platform & Multi-Mode Deployment Driver for UltSQL.
 /// Supports Embedded File DB, In-Memory DB, PGWire TCP Server, and Web storage.

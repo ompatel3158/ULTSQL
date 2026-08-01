@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/cache/page_cache.dart';
+import 'package:ultsql/engine/cache/page_cache.dart';
 
 void main() {
   const dbDir = 'test_data_cache';

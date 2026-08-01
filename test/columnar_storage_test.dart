@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/cache/page_cache.dart';
-import 'package:hybrid_sql_engine/engine/storage/columnar_store.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/cache/page_cache.dart';
+import 'package:ultsql/engine/storage/columnar_store.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 void main() {
   group('Columnar Storage Engine', () {

@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
-import 'package:hybrid_sql_engine/engine/network/raft_cluster.dart';
-import 'package:hybrid_sql_engine/engine/storage/parquet_engine.dart';
-import 'package:hybrid_sql_engine/engine/spatial/h3_indexer.dart';
-import 'package:hybrid_sql_engine/engine/parser/ast.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/engine/network/raft_cluster.dart';
+import 'package:ultsql/engine/storage/parquet_engine.dart';
+import 'package:ultsql/engine/spatial/h3_indexer.dart';
+import 'package:ultsql/engine/parser/ast.dart';
 
 void main() {
   test('💥 Resilience 1: Power Loss & WAL Crash Recovery Verification', () async {

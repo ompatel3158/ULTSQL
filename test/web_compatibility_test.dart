@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/parser/ast.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/parser/ast.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 void main() {
   test('UltSQL Web compatibility in-memory engine execution', () async {

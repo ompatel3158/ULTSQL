@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/network/pg_wire_server.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/network/pg_wire_server.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
 
 void main() {
   const dbDir = 'test_data_pg_wire_concurrent';

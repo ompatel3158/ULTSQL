@@ -6,11 +6,11 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/storage/btree_index.dart';
-import 'package:hybrid_sql_engine/engine/storage/hnsw_index.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/storage/btree_index.dart';
+import 'package:ultsql/engine/storage/hnsw_index.dart';
 
 void main() {
   const dbDir = 'test_brutal_db';

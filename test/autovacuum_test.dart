@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/storage/table_file.dart';
-import 'package:hybrid_sql_engine/engine/cache/page_cache.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/storage/table_file.dart';
+import 'package:ultsql/engine/cache/page_cache.dart';
 
 void main() {
   late Database db;

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 void main() {
   const dbDir = 'test_stored_procedures_dir';

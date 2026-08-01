@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
 
 void main() {
   const dbDir = 'test_data_recursive_cte';

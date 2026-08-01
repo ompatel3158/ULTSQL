@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
-import 'package:hybrid_sql_engine/engine/storage/columnar_store.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/engine/storage/columnar_store.dart';
 import 'dart:io';
 
 void main() {

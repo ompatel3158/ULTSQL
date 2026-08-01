@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:io';
-import 'package:hybrid_sql_engine/engine/spatial/geometry.dart';
-import 'package:hybrid_sql_engine/engine/spatial/rtree_index.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
+import 'package:ultsql/engine/spatial/geometry.dart';
+import 'package:ultsql/engine/spatial/rtree_index.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
 
 void main() {
   group('Spatial Geometry Tests', () {

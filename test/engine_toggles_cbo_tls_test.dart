@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/ult_sql_engine.dart';
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
-import 'package:hybrid_sql_engine/engine/cache/engine_config.dart';
+import 'package:ultsql/engine/ult_sql_engine.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
+import 'package:ultsql/engine/cache/engine_config.dart';
 
 void main() {
   test('EngineConfig and SET ENGINE_OPTION runtime toggles', () async {

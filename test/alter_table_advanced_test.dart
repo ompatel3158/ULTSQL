@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hybrid_sql_engine/engine/executor/interpreter.dart';
-import 'package:hybrid_sql_engine/engine/executor/value.dart';
-import 'package:hybrid_sql_engine/engine/parser/ast.dart';
+import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/engine/parser/ast.dart';
 
 void main() {
   const dbDir = 'test_data_alter_table_adv';

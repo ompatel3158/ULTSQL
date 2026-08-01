@@ -1,4 +1,4 @@
-import 'package:hybrid_sql_engine/engine/storage/catalog.dart';
+import 'package:ultsql/engine/storage/catalog.dart';
 
 /// AI Natural Language to SQL Query Compiler
 class NlQueryEngine {
