@@ -270,6 +270,70 @@ class TableSchema {
     );
   }
 
+  TableSchema renameColumn(String oldName, String newName) {
+    final idx = columnNamesLower.indexOf(oldName.toLowerCase());
+    if (idx == -1) {
+      throw Exception("Column '$oldName' not found in table '$name'.");
+    }
+    final newNames = List<String>.from(columnNames);
+    newNames[idx] = newName;
+    return TableSchema(
+      name: name,
+      columnNames: newNames,
+      columnTypes: columnTypes,
+      isColumnar: isColumnar,
+      columnPrimaryKey: columnPrimaryKey,
+      columnUnique: columnUnique,
+      columnReferencesTable: columnReferencesTable,
+      columnReferencesColumn: columnReferencesColumn,
+      columnOnDeleteCascade: columnOnDeleteCascade,
+      columnDefaultValues: columnDefaultValues,
+      columnCheckExpressions: columnCheckExpressions,
+      policies: policies,
+      columnMaskedWith: columnMaskedWith,
+      isForeign: isForeign,
+      foreignServer: foreignServer,
+      foreignOptions: foreignOptions,
+      partitionByColumn: partitionByColumn,
+      partitionOfParent: partitionOfParent,
+      partitionFromValue: partitionFromValue,
+      partitionToValue: partitionToValue,
+      partitionChildren: partitionChildren,
+    );
+  }
+
+  TableSchema alterColumnType(String colName, DataType newType) {
+    final idx = columnNamesLower.indexOf(colName.toLowerCase());
+    if (idx == -1) {
+      throw Exception("Column '$colName' not found in table '$name'.");
+    }
+    final newTypes = List<DataType>.from(columnTypes);
+    newTypes[idx] = newType;
+    return TableSchema(
+      name: name,
+      columnNames: columnNames,
+      columnTypes: newTypes,
+      isColumnar: isColumnar,
+      columnPrimaryKey: columnPrimaryKey,
+      columnUnique: columnUnique,
+      columnReferencesTable: columnReferencesTable,
+      columnReferencesColumn: columnReferencesColumn,
+      columnOnDeleteCascade: columnOnDeleteCascade,
+      columnDefaultValues: columnDefaultValues,
+      columnCheckExpressions: columnCheckExpressions,
+      policies: policies,
+      columnMaskedWith: columnMaskedWith,
+      isForeign: isForeign,
+      foreignServer: foreignServer,
+      foreignOptions: foreignOptions,
+      partitionByColumn: partitionByColumn,
+      partitionOfParent: partitionOfParent,
+      partitionFromValue: partitionFromValue,
+      partitionToValue: partitionToValue,
+      partitionChildren: partitionChildren,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'name': name,
         'columnNames': columnNames,
@@ -517,7 +581,7 @@ class Catalog {
       'tables': Map<String, TableSchema>.from(_tables),
       'relationships': Map<String, RelationshipSchema>.from(_relationships),
       'indexes': Map<String, IndexSchema>.from(_indexes),
-      'stats': Map<String, TableStats>.from(_stats),
+      'stats': _stats.map((k, v) => MapEntry(k, TableStats.fromJson(v.toJson()))),
       'procedures': Map<String, ProcedureSchema>.from(_procedures),
       'functions': Map<String, FunctionSchema>.from(_functions),
       'triggers': Map<String, TriggerSchema>.from(_triggers),

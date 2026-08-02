@@ -525,6 +525,8 @@ class PageCache {
       if (_cache.containsKey(key)) {
         final page = _cache[key]!;
         page.data.setAll(0, undoInfo.originalData);
+        page.rowCount = null;
+        page.freeSpaceOffset = null;
         page.isDirty = true;
       } else {
         final pager = getOrCreatePager(key.filePath);
@@ -537,7 +539,7 @@ class PageCache {
       final filePath = entry.key;
       final originalCount = entry.value;
       final pager = getOrCreatePager(filePath);
-      final currentCount = pager.getPageCountSync();
+      final currentCount = getActualPageCountSync(filePath);
       if (currentCount > originalCount) {
         final keysToRemove = <PageKey>[];
         for (final k in _cache.keys) {
@@ -585,17 +587,26 @@ class PageCache {
     }
 
     final pageCounts = <String, int>{};
+    final pageData = <PageKey, Uint8List>{};
+
     for (final pager in _pagers.values) {
-      pageCounts[pager.filePath] = pager.getPageCountSync();
-    }
-    for (final entry in state.originalPageCounts.entries) {
-      pageCounts[entry.key] = entry.value;
+      final count = pager.getPageCountSync();
+      pageCounts[pager.filePath] = count;
+      for (int p = 0; p < count; p++) {
+        final key = PageKey(pager.filePath, p);
+        if (_cache.containsKey(key)) {
+          pageData[key] = Uint8List.fromList(_cache[key]!.data);
+        } else {
+          final data = Uint8List(pageSize);
+          pager.readPageSync(p, data);
+          pageData[key] = data;
+        }
+      }
     }
 
-    final pageData = <PageKey, Uint8List>{};
-    _cache.forEach((key, page) {
-      pageData[key] = Uint8List.fromList(page.data);
-    });
+    for (final entry in state.originalPageCounts.entries) {
+      pageCounts.putIfAbsent(entry.key, () => entry.value);
+    }
 
     state.savepoints[name.toLowerCase()] = SavepointState(
       name: name,
@@ -615,40 +626,21 @@ class PageCache {
       throw Exception("Savepoint '$name' not found.");
     }
 
-    // 1. Restore page data
-    _cache.forEach((key, page) {
-      final savedData = sv.pageData[key];
-      if (savedData != null) {
+    // 1. Restore all saved page data
+    sv.pageData.forEach((key, savedData) {
+      if (_cache.containsKey(key)) {
+        final page = _cache[key]!;
         page.data.setAll(0, savedData);
+        page.rowCount = null;
+        page.freeSpaceOffset = null;
         page.isDirty = true;
       } else {
-        final limit = sv.pageCounts[key.filePath] ?? 0;
-        if (key.pageId < limit) {
-          final undo = state.originalPages[key];
-          if (undo != null) {
-            page.data.setAll(0, undo.originalData);
-            page.isDirty = true;
-          }
-        }
+        final pager = getOrCreatePager(key.filePath);
+        pager.writePageSync(key.pageId, savedData);
       }
     });
 
-    state.originalPages.forEach((key, undo) {
-      if (!sv.pageData.containsKey(key)) {
-        final limit = sv.pageCounts[key.filePath] ?? 0;
-        if (key.pageId < limit) {
-          if (_cache.containsKey(key)) {
-            _cache[key]!.data.setAll(0, undo.originalData);
-            _cache[key]!.isDirty = true;
-          } else {
-            final pager = getOrCreatePager(key.filePath);
-            pager.writePageSync(key.pageId, undo.originalData);
-          }
-        }
-      }
-    });
-
-    // 2. Truncate files that grew
+    // 2. Truncate files that grew since savepoint
     sv.pageCounts.forEach((filePath, originalCount) {
       final pager = getOrCreatePager(filePath);
       final currentCount = pager.getPageCountSync();
@@ -678,7 +670,6 @@ class PageCache {
         state.savepoints.remove(keys[i]);
       }
     }
-
     flushAllSync();
   }
 
@@ -703,10 +694,28 @@ class PageCache {
     final state = _txState;
     if (state == null) return;
     if (!state.originalPageCounts.containsKey(filePath)) {
-      final pager = getOrCreatePager(filePath);
-      final count = pager.getPageCountSync();
-      state.originalPageCounts[filePath] = count;
+      state.originalPageCounts[filePath] = getActualPageCountSync(filePath);
     }
+  }
+
+  void logPageBeforeModifySync(String filePath, int pageId) {
+    if (_txState != null) {
+      final page = pinPageSync(filePath, pageId);
+      _logPageOriginalData(PageKey(filePath, pageId), page);
+      unpinPageSync(filePath, pageId, isDirty: false);
+    }
+  }
+
+  int getActualPageCountSync(String filePath) {
+    int count = getOrCreatePager(filePath).getPageCountSync();
+    for (final key in _cache.keys) {
+      if (key.filePath == filePath) {
+        if (key.pageId + 1 > count) {
+          count = key.pageId + 1;
+        }
+      }
+    }
+    return count;
   }
 
   void _logPageOriginalData(PageKey key, Page page) {
@@ -718,12 +727,17 @@ class PageCache {
     _ensureFileTrackedSync(key.filePath);
 
     if (!state.originalPages.containsKey(key)) {
-      final originalCount = state.originalPageCounts[key.filePath] ?? 0;
+      state.originalPageCounts.putIfAbsent(key.filePath, () => getActualPageCountSync(key.filePath));
+      final originalCount = state.originalPageCounts[key.filePath]!;
       if (key.pageId < originalCount) {
-        state.originalPages[key] = PageUndoInfo(page.data);
+        state.originalPages[key] = PageUndoInfo(Uint8List.fromList(page.data));
       }
     }
     page.lastLoggedTxId = txId;
+  }
+
+  Page? peekPageSync(String filePath, int pageId) {
+    return _cache[PageKey(filePath, pageId)];
   }
 
   Pager getOrCreatePager(String filePath) {

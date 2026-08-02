@@ -380,22 +380,14 @@ class RowScanNode extends PlanNode {
   @override
   void open() {
     final currentTx = tableFile.cache.currentMvccTx;
-    if (currentTx != null) {
-      _iterator = tableFile.scanSync(
-        currentTxId: currentTx.txId,
-        activeTxIds: currentTx.activeTxIds,
-        txManager: tableFile.cache.mvccTxManager,
-        projectedColIndexes: _colsToLoad,
-        expectedColumnCount: schema.columnNames.length,
-        asOfTxId: asOfTxId,
-      ).iterator;
-    } else {
-      _iterator = tableFile.scanSync(
-        projectedColIndexes: _colsToLoad,
-        expectedColumnCount: schema.columnNames.length,
-        asOfTxId: asOfTxId,
-      ).iterator;
-    }
+    _iterator = tableFile.scanSync(
+      currentTxId: currentTx?.txId ?? 0,
+      activeTxIds: currentTx?.activeTxIds ?? const <int>{},
+      txManager: tableFile.cache.mvccTxManager,
+      projectedColIndexes: _colsToLoad,
+      expectedColumnCount: schema.columnNames.length,
+      asOfTxId: asOfTxId,
+    ).iterator;
   }
 
   @override
@@ -783,8 +775,25 @@ class IndexScanNode extends PlanNode {
   }
 
   int? getFastCount() {
+    final sw = Stopwatch()..start();
+    final currentTx = tableFile.cache.currentMvccTx;
+    final txManager = tableFile.cache.mvccTxManager;
+    if (currentTx != null && currentTx.txId != 0) {
+      final status = txManager.txStatusMap[currentTx.txId];
+      if (status == TxStatus.active) {
+        return null;
+      }
+    }
+    if (txManager.activeTxIds.isNotEmpty) {
+      return null;
+    }
+    if (_fastCount != null) return _fastCount;
+    if (_pointers != null) return _pointers!.length;
     index.initSync();
-    return index.countRangeSync(low, high);
+    _fastCount = index.countRangeSync(low, high);
+    sw.stop();
+    print('--> TIME: IndexScanNode.getFastCount took: ${sw.elapsedMicroseconds}us, count=$_fastCount');
+    return _fastCount;
   }
 
   @override
@@ -1100,8 +1109,8 @@ class GroupByNode extends PlanNode {
       if (func.name.toLowerCase() == 'count') {
         final isCountAll = func.arguments.isEmpty ||
             (func.arguments.length == 1 &&
-             func.arguments[0] is VariableExpr &&
-             (func.arguments[0] as VariableExpr).path.first == '*');
+             ((func.arguments[0] is VariableExpr && (func.arguments[0] as VariableExpr).path.first == '*') ||
+              (func.arguments[0] is LiteralExpr && (func.arguments[0] as LiteralExpr).value.toString().contains('*'))));
         if (isCountAll) {
           int count = 0;
           bool fastCountSuccess = false;
@@ -1115,23 +1124,21 @@ class GroupByNode extends PlanNode {
               baseNode = baseNode.child;
             }
           }
-          if (!hasFilter) {
-            if (baseNode is IndexScanNode) {
-              final scan = baseNode;
-              final fastCount = scan.getFastCount();
-              if (fastCount != null) {
-                count = fastCount;
+          if (baseNode is IndexScanNode) {
+            final scan = baseNode as IndexScanNode;
+            final fastCount = scan.getFastCount();
+            if (fastCount != null) {
+              count = fastCount;
+              fastCountSuccess = true;
+            }
+          } else if (baseNode is RowScanNode && !hasFilter) {
+            final scan = baseNode;
+            final activeInterpreter = JitCompiler.activeInterpreter;
+            if (activeInterpreter != null) {
+              final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
+              if (stats.rowCount > 0) {
+                count = stats.rowCount;
                 fastCountSuccess = true;
-              }
-            } else if (baseNode is RowScanNode) {
-              final scan = baseNode;
-              final activeInterpreter = JitCompiler.activeInterpreter;
-              if (activeInterpreter != null) {
-                final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
-                if (stats.rowCount > 0) {
-                  count = stats.rowCount;
-                  fastCountSuccess = true;
-                }
               }
             }
           }
@@ -2863,14 +2870,15 @@ class UnionNode extends PlanNode {
       final keys = List<String>.filled(row.values.length, '');
       row.keyToIndex.forEach((key, idx) {
         if (idx < keys.length) {
-          if (keys[idx].isEmpty || keys[idx].contains('.')) {
-            keys[idx] = key;
+          final shortKey = key.split('.').last;
+          if (keys[idx].isEmpty || !key.contains('.')) {
+            keys[idx] = shortKey;
           }
         }
       });
       return keys;
     }
-    return row.keys.toList();
+    return row.keys.map((k) => k.split('.').last).toList();
   }
 
   @override
@@ -2900,6 +2908,7 @@ class UnionNode extends PlanNode {
         final key = _columnKeys![i];
         final val = i < vals.length ? vals[i] : DbNull();
         resultRow[key] = val;
+        resultRow[key.split('.').last] = val;
       }
       return resultRow;
     }

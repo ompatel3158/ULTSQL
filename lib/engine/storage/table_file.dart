@@ -356,8 +356,18 @@ class RowTableFile {
     _cachedPageCount = null;
   }
 
+  void resetActivePageSync() {
+    if (_activeInsertPage != null) {
+      cache.unpinPageSync(filePath, _activeInsertPageId, isDirty: false);
+      _activeInsertPage = null;
+      _activeInsertPageId = -1;
+    }
+    _cachedPageCount = null;
+  }
+
   void insertRawRecordSync(Uint8List recordBytes) {
     if (_activeInsertPage != null) {
+      cache.logPageBeforeModifySync(filePath, _activeInsertPageId);
       final success = SlottedPageHelper.insertRecordDirect(_activeInsertPage!, recordBytes, recordBytes.length);
       if (success) {
         _activeInsertPage!.isDirty = true;
@@ -371,6 +381,7 @@ class RowTableFile {
 
     if (pageCount == 0) {
       final page = cache.pinPageSync(filePath, 0);
+      cache.logPageBeforeModifySync(filePath, 0);
       SlottedPageHelper.initPage(page);
       SlottedPageHelper.insertRecordDirect(page, recordBytes, recordBytes.length);
       page.isDirty = true;
@@ -381,17 +392,19 @@ class RowTableFile {
     }
 
     final lastPageId = pageCount - 1;
-    final page = cache.pinPageSync(filePath, lastPageId);
-    final success = SlottedPageHelper.insertRecordDirect(page, recordBytes, recordBytes.length);
+    final lastPage = cache.pinPageSync(filePath, lastPageId);
+    cache.logPageBeforeModifySync(filePath, lastPageId);
+    final success = SlottedPageHelper.insertRecordDirect(lastPage, recordBytes, recordBytes.length);
     
     if (success) {
-      page.isDirty = true;
-      _activeInsertPage = page;
+      lastPage.isDirty = true;
+      _activeInsertPage = lastPage;
       _activeInsertPageId = lastPageId;
     } else {
       cache.unpinPageSync(filePath, lastPageId, isDirty: false);
       final newPageId = pageCount;
       final newPage = cache.pinPageSync(filePath, newPageId);
+      cache.logPageBeforeModifySync(filePath, newPageId);
       SlottedPageHelper.initPage(newPage);
       SlottedPageHelper.insertRecordDirect(newPage, recordBytes, recordBytes.length);
       newPage.isDirty = true;
@@ -405,6 +418,7 @@ class RowTableFile {
     final recordLen = RecordSerializer.serializeMvccRowDirect(_sharedTempBuffer, row, xmin, 0, rollPtr, toastManager);
     
     if (_activeInsertPage != null) {
+      cache.logPageBeforeModifySync(filePath, _activeInsertPageId);
       final success = SlottedPageHelper.insertRecordDirect(_activeInsertPage!, _sharedTempBuffer, recordLen);
       if (success) {
         _activeInsertPage!.isDirty = true;
@@ -419,6 +433,7 @@ class RowTableFile {
 
     if (pageCount == 0) {
       final page = cache.pinPageSync(filePath, 0);
+      cache.logPageBeforeModifySync(filePath, 0);
       SlottedPageHelper.initPage(page);
       SlottedPageHelper.insertRecordDirect(page, _sharedTempBuffer, recordLen);
       page.isDirty = true;
@@ -430,6 +445,7 @@ class RowTableFile {
 
     final lastPageId = pageCount - 1;
     final page = cache.pinPageSync(filePath, lastPageId);
+    cache.logPageBeforeModifySync(filePath, lastPageId);
     final success = SlottedPageHelper.insertRecordDirect(page, _sharedTempBuffer, recordLen);
     
     if (success) {
@@ -674,6 +690,7 @@ class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue
             } else {
               isVisible = mgr.isVisible(xmin, xmax, currentTxId, activeTxIds);
             }
+            // Clean production scan (no debug print per row)
             if (isVisible) {
               final rowData = Uint8List.view(recBytes.buffer, recBytes.offsetInBytes + 12, recBytes.length - 12);
               if (projectedColIndexes != null) {

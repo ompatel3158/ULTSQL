@@ -172,6 +172,12 @@ void main() {
         } else {
           await interpreter.executeScript('ROLLBACK;');
         }
+        final curRes = await interpreter.executeScript('SELECT COUNT(*) FROM t1;');
+        final curCount = (curRes.rows[0][0] as DbInt).value;
+        if (curCount != expectedCount) {
+          print('DISCREPANCY at cycle $cycle: shouldCommit=$shouldCommit, rowsInTx=$rowsInTx, expected=$expectedCount, actual=$curCount');
+          break;
+        }
       }
 
       final queryRes = await interpreter.executeScript('SELECT COUNT(*) FROM t1;');

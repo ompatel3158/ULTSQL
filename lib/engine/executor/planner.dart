@@ -60,6 +60,14 @@ class QueryPlanner {
     return isSimple ? idxSchema.columnName.split(',').length : 1;
   }
 
+  PlanNode buildPlan(Stmt stmt) {
+    if (stmt is UnionStmt) return planUnion(stmt);
+    if (stmt is IntersectStmt) return planIntersect(stmt);
+    if (stmt is ExceptStmt) return planExcept(stmt);
+    if (stmt is SelectStmt) return planSelect(stmt);
+    throw Exception("Unsupported statement type for query planner: ${stmt.runtimeType}");
+  }
+
   PlanNode planUnion(UnionStmt stmt) {
     final children = stmt.selectStmts.map((s) => planSelect(s)).toList();
     return UnionNode(children, stmt.isAllFlags);

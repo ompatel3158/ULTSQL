@@ -12,6 +12,8 @@ import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
 import '../storage/audit_logger.dart';
 import '../storage/hnsw_index.dart';
+import '../storage/fts_index.dart';
+import '../storage/ivf_flat_index.dart';
 import 'value.dart';
 import 'plan_nodes.dart';
 import 'planner.dart';
@@ -385,6 +387,7 @@ class Interpreter {
   final Map<String, bool> _referencingTablesCache = {};
   final Map<String, DbValue> _rowContextCache = {};
   final Map<String, Map<String, int>> _schemaKeyToIndexCache = {};
+  final Map<String, _CursorState> _cursorMap = {};
 
   bool _isTableReferencedByAnyForeignKey(String parentTableName) {
     final parentLower = parentTableName.toLowerCase();
@@ -555,6 +558,9 @@ class Interpreter {
     if (node is CreateTableStmt) {
       return _executeCreateTable(node);
     }
+    if (node is CreateForeignTableStmt) {
+      return _executeCreateForeignTable(node);
+    }
     if (node is AlterTableStmt) {
       return _executeAlterTable(node);
     }
@@ -578,6 +584,9 @@ class Interpreter {
     }
     if (node is SelectStmt) {
       return _executeSelect(node);
+    }
+    if (node is UnionStmt || node is IntersectStmt || node is ExceptStmt || node is CteSelectStmt) {
+      return _executeUnionOrSetOperation(node as Stmt);
     }
     if (node is PlSqlBlock) {
       return _executePlSqlBlockSync(node);
@@ -607,18 +616,21 @@ class Interpreter {
     }
     if (node is RollbackTxStmt) {
       _delayedIndexUpdates.clear();
-      _flushActiveTablePages();
+      _resetActiveTablePages();
       db.cache.rollbackTransactionSync(db.catalog);
+      _rowTableCache.clear();
       return QueryResult(columns: [], rows: [], message: 'Transaction rolled back.');
     }
     if (node is SavepointStmt) {
+      _flushActiveTablePages();
       db.cache.createSavepoint(node.name, db.catalog);
       return QueryResult(columns: [], rows: [], message: 'Savepoint ${node.name} created.');
     }
     if (node is RollbackToSavepointStmt) {
       _delayedIndexUpdates.clear();
-      _flushActiveTablePages();
+      _resetActiveTablePages();
       db.cache.rollbackToSavepoint(node.name, db.catalog);
+      _rowTableCache.clear();
       return QueryResult(columns: [], rows: [], message: 'Rolled back to savepoint ${node.name}.');
     }
     if (node is ReleaseSavepointStmt) {
@@ -630,6 +642,18 @@ class Interpreter {
     }
     if (node is CreatePolicyStmt) {
       return _executeCreatePolicy(node);
+    }
+    if (node is CreateTriggerStmt) {
+      return _executeCreateTrigger(node);
+    }
+    if (node is OpenCursorStmt) {
+      return _executeOpenCursor(node);
+    }
+    if (node is FetchCursorStmt) {
+      return _executeFetchCursor(node);
+    }
+    if (node is CloseCursorStmt) {
+      return _executeCloseCursor(node);
     }
     if (node is GenerateStmt) {
       return _executeGenerate();
@@ -910,6 +934,27 @@ END;
     );
   }
 
+  QueryResult _executeCreateForeignTable(CreateForeignTableStmt stmt) {
+    final tableName = stmt.tableName.toLowerCase();
+    if (db.catalog.hasTable(tableName)) {
+      throw Exception("Table '$tableName' already exists.");
+    }
+    final schema = TableSchema(
+      name: stmt.tableName,
+      columnNames: stmt.columns.map((c) => c.name).toList(),
+      columnTypes: stmt.columns.map((c) => c.type).toList(),
+      isForeign: true,
+      foreignServer: stmt.serverName,
+      foreignOptions: stmt.options,
+    );
+    db.catalog.addTable(schema, saveToFile: true);
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Foreign table '${stmt.tableName}' created successfully.",
+    );
+  }
+
   QueryResult _executeAlterTable(AlterTableStmt stmt) {
     final tableName = stmt.tableName.toLowerCase();
     final schema = db.catalog.getTableSchema(tableName);
@@ -1063,6 +1108,36 @@ END;
         rows: [],
         message: "Column '$colName' dropped from table '$tableName' successfully.",
       );
+    } else if (stmt.action == AlterAction.renameColumn) {
+      final oldCol = stmt.oldColumnName!;
+      final newCol = stmt.newColumnName!;
+      final newSchema = schema.renameColumn(oldCol, newCol);
+      db.catalog.addTable(newSchema, saveToFile: false);
+      _referencingTablesCache.clear();
+      _insertSchemaCache.clear();
+      _insertClosuresCache.clear();
+      _schemaKeyToIndexCache.clear();
+      _rowTableCache.remove(tableName);
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Column '$oldCol' renamed to '$newCol' successfully in table '$tableName'.",
+      );
+    } else if (stmt.action == AlterAction.alterColumnType) {
+      final colName = stmt.targetColumnName!;
+      final newType = stmt.newDataType!;
+      final newSchema = schema.alterColumnType(colName, newType);
+      db.catalog.addTable(newSchema, saveToFile: false);
+      _referencingTablesCache.clear();
+      _insertSchemaCache.clear();
+      _insertClosuresCache.clear();
+      _schemaKeyToIndexCache.clear();
+      _rowTableCache.remove(tableName);
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Column '$colName' type altered successfully in table '$tableName'.",
+      );
     } else {
       throw Exception("Unsupported ALTER TABLE action.");
     }
@@ -1123,6 +1198,108 @@ END;
       rows: [],
       message: "Policy '${stmt.name}' created successfully on table '${stmt.tableName}'.",
     );
+  }
+
+  QueryResult _executeCreateTrigger(CreateTriggerStmt stmt) {
+    final trigSchema = TriggerSchema(
+      name: stmt.name,
+      timing: stmt.timing,
+      event: stmt.event,
+      tableName: stmt.tableName,
+      forEachRow: stmt.forEachRow,
+      sql: stmt.sql,
+    );
+    db.catalog.addTrigger(trigSchema, saveToFile: true);
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Trigger '${stmt.name}' created successfully on table '${stmt.tableName}'.",
+    );
+  }
+
+  void _executeTriggerSync(TriggerSchema trig, TableSchema schema, List<DbValue> rowValues) {
+    final savedEnv = Map<String, DbValue>.from(_env);
+    for (int i = 0; i < schema.columnNames.length; i++) {
+      final colName = schema.columnNames[i];
+      _env['new.${colName.toLowerCase()}'] = rowValues[i];
+      _env['new.$colName'] = rowValues[i];
+    }
+
+    try {
+      for (final decl in trig.declarations) {
+        DbValue initialVal = DbNull();
+        if (decl.initialValue != null) {
+          final fn = _jitCache.putIfAbsent(decl.initialValue!, () => JitCompiler.compile(decl.initialValue!));
+          initialVal = fn(_env);
+        }
+        _env[decl.name] = initialVal;
+      }
+      for (final s in trig.body) {
+        _executeNodeSync(s);
+      }
+      for (int i = 0; i < schema.columnNames.length; i++) {
+        final colName = schema.columnNames[i];
+        final keyLower = 'new.${colName.toLowerCase()}';
+        final key = 'new.$colName';
+        if (_env.containsKey(keyLower)) {
+          rowValues[i] = _env[keyLower]!;
+        } else if (_env.containsKey(key)) {
+          rowValues[i] = _env[key]!;
+        }
+      }
+    } finally {
+      _env.clear();
+      _env.addAll(savedEnv);
+    }
+  }
+
+  QueryResult _executeOpenCursor(OpenCursorStmt stmt) {
+    final cName = stmt.cursorName.toLowerCase();
+    final cur = _cursorMap[cName];
+    if (cur == null) throw Exception("Cursor '$cName' not declared.");
+    cur.isOpen = true;
+    cur.result = _executeSelect(cur.selectStmt);
+    cur.cursorIndex = 0;
+    cur.found = cur.result!.rows.isNotEmpty;
+    _env['$cName%found'] = DbInt(cur.found ? 1 : 0);
+    _env['$cName%notfound'] = DbInt(cur.found ? 0 : 1);
+    return QueryResult(columns: [], rows: [], message: "Cursor '$cName' opened.");
+  }
+
+  QueryResult _executeFetchCursor(FetchCursorStmt stmt) {
+    final cName = stmt.cursorName.toLowerCase();
+    final cur = _cursorMap[cName];
+    if (cur == null || !cur.isOpen || cur.result == null) {
+      throw Exception("Cursor '$cName' is not open.");
+    }
+
+    if (cur.cursorIndex < cur.result!.rows.length) {
+      final row = cur.result!.rows[cur.cursorIndex++];
+      for (int i = 0; i < stmt.targetVars.length && i < row.length; i++) {
+        _env[stmt.targetVars[i]] = row[i];
+      }
+      cur.found = true;
+      _env['$cName%found'] = DbInt(1);
+      _env['$cName%notfound'] = DbInt(0);
+    } else {
+      cur.found = false;
+      _env['$cName%found'] = DbInt(0);
+      _env['$cName%notfound'] = DbInt(1);
+    }
+    return QueryResult(columns: [], rows: [], message: "Fetched from cursor '$cName'.");
+  }
+
+  QueryResult _executeCloseCursor(CloseCursorStmt stmt) {
+    final cName = stmt.cursorName.toLowerCase();
+    final cur = _cursorMap[cName];
+    if (cur != null) {
+      cur.isOpen = false;
+      cur.result = null;
+      cur.cursorIndex = 0;
+      _env.remove('$cName%found');
+      _env.remove('$cName%notfound');
+    }
+    return QueryResult(columns: [], rows: [], message: "Cursor '$cName' closed.");
   }
 
   Future<QueryResult> _executeCreateDatabase(CreateDatabaseStmt stmt) async {
@@ -1295,8 +1472,15 @@ END;
       }
     }
 
+    // Execute BEFORE INSERT triggers
+    final beforeTriggers = db.catalog.getTriggersForTable(tableName, 'BEFORE', 'INSERT');
+    for (final trig in beforeTriggers) {
+      _executeTriggerSync(trig, schema, rowValues);
+    }
+
     // Enforce UNIQUE and PRIMARY KEY constraints
     if (schema.hasUniqueOrPrimaryKey) {
+      _flushDelayedIndexUpdates();
       for (int i = 0; i < schema.columnNames.length; i++) {
         if (schema.columnPrimaryKey[i] || schema.columnUnique[i]) {
           final val = rowValues[i];
@@ -1542,7 +1726,42 @@ END;
         }
         compositeKey.add(dKey);
       }
-      if (hasAllKeys && compositeKey.length == indexCols.length) {
+      if (idx.usingMethod == 'fts') {
+        final cIdx = schema.columnNamesLower.indexOf(idx.columnName.toLowerCase());
+        if (cIdx != -1 && cIdx < rowValues.length) {
+          final val = rowValues[cIdx];
+          if (val is DbText) {
+            final ftsFile = '${db.directory}/${idx.name.toLowerCase()}.fts';
+            final fts = FtsIndex(indexPath: ftsFile);
+            fts.initSync();
+            fts.addDocumentSync(val.value, recordPageId, recordSlotId);
+          }
+        }
+      } else if ((idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivf' || (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivfflat') {
+        final cIdx = schema.columnNamesLower.indexOf(idx.columnName.toLowerCase());
+        if (cIdx != -1 && cIdx < rowValues.length) {
+          final val = rowValues[cIdx];
+          if (val is DbVector) {
+            final indexFile = '${db.directory}/${idx.name.toLowerCase()}.ivf_flat';
+            final ivf = IvfFlatIndex(indexPath: indexFile, autoSave: false);
+            ivf.initSync();
+            ivf.insertSync(val, recordPageId, recordSlotId);
+            ivf.saveSync();
+          }
+        }
+      } else if (idx.usingMethod == 'hnsw') {
+        final cIdx = schema.columnNamesLower.indexOf(idx.columnName.toLowerCase());
+        if (cIdx != -1 && cIdx < rowValues.length) {
+          final val = rowValues[cIdx];
+          if (val is DbVector) {
+            final indexFile = '${db.directory}/${idx.name.toLowerCase()}.hnsw';
+            final hnsw = HnswIndex(indexPath: indexFile, autoSave: false);
+            hnsw.initSync();
+            hnsw.insertSync(val, recordPageId, recordSlotId);
+            hnsw.saveSync();
+          }
+        }
+      } else if (hasAllKeys && compositeKey.length == indexCols.length) {
         _delayedIndexUpdates.add(_IndexUpdate(
           indexName: indexName,
           tableName: tableName,
@@ -1552,6 +1771,12 @@ END;
           slotId: recordSlotId,
         ));
       }
+    }
+
+    // Execute AFTER INSERT triggers
+    final afterTriggers = db.catalog.getTriggersForTable(tableName, 'AFTER', 'INSERT');
+    for (final trig in afterTriggers) {
+      _executeTriggerSync(trig, schema, rowValues);
     }
 
     return QueryResult(
@@ -1880,6 +2105,12 @@ END;
         // Construct new row values
         final newRowValues = List<DbValue>.from(target.rowValues);
         newRowValues[colIndex] = coercedVal;
+
+        // Execute BEFORE UPDATE triggers
+        final beforeUpdTriggers = db.catalog.getTriggersForTable(tableName, 'BEFORE', 'UPDATE');
+        for (final trig in beforeUpdTriggers) {
+          _executeTriggerSync(trig, schema, newRowValues);
+        }
 
         // Serialize new record
         final newRowData = RecordSerializer.serializeRow(newRowValues);
@@ -2251,6 +2482,38 @@ END;
     }
   }
 
+  QueryResult _executeUnionOrSetOperation(Stmt stmt) {
+    _flushDelayedIndexUpdates();
+    final planNode = db.planner.buildPlan(stmt);
+    planNode.open();
+
+    final rows = <List<DbValue>>[];
+    List<String> columns = [];
+    bool colsInitialized = false;
+
+    while (true) {
+      final row = planNode.next();
+      if (row == null) break;
+
+      if (!colsInitialized) {
+        columns = row.keys.toList();
+        colsInitialized = true;
+      }
+      final rowCells = <DbValue>[];
+      for (final col in columns) {
+        rowCells.add(row[col] ?? DbNull());
+      }
+      rows.add(rowCells);
+    }
+
+    planNode.close();
+    return QueryResult(
+      columns: columns,
+      rows: rows,
+      message: "${rows.length} rows returned.",
+    );
+  }
+
 
   void _executeAssign(AssignStmt stmt) {
     if (!_env.containsKey(stmt.varName)) {
@@ -2333,13 +2596,15 @@ END;
     for (final col in indexCols) {
       final colClean = col.trim();
       final cIdx = schema.columnNamesLower.indexOf(colClean);
-      if (cIdx == -1) {
+      if (cIdx == -1 && !colClean.contains('->') && !colClean.contains('(')) {
         throw Exception("Column '$colClean' does not exist in table '$tableName'.");
       }
-      colIndexes.add(cIdx);
+      if (cIdx != -1) colIndexes.add(cIdx);
     }
 
-    if (schema.isColumnar && stmt.usingMethod != 'hnsw') {
+    final method = stmt.usingMethod?.replaceAll('_', '').toLowerCase() ?? '';
+    final isVectorIndex = method == 'hnsw' || method == 'ivf' || method == 'ivfflat';
+    if (schema.isColumnar && !isVectorIndex) {
       throw Exception("B+ Tree indexes are not supported on columnar tables.");
     }
 
@@ -2351,6 +2616,34 @@ END;
       usingMethod: stmt.usingMethod,
     );
     db.catalog.addIndex(idxSchema, saveToFile: true);
+
+    if (method == 'ivf' || method == 'ivfflat') {
+      final indexFile = '${db.directory}/$indexName.ivf_flat';
+      final ivf = IvfFlatIndex(indexPath: indexFile, autoSave: false);
+      final colIdx = colIndexes.isNotEmpty ? colIndexes[0] : 0;
+      if (schema.isColumnar) {
+        final colTable = ColumnTableFile(cache: db.cache, tableName: schema.name, dbDirectory: db.directory, schema: schema);
+        final colFilePath = colTable.getColumnFilePath(colIdx);
+        final pager = db.cache.getOrCreatePager(colFilePath);
+        final pageCount = pager.getPageCountSync();
+        for (int pageId = 0; pageId < pageCount; pageId++) {
+          final page = db.cache.pinPageSync(colFilePath, pageId);
+          final byteData = page.byteData;
+          final rowCount = byteData.getUint16(1);
+          for (int slotId = 0; slotId < rowCount; slotId++) {
+            final recBytes = SlottedPageHelper.getRecord(page, slotId);
+            if (recBytes != null) {
+              final data = ByteData.sublistView(recBytes);
+              final val = DbValue.fromBytes(data, 0, recBytes.length);
+              if (val is DbVector) ivf.insertSync(val, pageId, slotId);
+            }
+          }
+          db.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+        }
+      }
+      ivf.saveSync();
+      return QueryResult(columns: [], rows: [], message: "IVF-FLAT Vector Index '$indexName' created successfully.");
+    }
 
     if (stmt.usingMethod == 'hnsw') {
       final indexFile = '${db.directory}/$indexName.hnsw';
@@ -2446,11 +2739,81 @@ END;
 
     final swExtract = Stopwatch()..start();
     if (K == 1) {
-      final colIndex = colIndexes[0];
-      for (int pageId = 0; pageId < pageCount; pageId++) {
-        final page = db.cache.pinPageSync(rowTable.filePath, pageId);
-        final byteData = page.byteData;
-        final rowCount = byteData.getUint16(1);
+      if (colIndexes.isEmpty) {
+        for (int pageId = 0; pageId < pageCount; pageId++) {
+          final page = db.cache.pinPageSync(rowTable.filePath, pageId);
+          final rowCount = SlottedPageHelper.getRowCount(page);
+          for (int slotId = 0; slotId < rowCount; slotId++) {
+            final recBytes = SlottedPageHelper.getRecord(page, slotId);
+            if (recBytes != null) {
+              List<DbValue>? fullRow;
+              try {
+                final mvccRecord = MvccRecord.fromBytes(recBytes);
+                fullRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+              } catch (_) {
+                fullRow = RecordSerializer.deserializeRow(recBytes);
+              }
+              if (fullRow != null) {
+                final rowContext = <String, DbValue>{};
+                for (int i = 0; i < schema.columnNames.length; i++) {
+                  rowContext[schema.columnNames[i]] = fullRow[i];
+                }
+                final exprParts = colName.split("->>");
+                if (exprParts.length == 2) {
+                  final jsonCol = exprParts[0].replaceAll('(', '').trim();
+                  final propName = exprParts[1].replaceAll("'", "").replaceAll('"', '').replaceAll(')', '').replaceAll('(', '').trim();
+                  final jsonVal = rowContext[jsonCol];
+                  if (jsonVal is DbJson) {
+                    final extracted = jsonVal.extractPath([propName]);
+                    double? dKey;
+                    if (extracted is DbInt) {
+                      dKey = extracted.value.toDouble();
+                    } else if (extracted is DbDouble) {
+                      dKey = extracted.value;
+                    } else if (extracted is DbText) {
+                      final str = extracted.value;
+                      final parsed = double.tryParse(str);
+                      if (parsed != null) {
+                        dKey = parsed;
+                      } else {
+                        double hash = 0.0;
+                        for (int j = 0; j < str.length; j++) {
+                          hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
+                        }
+                        dKey = hash;
+                      }
+                    }
+                    if (dKey != null) {
+                      if (destIdx >= keys.length) {
+                        final newLen = keys.length * 2 + 100;
+                        final newKeys = Float64List(newLen);
+                        final newPageIds = Int32List(newLen);
+                        final newSlotIds = Int32List(newLen);
+                        newKeys.setRange(0, keys.length, keys);
+                        newPageIds.setRange(0, pageIds.length, pageIds);
+                        newSlotIds.setRange(0, slotIds.length, slotIds);
+                        keys = newKeys;
+                        pageIds = newPageIds;
+                        slotIds = newSlotIds;
+                      }
+                      keys[destIdx] = dKey;
+                      pageIds[destIdx] = pageId;
+                      slotIds[destIdx] = slotId;
+                      destIdx++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
+        }
+      } else {
+        final colIndex = colIndexes[0];
+        for (int pageId = 0; pageId < pageCount; pageId++) {
+          final page = db.cache.pinPageSync(rowTable.filePath, pageId);
+          final byteData = page.byteData;
+          final rowCount = byteData.getUint16(1);
 
         for (int slotId = 0; slotId < rowCount; slotId++) {
           final slotOffset = 5 + slotId * 4;
@@ -2536,7 +2899,8 @@ END;
         }
         db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
       }
-    } else {
+    }
+  } else {
       final compositeKey = List<double>.filled(K, 0.0);
       for (int pageId = 0; pageId < pageCount; pageId++) {
         final page = db.cache.pinPageSync(rowTable.filePath, pageId);
@@ -2669,6 +3033,7 @@ END;
     print('--> TIME: Sorting indices took: ${swSort.elapsedMilliseconds}ms');
 
     totalRowCount = actualRowCount;
+    stats.rowCount = actualRowCount;
     print('Calling btree.insertSortedBatchSync with actualRowCount = $actualRowCount');
 
     final swBtree = Stopwatch()..start();
@@ -2729,6 +3094,10 @@ END;
   static int _autoSavepointSeq = 0;
 
   QueryResult _executePlSqlBlockSync(PlSqlBlock block) {
+    for (final cursor in block.cursors) {
+      _cursorMap[cursor.name.toLowerCase()] = _CursorState(name: cursor.name, selectStmt: cursor.selectStmt);
+    }
+
     for (final decl in block.declarations) {
       DbValue initialVal = DbNull();
       if (decl.initialValue != null) {
@@ -2767,6 +3136,7 @@ END;
         _delayedIndexUpdates.clear();
         _flushActiveTablePages();
         db.cache.rollbackToSavepoint(autoSp, db.catalog);
+        _rowTableCache.clear();
       }
       if (block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
         final handler = block.exceptionHandlers!.firstWhere(
@@ -2959,6 +3329,72 @@ END;
       table.flushActivePageSync();
     }
     db.cache.logAllDirtyPagesToWalSync();
+  }
+
+  void _resetActiveTablePages() {
+    for (final table in _rowTableCache.values) {
+      table.resetActivePageSync();
+    }
+  }
+
+  void _buildIndexSync(String tableName, IndexSchema idxSchema) {
+    final schema = db.catalog.getTableSchema(tableName);
+    if (schema == null) return;
+
+    final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
+      cache: db.cache,
+      tableName: schema.name,
+      dbDirectory: db.directory,
+    ));
+
+    final pager = db.cache.getOrCreatePager(rowTable.filePath);
+    final pageCount = pager.getPageCountSync();
+
+    final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
+    final activeTxIds = db.cache.currentMvccTx?.activeTxIds ?? const <int>{};
+    final txManager = db.cache.mvccTxManager;
+
+    for (int p = 0; p < pageCount; p++) {
+      final page = db.cache.pinPageSync(rowTable.filePath, p);
+      final rowCount = SlottedPageHelper.getRowCount(page);
+      for (int s = 0; s < rowCount; s++) {
+        final recBytes = SlottedPageHelper.getRecord(page, s);
+        if (recBytes != null) {
+          List<DbValue>? rowValues;
+          try {
+            final mvccRecord = MvccRecord.fromBytes(recBytes);
+            if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+              rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+            }
+          } catch (_) {
+            rowValues = RecordSerializer.deserializeRow(recBytes);
+          }
+
+          if (rowValues != null) {
+            double? dKey;
+            final colNameClean = idxSchema.columnName.trim().toLowerCase();
+            final cIdx = schema.columnNamesLower.indexOf(colNameClean);
+            if (cIdx != -1 && cIdx < rowValues.length) {
+              final keyVal = rowValues[cIdx];
+              if (keyVal is DbInt) dKey = keyVal.value.toDouble();
+              else if (keyVal is DbDouble) dKey = keyVal.value;
+            }
+            if (dKey != null) {
+              _delayedIndexUpdates.add(_IndexUpdate(
+                indexName: idxSchema.name.toLowerCase(),
+                tableName: tableName,
+                columnName: idxSchema.columnName.toLowerCase(),
+                key: [dKey],
+                pageId: p,
+                slotId: s,
+              ));
+            }
+          }
+        }
+      }
+      db.cache.unpinPageSync(rowTable.filePath, p, isDirty: false);
+    }
+    _flushDelayedIndexUpdates();
   }
 
   QueryResult _executeExplain(ExplainStmt stmt) {
@@ -3362,5 +3798,16 @@ void _swap(Int32List indices, int i, int j) {
   final temp = indices[i];
   indices[i] = indices[j];
   indices[j] = temp;
+}
+
+class _CursorState {
+  final String name;
+  final SelectStmt selectStmt;
+  bool isOpen = false;
+  QueryResult? result;
+  int cursorIndex = 0;
+  bool found = false;
+
+  _CursorState({required this.name, required this.selectStmt});
 }
 

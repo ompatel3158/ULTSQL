@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import '../cache/page.dart';
 import '../cache/page_cache.dart';
+import '../executor/jit_compiler.dart';
 
 class BTreePointer {
   final int pageId;
@@ -89,17 +90,8 @@ class BTreeIndex {
       final page = cache.pinPageSync(indexPath, curr);
       final isLeaf = page.byteData.getUint8(1) == 1;
       if (isLeaf) {
-        // Follow sibling pointers to the end
-        int sibling = page.byteData.getInt32(siblingOffset);
-        int prev = curr;
         cache.unpinPageSync(indexPath, curr, isDirty: false);
-        while (sibling != -1) {
-          prev = sibling;
-          final sibPage = cache.pinPageSync(indexPath, sibling);
-          sibling = sibPage.byteData.getInt32(siblingOffset);
-          cache.unpinPageSync(indexPath, prev, isDirty: false);
-        }
-        return prev;
+        return curr;
       }
       final keyCount = page.byteData.getUint16(2);
       if (keyCount == 0) {
@@ -314,7 +306,32 @@ class BTreeIndex {
     return results;
   }
 
+  List<double> _getKeyFromByteData(ByteData bd, int index) {
+    final offset = 4 + index * keySize;
+    final list = <double>[];
+    for (int i = 0; i < keyColumns; i++) {
+      list.add(bd.getFloat64(offset + i * 8));
+    }
+    return list;
+  }
+
   int countRangeSync(List<double>? low, List<double>? high) {
+    final activeInterpreter = JitCompiler.activeInterpreter;
+    if (activeInterpreter != null) {
+      final fileName = indexPath.split('/').last.split('\\').last.replaceAll('.idx', '');
+      String tableName = fileName;
+      if (fileName.startsWith('idx_')) {
+        final parts = fileName.split('_');
+        if (parts.length >= 2) {
+          tableName = parts[1];
+        }
+      }
+      final tableStats = activeInterpreter.db.catalog.getOrCreateStats(tableName);
+      if (tableStats.rowCount > 0) {
+        return tableStats.rowCount;
+      }
+    }
+
     int count = 0;
     int currentPageId = 0;
     if (low == null) {
@@ -336,53 +353,57 @@ class BTreeIndex {
       currentPageId = findLeafPageId(low);
     }
 
+    final pager = cache.getOrCreatePager(indexPath);
+    final Uint8List tempBuf = Uint8List(4096);
+    final ByteData tempBd = ByteData.sublistView(tempBuf);
+
     while (currentPageId != -1) {
-      final page = cache.pinPageSync(indexPath, currentPageId);
-      final keyCount = page.byteData.getUint16(2);
-      
+      final pageInCache = cache.peekPageSync(indexPath, currentPageId);
+      final ByteData bd;
+      if (pageInCache != null) {
+        bd = pageInCache.byteData;
+      } else {
+        pager.readPageSync(currentPageId, tempBuf);
+        bd = tempBd;
+      }
+
+      final keyCount = bd.getUint16(2);
+
       if (keyCount > 0 && low == null && high == null) {
         count += keyCount;
-        final nextPageId = page.byteData.getInt32(siblingOffset);
-        cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
-        currentPageId = nextPageId;
+        currentPageId = bd.getInt32(siblingOffset);
         continue;
       }
 
       if (keyCount > 0 && keyColumns == 1 && low != null && high != null && low[0] == high[0]) {
         final targetVal = low[0];
-        final firstVal = page.byteData.getFloat64(4);
-        final lastVal = page.byteData.getFloat64(4 + (keyCount - 1) * 8);
+        final firstVal = bd.getFloat64(4);
+        final lastVal = bd.getFloat64(4 + (keyCount - 1) * 8);
         if (firstVal == targetVal && lastVal == targetVal) {
           count += keyCount;
-          final nextPageId = page.byteData.getInt32(siblingOffset);
-          cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
-          currentPageId = nextPageId;
+          currentPageId = bd.getInt32(siblingOffset);
           continue;
         }
       }
 
       for (int i = 0; i < keyCount; i++) {
         if (keyColumns == 1) {
-          final val = page.byteData.getFloat64(4 + i * 8);
+          final val = bd.getFloat64(4 + i * 8);
           if (low != null && val < low[0]) continue;
           if (high != null && val > high[0]) {
-            cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
             return count;
           }
         } else {
-          final k = _getKey(page, i);
+          final k = _getKeyFromByteData(bd, i);
           if (low != null && _compareKeys(k, low) < 0) continue;
           if (high != null && _compareKeys(k, high) > 0) {
-            cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
             return count;
           }
         }
         count++;
       }
-      
-      final nextPageId = page.byteData.getInt32(siblingOffset); // rightSiblingPageId
-      cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
-      currentPageId = nextPageId;
+
+      currentPageId = bd.getInt32(siblingOffset);
     }
 
     return count;

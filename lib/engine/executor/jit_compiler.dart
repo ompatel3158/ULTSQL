@@ -288,14 +288,11 @@ class JitCompiler {
         case '/':
           return (row) => leftFn(row) / rightFn(row);
         case '%':
-          if (expr.left is VariableExpr && expr.right is VariableExpr) {
-            final leftVar = expr.left as VariableExpr;
-            final rightVar = expr.right as VariableExpr;
-            final rightAttr = rightVar.fullName.toLowerCase();
-            if (rightAttr == 'found' || rightAttr == 'notfound') {
-              final envKey = '${leftVar.fullName.toLowerCase()}%$rightAttr';
-              return (row) => row[envKey] ?? DbInt(0);
-            }
+          final leftExpr = expr.left;
+          final rightExpr = expr.right;
+          if (leftExpr is VariableExpr && rightExpr is VariableExpr && (rightExpr.fullName.toLowerCase() == 'found' || rightExpr.fullName.toLowerCase() == 'notfound')) {
+            final attrKey = '${leftExpr.fullName}%${rightExpr.fullName}'.toLowerCase();
+            return (row) => row[attrKey] ?? DbNull();
           }
           return (row) {
             final leftVal = leftFn(row);

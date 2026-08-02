@@ -118,6 +118,15 @@ class WalRecoveryEngine {
           pager.writePageSync(rec.pageId, rec.afterData!);
         }
       }
+      if (lastCatalogBackup != null) {
+        try {
+          final Map<String, dynamic> jsonMap = json.decode(lastCatalogBackup);
+          catalog.restoreBackupState(jsonMap);
+          catalog.save();
+        } catch (e) {
+          print('Error restoring catalog state during WAL recovery: $e');
+        }
+      }
       committedTransactions++;
     } else {
       print('⚠️ Transaction was not committed. Reverting ${currentTxRecords.length} page writes to before-image state...');
@@ -138,6 +147,10 @@ class WalRecoveryEngine {
       }
       rolledBackTransactions++;
     }
+
+    try {
+      walFile.deleteSync();
+    } catch (_) {}
 
     pageCache.flushAllSync();
 
