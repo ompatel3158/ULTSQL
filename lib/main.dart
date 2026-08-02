@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'ui/editor_screen.dart';
+import 'src/ui/editor_screen.dart';
 
 void main() {
   runApp(const HybridSqlApp());
