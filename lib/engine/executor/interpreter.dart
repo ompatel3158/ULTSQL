@@ -2753,7 +2753,7 @@ END;
               } catch (_) {
                 fullRow = RecordSerializer.deserializeRow(recBytes);
               }
-              if (fullRow != null) {
+              if (fullRow.isNotEmpty) {
                 final rowContext = <String, DbValue>{};
                 for (int i = 0; i < schema.columnNames.length; i++) {
                   rowContext[schema.columnNames[i]] = fullRow[i];
@@ -3337,65 +3337,7 @@ END;
     }
   }
 
-  void _buildIndexSync(String tableName, IndexSchema idxSchema) {
-    final schema = db.catalog.getTableSchema(tableName);
-    if (schema == null) return;
 
-    final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-      cache: db.cache,
-      tableName: schema.name,
-      dbDirectory: db.directory,
-    ));
-
-    final pager = db.cache.getOrCreatePager(rowTable.filePath);
-    final pageCount = pager.getPageCountSync();
-
-    final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
-    final activeTxIds = db.cache.currentMvccTx?.activeTxIds ?? const <int>{};
-    final txManager = db.cache.mvccTxManager;
-
-    for (int p = 0; p < pageCount; p++) {
-      final page = db.cache.pinPageSync(rowTable.filePath, p);
-      final rowCount = SlottedPageHelper.getRowCount(page);
-      for (int s = 0; s < rowCount; s++) {
-        final recBytes = SlottedPageHelper.getRecord(page, s);
-        if (recBytes != null) {
-          List<DbValue>? rowValues;
-          try {
-            final mvccRecord = MvccRecord.fromBytes(recBytes);
-            if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-              rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
-            }
-          } catch (_) {
-            rowValues = RecordSerializer.deserializeRow(recBytes);
-          }
-
-          if (rowValues != null) {
-            double? dKey;
-            final colNameClean = idxSchema.columnName.trim().toLowerCase();
-            final cIdx = schema.columnNamesLower.indexOf(colNameClean);
-            if (cIdx != -1 && cIdx < rowValues.length) {
-              final keyVal = rowValues[cIdx];
-              if (keyVal is DbInt) dKey = keyVal.value.toDouble();
-              else if (keyVal is DbDouble) dKey = keyVal.value;
-            }
-            if (dKey != null) {
-              _delayedIndexUpdates.add(_IndexUpdate(
-                indexName: idxSchema.name.toLowerCase(),
-                tableName: tableName,
-                columnName: idxSchema.columnName.toLowerCase(),
-                key: [dKey],
-                pageId: p,
-                slotId: s,
-              ));
-            }
-          }
-        }
-      }
-      db.cache.unpinPageSync(rowTable.filePath, p, isDirty: false);
-    }
-    _flushDelayedIndexUpdates();
-  }
 
   QueryResult _executeExplain(ExplainStmt stmt) {
     _flushDelayedIndexUpdates();
