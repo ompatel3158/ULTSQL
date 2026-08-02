@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/ult_sql_engine.dart';
+import 'package:ultsql/src/engine/ult_sql_engine.dart';
 
 void main() {
   test('UltSqlEngine executes in File-Persisted Disk Mode', () async {

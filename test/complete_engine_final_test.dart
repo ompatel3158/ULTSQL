@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/storage/catalog.dart';
-import 'package:ultsql/engine/parser/ast.dart';
-import 'package:ultsql/engine/executor/value.dart';
-import 'package:ultsql/engine/storage/parquet_engine.dart';
-import 'package:ultsql/engine/network/raft_cluster.dart';
-import 'package:ultsql/engine/spatial/h3_indexer.dart';
-import 'package:ultsql/engine/storage/direct_io.dart';
+import 'package:ultsql/src/engine/storage/catalog.dart';
+import 'package:ultsql/src/engine/parser/ast.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/src/engine/storage/parquet_engine.dart';
+import 'package:ultsql/src/engine/network/raft_cluster.dart';
+import 'package:ultsql/src/engine/spatial/h3_indexer.dart';
+import 'package:ultsql/src/engine/storage/direct_io.dart';
 
 void main() {
   test('Apache Parquet Columnar export and import roundtrip', () {

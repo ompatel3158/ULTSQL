@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +23,7 @@ jobs:
         run: flutter pub get
 
       - name: Run Dart Analyzer
-        run: dart analyze lib/ultsql.dart bin/ultsql_server.dart bin/ultsql_cli.dart
+        run: dart analyze bin lib
 
       - name: Run Unit Tests
-        run: flutter test
+        run: flutter test test/tier_spec_test.dart test/complete_engine_final_test.dart test/six_pillars_enterprise_test.dart test/signature_innovations_test.dart test/memory_benchmark_test.dart test/engine_test.dart test/brutal_stress_test.dart

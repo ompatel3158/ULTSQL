@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/executor/interpreter.dart';
-import 'package:ultsql/engine/executor/value.dart';
-import 'package:ultsql/engine/storage/table_file.dart';
-import 'package:ultsql/engine/ult_sql_engine.dart';
+import 'package:ultsql/src/engine/executor/interpreter.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/src/engine/storage/table_file.dart';
+import 'package:ultsql/src/engine/ult_sql_engine.dart';
 
 void main() {
   test('Achieve 1.2M+ rows/sec in In-Memory Ephemeral Mode', () async {

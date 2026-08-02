@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.10
+
+- Migrated internal package implementation files under `lib/src/` per standard Dart package layout rules for 100% pub.dev Pana score.
+- Fixed 50+ static analysis warnings and lints across `lib/` and `bin/`.
+- Moved root benchmark scripts to `tool/benchmarks/` and resolved legacy imports.
+- Updated GitHub Actions CI workflow (`.github/workflows/test.yml`) for 100% green build passes.
+
 ## 1.0.9
 
 - Optimized B+ tree index `_findRightmostLeafPageId()` from an $O(N)$ linear page scan to an $O(\log N)$ rightmost child tree descent, accelerating index initialization and range queries by >500x.

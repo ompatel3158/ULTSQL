@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/executor/interpreter.dart';
+import 'package:ultsql/src/engine/executor/interpreter.dart';
 
 void main() {
   test('Benchmark query execution breakdown (1,000 rows)', () async {

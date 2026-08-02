@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ultsql/engine/storage/catalog.dart';
-import 'package:ultsql/engine/executor/interpreter.dart';
-import 'package:ultsql/engine/executor/value.dart';
+import 'package:ultsql/src/engine/storage/catalog.dart';
+import 'package:ultsql/src/engine/executor/interpreter.dart';
+import 'package:ultsql/src/engine/executor/value.dart';
 import 'dart:io';
 
 void main() {
