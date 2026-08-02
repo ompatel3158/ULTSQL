@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.8
+## 1.0.9
 
 - Optimized B+ tree index `_findRightmostLeafPageId()` from an $O(N)$ linear page scan to an $O(\log N)$ rightmost child tree descent, accelerating index initialization and range queries by >500x.
 - Added `stats.rowCount` synchronization at `_executeCreateIndex` completion to support instant `IndexScanNode.getFastCount()` execution.
