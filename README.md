@@ -251,6 +251,17 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 ======================================================
 ```
 
+> [!NOTE]
+> **Hardware Environment & Benchmark Disclosure**:
+> Performance benchmark metrics were tested by **Om** on an **ASUS ROG Strix G16 (2023)**. Actual performance throughput may vary (better or worse) depending on your device hardware, CPU architecture, memory bandwidth, and disk I/O capabilities.
+>
+> **Test System Specifications**:
+> - **Laptop Model**: ASUS ROG Strix G16 (2023)
+> - **CPU**: Intel Core i7-13650HX
+> - **RAM**: 16 GB DDR5 (4800 MT/s)
+> - **Storage**: 1 TB Gen 5 NVMe SSD
+> - **GPU**: NVIDIA GeForce RTX 4050 (6 GB)
+
 ---
 
 ## 🚀 Getting Started & Installation
