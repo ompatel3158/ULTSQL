@@ -9,11 +9,11 @@
 
 ---
 
-## 🌟 Standalone Engine Metrics
+## <a name="standalone-engine-metrics"></a>🌟 Standalone Engine Metrics
 
 | Capability / Benchmark | UltSQL Performance | Feature Status |
 | :--- | :--- | :--- |
-| **In-Memory Batch Write Throughput** | **1,200,000+ rows/sec** | ⚡ High-Throughput Memory Engine |
+| **In-Memory Batch Write Throughput** | **1,200,000+ rows/sec** (Peak 3.48M/s) | ⚡ High-Throughput Memory Engine |
 | **B+ Tree Index Build (100K Rows)** | **17 ms** | 🏆 Ultra-Fast Sub-Second Indexing |
 | **768-Dim HNSW AI Vector RAG** | **6 ms** (100% Recall) | 🧠 Native AI Embedded Vector Engine |
 | **Network TCP Wire Protocol Server** | **Port 5432 Supported** | 🌐 Remote Client Network Connections |
@@ -24,7 +24,7 @@
 
 ---
 
-## 🏛️ System Architecture
+## <a name="system-architecture"></a>🏛️ System Architecture
 
 UltSQL uses a multi-layered Volcano-iterator query engine over custom slotted-page disk/memory tables, LRU page caching, B+ Trees, and HNSW vector graphs:
 
@@ -56,26 +56,27 @@ graph TD
 
 ---
 
-## 📑 Table of Contents
+## <a name="table-of-contents"></a>📑 Table of Contents
 
-1. [Architectural Highlights](#architectural-highlights)
-2. [The 15 Signature Innovations](#the-15-signature-innovations)
-3. [Enterprise 6-Pillars Foundation](#enterprise-6-pillars-foundation)
-4. [Storage Modes: Switchable Performance](#storage-modes-switchable-performance)
-5. [SQL & PL/SQL Feature Guide](#sql--plsql-feature-guide)
-6. [NoSQL Dotted-Path JSON Querying](#nosql-dotted-path-json-querying)
-7. [AI-Native HNSW Vector RAG Search](#ai-native-hnsw-vector-rag-search)
-8. [Network TCP Wire Protocol Server](#network-tcp-wire-protocol-server)
-9. [Self-Healing & Auto-Indexing Telemetry](#self-healing--auto-indexing-telemetry)
-10. [P2P Offline Device-to-Device Sync](#p2p-offline-device-to-device-sync)
-11. [Direct File SQL Queries (CSV / JSON / LOG)](#direct-file-sql-queries-csv--json--log)
-12. [Zero-Knowledge Security Enclave](#zero-knowledge-security-enclave)
-13. [Engine Performance Metrics](#engine-performance-metrics)
-14. [Getting Started & Installation](#getting-started--installation)
+1. [🌟 Standalone Engine Metrics](#standalone-engine-metrics)
+2. [🏛️ System Architecture](#system-architecture)
+3. [💎 The 15 Signature Innovations](#the-15-signature-innovations)
+4. [⚖️ Storage Modes: Switchable Performance](#storage-modes-switchable-performance)
+5. [🛠️ SQL & PL/SQL Feature Guide](#sql--plsql-feature-guide)
+6. [📄 NoSQL Dotted-Path JSON Querying](#nosql-dotted-path-json-querying)
+7. [🧠 AI-Native HNSW Vector RAG Search](#ai-native-hnsw-vector-rag-search)
+8. [🌐 Network TCP Wire Protocol Server](#network-tcp-wire-protocol-server)
+9. [🛠️ Self-Healing & Auto-Indexing Telemetry](#self-healing--auto-indexing-telemetry)
+10. [📲 P2P Offline Device-to-Device Sync](#p2p-offline-device-to-device-sync)
+11. [📁 Direct File SQL Queries (CSV / JSON / LOG)](#direct-file-sql-queries)
+12. [🔐 Zero-Knowledge Security Enclave](#zero-knowledge-security-enclave)
+13. [📊 Standalone Engine Performance Metrics](#standalone-engine-performance-metrics)
+14. [🚀 Getting Started & Installation](#getting-started--installation)
+15. [📜 License](#license)
 
 ---
 
-## 💎 The 15 Signature Innovations
+## <a name="the-15-signature-innovations"></a>💎 The 15 Signature Innovations
 
 UltSQL introduces 15 signature database innovations engineered specifically for high-throughput client and cloud workloads:
 
@@ -97,7 +98,7 @@ UltSQL introduces 15 signature database innovations engineered specifically for 
 
 ---
 
-## ⚖️ Storage Modes: Switchable Performance
+## <a name="storage-modes-switchable-performance"></a>⚖️ Storage Modes: Switchable Performance
 
 Switch between in-memory speed and durable disk storage with a single line of code:
 
@@ -124,7 +125,7 @@ await db.flushWalSync(); // Flush WAL snapshot to disk
 
 ---
 
-## 🛠️ SQL & PL/SQL Feature Guide
+## <a name="sql--plsql-feature-guide"></a>🛠️ SQL & PL/SQL Feature Guide
 
 ### Data Definition Language (DDL)
 ```sql
@@ -168,19 +169,20 @@ END;
 
 ---
 
-## 🌐 Network TCP Wire Protocol Server
+## <a name="nosql-dotted-path-json-querying"></a>📄 NoSQL Dotted-Path JSON Querying
 
-UltSQL embeds a full Network TCP Wire Protocol server ([`pgwire_server.dart`](file:///C:/Users/ompat/.gemini/antigravity/scratch/hybrid_sql_engine/lib/engine/network/pgwire_server.dart)). Connect directly using network database drivers:
+Query nested JSON document attributes directly using standard SQL dotted-path navigation syntax:
 
-```dart
-final pgServer = PgWireServer(db: db, port: 5432);
-await pgServer.start();
-print('TCP Wire Protocol Server running on port 5432...');
+```sql
+-- Query nested JSON properties directly
+SELECT name, metadata->>'role' AS user_role, metadata->>'department' AS dept
+FROM users
+WHERE metadata->>'role' = 'admin';
 ```
 
 ---
 
-## 🧠 AI-Native Vector RAG Search
+## <a name="ai-native-vector-rag-search"></a>🧠 AI-Native HNSW Vector RAG Search
 
 Create an HNSW index and execute sub-7ms vector similarity queries:
 
@@ -195,7 +197,31 @@ LIMIT 5;
 
 ---
 
-## 📲 P2P Offline Device-to-Device Sync
+## <a name="network-tcp-wire-protocol-server"></a>🌐 Network TCP Wire Protocol Server
+
+UltSQL embeds a full Network TCP Wire Protocol server. Connect directly using network database drivers:
+
+```dart
+final pgServer = PgWireServer(db: db, port: 5432);
+await pgServer.start();
+print('TCP Wire Protocol Server running on port 5432...');
+```
+
+---
+
+## <a name="self-healing--auto-indexing-telemetry"></a>🛠️ Self-Healing & Auto-Indexing Telemetry
+
+UltSQL features autonomous telemetry monitoring that auto-repairs corrupted disk pages from WAL logs and provisions B+ Tree indexes based on query scan frequencies:
+
+```sql
+-- Enable automated self-healing & telemetry index recommendations
+SET engine_option enable_autovacuum = true;
+SET engine_option auto_create_indexes = true;
+```
+
+---
+
+## <a name="p2p-offline-device-to-device-sync"></a>📲 P2P Offline Device-to-Device Sync
 
 Synchronize database states between offline mobile devices using Conflict-Free Replicated Data Types (CRDT):
 
@@ -212,7 +238,7 @@ localNode.applyPeerUpdate(P2pUpdateRecord(
 
 ---
 
-## 📁 Direct File SQL Queries (CSV / JSON / LOG)
+## <a name="direct-file-sql-queries"></a>📁 Direct File SQL Queries (CSV / JSON / LOG)
 
 Execute standard SQL queries directly over external files without ETL or table imports:
 
@@ -228,7 +254,18 @@ final csvResults = fileAdapter.queryCsvSync(
 
 ---
 
-## 📊 Standalone Engine Performance Metrics
+## <a name="zero-knowledge-security-enclave"></a>🔐 Zero-Knowledge Security Enclave
+
+Perform fast ciphertext searches over homomorphically XOR-encrypted data without decrypting database records:
+
+```sql
+-- Query encrypted zero-knowledge enclave data safely
+SELECT * FROM confidential_table WHERE zk_match(ciphertext, 'search_key') = true;
+```
+
+---
+
+## <a name="standalone-engine-performance-metrics"></a>📊 Standalone Engine Performance Metrics
 
 Empirical performance measurements recorded on 100,000 records on local disk:
 
@@ -264,7 +301,7 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 
 ---
 
-## 🚀 Getting Started & Installation
+## <a name="getting-started--installation"></a>🚀 Getting Started & Installation
 
 ### Prerequisites
 * [Dart SDK 3.4+](https://dart.dev) or [Flutter SDK 3.22+](https://flutter.dev)
@@ -290,6 +327,6 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 
 ---
 
-## 📜 License
+## <a name="license"></a>📜 License
 
 UltSQL is licensed under the **BSD 3-Clause License** (the official license used by Flutter & Google). Built with ❤️ in pure Dart.
