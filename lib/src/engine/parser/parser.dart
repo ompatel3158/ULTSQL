@@ -51,11 +51,13 @@ class Parser {
   bool _checkNextIsDataType() {
     if (_current + 1 >= tokens.length) return false;
     final nextType = tokens[_current + 1].type;
+    final lexeme = tokens[_current + 1].lexeme.toLowerCase();
     return nextType == TokenType.typeInt ||
         nextType == TokenType.typeDouble ||
         nextType == TokenType.typeText ||
         nextType == TokenType.typeVector ||
-        nextType == TokenType.typeJson;
+        nextType == TokenType.typeJson ||
+        const {'int', 'integer', 'bigint', 'smallint', 'double', 'real', 'float', 'decimal', 'numeric', 'text', 'varchar', 'char', 'string', 'vector', 'json'}.contains(lexeme);
   }
 
   List<Stmt> parseScript() {
@@ -175,12 +177,36 @@ class Parser {
   }
 
   DataType _parseDataType() {
-    if (_match([TokenType.typeInt])) return DataType.integer;
-    if (_match([TokenType.typeDouble])) return DataType.double;
-    if (_match([TokenType.typeText])) return DataType.text;
-    if (_match([TokenType.typeVector])) return DataType.vector;
-    if (_match([TokenType.typeJson])) return DataType.json;
-    throw Exception("Unsupported or missing variable type at '${_peek().lexeme}'.");
+    Token token;
+    if (_match([TokenType.typeInt, TokenType.typeDouble, TokenType.typeText, TokenType.typeVector, TokenType.typeJson])) {
+      token = _previous();
+    } else if (_check(TokenType.identifier)) {
+      token = _advance();
+    } else {
+      throw Exception("Unsupported or missing variable type at '${_peek().lexeme}'.");
+    }
+
+    if (_match([TokenType.lParen])) {
+      _parseExpression();
+      while (_match([TokenType.comma])) {
+        _parseExpression();
+      }
+      _consume(TokenType.rParen, "Expected ')' after type modifier.");
+    }
+
+    final typeStr = token.lexeme.toLowerCase();
+    if (typeStr == 'int' || typeStr == 'integer' || typeStr == 'bigint' || typeStr == 'smallint') {
+      return DataType.integer;
+    } else if (typeStr == 'double' || typeStr == 'real' || typeStr == 'float' || typeStr == 'decimal' || typeStr == 'numeric') {
+      return DataType.double;
+    } else if (typeStr == 'text' || typeStr == 'varchar' || typeStr == 'char' || typeStr == 'string') {
+      return DataType.text;
+    } else if (typeStr == 'vector') {
+      return DataType.vector;
+    } else if (typeStr == 'json') {
+      return DataType.json;
+    }
+    throw Exception("Unsupported data type '$typeStr'.");
   }
 
   Stmt _parsePlSqlStatement() {
@@ -921,6 +947,7 @@ class Parser {
 
     bool isPrimaryKey = false;
     bool isUnique = false;
+    bool isNotNull = false;
     String? referencesTable;
     String? referencesColumn;
     bool onDeleteCascade = false;
@@ -932,6 +959,13 @@ class Parser {
       if (_match([TokenType.primaryKeyword])) {
         _consume(TokenType.keyKeyword, "Expected 'KEY' after 'PRIMARY'.");
         isPrimaryKey = true;
+      } else if (_match([TokenType.notKeyword])) {
+        if (_match([TokenType.nullKeyword]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'null')) {
+          if (_check(TokenType.identifier)) _advance();
+          isNotNull = true;
+        }
+      } else if (_match([TokenType.nullKeyword])) {
+        // Optional NULL constraint
       } else if (_match([TokenType.uniqueKeyword])) {
         isUnique = true;
       } else if (_match([TokenType.referencesKeyword])) {

@@ -3114,8 +3114,13 @@ END;
       _env[decl.name] = initialVal;
     }
 
+    final wasTxActive = db.cache.isTransactionActive;
+    if (!wasTxActive) {
+      db.cache.startTransaction(db.catalog);
+    }
+
     String? autoSp;
-    if (db.cache.isTransactionActive && block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
+    if (wasTxActive && block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
       autoSp = '_auto_sp_${_autoSavepointSeq++}';
       db.cache.createSavepoint(autoSp, db.catalog);
     }
@@ -3131,13 +3136,21 @@ END;
           lastResult = res;
         }
       }
-    } catch (e) {
-      if (autoSp != null) {
-        _delayedIndexUpdates.clear();
-        _flushActiveTablePages();
-        db.cache.rollbackToSavepoint(autoSp, db.catalog);
-        _rowTableCache.clear();
+      _flushDelayedIndexUpdates();
+      _flushActiveTablePages();
+      if (!wasTxActive) {
+        db.cache.commitTransaction();
       }
+    } catch (e) {
+      _delayedIndexUpdates.clear();
+      _flushActiveTablePages();
+      if (!wasTxActive) {
+        db.cache.rollbackTransactionSync(db.catalog);
+      } else if (autoSp != null) {
+        db.cache.rollbackToSavepoint(autoSp, db.catalog);
+      }
+      _rowTableCache.clear();
+
       if (block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
         final handler = block.exceptionHandlers!.firstWhere(
           (h) => h.exceptionName.toLowerCase() == 'others' || e.toString().toLowerCase().contains(h.exceptionName.toLowerCase()),

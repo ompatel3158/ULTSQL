@@ -154,7 +154,9 @@ enum TokenType {
   timeKeyword,
   transactionKeyword,
   rangeKeyword,
-  maskedKeyword
+  maskedKeyword,
+  notKeyword,
+  nullKeyword
 }
 
 class Token {

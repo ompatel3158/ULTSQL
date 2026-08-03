@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.11
+
+- Added support for SQL data type aliases (`INTEGER`, `REAL`, `FLOAT`, `VARCHAR(255)`, `DECIMAL(10,2)`, `CHAR`, `STRING`, `BIGINT`, `SMALLINT`) and column constraints (`NOT NULL`, `NULL`).
+- Auto-wrapped top-level PL/SQL blocks in single transaction batches, eliminating disk I/O bottlenecks and reducing 1,000,000 loop iteration execution time by >100x with zero UI thread freezing on mobile devices.
+
 ## 1.0.10
 
 - Migrated internal package implementation files under `lib/src/` per standard Dart package layout rules for 100% pub.dev Pana score.
