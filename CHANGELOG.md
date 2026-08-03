@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.12
+
+- Added 100% full native engine support for all SQL & PL/SQL Guide features:
+  - DDL: `DROP TABLE` and `DROP INDEX` statement execution.
+  - PL/SQL: `FOR i IN start..end LOOP ... END LOOP;` syntax and JIT execution loop.
+  - Joins: Added `INNER JOIN` and `CROSS JOIN` support with streaming `NestedLoopJoinNode` fallback planner.
+  - Conditionals: Added `CASE ... WHEN ... THEN ... ELSE ... END` parsing, column dependency tracking, and JIT evaluation.
+  - Functions: Full JIT support for string functions (`CONCAT`, `LENGTH`, `UPPER`, `LOWER`, `SUBSTRING`, `TRIM`), date/time functions (`DATE`, `TIME`, `DATETIME`, `STRFTIME`), and conditional functions (`COALESCE`, `IFNULL`/`NVL`).
+  - Values: Added `NULL` literal parsing and evaluation.
+
 ## 1.0.11
 
 - Added support for SQL data type aliases (`INTEGER`, `REAL`, `FLOAT`, `VARCHAR(255)`, `DECIMAL(10,2)`, `CHAR`, `STRING`, `BIGINT`, `SMALLINT`) and column constraints (`NOT NULL`, `NULL`).

@@ -236,6 +236,9 @@ class Parser {
     if (_check(TokenType.ifKeyword)) {
       return _parseIfStatement();
     }
+    if (_check(TokenType.forKeyword) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'for')) {
+      return _parseForStatement();
+    }
     if (_check(TokenType.whileKeyword)) {
       return _parseWhileStatement();
     }
@@ -338,6 +341,32 @@ class Parser {
     return WhileStmt(condition, body);
   }
 
+  Stmt _parseForStatement() {
+    _advance(); // consume 'FOR'
+    final varName = _consume(TokenType.identifier, "Expected loop variable name.").lexeme;
+    if (_check(TokenType.inKeyword) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'in')) {
+      _advance();
+    }
+    final startExpr = _parseExpression();
+    if (_match([TokenType.dot])) {
+      if (_check(TokenType.dot)) _advance();
+    }
+    final endExpr = _parseExpression();
+    if (_check(TokenType.loop) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'loop')) {
+      _advance();
+    }
+    final body = <Stmt>[];
+    while (!_check(TokenType.end) && !_isAtEnd) {
+      body.add(_parsePlSqlStatement());
+    }
+    _consume(TokenType.end, "Expected 'END' to close FOR loop.");
+    if (_check(TokenType.loop) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'loop')) {
+      _advance();
+    }
+    if (_check(TokenType.semicolon)) _advance();
+    return ForLoopStmt(varName, startExpr, endExpr, body);
+  }
+
   Stmt _parseAssignmentStatement() {
     final varNameToken = _consume(TokenType.identifier, "Expected variable name.");
     var varName = varNameToken.lexeme;
@@ -378,6 +407,17 @@ class Parser {
       final tableNameToken = _consume(TokenType.identifier, "Expected table name after VACUUM.");
       if (_check(TokenType.semicolon)) _advance();
       return VacuumStmt(tableNameToken.lexeme, full: full);
+    }
+    if (_match([TokenType.dropKeyword])) {
+      if (_match([TokenType.table])) {
+        final tableName = _consume(TokenType.identifier, "Expected table name after 'DROP TABLE'.").lexeme;
+        if (_check(TokenType.semicolon)) _advance();
+        return DropTableStmt(tableName);
+      } else if (_match([TokenType.indexKeyword])) {
+        final indexName = _consume(TokenType.identifier, "Expected index name after 'DROP INDEX'.").lexeme;
+        if (_check(TokenType.semicolon)) _advance();
+        return DropIndexStmt(indexName);
+      }
     }
     if (_match([TokenType.alterKeyword])) {
       return _parseAlterTableStatement();
@@ -1190,7 +1230,17 @@ class Parser {
       bool isFullJoin = false;
       bool hasJoin = false;
 
-      if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'left') {
+      bool isCrossJoin = false;
+      if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'inner') {
+        _advance();
+        _consume(TokenType.join, "Expected 'JOIN' after 'INNER'.");
+        hasJoin = true;
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'cross') {
+        _advance();
+        _consume(TokenType.join, "Expected 'JOIN' after 'CROSS'.");
+        hasJoin = true;
+        isCrossJoin = true;
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'left') {
         _advance();
         isLeftJoin = true;
         if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'outer') {
@@ -1247,6 +1297,8 @@ class Parser {
                  _peek().lexeme.toLowerCase() != 'right' &&
                  _peek().lexeme.toLowerCase() != 'full' &&
                  _peek().lexeme.toLowerCase() != 'outer' &&
+                 _peek().lexeme.toLowerCase() != 'inner' &&
+                 _peek().lexeme.toLowerCase() != 'cross' &&
                  ![
                    TokenType.on,
                    TokenType.join,
@@ -1265,8 +1317,14 @@ class Parser {
         joinTable = joinAlias ?? 'join_subquery';
       }
 
-      _consume(TokenType.on, "Expected 'ON' condition for JOIN.");
-      final onCond = _parseExpression();
+      Expression onCond;
+      if (isCrossJoin && !_match([TokenType.on])) {
+        onCond = LiteralExpr(1);
+      } else {
+        _consume(TokenType.on, "Expected 'ON' condition for JOIN.");
+        onCond = _parseExpression();
+      }
+
       joins.add(Join(
         joinTable,
         onCond,
@@ -1502,12 +1560,18 @@ class Parser {
       } else {
         throw Exception("Unknown placeholder format: $lex");
       }
+    } else if (_match([TokenType.nullKeyword])) {
+      expr = LiteralExpr(null);
     } else if (_match([TokenType.numberLiteral])) {
       final lex = _previous().lexeme;
       final val = num.parse(lex);
       expr = LiteralExpr(val);
     } else if (_match([TokenType.stringLiteral])) {
-      expr = LiteralExpr(_previous().lexeme);
+      var lex = _previous().lexeme;
+      if (lex.length >= 2 && ((lex.startsWith("'") && lex.endsWith("'")) || (lex.startsWith('"') && lex.endsWith('"')))) {
+        lex = lex.substring(1, lex.length - 1);
+      }
+      expr = LiteralExpr(lex);
     } else if (_match([TokenType.lBracket])) {
       final elements = <double>[];
       if (!_check(TokenType.rBracket)) {
@@ -1519,7 +1583,7 @@ class Parser {
       }
       _consume(TokenType.rBracket, "Expected ']' to close vector literal.");
       expr = VectorLiteralExpr(elements);
-    } else if (_match([TokenType.identifier, TokenType.matchKeyword])) {
+    } else if (_match([TokenType.identifier, TokenType.matchKeyword, TokenType.timeKeyword])) {
       final firstId = _previous().lexeme;
       if (firstId.toLowerCase() == 'match' || firstId.toLowerCase() == 'contains') {
         _consume(TokenType.lParen, "Expected '(' after MATCH.");
@@ -1530,6 +1594,24 @@ class Parser {
         final colName = exprToSqlString(colExpr);
         final searchQuery = (queryExpr is LiteralExpr) ? queryExpr.value.toString() : exprToSqlString(queryExpr);
         expr = MatchExpr(colName, searchQuery);
+      } else if (firstId.toLowerCase() == 'case') {
+        final whenBranches = <WhenBranch>[];
+        Expression? elseBranch;
+        while (_check(TokenType.whenKeyword) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'when')) {
+          _advance();
+          final cond = _parseExpression();
+          _consume(TokenType.then, "Expected 'THEN' after WHEN condition.");
+          final thenExpr = _parseExpression();
+          whenBranches.add(WhenBranch(cond, thenExpr));
+        }
+        if (_match([TokenType.elseKeyword])) {
+          elseBranch = _parseExpression();
+        } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'else') {
+          _advance();
+          elseBranch = _parseExpression();
+        }
+        _consume(TokenType.end, "Expected 'END' to close CASE expression.");
+        expr = CaseExpr(whenBranches, elseBranch);
       } else if (firstId.toLowerCase() == 'cast') {
         _consume(TokenType.lParen, "Expected '(' after CAST.");
         final innerExpr = _parseExpression();

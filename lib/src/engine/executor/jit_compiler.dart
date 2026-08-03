@@ -252,8 +252,10 @@ class JitCompiler {
 
         // Find match by column name suffix (e.g. "id" matching "users.id")
         final name = path[0];
+        final lowerName = name.toLowerCase();
         for (final key in row.keys) {
-          if (key == name || key.endsWith('.$name')) {
+          final lowerKey = key.toLowerCase();
+          if (lowerKey == lowerName || lowerKey.endsWith('.$lowerName')) {
             resolvedKey = key;
             jsonPathStartIndex = 1;
             final val = row[key]!;
@@ -541,18 +543,143 @@ class JitCompiler {
       }
     }
 
+    if (expr is CaseExpr) {
+      final whenFns = expr.whenBranches.map((w) => (
+        condFn: _compileDefault(w.condition),
+        thenFn: _compileDefault(w.thenExpr),
+      )).toList();
+      final elseFn = expr.elseBranch != null ? _compileDefault(expr.elseBranch!) : null;
+
+      return (row) {
+        for (final branch in whenFns) {
+          final condVal = branch.condFn(row);
+          // print("DEBUG CASE: row=$row, condVal=$condVal");
+          final isTrue = (condVal is DbInt && condVal.value == 1) ||
+                         (condVal is DbDouble && condVal.value > 0.0) ||
+                         (condVal is DbText && condVal.value.toLowerCase() == 'true');
+          if (isTrue) {
+            return branch.thenFn(row);
+          }
+        }
+        if (elseFn != null) {
+          return elseFn(row);
+        }
+        return DbNull();
+      };
+    }
+
     if (expr is FunctionCallExpr) {
       final name = expr.name.toLowerCase();
+      final fullName = exprToSqlString(expr);
       final argFns = expr.arguments.map((a) => _compileDefault(a)).toList();
-      if (name == 'in_list') {
-        return (row) {
+
+      return (row) {
+        if (row.containsKey(fullName)) return row[fullName]!;
+        final lowerFull = fullName.toLowerCase();
+        if (row.containsKey(lowerFull)) return row[lowerFull]!;
+        for (final k in row.keys) {
+          if (k.toLowerCase() == lowerFull) return row[k]!;
+        }
+
+        if (name == 'concat') {
+          final sb = StringBuffer();
+          for (final fn in argFns) {
+            final v = fn(row);
+            if (v is! DbNull) sb.write(v.toString());
+          }
+          return DbText(sb.toString());
+        }
+        if (name == 'length' || name == 'len') {
+          if (argFns.isEmpty) return DbNull();
+          final v = argFns.first(row);
+          return v is DbNull ? DbNull() : DbInt(v.toString().length);
+        }
+        if (name == 'upper') {
+          if (argFns.isEmpty) return DbNull();
+          final v = argFns.first(row);
+          return v is DbNull ? DbNull() : DbText(v.toString().toUpperCase());
+        }
+        if (name == 'lower') {
+          if (argFns.isEmpty) return DbNull();
+          final v = argFns.first(row);
+          return v is DbNull ? DbNull() : DbText(v.toString().toLowerCase());
+        }
+        if (name == 'trim') {
+          if (argFns.isEmpty) return DbNull();
+          final v = argFns.first(row);
+          return v is DbNull ? DbNull() : DbText(v.toString().trim());
+        }
+        if (name == 'substring' || name == 'substr') {
+          if (argFns.isEmpty) return DbNull();
+          final str = argFns[0](row).toString();
+          if (str.isEmpty) return DbText('');
+          final startVal = argFns.length > 1 ? argFns[1](row) : DbInt(1);
+          final start = (startVal is DbInt ? startVal.value : int.tryParse(startVal.toString()) ?? 1) - 1;
+          final clampStart = start.clamp(0, str.length);
+          if (argFns.length > 2) {
+            final lenVal = argFns[2](row);
+            final len = lenVal is DbInt ? lenVal.value : int.tryParse(lenVal.toString()) ?? str.length;
+            final end = (clampStart + len).clamp(clampStart, str.length);
+            return DbText(str.substring(clampStart, end));
+          }
+          return DbText(str.substring(clampStart));
+        }
+        if (name == 'coalesce') {
+          for (final fn in argFns) {
+            final v = fn(row);
+            if (v is! DbNull) return v;
+          }
+          return DbNull();
+        }
+        if (name == 'ifnull' || name == 'nvl') {
+          if (argFns.length < 2) return DbNull();
+          final v1 = argFns[0](row);
+          return v1 is! DbNull ? v1 : argFns[1](row);
+        }
+        if (name == 'date') {
+          final val = argFns.isEmpty ? DateTime.now().toIso8601String() : argFns[0](row).toString();
+          final dt = DateTime.tryParse(val) ?? DateTime.now();
+          final m = dt.month.toString().padLeft(2, '0');
+          final d = dt.day.toString().padLeft(2, '0');
+          return DbText('${dt.year}-$m-$d');
+        }
+        if (name == 'time') {
+          final val = argFns.isEmpty ? DateTime.now().toIso8601String() : argFns[0](row).toString();
+          final dt = DateTime.tryParse(val) ?? DateTime.now();
+          final h = dt.hour.toString().padLeft(2, '0');
+          final m = dt.minute.toString().padLeft(2, '0');
+          final s = dt.second.toString().padLeft(2, '0');
+          return DbText('$h:$m:$s');
+        }
+        if (name == 'datetime') {
+          final val = argFns.isEmpty ? null : argFns[0](row).toString();
+          final dt = val != null && val != 'now' ? (DateTime.tryParse(val) ?? DateTime.now()) : DateTime.now();
+          final m = dt.month.toString().padLeft(2, '0');
+          final d = dt.day.toString().padLeft(2, '0');
+          final h = dt.hour.toString().padLeft(2, '0');
+          final min = dt.minute.toString().padLeft(2, '0');
+          final s = dt.second.toString().padLeft(2, '0');
+          return DbText('${dt.year}-$m-$d $h:$min:$s');
+        }
+        if (name == 'strftime') {
+          if (argFns.length < 2) return DbNull();
+          final fmt = argFns[0](row).toString();
+          final val = argFns[1](row).toString();
+          final dt = val == 'now' ? DateTime.now() : (DateTime.tryParse(val) ?? DateTime.now());
+          final res = fmt
+              .replaceAll('%Y', dt.year.toString())
+              .replaceAll('%m', dt.month.toString().padLeft(2, '0'))
+              .replaceAll('%d', dt.day.toString().padLeft(2, '0'))
+              .replaceAll('%H', dt.hour.toString().padLeft(2, '0'))
+              .replaceAll('%M', dt.minute.toString().padLeft(2, '0'))
+              .replaceAll('%S', dt.second.toString().padLeft(2, '0'));
+          return DbText(res);
+        }
+        if (name == 'in_list') {
           final args = argFns.map((fn) => fn(row)).toList();
           return DbList(args);
-        };
-      }
-
-      if (name == 'st_point' && argFns.length == 2) {
-        return (row) {
+        }
+        if (name == 'st_point' && argFns.length == 2) {
           final x = argFns[0](row);
           final y = argFns[1](row);
           double dx = 0.0, dy = 0.0;
@@ -561,10 +688,8 @@ class JitCompiler {
           if (y is DbDouble) dy = y.value;
           else if (y is DbInt) dy = y.value.toDouble();
           return DbText('POINT($dx $dy)');
-        };
-      }
-      if (name == 'st_distance' && argFns.length == 2) {
-        return (row) {
+        }
+        if (name == 'st_distance' && argFns.length == 2) {
           final p1 = argFns[0](row);
           final p2 = argFns[1](row);
           if (p1 is DbText && p2 is DbText) {
@@ -576,17 +701,14 @@ class JitCompiler {
             }
           }
           return DbNull();
-        };
-      }
-      if (name == 'st_contains' && argFns.length == 2) {
-        return (row) {
+        }
+        if (name == 'st_contains' && argFns.length == 2) {
           final poly = argFns[0](row);
           final pt = argFns[1](row);
           if (poly is DbText && pt is DbText) {
             final polygon = _parsePolygon(poly.value);
             final point = _parsePoint(pt.value);
             if (polygon != null && point != null) {
-              // Ray casting algorithm
               bool inside = false;
               for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
                 if ((polygon[i][1] > point[1]) != (polygon[j][1] > point[1]) &&
@@ -602,10 +724,7 @@ class JitCompiler {
             }
           }
           return DbNull();
-        };
-      }
-
-      return (row) {
+        }
         if (activeInterpreter != null) {
           final active = activeInterpreter!;
           final funcSchema = active.db.catalog.getFunction(name);
@@ -632,7 +751,6 @@ class JitCompiler {
             return returnValue;
           }
         }
-
         if (name == 'time_bucket' && argFns.length == 2) {
           final bucket = argFns[0](row);
           final time = argFns[1](row);
@@ -658,7 +776,6 @@ class JitCompiler {
           }
           return DbNull();
         }
-
         if (name == 'vector_distance' && (argFns.length == 2 || argFns.length == 3)) {
           var v1 = argFns[0](row);
           var v2 = argFns[1](row);

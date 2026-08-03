@@ -747,8 +747,17 @@ class QueryPlanner {
       }
 
       if (leftJoinCol.isEmpty || rightJoinCol.isEmpty) {
-        throw Exception("Supported JOIN condition must be 'table1.col1 = table2.col2'");
-      }
+        currentPlan = NestedLoopJoinNode(
+          left: currentPlan,
+          right: joinScan,
+          onCondition: joinCond,
+          isLeftJoin: join.isLeftJoin,
+          isRightJoin: join.isRightJoin,
+          isFullJoin: join.isFullJoin,
+          leftColumns: List<String>.from(leftColumns),
+          rightSchema: joinSchema,
+        );
+      } else {
 
       final idx = catalog.getIndexForColumn(joinTable, rightJoinCol);
       final indexName = idx?.name.toLowerCase();
@@ -785,6 +794,7 @@ class QueryPlanner {
           leftColumns: List<String>.from(leftColumns),
           rightSchema: joinSchema,
         );
+      }
       }
 
       for (final col in joinSchema.columnNames) {
@@ -1007,6 +1017,14 @@ class QueryPlanner {
       }
       if (expr.orderBy != null) {
         _collectVariables(expr.orderBy!.expr, collected);
+      }
+    } else if (expr is CaseExpr) {
+      for (final b in expr.whenBranches) {
+        _collectVariables(b.condition, collected);
+        _collectVariables(b.thenExpr, collected);
+      }
+      if (expr.elseBranch != null) {
+        _collectVariables(expr.elseBranch!, collected);
       }
     }
   }

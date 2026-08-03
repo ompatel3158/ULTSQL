@@ -591,6 +591,36 @@ class CreateTriggerStmt extends Stmt {
   });
 }
 
+class WhenBranch {
+  final Expression condition;
+  final Expression thenExpr;
+  WhenBranch(this.condition, this.thenExpr);
+}
+
+class CaseExpr extends Expression {
+  final List<WhenBranch> whenBranches;
+  final Expression? elseBranch;
+  CaseExpr(this.whenBranches, [this.elseBranch]);
+}
+
+class DropTableStmt extends Stmt {
+  final String tableName;
+  DropTableStmt(this.tableName);
+}
+
+class DropIndexStmt extends Stmt {
+  final String indexName;
+  DropIndexStmt(this.indexName);
+}
+
+class ForLoopStmt extends Stmt {
+  final String varName;
+  final Expression startExpr;
+  final Expression endExpr;
+  final List<Stmt> body;
+  ForLoopStmt(this.varName, this.startExpr, this.endExpr, this.body);
+}
+
 String exprToSqlString(Expression expr) {
   if (expr._cachedSqlString != null) return expr._cachedSqlString!;
   

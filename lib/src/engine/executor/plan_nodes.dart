@@ -1598,6 +1598,136 @@ class HashJoinNode extends PlanNode {
   }
 }
 
+class NestedLoopJoinNode extends PlanNode {
+  final PlanNode left;
+  final PlanNode right;
+  final Expression onCondition;
+  final bool isLeftJoin;
+  final bool isRightJoin;
+  final bool isFullJoin;
+  final List<String>? leftColumns;
+  final TableSchema? rightSchema;
+  late final JitClosure _jitCond;
+
+  final List<Map<String, DbValue>> _allRightRows = [];
+  final Set<Map<String, DbValue>> _seenRightRows = {};
+  Map<String, DbValue>? _currentLeftRow;
+  int _rightIdx = 0;
+  bool _matchedCurrentLeft = false;
+  Iterator<Map<String, DbValue>>? _unmatchedRightIterator;
+
+  NestedLoopJoinNode({
+    required this.left,
+    required this.right,
+    required this.onCondition,
+    this.isLeftJoin = false,
+    this.isRightJoin = false,
+    this.isFullJoin = false,
+    this.leftColumns,
+    this.rightSchema,
+  }) {
+    _jitCond = JitCompiler.compile(onCondition);
+  }
+
+  Map<String, DbValue> _createNullRow() {
+    final nullRow = <String, DbValue>{};
+    if (rightSchema != null) {
+      for (final colName in rightSchema!.columnNames) {
+        nullRow['${rightSchema!.name}.$colName'] = DbNull();
+        nullRow[colName] = DbNull();
+      }
+    }
+    return nullRow;
+  }
+
+  @override
+  void open() {
+    left.open();
+    right.open();
+    _allRightRows.clear();
+    _seenRightRows.clear();
+    _currentLeftRow = null;
+    _rightIdx = 0;
+    _matchedCurrentLeft = false;
+    _unmatchedRightIterator = null;
+
+    while (true) {
+      final rightRow = right.next();
+      if (rightRow == null) break;
+      _allRightRows.add(Map<String, DbValue>.of(rightRow));
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    while (true) {
+      if (_unmatchedRightIterator != null) {
+        if (_unmatchedRightIterator!.moveNext()) {
+          final rightRow = _unmatchedRightIterator!.current;
+          final leftNullRow = <String, DbValue>{};
+          if (leftColumns != null) {
+            for (final col in leftColumns!) {
+              leftNullRow[col] = DbNull();
+            }
+          }
+          return Map<String, DbValue>.from(leftNullRow)..addAll(rightRow);
+        } else {
+          return null;
+        }
+      }
+
+      if (_currentLeftRow == null) {
+        _currentLeftRow = left.next();
+        if (_currentLeftRow == null) {
+          if (isRightJoin || isFullJoin) {
+            final unmatched = _allRightRows.where((r) => !_seenRightRows.contains(r)).toList();
+            _unmatchedRightIterator = unmatched.iterator;
+            continue;
+          }
+          return null;
+        }
+        _rightIdx = 0;
+        _matchedCurrentLeft = false;
+      }
+
+      while (_rightIdx < _allRightRows.length) {
+        final rightRow = _allRightRows[_rightIdx++];
+        final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(rightRow);
+        final condVal = _jitCond(mergedRow);
+        final isTrue = (condVal is DbInt && condVal.value == 1) || (condVal is DbDouble && condVal.value > 0.0);
+        if (isTrue) {
+          _matchedCurrentLeft = true;
+          if (isRightJoin || isFullJoin) {
+            _seenRightRows.add(rightRow);
+          }
+          return mergedRow;
+        }
+      }
+
+      final finishedLeft = _currentLeftRow!;
+      _currentLeftRow = null;
+
+      if (!_matchedCurrentLeft && (isLeftJoin || isFullJoin)) {
+        final nullRow = _createNullRow();
+        return Map<String, DbValue>.from(finishedLeft)..addAll(nullRow);
+      }
+    }
+  }
+
+  @override
+  void close() {
+    left.close();
+    right.close();
+    _allRightRows.clear();
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}NestedLoopJoinNode(on: ${exprToSqlString(onCondition)})\n${left.getPlanString(indent + 1)}\n${right.getPlanString(indent + 1)}';
+  }
+}
+
 // Sort Node for ORDER BY (In-memory sort)
 class SortNode extends PlanNode {
   final PlanNode child;

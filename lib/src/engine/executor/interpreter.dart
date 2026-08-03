@@ -600,6 +600,15 @@ class Interpreter {
     if (node is WhileStmt) {
       return _executeWhileSync(node);
     }
+    if (node is ForLoopStmt) {
+      return _executeForSync(node);
+    }
+    if (node is DropTableStmt) {
+      return _executeDropTable(node);
+    }
+    if (node is DropIndexStmt) {
+      return _executeDropIndex(node);
+    }
     if (node is DbmsOutputStmt) {
       return _executeDbmsOutput(node);
     }
@@ -3546,6 +3555,40 @@ END;
         }
       }
     }
+  }
+
+  QueryResult _executeForSync(ForLoopStmt stmt) {
+    final startFn = _jitCache.putIfAbsent(stmt.startExpr, () => JitCompiler.compile(stmt.startExpr));
+    final endFn = _jitCache.putIfAbsent(stmt.endExpr, () => JitCompiler.compile(stmt.endExpr));
+    final startVal = startFn(_env);
+    final endVal = endFn(_env);
+    int start = (startVal is DbInt) ? startVal.value : int.parse(startVal.toString());
+    int end = (endVal is DbInt) ? endVal.value : int.parse(endVal.toString());
+    for (int i = start; i <= end; i++) {
+      _env[stmt.varName] = DbInt(i);
+      for (final s in stmt.body) {
+        _executeNodeSync(s);
+      }
+    }
+    return QueryResult(columns: [], rows: [], message: 'FOR loop executed.');
+  }
+
+  QueryResult _executeDropTable(DropTableStmt stmt) {
+    db.catalog.tables.remove(stmt.tableName);
+    final tableFile = File('${db.directory}/${stmt.tableName}.db');
+    if (tableFile.existsSync()) {
+      tableFile.deleteSync();
+    }
+    db.catalog.save();
+    return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' dropped successfully.");
+  }
+
+  QueryResult _executeDropIndex(DropIndexStmt stmt) {
+    final idxFile = File('${db.directory}/${stmt.indexName}.idx');
+    if (idxFile.existsSync()) {
+      idxFile.deleteSync();
+    }
+    return QueryResult(columns: [], rows: [], message: "Index '${stmt.indexName}' dropped successfully.");
   }
 }
 
