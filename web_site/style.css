@@ -726,23 +726,59 @@ a:hover {
   font-size: 0.82rem;
 }
 
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.4rem;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 1001;
+}
+
+.mobile-menu-btn .bar {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background-color: #ffffff;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
 /* RESPONSIVE MOBILE & TABLET MEDIA QUERIES */
 @media (max-width: 768px) {
   .navbar {
     padding: 0.9rem 4%;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    position: relative;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
   }
 
   .nav-links {
-    gap: 0.85rem;
-    overflow-x: auto;
+    display: none;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
-    padding-bottom: 0.25rem;
+    background: #09090b;
+    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem 0;
+    gap: 1.25rem;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 999;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.85);
+  }
+
+  .nav-links.open {
+    display: flex;
   }
 
   .nav-links a {
-    font-size: 0.82rem;
+    font-size: 1rem;
     white-space: nowrap;
   }
 
