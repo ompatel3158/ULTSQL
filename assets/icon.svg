@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -14 136 136" width="100%" height="100%">
   <!-- Background -->
   <rect width="108" height="108" rx="24" fill="#000000" />
   
-  <!-- 3-Petal Pinwheel Logo (Scaled 3.1x) -->
-  <g transform="translate(54, 54) scale(3.1) translate(-54, -54)">
+  <!-- 3-Petal Pinwheel Logo (Perfectly padded, 0% cropping) -->
+  <g transform="translate(54, 54) scale(2.4) translate(-54, -54)">
     <g fill="#FFFFFF">
       <!-- Petal 1 (0 deg) -->
       <path d="M 54,35.5 A 4.2,10.1 0 1,1 54,55.7 A 4.2,10.1 0 1,1 54,35.5 Z" />
