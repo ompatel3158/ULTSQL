@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" width="100" alt="UltSQL Engine Logo">
+  <img src="assets/logo.svg" width="360" alt="ultsql: three models, one core">
 </p>
 
 # 🚀 ULTSQL — Ultra-High Performance Converged Multimodal Database Engine

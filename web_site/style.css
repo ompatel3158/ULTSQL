@@ -101,19 +101,21 @@ a:hover {
 }
 
 .brand-logo-img {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  border-radius: var(--radius-sm);
+  height: 38px;
+  width: auto;
+  color: #ffffff;
+  --svg-bg: #09090b;
   vertical-align: middle;
 }
 
-.hero-logo-img {
-  width: 90px;
-  height: 90px;
-  object-fit: contain;
-  margin-bottom: 1.5rem;
-  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.15));
+.hero-logo-header-img {
+  max-width: 440px;
+  width: 88%;
+  height: auto;
+  color: #ffffff;
+  --svg-bg: #09090b;
+  display: block;
+  margin: 0 auto 2rem;
 }
 
 .brand-version {
