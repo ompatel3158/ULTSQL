@@ -1,24 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 100" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100">
   <defs>
-    <mask id="pinwheel-mask">
-      <rect x="0" y="0" width="100" height="100" fill="#ffffff" />
-      <circle cx="50" cy="50" r="6.5" fill="#000000" />
+    <mask id="logo-hole-mask">
+      <rect x="0" y="0" width="380" height="100" fill="#ffffff" />
+      <circle cx="50" cy="50" r="5.5" fill="#000000" />
     </mask>
   </defs>
 
-  <!-- Pinwheel Icon with center hole cutout mask -->
-  <g transform="translate(10, 0)" mask="url(#pinwheel-mask)">
-    <g transform="translate(50, 50)">
-      <!-- Top Blade -->
-      <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" fill="#ffffff" />
-      <!-- Bottom Left Blade -->
-      <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" transform="rotate(120)" fill="#ffffff" />
-      <!-- Bottom Right Blade -->
-      <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" transform="rotate(240)" fill="#ffffff" />
+  <!-- Propeller Icon with merged central hub and center hole mask -->
+  <g mask="url(#logo-hole-mask)">
+    <!-- Central Hub -->
+    <circle cx="50" cy="50" r="13.5" fill="#ffffff" />
+    <!-- Top Petal -->
+    <ellipse cx="50" cy="26" rx="11" ry="20" fill="#ffffff" />
+    <!-- Bottom Left Petal -->
+    <g transform="rotate(120 50 50)">
+      <ellipse cx="50" cy="26" rx="11" ry="20" fill="#ffffff" />
+    </g>
+    <!-- Bottom Right Petal -->
+    <g transform="rotate(240 50 50)">
+      <ellipse cx="50" cy="26" rx="11" ry="20" fill="#ffffff" />
     </g>
   </g>
 
-  <!-- Typography: ALL CAPS -->
-  <text x="120" y="55" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="44" font-weight="800" fill="#ffffff" letter-spacing="-0.5">ULTSQL</text>
-  <text x="122" y="75" font-family="'Inter', -apple-system, sans-serif" font-size="12" font-weight="600" fill="#a1a1aa" letter-spacing="1.5">THREE MODELS, ONE CORE</text>
+  <!-- Typography -->
+  <text x="115" y="56" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="46" font-weight="800" fill="#ffffff" letter-spacing="-0.5">ULTSQL</text>
+  <text x="117" y="78" font-family="'Inter', -apple-system, sans-serif" font-size="13" font-weight="600" fill="#cccccc" letter-spacing="1.5">THREE MODELS, ONE CORE</text>
 </svg>
