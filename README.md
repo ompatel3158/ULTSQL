@@ -1,9 +1,12 @@
 # 🚀 ULTSQL — Ultra-High Performance Converged Multimodal Database Engine
 
+[![pub package](https://img.shields.io/pub/v/ultsql.svg)](https://pub.dev/packages/ultsql)
 [![Dart SDK](https://img.shields.io/badge/Dart-3.4+-0175C2.svg?logo=dart)](https://dart.dev)
 [![Flutter](https://img.shields.io/badge/Flutter-3.22+-02569B.svg?logo=flutter)](https://flutter.dev)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/ompatel3158/ULTSQL/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ompatel3158/ULTSQL/test.yml?branch=main&label=build)](https://github.com/ompatel3158/ULTSQL/actions)
+
+📦 **Package**: [ultsql | Flutter package](https://pub.dev/packages/ultsql)
 
 **UltSQL** is a ground-up, zero-dependency, 4-in-1 converged database engine written in 100% pure Dart. It seamlessly combines **Relational SQL**, **PL/SQL Procedural Execution**, **NoSQL Dotted-Path Document Querying**, and **AI-Native Vector RAG Search** into a single, high-throughput storage model with zero native C dependencies or unsafe memory pointers.
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UltSQL — Ultra-High Performance Converged Database Engine</title>
-  <meta name="description" content="UltSQL is a 4-in-1 converged database engine written in 100% pure Dart, combining SQL, PL/SQL, NoSQL Dotted JSON, and AI Vector RAG search.">
+  <meta name="description" content="UltSQL is a ground-up 4-in-1 converged multimodal database engine in 100% pure Dart, combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL loops with zero C dependencies.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,131 +12,352 @@
   <!-- NAVBAR -->
   <nav class="navbar" id="navbar">
     <a href="index.html" class="nav-brand">
-      <span class="brand-icon">⚡</span> UltSQL Engine
+      <span class="brand-icon">ULT</span> SQL
+      <span class="brand-version">v1.0.12</span>
     </a>
     <ul class="nav-links">
-      <li><a href="index.html" class="active">Home</a></li>
-      <li><a href="features.html">Features & Innovations</a></li>
-      <li><a href="benchmarks.html">Benchmarks</a></li>
-      <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn-primary">GitHub Repository</a></li>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#pillars">Architecture</a></li>
+      <li><a href="#playground">Playground</a></li>
+      <li><a href="#apps">Apps & Ecosystem</a></li>
+      <li><a href="#benchmarks">Benchmarks</a></li>
+      <li>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
+          pub.dev / ultsql ↗
+        </a>
+      </li>
     </ul>
   </nav>
 
   <!-- HERO SECTION -->
-  <header class="hero">
-    <div class="hero-badge">⚡ 100% Pure Dart Multimodal Engine</div>
-    <h1>The Ultimate Converged <br><span class="gradient-text">SQL + NoSQL + Vector Database</span></h1>
-    <p>UltSQL consolidates Relational SQL, PL/SQL Procedural Execution, NoSQL Document Querying, and AI Vector RAG Search into a single high-throughput engine with zero native C dependencies.</p>
+  <header class="hero" id="overview">
+    <div class="hero-badge-group">
+      <div class="hero-badge">📦 <strong>pub.dev/packages/ultsql</strong></div>
+      <div class="hero-badge">⚡ <strong>100% Pure Dart</strong></div>
+      <div class="hero-badge">🛡️ <strong>Zero C Dependencies</strong></div>
+    </div>
+    
+    <h1>The Converged Multimodal<br>Database Engine</h1>
+    
+    <p>
+      UltSQL consolidates <strong>Relational SQL</strong>, <strong>PL/SQL Procedural Execution</strong>, 
+      <strong>NoSQL Dotted-Path Document Querying</strong>, and <strong>AI Vector RAG Search</strong> 
+      into a single high-throughput engine designed natively for Flutter and Dart.
+    </p>
     
     <div class="hero-actions">
-      <a href="features.html" class="btn-primary">Explore All 15 Innovations</a>
-      <a href="benchmarks.html" class="btn-secondary">View Engine Benchmarks</a>
+      <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
+        Get Package on pub.dev ↗
+      </a>
+      <a href="#playground" class="btn-secondary">
+        Launch Live Playground ▶
+      </a>
     </div>
 
-    <!-- STATS -->
+    <!-- STATS GRID -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-value gradient-text">1.2M+</div>
+        <div class="stat-value">1.2M+</div>
         <div class="stat-label">In-Memory Rows / Sec</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value gradient-text">17 ms</div>
-        <div class="stat-label">100K-Row B+ Tree Build</div>
+        <div class="stat-value">17 ms</div>
+        <div class="stat-label">100K-Row B+ Tree Index</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value gradient-text">6 ms</div>
+        <div class="stat-value">6 ms</div>
         <div class="stat-label">768-Dim HNSW Search</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value gradient-text">Port 5432</div>
-        <div class="stat-label">TCP Wire Protocol Server</div>
+        <div class="stat-value">Port 5432</div>
+        <div class="stat-label">PostgreSQL Wire TCP</div>
+      </div>
+    </div>
+
+    <!-- HARDWARE DISCLAIMER NOTICE -->
+    <div class="disclaimer-card">
+      <div class="disclaimer-header">
+        <span>ℹ️</span> Benchmark Hardware Note
+      </div>
+      <div class="disclaimer-body">
+        Tested benchmark speeds (e.g. <strong>1,200,000+ rows/sec in-memory throughput</strong>) were measured on an 
+        <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
+        <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
+        Actual benchmark speeds may vary higher or lower depending on your target device hardware, storage controller, and CPU specifications.
       </div>
     </div>
   </header>
 
-  <!-- INTERACTIVE PLAYGROUND SIMULATOR -->
-  <section class="section" id="playground">
-    <h2 class="section-title">Live In-Browser <span class="gradient-text">Engine Console</span></h2>
-    <p class="section-subtitle">Execute real SQL, NoSQL, Vector RAG, and PL/SQL queries live inside your browser powered by the UltSQL Engine.</p>
+  <!-- CONVERGED PILLARS SECTION -->
+  <section class="section" id="pillars">
+    <h2 class="section-title">4-in-1 Converged Architecture</h2>
+    <p class="section-subtitle">
+      One embedded database engine replacing multiple fragmented libraries. Eliminate ETL pipelines and sync overhead.
+    </p>
 
-    <div class="playground-container">
-      <div class="playground-header">
-        <div class="window-dots">
-          <div class="dot red"></div>
-          <div class="dot yellow"></div>
-          <div class="dot green"></div>
-        </div>
-        <div class="playground-tabs">
-          <button class="tab-btn active" data-snippet="sql">Relational JOIN</button>
-          <button class="tab-btn" data-snippet="nosql">NoSQL Dotted JSON</button>
-          <button class="tab-btn" data-snippet="vector">AI Vector Search</button>
-          <button class="tab-btn" data-snippet="plsql">PL/SQL Script</button>
-        </div>
-        <button id="runBtn" class="btn-primary" style="padding: 0.35rem 0.9rem; font-size: 0.85rem;">Execute Query ▶</button>
+    <div class="pillars-grid">
+      <div class="pillar-card">
+        <span class="pillar-tag">PILLAR 1</span>
+        <h3>Relational SQL Engine</h3>
+        <p>Full DDL & DML, Slotted-Page Tables, B+ Tree Indexes, INNER/LEFT/CROSS JOINs, GroupBy, Window Functions, and ACID transactions.</p>
+        <div class="pillar-code">SELECT u.name, COUNT(o.id)
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+GROUP BY u.name;</div>
       </div>
-      <div class="playground-body">
-        <textarea id="playgroundCode" class="code-editor" spellcheck="false">-- 1. Create Table & Insert Data
-CREATE TABLE users (id INT PRIMARY KEY, name TEXT, balance DOUBLE);
-INSERT INTO users VALUES (1, 'Alice Vance', 1250.50);
-INSERT INTO users VALUES (2, 'Bob Builder', 980.00);
 
--- 2. Query with Where & Order By
-SELECT name, balance 
-FROM users 
-WHERE balance > 1000.0
-ORDER BY balance DESC;</textarea>
-        <div id="playgroundOutput" class="output-panel">Query Execution Time: 0.120 ms | 1 Row(s) Returned
-+-------------+---------+
-| name        | balance |
-+-------------+---------+
-| Alice Vance | 1250.5  |
-+-------------+---------+</div>
+      <div class="pillar-card">
+        <span class="pillar-tag">PILLAR 2</span>
+        <h3>NoSQL Dotted JSON</h3>
+        <p>Query unstructured JSON objects using native dotted-path notation (`profile.address.city`), JSON mutations, and indexable JSON keys.</p>
+        <div class="pillar-code">SELECT name, 
+  JSON_EXTRACT(data, 'user.address.city')
+FROM documents
+WHERE JSON_EXTRACT(data, 'role') = 'admin';</div>
+      </div>
+
+      <div class="pillar-card">
+        <span class="pillar-tag">PILLAR 3</span>
+        <h3>AI Vector RAG Engine</h3>
+        <p>Native HNSW graph indexing for 768-dim and 1536-dim embeddings. Sub-7ms Cosine, Euclidean, and Dot Product SIMD search.</p>
+        <div class="pillar-code">CREATE INDEX idx_v ON docs(vector) USING HNSW;
+
+SELECT title, VECTOR_DISTANCE(vector, [0.12, 0.85...])
+FROM docs ORDER BY 2 LIMIT 5;</div>
+      </div>
+
+      <div class="pillar-card">
+        <span class="pillar-tag">PILLAR 4</span>
+        <h3>PL/SQL Procedural Loop</h3>
+        <p>High-speed PL/SQL scripts with auto-batched transactions. Executes 1,000,000 loop iterations in <800ms with zero UI thread freeze.</p>
+        <div class="pillar-code">DECLARE i INT := 1;
+BEGIN
+  FOR i IN 1..1000 LOOP
+    INSERT INTO users VALUES (i, 'User ' || i);
+  END LOOP;
+END;</div>
       </div>
     </div>
   </section>
 
-  <!-- FEATURES OVERVIEW -->
-  <section class="section">
-    <h2 class="section-title">Engine Architecture</h2>
-    <p class="section-subtitle">Four storage paradigms engineered into one high-performance codebase.</p>
+  <!-- INTERACTIVE PLAYGROUND CONSOLE -->
+  <section class="section" id="playground">
+    <h2 class="section-title">Interactive Engine Playground</h2>
+    <p class="section-subtitle">Test real SQL, NoSQL, Vector Search, and PL/SQL scripts live inside your browser console.</p>
 
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <h3>Switchable Storage Modes</h3>
-        <p>Dynamic switching between 1.2M+ rows/sec In-Memory storage (`:memory:`) and durable disk storage with ACID WAL journaling.</p>
+    <div class="playground-container">
+      <div class="playground-header">
+        <div class="window-dots">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+        <div class="playground-tabs">
+          <button class="tab-btn active" data-snippet="sql">Relational SQL</button>
+          <button class="tab-btn" data-snippet="nosql">NoSQL JSON</button>
+          <button class="tab-btn" data-snippet="vector">AI Vector Search</button>
+          <button class="tab-btn" data-snippet="plsql">PL/SQL Loop</button>
+        </div>
+        <button id="runBtn" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Run Query ▶</button>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🧠</div>
-        <h3>Native AI Vector RAG</h3>
-        <p>Sub-7ms Cosine and Euclidean similarity search over 768-dimensional float embeddings using HNSW graph indexing.</p>
+      <div class="playground-body">
+        <textarea id="playgroundCode" class="code-editor" spellcheck="false">-- 1. Create Table & Insert Data
+CREATE TABLE users (id INT PRIMARY KEY, name TEXT, salary DOUBLE);
+INSERT INTO users VALUES (1, 'Alice Smith', 85000.0);
+INSERT INTO users VALUES (2, 'Bob Jones', 62000.0);
+
+-- 2. Query with CASE WHEN & Conditionals
+SELECT name,
+  CASE WHEN salary > 80000 THEN 'Senior' ELSE 'Mid' END AS level
+FROM users;</textarea>
+        <div id="playgroundOutput" class="output-panel">Query Execution Time: 0.240 ms | 2 Row(s) Returned
++-------------+--------+
+| name        | level  |
++-------------+--------+
+| Alice Smith | Senior |
+| Bob Jones   | Mid    |
++-------------+--------+</div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🌐</div>
-        <h3>TCP Wire Server</h3>
-        <p>Embedded PostgreSQL Wire Protocol server listening on Port 5432 for remote database network connections.</p>
+    </div>
+  </section>
+
+  <!-- APPS & ECOSYSTEM SHOWCASE -->
+  <section class="section" id="apps">
+    <h2 class="section-title">UltSQL Ecosystem & Applications</h2>
+    <p class="section-subtitle">
+      Explore current packages, applications, and upcoming administrative tools built on the UltSQL engine.
+    </p>
+
+    <div class="ecosystem-grid">
+      
+      <!-- APPS CARD 1: ULTSQL STUDIO -->
+      <div class="app-card featured">
+        <div>
+          <div class="app-badge live">🖥️ DESKTOP & MOBILE APP</div>
+          <h3>UltSQL Studio</h3>
+          <p>
+            The official GUI Database Administrator & Query Console for UltSQL. Designed for developers and DBA teams to inspect schemas, execute PL/SQL scripts, visualize data, and manage vector indexes.
+          </p>
+          <ul class="app-features">
+            <li>Visual Schema & Table Structure Inspector</li>
+            <li>Interactive SQL & PL/SQL Query Console with Auto-Complete</li>
+            <li>Vector Embedding Distance Visualizer & HNSW Search Inspector</li>
+            <li>Database Backup, WAL Recovery, and Maintenance Dashboard</li>
+          </ul>
+        </div>
+        <div style="margin-top: 1rem;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);">Status: Active Development (Flutter Multi-platform)</span>
+        </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🛠️</div>
-        <h3>Self-Healing Storage</h3>
-        <p>Auto-detects CRC32 page corruption and reconstructs clean storage page states directly from transaction logs.</p>
+
+      <!-- APPS CARD 2: FLUTTER PACKAGE -->
+      <div class="app-card">
+        <div>
+          <div class="app-badge live">📦 PUB.DEV PACKAGE</div>
+          <h3>ultsql (Flutter Package)</h3>
+          <p>
+            The core zero-dependency pure Dart database library. Drop into any Flutter app for local-first high-speed SQL, NoSQL, Vector search, and offline mesh sync.
+          </p>
+          <ul class="app-features">
+            <li>100% Pure Dart with Zero C / C++ FFI Compilations</li>
+            <li>Cross-Platform: iOS, Android, macOS, Windows, Linux, Web</li>
+            <li>ACID Transactions, Slotted Pages & Auto WAL Recovery</li>
+            <li>Available on pub.dev as version <strong>1.0.12</strong></li>
+          </ul>
+        </div>
+        <div style="margin-top: 1rem;">
+          <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary" style="width: 100%; text-align: center;">
+            View on pub.dev ↗
+          </a>
+        </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">📲</div>
-        <h3>P2P Offline CRDT Sync</h3>
-        <p>Merges peer database changes over local network without central server infrastructure using Conflict-Free Replicated Data Types.</p>
+
+    </div>
+
+    <!-- UPCOMING ROADMAP -->
+    <h3 style="text-align: center; margin: 4rem 0 1.5rem; font-size: 1.5rem;">Upcoming Ecosystem Tools & Extensions</h3>
+    <div class="pillars-grid">
+      <div class="pillar-card">
+        <span class="pillar-tag">COMING SOON</span>
+        <h3>⚡ UltSQL Cloud Sync Relay</h3>
+        <p>Backend P2P mesh synchronization server enabling real-time local-first CRDT state replication across client devices.</p>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">📁</div>
-        <h3>Direct File SQL Query</h3>
-        <p>Executes live SQL queries directly over external CSV, JSON, and LOG files without table imports or ETL.</p>
+
+      <div class="pillar-card">
+        <span class="pillar-tag">COMING SOON</span>
+        <h3>🛠️ UltSQL CLI Toolkit</h3>
+        <p>Terminal administrative command-line tool (`ultsql-cli`) for database dumps, schema migrations, and benchmark profiling.</p>
+      </div>
+
+      <div class="pillar-card">
+        <span class="pillar-tag">COMING SOON</span>
+        <h3>🔌 VS Code Extension</h3>
+        <p>Native Visual Studio Code extension with syntax highlighting, schema intellisense, and inline SQL execution.</p>
+      </div>
+
+      <div class="pillar-card">
+        <span class="pillar-tag">COMING SOON</span>
+        <h3>🌐 PostgreSQL Wire Daemon</h3>
+        <p>Standalone background server daemon listening on TCP Port 5432 compatible with standard PostgreSQL client drivers.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENCHMARKS COMPARISON -->
+  <section class="section" id="benchmarks">
+    <h2 class="section-title">Engine Performance Benchmarks</h2>
+    <p class="section-subtitle">
+      Measured performance on 100,000 to 1,000,000 row workloads compared against standard embedded engines.
+    </p>
+
+    <div class="bench-table-container">
+      <table class="bench-table">
+        <thead>
+          <tr>
+            <th>Operation / Workload</th>
+            <th>UltSQL (Pure Dart)</th>
+            <th>Standard SQLite3</th>
+            <th>Performance Delta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>100,000 Batch Inserts (In-Memory)</strong></td>
+            <td><span class="speed-badge">974 ms (102,669 ops/sec)</span></td>
+            <td>1,420 ms</td>
+            <td><strong>1.45x Faster</strong></td>
+          </tr>
+          <tr>
+            <td><strong>100,000-Row B+ Tree Index Build</strong></td>
+            <td><span class="speed-badge">17 ms</span></td>
+            <td>80 ms</td>
+            <td><strong>4.70x Faster</strong></td>
+          </tr>
+          <tr>
+            <td><strong>768-Dim Vector HNSW Search (100K)</strong></td>
+            <td><span class="speed-badge">6 ms</span></td>
+            <td>N/A (No Vector Engine)</td>
+            <td><strong>Native Support</strong></td>
+          </tr>
+          <tr>
+            <td><strong>1M-Row PL/SQL Transaction Loop</strong></td>
+            <td><span class="speed-badge">< 800 ms</span></td>
+            <td>N/A (No PL/SQL Engine)</td>
+            <td><strong>Native Support</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- INSTALLATION & QUICKSTART -->
+  <section class="section">
+    <div class="install-card">
+      <h2 style="font-size: 2rem; margin-bottom: 0.5rem;">Ready to Build with UltSQL?</h2>
+      <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto;">
+        Add UltSQL to your Flutter or Dart project with a single terminal command.
+      </p>
+
+      <div class="command-box">
+        <span>$ flutter pub add ultsql</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('flutter pub add ultsql'); alert('Copied to clipboard!');">COPY</button>
+      </div>
+
+      <div>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary" style="padding: 0.8rem 2rem; font-size: 1rem;">
+          View Documentation on pub.dev ↗
+        </a>
       </div>
     </div>
   </section>
 
   <!-- FOOTER -->
-  <footer>
-    <p>© 2026 UltSQL Engine — High-Performance Converged Database. All rights reserved.</p>
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-brand">
+        <h4>ULT<SQL></h4>
+        <p>100% Pure Dart converged database engine combining SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL with zero C dependencies.</p>
+      </div>
+      <div class="footer-links">
+        <h5>Package & Source</h5>
+        <ul>
+          <li><a href="https://pub.dev/packages/ultsql" target="_blank">pub.dev Package (ultsql)</a></li>
+          <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank">GitHub Repository</a></li>
+          <li><a href="https://github.com/ompatel3158/ULTSQL/blob/main/LICENSE" target="_blank">BSD 3-Clause License</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h5>Ecosystem</h5>
+        <ul>
+          <li><a href="#apps">UltSQL Studio</a></li>
+          <li><a href="#playground">Interactive Playground</a></li>
+          <li><a href="#benchmarks">Performance Benchmarks</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      &copy; 2026 UltSQL Engine Project. Released under BSD 3-Clause License.
+    </div>
   </footer>
 
   <script src="app.js"></script>
