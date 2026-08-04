@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="100" alt="UltSQL Engine Logo">
+</p>
+
 # 🚀 ULTSQL — Ultra-High Performance Converged Multimodal Database Engine
 
 [![pub package](https://img.shields.io/pub/v/ultsql.svg)](https://pub.dev/packages/ultsql)

@@ -100,6 +100,22 @@ a:hover {
   font-family: 'JetBrains Mono', monospace;
 }
 
+.brand-logo-img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
+.hero-logo-img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.15));
+}
+
 .brand-version {
   font-size: 0.75rem;
   font-family: 'JetBrains Mono', monospace;
