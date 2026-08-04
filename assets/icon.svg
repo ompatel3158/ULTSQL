@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
   <g transform="translate(50, 50)">
     <!-- Top Blade -->
-    <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" fill="currentColor" />
+    <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" fill="#ffffff" />
     <!-- Bottom Left Blade -->
-    <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" transform="rotate(120)" fill="currentColor" />
+    <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" transform="rotate(120)" fill="#ffffff" />
     <!-- Bottom Right Blade -->
-    <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" transform="rotate(240)" fill="currentColor" />
+    <path d="M 0,-5 C -13,-14 -14,-40 0,-45 C 14,-40 13,-14 0,-5 Z" transform="rotate(240)" fill="#ffffff" />
     <!-- Center Hole Circle cutout -->
-    <circle cx="0" cy="0" r="5.5" fill="var(--svg-bg, #09090b)" />
+    <circle cx="0" cy="0" r="5.5" fill="#09090b" />
   </g>
 </svg>
