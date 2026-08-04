@@ -101,14 +101,14 @@ a:hover {
 }
 
 .brand-pinwheel-img {
-  width: 68px;
-  height: 68px;
+  width: 66px;
+  height: 66px;
   object-fit: contain;
   vertical-align: middle;
 }
 
 .hero-logo-header-img {
-  max-width: 760px;
+  max-width: 737px;
   width: 98%;
   height: auto;
   color: #ffffff;
