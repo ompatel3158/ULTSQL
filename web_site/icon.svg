@@ -2,8 +2,8 @@
   <!-- Background -->
   <rect width="108" height="108" rx="24" fill="#000000" />
   
-  <!-- 3-Petal Pinwheel Logo (Scaled 1.9x to fill viewBox) -->
-  <g transform="translate(54, 54) scale(1.9) translate(-54, -54)">
+  <!-- 3-Petal Pinwheel Logo (Scaled up 2.4x) -->
+  <g transform="translate(54, 54) scale(2.4) translate(-54, -54)">
     <g fill="#FFFFFF">
       <!-- Petal 1 (0 deg) -->
       <path d="M 54,35.5 A 4.2,10.1 0 1,1 54,55.7 A 4.2,10.1 0 1,1 54,35.5 Z" />

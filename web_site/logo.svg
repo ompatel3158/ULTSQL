@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 108" fill="none">
-  <!-- 3-Petal Pinwheel Logo (Scaled up 1.9x) -->
-  <g transform="translate(54, 54) scale(1.9) translate(-54, -54)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 120" fill="none">
+  <!-- 3-Petal Pinwheel Logo (Scaled up 2.4x) -->
+  <g transform="translate(60, 60) scale(2.4) translate(-54, -54)">
     <g fill="#FFFFFF">
       <!-- Petal 1 (0 deg) -->
       <path d="M 54,35.5 A 4.2,10.1 0 1,1 54,55.7 A 4.2,10.1 0 1,1 54,35.5 Z" />
@@ -17,6 +17,6 @@
   </g>
 
   <!-- Typography -->
-  <text x="130" y="60" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="52" font-weight="800" fill="#FFFFFF" letter-spacing="-0.5">ULTSQL</text>
-  <text x="132" y="84" font-family="'Inter', -apple-system, sans-serif" font-size="14" font-weight="600" fill="#CCCCCC" letter-spacing="1.5">THREE MODELS, ONE CORE</text>
+  <text x="145" y="68" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="64" font-weight="800" fill="#FFFFFF" letter-spacing="-0.5">ULTSQL</text>
+  <text x="148" y="96" font-family="'Inter', -apple-system, sans-serif" font-size="16" font-weight="600" fill="#CCCCCC" letter-spacing="2">THREE MODELS, ONE CORE</text>
 </svg>
