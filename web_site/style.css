@@ -100,12 +100,16 @@ a:hover {
   font-family: 'JetBrains Mono', monospace;
 }
 
-.brand-logo-img {
-  height: 38px;
-  width: auto;
-  color: #ffffff;
-  --svg-bg: #09090b;
+.brand-pinwheel-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
   vertical-align: middle;
+  transition: transform 0.4s ease;
+}
+
+.brand-pinwheel-img:hover {
+  transform: rotate(180deg);
 }
 
 .hero-logo-header-img {
@@ -725,4 +729,82 @@ a:hover {
   border-top: 1px solid var(--border-color);
   color: var(--text-dim);
   font-size: 0.82rem;
+}
+
+/* RESPONSIVE MOBILE & TABLET MEDIA QUERIES */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0.9rem 4%;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .nav-links {
+    gap: 0.85rem;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 0.25rem;
+  }
+
+  .nav-links a {
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .hero {
+    padding: 3rem 4% 2.5rem;
+  }
+
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+
+  .hero-logo-header-img {
+    max-width: 290px;
+    width: 90%;
+    margin-bottom: 1.5rem;
+  }
+
+  .disclaimer-card {
+    padding: 1rem;
+    margin: 2rem 4% 0;
+  }
+
+  .section {
+    padding: 3rem 4%;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .stat-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+  }
+
+  .command-box {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-primary, .btn-secondary {
+    width: 100%;
+  }
 }
