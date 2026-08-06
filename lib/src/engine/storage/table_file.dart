@@ -113,6 +113,31 @@ class RecordSerializer {
             currentOffset += 1 + bytes.length;
           }
         }
+      } else if (val is DbBool) {
+        dest[currentOffset] = 8;
+        dest[currentOffset + 1] = val.value ? 1 : 0;
+        currentOffset += 2;
+      } else if (val is DbUuid) {
+        dest[currentOffset] = 9;
+        final bytes = utf8.encode(val.value);
+        dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
+        currentOffset += 1 + bytes.length;
+      } else if (val is DbDateTime) {
+        dest[currentOffset] = 10;
+        bd.setInt64(currentOffset + 1, val.value.millisecondsSinceEpoch);
+        currentOffset += 9;
+      } else if (val is DbBlob) {
+        dest[currentOffset] = 11;
+        dest.setRange(currentOffset + 1, currentOffset + 1 + val.value.length, val.value);
+        currentOffset += 1 + val.value.length;
+      } else if (val is DbDecimal) {
+        dest[currentOffset] = 12;
+        bd.setFloat64(currentOffset + 1, val.value);
+        currentOffset += 9;
+      } else {
+        final bytes = val.toBytes();
+        dest.setRange(currentOffset, currentOffset + bytes.length, bytes);
+        currentOffset += bytes.length;
       }
     }
     return currentOffset;
@@ -168,8 +193,6 @@ class RecordSerializer {
           } else {
             list.add(DbNull());
           }
-        } else if (typeCode == 8) {
-          list.add(DbNull());
         } else {
           list.add(DbValue.fromBytes(data, startOffset, len));
         }
@@ -615,8 +638,6 @@ class RowTableFile {
             final totalSize = data.getUint32(startOffset + 5);
             final bytes = toastManager.readDataSync(startPage, totalSize);
             list[colIdx] = DbJson.fromBytes(bytes);
-          } else if (typeCode == 8) {
-            list[colIdx] = DbNull();
           } else {
             list[colIdx] = DbValue.fromBytes(data, startOffset, len);
           }

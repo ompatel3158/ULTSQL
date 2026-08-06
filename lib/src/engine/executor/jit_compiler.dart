@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math' as math;
 import '../parser/ast.dart';
 import 'value.dart';
@@ -374,7 +375,21 @@ class JitCompiler {
             if (l is DbDouble && r is DbInt) return l.value >= r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) >= 0 ? DbInt.one : DbInt.zero;
           };
+        case '~':
+          final regFn = _compileDefault(expr.right);
+          RegExp? cachedReg;
+          String? lastPat;
+          return (row) {
+            final l = leftFn(row).toString();
+            final pat = regFn(row).toString();
+            if (pat != lastPat) {
+              lastPat = pat;
+              cachedReg = RegExp(pat);
+            }
+            return cachedReg?.hasMatch(l) == true ? DbInt.one : DbInt.zero;
+          };
         case 'like':
+        case 'ilike':
           final right = expr.right;
           final rightIsConstant = right is LiteralExpr || right is PlaceholderExpr;
           if (rightIsConstant) {
@@ -568,6 +583,45 @@ class JitCompiler {
       };
     }
 
+    if (expr is CastExpr) {
+      final innerFn = _compileDefault(expr.expr);
+      final targetType = expr.targetType;
+      return (row) {
+        final val = innerFn(row);
+        if (val is DbNull) return DbNull();
+        switch (targetType) {
+          case DataType.integer:
+            if (val is DbInt) return val;
+            if (val is DbBool) return DbInt(val.value ? 1 : 0);
+            return DbInt(int.tryParse(val.toString()) ?? 0);
+          case DataType.double:
+          case DataType.decimal:
+            if (val is DbDouble) return val;
+            if (val is DbDecimal) return val;
+            if (val is DbInt) return DbDouble(val.value.toDouble());
+            return DbDouble(double.tryParse(val.toString()) ?? 0.0);
+          case DataType.text:
+            return DbText(val.toString());
+          case DataType.boolean:
+            if (val is DbBool) return val;
+            if (val is DbInt) return DbBool(val.value != 0);
+            final s = val.toString().toLowerCase();
+            return DbBool(s == 'true' || s == '1' || s == 'yes' || s == 't');
+          case DataType.uuid:
+            return DbUuid(val.toString());
+          case DataType.datetime:
+            final parsed = DateTime.tryParse(val.toString()) ?? DateTime.now();
+            return DbDateTime(parsed);
+          case DataType.blob:
+            if (val is DbBlob) return val;
+            return DbBlob(Uint8List.fromList(utf8.encode(val.toString())));
+          case DataType.vector:
+          case DataType.json:
+            return val;
+        }
+      };
+    }
+
     if (expr is FunctionCallExpr) {
       final name = expr.name.toLowerCase();
       final fullName = exprToSqlString(expr);
@@ -586,6 +640,20 @@ class JitCompiler {
           for (final fn in argFns) {
             final v = fn(row);
             if (v is! DbNull) sb.write(v.toString());
+          }
+          return DbText(sb.toString());
+        }
+        if (name == 'concat_ws' && argFns.length >= 2) {
+          final sep = argFns[0](row).toString();
+          final sb = StringBuffer();
+          bool first = true;
+          for (int i = 1; i < argFns.length; i++) {
+            final v = argFns[i](row);
+            if (v is! DbNull) {
+              if (!first) sb.write(sep);
+              sb.write(v.toString());
+              first = false;
+            }
           }
           return DbText(sb.toString());
         }
@@ -631,6 +699,75 @@ class JitCompiler {
           }
           return DbNull();
         }
+        if (name == 'nullif' && argFns.length >= 2) {
+          final v1 = argFns[0](row);
+          final v2 = argFns[1](row);
+          if (v1 == v2 || v1.toString() == v2.toString()) return DbNull();
+          return v1;
+        }
+        if (name == 'greatest') {
+          DbValue? maxVal;
+          for (final fn in argFns) {
+            final v = fn(row);
+            if (v is! DbNull) {
+              if (maxVal == null || v.compareTo(maxVal) > 0) {
+                maxVal = v;
+              }
+            }
+          }
+          return maxVal ?? DbNull();
+        }
+        if (name == 'least') {
+          DbValue? minVal;
+          for (final fn in argFns) {
+            final v = fn(row);
+            if (v is! DbNull) {
+              if (minVal == null || v.compareTo(minVal) < 0) {
+                minVal = v;
+              }
+            }
+          }
+          return minVal ?? DbNull();
+        }
+        if (name == 'typeof' && argFns.isNotEmpty) {
+          final v = argFns[0](row);
+          return DbText(v.type.name.toUpperCase());
+        }
+        if (name == 'now' || name == 'current_timestamp') {
+          return DbDateTime(DateTime.now());
+        }
+        if (name == 'current_date') {
+          final dt = DateTime.now();
+          final m = dt.month.toString().padLeft(2, '0');
+          final d = dt.day.toString().padLeft(2, '0');
+          return DbText('${dt.year}-$m-$d');
+        }
+        if (name == 'gen_random_uuid' || name == 'uuid') {
+          final r = math.Random();
+          final u = List<int>.generate(16, (_) => r.nextInt(256));
+          u[6] = (u[6] & 0x0f) | 0x40;
+          u[8] = (u[8] & 0x3f) | 0x80;
+          final hex = u.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+          final uuidStr = '${hex.substring(0,8)}-${hex.substring(8,12)}-${hex.substring(12,16)}-${hex.substring(16,20)}-${hex.substring(20)}';
+          return DbUuid(uuidStr);
+        }
+        if (name == 'generate_series') {
+          final args = argFns.map((fn) => fn(row)).toList();
+          final start = args.isNotEmpty && args[0] is DbInt ? (args[0] as DbInt).value : int.tryParse(args.isNotEmpty ? args[0].toString() : '1') ?? 1;
+          final stop = args.length > 1 && args[1] is DbInt ? (args[1] as DbInt).value : int.tryParse(args.length > 1 ? args[1].toString() : '10') ?? 10;
+          final step = args.length > 2 && args[2] is DbInt ? (args[2] as DbInt).value : int.tryParse(args.length > 2 ? args[2].toString() : '1') ?? 1;
+          final list = <DbValue>[];
+          if (step > 0) {
+            for (int i = start; i <= stop; i += step) {
+              list.add(DbInt(i));
+            }
+          } else if (step < 0) {
+            for (int i = start; i >= stop; i += step) {
+              list.add(DbInt(i));
+            }
+          }
+          return DbList(list);
+        }
         if (name == 'ifnull' || name == 'nvl') {
           if (argFns.length < 2) return DbNull();
           final v1 = argFns[0](row);
@@ -660,6 +797,152 @@ class JitCompiler {
           final min = dt.minute.toString().padLeft(2, '0');
           final s = dt.second.toString().padLeft(2, '0');
           return DbText('${dt.year}-$m-$d $h:$min:$s');
+        }
+        if (name == 'abs' && argFns.isNotEmpty) {
+          final v = argFns[0](row);
+          if (v is DbInt) return DbInt(v.value.abs());
+          if (v is DbDouble) return DbDouble(v.value.abs());
+          if (v is DbDecimal) return DbDecimal(v.value.abs());
+          final numVal = num.tryParse(v.toString()) ?? 0;
+          return numVal is int ? DbInt(numVal.abs()) : DbDouble(numVal.abs().toDouble());
+        }
+        if (name == 'round' && argFns.isNotEmpty) {
+          final v = argFns[0](row);
+          final decimals = argFns.length > 1 ? (int.tryParse(argFns[1](row).toString()) ?? 0) : 0;
+          final d = double.tryParse(v.toString()) ?? 0.0;
+          if (decimals == 0) return DbInt(d.round());
+          final mod = math.pow(10, decimals);
+          return DbDouble((d * mod).round() / mod);
+        }
+        if ((name == 'ceil' || name == 'ceiling') && argFns.isNotEmpty) {
+          final d = double.tryParse(argFns[0](row).toString()) ?? 0.0;
+          return DbInt(d.ceil());
+        }
+        if (name == 'floor' && argFns.isNotEmpty) {
+          final d = double.tryParse(argFns[0](row).toString()) ?? 0.0;
+          return DbInt(d.floor());
+        }
+        if ((name == 'power' || name == 'pow') && argFns.length >= 2) {
+          final base = double.tryParse(argFns[0](row).toString()) ?? 0.0;
+          final exp = double.tryParse(argFns[1](row).toString()) ?? 0.0;
+          return DbDouble(math.pow(base, exp).toDouble());
+        }
+        if (name == 'sqrt' && argFns.isNotEmpty) {
+          final d = double.tryParse(argFns[0](row).toString()) ?? 0.0;
+          return DbDouble(math.sqrt(d));
+        }
+        if (name == 'mod' && argFns.length >= 2) {
+          final n1 = int.tryParse(argFns[0](row).toString()) ?? 0;
+          final n2 = int.tryParse(argFns[1](row).toString()) ?? 1;
+          return DbInt(n1 % n2);
+        }
+        if (name == 'sign' && argFns.isNotEmpty) {
+          final d = double.tryParse(argFns[0](row).toString()) ?? 0.0;
+          if (d > 0) return DbInt(1);
+          if (d < 0) return DbInt(-1);
+          return DbInt(0);
+        }
+        if (name == 'replace' && argFns.length >= 3) {
+          final str = argFns[0](row).toString();
+          final from = argFns[1](row).toString();
+          final to = argFns[2](row).toString();
+          return DbText(str.replaceAll(from, to));
+        }
+        if (name == 'lpad' && argFns.length >= 2) {
+          final str = argFns[0](row).toString();
+          final targetLen = int.tryParse(argFns[1](row).toString()) ?? str.length;
+          final padChar = argFns.length > 2 ? argFns[2](row).toString() : ' ';
+          return DbText(str.padLeft(targetLen, padChar));
+        }
+        if (name == 'rpad' && argFns.length >= 2) {
+          final str = argFns[0](row).toString();
+          final targetLen = int.tryParse(argFns[1](row).toString()) ?? str.length;
+          final padChar = argFns.length > 2 ? argFns[2](row).toString() : ' ';
+          return DbText(str.padRight(targetLen, padChar));
+        }
+        if (name == 'reverse' && argFns.isNotEmpty) {
+          final str = argFns[0](row).toString();
+          return DbText(str.split('').reversed.join());
+        }
+        if (name == 'regexp_like' && argFns.length >= 2) {
+          final str = argFns[0](row).toString();
+          final pat = argFns[1](row).toString();
+          return DbBool(RegExp(pat).hasMatch(str));
+        }
+        if (name == 'split_part' && argFns.length >= 3) {
+          final str = argFns[0](row).toString();
+          final delim = argFns[1](row).toString();
+          final idx = (int.tryParse(argFns[2](row).toString()) ?? 1) - 1;
+          final parts = str.split(delim);
+          if (idx >= 0 && idx < parts.length) return DbText(parts[idx]);
+          return DbText('');
+        }
+        if (name == 'initcap' && argFns.isNotEmpty) {
+          final str = argFns[0](row).toString();
+          final res = str.split(' ').map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+          return DbText(res);
+        }
+        if (name == 'date_add' && argFns.length >= 2) {
+          final val = argFns[0](row).toString();
+          final days = int.tryParse(argFns[1](row).toString()) ?? 0;
+          final dt = DateTime.tryParse(val) ?? DateTime.now();
+          final added = dt.add(Duration(days: days));
+          final m = added.month.toString().padLeft(2, '0');
+          final d = added.day.toString().padLeft(2, '0');
+          return DbText('${added.year}-$m-$d');
+        }
+        if (name == 'date_sub' && argFns.length >= 2) {
+          final val = argFns[0](row).toString();
+          final days = int.tryParse(argFns[1](row).toString()) ?? 0;
+          final dt = DateTime.tryParse(val) ?? DateTime.now();
+          final subbed = dt.subtract(Duration(days: days));
+          final m = subbed.month.toString().padLeft(2, '0');
+          final d = subbed.day.toString().padLeft(2, '0');
+          return DbText('${subbed.year}-$m-$d');
+        }
+        if (name == 'date_trunc' && argFns.length >= 2) {
+          final unit = argFns[0](row).toString().toLowerCase();
+          final val = argFns[1](row).toString();
+          final dt = DateTime.tryParse(val) ?? DateTime.now();
+          if (unit == 'year') return DbText('${dt.year}-01-01 00:00:00');
+          if (unit == 'month') return DbText('${dt.year}-${dt.month.toString().padLeft(2, '0')}-01 00:00:00');
+          if (unit == 'day') return DbText('${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} 00:00:00');
+          if (unit == 'hour') return DbText('${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:00:00');
+          return DbText(dt.toIso8601String());
+        }
+        if (name == 'extract' && argFns.length >= 2) {
+          final part = argFns[0](row).toString().toLowerCase();
+          final val = argFns[1](row).toString();
+          final dt = DateTime.tryParse(val) ?? DateTime.now();
+          if (part == 'year') return DbInt(dt.year);
+          if (part == 'month') return DbInt(dt.month);
+          if (part == 'day') return DbInt(dt.day);
+          if (part == 'hour') return DbInt(dt.hour);
+          if (part == 'minute') return DbInt(dt.minute);
+          if (part == 'second') return DbInt(dt.second);
+          return DbInt(0);
+        }
+        if (name == 'json_array') {
+          final items = argFns.map((fn) => fn(row).toString()).toList();
+          return DbJson(items);
+        }
+        if (name == 'json_object') {
+          final map = <String, dynamic>{};
+          for (int i = 0; i < argFns.length - 1; i += 2) {
+            final k = argFns[i](row).toString();
+            final v = argFns[i+1](row);
+            map[k] = v is DbInt ? v.value : (v is DbDouble ? v.value : v.toString());
+          }
+          return DbJson(map);
+        }
+        if (name == 'version') {
+          return DbText('ULTSQL v1.0.12 (Pure-Dart Converged Database Engine)');
+        }
+        if ((name == 'position' || name == 'strpos') && argFns.length >= 2) {
+          final sub = argFns[0](row).toString();
+          final str = argFns[1](row).toString();
+          final pos = str.indexOf(sub);
+          return DbInt(pos == -1 ? 0 : pos + 1);
         }
         if (name == 'strftime') {
           if (argFns.length < 2) return DbNull();

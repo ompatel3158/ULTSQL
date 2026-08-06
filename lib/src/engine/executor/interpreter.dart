@@ -489,6 +489,9 @@ class Interpreter {
           _referencingTablesCache.clear();
           _insertSchemaCache.clear();
           _insertClosuresCache.clear();
+          _astCache.clear();
+          _jitCache.clear();
+          _schemaKeyToIndexCache.clear();
         }
         
         if (!db.cache.isTransactionActive) {
@@ -602,6 +605,21 @@ class Interpreter {
     }
     if (node is ForLoopStmt) {
       return _executeForSync(node);
+    }
+    if (node is DescribeTableStmt) {
+      return _executeDescribeTable(node);
+    }
+    if (node is ShowColumnsStmt) {
+      return _executeShowColumns(node);
+    }
+    if (node is ShowSchemasStmt) {
+      return _executeShowSchemas();
+    }
+    if (node is PragmaTableInfoStmt) {
+      return _executePragmaTableInfo(node);
+    }
+    if (node is TruncateTableStmt) {
+      return _executeTruncateTable(node);
     }
     if (node is DropTableStmt) {
       return _executeDropTable(node);
@@ -865,6 +883,9 @@ END;
   QueryResult _executeCreateTable(CreateTableStmt stmt) {
     final tableName = stmt.tableName.toLowerCase();
     if (db.catalog.hasTable(tableName)) {
+      if (stmt.ifNotExists) {
+        return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' already exists.");
+      }
       throw Exception("Table '$tableName' already exists.");
     }
 
@@ -1357,6 +1378,49 @@ END;
     return QueryResult(columns: [], rows: [], message: "Switched to database '${stmt.name}'.");
   }
 
+  DbValue _coerceDbValue(DbValue val, DataType expectedType, String colName) {
+    if (val is DbNull || val.type == expectedType) return val;
+
+    if (expectedType == DataType.double && val is DbInt) {
+      return DbDouble(val.value.toDouble());
+    }
+    if (expectedType == DataType.json && val is DbText) {
+      try {
+        return DbJson(json.decode(val.value));
+      } catch (_) {
+        throw Exception("Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.");
+      }
+    }
+    if (expectedType == DataType.vector && val is DbText) {
+      final vec = _parseVectorFromString(val.value);
+      if (vec != null) return vec;
+      throw Exception("Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.");
+    }
+    if (expectedType == DataType.boolean) {
+      if (val is DbInt) return DbBool(val.value != 0);
+      if (val is DbText) return DbBool(val.value.toLowerCase() == 'true' || val.value == '1');
+    }
+    if (expectedType == DataType.uuid && val is DbText) {
+      return DbUuid(val.value);
+    }
+    if (expectedType == DataType.datetime && val is DbText) {
+      final dt = DateTime.tryParse(val.value);
+      if (dt != null) return DbDateTime(dt);
+    }
+    if (expectedType == DataType.blob) {
+      if (val is DbText) return DbBlob(Uint8List.fromList(utf8.encode(val.value)));
+    }
+    if (expectedType == DataType.decimal) {
+      if (val is DbInt) return DbDecimal(val.value.toDouble());
+      if (val is DbDouble) return DbDecimal(val.value);
+      if (val is DbText) {
+        final d = double.tryParse(val.value);
+        if (d != null) return DbDecimal(d);
+      }
+    }
+    throw Exception("Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.");
+  }
+
   QueryResult _executeInsert(InsertStmt stmt) {
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'insert')) {
       throw Exception("Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
@@ -1400,28 +1464,7 @@ END;
           final paramIdx = placeholderIndices[i];
           final val = paramIdx < params.length ? params[paramIdx] : DbNull();
           final expectedType = schema.columnTypes[i];
-          DbValue coercedVal = val;
-          if (coercedVal is! DbNull && coercedVal.type != expectedType) {
-            if (expectedType == DataType.double && coercedVal is DbInt) {
-              coercedVal = DbDouble(coercedVal.value.toDouble());
-            } else if (expectedType == DataType.json && coercedVal is DbText) {
-              try {
-                coercedVal = DbJson(json.decode(coercedVal.value));
-              } catch (_) {
-                throw Exception("Type mismatch for column '${schema.columnNames[i]}'. Expected $expectedType, found ${val.type}.");
-              }
-            } else if (expectedType == DataType.vector && coercedVal is DbText) {
-              final vec = _parseVectorFromString(coercedVal.value);
-              if (vec != null) {
-                coercedVal = vec;
-              } else {
-                throw Exception("Type mismatch for column '${schema.columnNames[i]}'. Expected $expectedType, found ${val.type}.");
-              }
-            } else {
-              throw Exception("Type mismatch for column '${schema.columnNames[i]}'. Expected $expectedType, found ${val.type}.");
-            }
-          }
-          rowValues[i] = coercedVal;
+          rowValues[i] = _coerceDbValue(val, expectedType, schema.columnNames[i]);
         }
       }
     } else {
@@ -1431,28 +1474,7 @@ END;
       for (int i = 0; i < len; i++) {
         final val = closures[i](_env);
         final expectedType = schema.columnTypes[i];
-        DbValue coercedVal = val;
-        if (coercedVal is! DbNull && coercedVal.type != expectedType) {
-          if (expectedType == DataType.double && coercedVal is DbInt) {
-            coercedVal = DbDouble(coercedVal.value.toDouble());
-          } else if (expectedType == DataType.json && coercedVal is DbText) {
-            try {
-              coercedVal = DbJson(json.decode(coercedVal.value));
-            } catch (_) {
-              throw Exception("Type mismatch for column '${schema.columnNames[i]}'. Expected $expectedType, found ${val.type}.");
-            }
-          } else if (expectedType == DataType.vector && coercedVal is DbText) {
-            final vec = _parseVectorFromString(coercedVal.value);
-            if (vec != null) {
-              coercedVal = vec;
-            } else {
-              throw Exception("Type mismatch for column '${schema.columnNames[i]}'. Expected $expectedType, found ${val.type}.");
-            }
-          } else {
-            throw Exception("Type mismatch for column '${schema.columnNames[i]}'. Expected $expectedType, found ${val.type}.");
-          }
-        }
-        rowValues[i] = coercedVal;
+        rowValues[i] = _coerceDbValue(val, expectedType, schema.columnNames[i]);
       }
     }
 
@@ -2305,6 +2327,83 @@ END;
     }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
+
+    if (tableName == 'information_schema.tables' || tableName == 'information.tables') {
+      final cols = ['table_catalog', 'table_schema', 'table_name', 'table_type', 'is_columnar'];
+      final rows = <List<DbValue>>[];
+      db.catalog.getTablesInternal().forEach((name, s) {
+        rows.add([
+          DbText('ultsql'),
+          DbText('public'),
+          DbText(s.name),
+          DbText('BASE TABLE'),
+          DbBool(s.isColumnar),
+        ]);
+      });
+      return QueryResult(columns: cols, rows: rows, message: "${rows.length} tables found.");
+    }
+    if (tableName == 'information_schema.columns' || tableName == 'information.columns') {
+      final cols = ['table_catalog', 'table_schema', 'table_name', 'column_name', 'ordinal_position', 'data_type', 'is_nullable'];
+      final rows = <List<DbValue>>[];
+      db.catalog.getTablesInternal().forEach((tblName, s) {
+        for (int i = 0; i < s.columnNames.length; i++) {
+          rows.add([
+            DbText('ultsql'),
+            DbText('public'),
+            DbText(s.name),
+            DbText(s.columnNames[i]),
+            DbInt(i + 1),
+            DbText(s.columnTypes[i].name.toUpperCase()),
+            DbText('YES'),
+          ]);
+        }
+      });
+      return QueryResult(columns: cols, rows: rows, message: "${rows.length} columns found.");
+    }
+    if (tableName == 'information_schema.schemata' || tableName == 'information.schemata') {
+      return QueryResult(
+        columns: ['catalog_name', 'schema_name', 'schema_owner'],
+        rows: [
+          [DbText('ultsql'), DbText('public'), DbText(currentUser)]
+        ],
+        message: "1 schema found.",
+      );
+    }
+    if (stmt.fromFunction?.name.toLowerCase() == 'generate_series' || tableName == 'generate_series') {
+      final func = stmt.fromFunction;
+      final args = func?.arguments ?? [];
+      int start = 1;
+      int stop = 10;
+      int step = 1;
+      if (args.isNotEmpty) {
+        final v0 = JitCompiler.compile(args[0])({});
+        if (v0 is DbInt) start = v0.value;
+        else start = int.tryParse(v0.toString()) ?? 1;
+      }
+      if (args.length > 1) {
+        final v1 = JitCompiler.compile(args[1])({});
+        if (v1 is DbInt) stop = v1.value;
+        else stop = int.tryParse(v1.toString()) ?? 10;
+      }
+      if (args.length > 2) {
+        final v2 = JitCompiler.compile(args[2])({});
+        if (v2 is DbInt) step = v2.value;
+        else step = int.tryParse(v2.toString()) ?? 1;
+      }
+      final rows = <List<DbValue>>[];
+      if (step > 0) {
+        for (int i = start; i <= stop; i += step) {
+          rows.add([DbInt(i)]);
+        }
+      } else if (step < 0) {
+        for (int i = start; i >= stop; i += step) {
+          rows.add([DbInt(i)]);
+        }
+      }
+      final colName = stmt.tableAlias ?? 'generate_series';
+      return QueryResult(columns: [colName], rows: rows, message: "${rows.length} rows generated.");
+    }
+
     final schema = db.catalog.getTableSchema(tableName);
     
     if (schema != null &&
@@ -3574,21 +3673,117 @@ END;
   }
 
   QueryResult _executeDropTable(DropTableStmt stmt) {
-    db.catalog.tables.remove(stmt.tableName);
-    final tableFile = File('${db.directory}/${stmt.tableName}.db');
-    if (tableFile.existsSync()) {
-      tableFile.deleteSync();
+    final cleanName = _cleanTableName(stmt.tableName);
+    if (!db.catalog.hasTable(cleanName)) {
+      if (stmt.ifExists) {
+        return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' does not exist.");
+      }
+      throw Exception("Table '${stmt.tableName}' does not exist.");
     }
-    db.catalog.save();
+    _flushActiveTablePages();
+    _resetActiveTablePages();
+    _rowTableCache.remove(cleanName);
+    _rowTableCache.remove(stmt.tableName.toLowerCase());
+    db.catalog.removeTable(cleanName, saveToFile: true);
+
+    final tableFile = File('${db.directory}/$cleanName.db');
+    if (tableFile.existsSync()) {
+      try {
+        tableFile.deleteSync();
+      } catch (_) {}
+    }
     return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' dropped successfully.");
   }
 
   QueryResult _executeDropIndex(DropIndexStmt stmt) {
     final idxFile = File('${db.directory}/${stmt.indexName}.idx');
     if (idxFile.existsSync()) {
-      idxFile.deleteSync();
+      try {
+        idxFile.deleteSync();
+      } catch (_) {}
     }
     return QueryResult(columns: [], rows: [], message: "Index '${stmt.indexName}' dropped successfully.");
+  }
+
+  String _cleanTableName(String raw) {
+    var name = raw.trim();
+    if (name.length >= 2 && ((name.startsWith("'") && name.endsWith("'")) || (name.startsWith('"') && name.endsWith('"')))) {
+      name = name.substring(1, name.length - 1);
+    }
+    return name.toLowerCase();
+  }
+
+  QueryResult _executeDescribeTable(DescribeTableStmt stmt) {
+    final cleanName = _cleanTableName(stmt.tableName);
+    final s = db.catalog.getTableSchema(cleanName);
+    if (s == null) {
+      throw Exception("Table '${stmt.tableName}' does not exist.");
+    }
+    final cols = ['column_name', 'data_type', 'nullable'];
+    final rows = <List<DbValue>>[];
+    for (int i = 0; i < s.columnNames.length; i++) {
+      rows.add([
+        DbText(s.columnNames[i]),
+        DbText(s.columnTypes[i].name.toUpperCase()),
+        DbText('YES'),
+      ]);
+    }
+    return QueryResult(columns: cols, rows: rows, message: "${rows.length} columns described.");
+  }
+
+  QueryResult _executeShowColumns(ShowColumnsStmt stmt) {
+    return _executeDescribeTable(DescribeTableStmt(_cleanTableName(stmt.tableName)));
+  }
+
+  QueryResult _executeShowSchemas() {
+    return QueryResult(
+      columns: ['schema_name'],
+      rows: [
+        [DbText('public')],
+        [DbText('information_schema')],
+      ],
+      message: "2 schemas found.",
+    );
+  }
+
+  QueryResult _executePragmaTableInfo(PragmaTableInfoStmt stmt) {
+    final cleanName = _cleanTableName(stmt.tableName);
+    final s = db.catalog.getTableSchema(cleanName);
+    if (s == null) {
+      throw Exception("Table '${stmt.tableName}' does not exist.");
+    }
+    final cols = ['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk'];
+    final rows = <List<DbValue>>[];
+    for (int i = 0; i < s.columnNames.length; i++) {
+      rows.add([
+        DbInt(i),
+        DbText(s.columnNames[i]),
+        DbText(s.columnTypes[i].name.toUpperCase()),
+        DbInt(0),
+        DbNull(),
+        DbInt(0),
+      ]);
+    }
+    return QueryResult(columns: cols, rows: rows, message: "${rows.length} columns found.");
+  }
+
+  QueryResult _executeTruncateTable(TruncateTableStmt stmt) {
+    final cleanName = _cleanTableName(stmt.tableName);
+    final s = db.catalog.getTableSchema(cleanName);
+    if (s == null) {
+      throw Exception("Table '$cleanName' does not exist.");
+    }
+    _flushActiveTablePages();
+    _resetActiveTablePages();
+    _rowTableCache.remove(cleanName);
+    _rowTableCache.remove(stmt.tableName.toLowerCase());
+    final tableFile = File('${db.directory}/$cleanName.db');
+    if (tableFile.existsSync()) {
+      try {
+        tableFile.deleteSync();
+      } catch (_) {}
+    }
+    return QueryResult(columns: [], rows: [], message: "Table '$cleanName' truncated successfully.");
   }
 }
 

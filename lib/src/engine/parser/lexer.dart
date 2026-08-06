@@ -72,18 +72,42 @@ class Lexer {
     'double': TokenType.typeDouble,
     'real': TokenType.typeDouble,
     'float': TokenType.typeDouble,
-    'decimal': TokenType.typeDouble,
-    'numeric': TokenType.typeDouble,
+    'decimal': TokenType.typeDecimal,
+    'numeric': TokenType.typeDecimal,
     'text': TokenType.typeText,
     'varchar': TokenType.typeText,
     'char': TokenType.typeText,
     'string': TokenType.typeText,
     'vector': TokenType.typeVector,
     'json': TokenType.typeJson,
+    'bool': TokenType.typeBool,
+    'boolean': TokenType.typeBool,
+    'uuid': TokenType.typeUuid,
+    'guid': TokenType.typeUuid,
+    'datetime': TokenType.typeDateTime,
+    'timestamp': TokenType.typeDateTime,
+    'date': TokenType.typeDateTime,
+    'blob': TokenType.typeBlob,
+    'bytea': TokenType.typeBlob,
+    'bytes': TokenType.typeBlob,
+    'true': TokenType.trueKeyword,
+    'false': TokenType.falseKeyword,
+    'cast': TokenType.castKeyword,
+    'pragma': TokenType.pragmaKeyword,
+    'describe': TokenType.describeKeyword,
+    'columns': TokenType.columnsKeyword,
+    'schemas': TokenType.schemasKeyword,
+    'truncate': TokenType.truncateKeyword,
+    'exists': TokenType.existsKeyword,
+    'ilike': TokenType.ilikeKeyword,
     'not': TokenType.notKeyword,
     'null': TokenType.nullKeyword,
     'policy': TokenType.policyKeyword,
     'using': TokenType.usingKeyword,
+    'conflict': TokenType.conflictKeyword,
+    'do': TokenType.doKeyword,
+    'nothing': TokenType.nothingKeyword,
+    'replace': TokenType.replaceKeyword,
     'procedure': TokenType.procedureKeyword,
     'function': TokenType.functionKeyword,
     'returns': TokenType.returnsKeyword,
@@ -280,6 +304,9 @@ class Lexer {
         if (_peek() == '=') {
           _advance();
           return Token(TokenType.assign, ':=', startLine, startCol);
+        } else if (_peek() == ':') {
+          _advance();
+          return Token(TokenType.doubleColon, '::', startLine, startCol);
         }
         return Token(TokenType.invalid, ':', startLine, startCol);
       case '|':
@@ -288,6 +315,8 @@ class Lexer {
           return Token(TokenType.concat, '||', startLine, startCol);
         }
         return Token(TokenType.invalid, '|', startLine, startCol);
+      case '~':
+        return Token(TokenType.tilde, '~', startLine, startCol);
       case '?':
         return Token(TokenType.placeholder, '?', startLine, startCol);
       case '\$':

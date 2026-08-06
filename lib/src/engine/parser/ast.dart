@@ -3,7 +3,12 @@ enum DataType {
   double,
   text,
   vector,
-  json
+  json,
+  boolean,
+  uuid,
+  datetime,
+  blob,
+  decimal
 }
 
 abstract class ASTNode {}
@@ -178,7 +183,8 @@ class CreateTableStmt extends Stmt {
   final List<ColumnDef> columns;
   final PartitionByClause? partitionBy;
   final PartitionOfClause? partitionOf;
-  CreateTableStmt(this.tableName, this.columns, {this.partitionBy, this.partitionOf});
+  final bool ifNotExists;
+  CreateTableStmt(this.tableName, this.columns, {this.partitionBy, this.partitionOf, this.ifNotExists = false});
 }
 
 class CreateForeignTableStmt extends Stmt {
@@ -247,7 +253,20 @@ class InsertStmt extends Stmt {
   final String tableName;
   final List<Expression> values;
   final List<String>? columnNames;
-  InsertStmt(this.tableName, this.values, [this.columnNames]);
+  final bool isReplace;
+  final bool onConflictDoNothing;
+  final String? conflictTargetColumn;
+  final Map<String, Expression>? updateAssignments;
+
+  InsertStmt(
+    this.tableName,
+    this.values, [
+    this.columnNames,
+    this.isReplace = false,
+    this.onConflictDoNothing = false,
+    this.conflictTargetColumn,
+    this.updateAssignments,
+  ]);
 }
 
 class DeleteStmt extends Stmt {
@@ -603,9 +622,40 @@ class CaseExpr extends Expression {
   CaseExpr(this.whenBranches, [this.elseBranch]);
 }
 
+class CastExpr extends Expression {
+  final Expression expr;
+  final DataType targetType;
+  CastExpr(this.expr, this.targetType);
+}
+
 class DropTableStmt extends Stmt {
   final String tableName;
-  DropTableStmt(this.tableName);
+  final bool ifExists;
+  DropTableStmt(this.tableName, {this.ifExists = false});
+}
+
+class DescribeTableStmt extends Stmt {
+  final String tableName;
+  DescribeTableStmt(this.tableName);
+}
+
+class ShowColumnsStmt extends Stmt {
+  final String tableName;
+  ShowColumnsStmt(this.tableName);
+}
+
+class ShowSchemasStmt extends Stmt {
+  ShowSchemasStmt();
+}
+
+class PragmaTableInfoStmt extends Stmt {
+  final String tableName;
+  PragmaTableInfoStmt(this.tableName);
+}
+
+class TruncateTableStmt extends Stmt {
+  final String tableName;
+  TruncateTableStmt(this.tableName);
 }
 
 class DropIndexStmt extends Stmt {
@@ -659,6 +709,8 @@ String exprToSqlString(Expression expr) {
   } else if (expr is GroupingSetsExpr) {
     final setsStrings = expr.sets.map((s) => '(${s.map(exprToSqlString).join(', ')})').join(', ');
     res = 'GROUPING SETS($setsStrings)';
+  } else if (expr is CastExpr) {
+    res = 'CAST(${exprToSqlString(expr.expr)} AS ${expr.targetType.name.toUpperCase()})';
   } else {
     res = expr.toString();
   }

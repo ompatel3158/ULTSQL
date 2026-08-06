@@ -178,7 +178,18 @@ class Parser {
 
   DataType _parseDataType() {
     Token token;
-    if (_match([TokenType.typeInt, TokenType.typeDouble, TokenType.typeText, TokenType.typeVector, TokenType.typeJson])) {
+    if (_match([
+      TokenType.typeInt,
+      TokenType.typeDouble,
+      TokenType.typeText,
+      TokenType.typeVector,
+      TokenType.typeJson,
+      TokenType.typeBool,
+      TokenType.typeUuid,
+      TokenType.typeDateTime,
+      TokenType.typeBlob,
+      TokenType.typeDecimal
+    ])) {
       token = _previous();
     } else if (_check(TokenType.identifier)) {
       token = _advance();
@@ -197,14 +208,24 @@ class Parser {
     final typeStr = token.lexeme.toLowerCase();
     if (typeStr == 'int' || typeStr == 'integer' || typeStr == 'bigint' || typeStr == 'smallint') {
       return DataType.integer;
-    } else if (typeStr == 'double' || typeStr == 'real' || typeStr == 'float' || typeStr == 'decimal' || typeStr == 'numeric') {
+    } else if (typeStr == 'double' || typeStr == 'real' || typeStr == 'float') {
       return DataType.double;
+    } else if (typeStr == 'decimal' || typeStr == 'numeric') {
+      return DataType.decimal;
     } else if (typeStr == 'text' || typeStr == 'varchar' || typeStr == 'char' || typeStr == 'string') {
       return DataType.text;
     } else if (typeStr == 'vector') {
       return DataType.vector;
     } else if (typeStr == 'json') {
       return DataType.json;
+    } else if (typeStr == 'bool' || typeStr == 'boolean') {
+      return DataType.boolean;
+    } else if (typeStr == 'uuid' || typeStr == 'guid') {
+      return DataType.uuid;
+    } else if (typeStr == 'datetime' || typeStr == 'timestamp' || typeStr == 'date') {
+      return DataType.datetime;
+    } else if (typeStr == 'blob' || typeStr == 'bytea' || typeStr == 'bytes') {
+      return DataType.blob;
     }
     throw Exception("Unsupported data type '$typeStr'.");
   }
@@ -410,14 +431,61 @@ class Parser {
     }
     if (_match([TokenType.dropKeyword])) {
       if (_match([TokenType.table])) {
+        bool ifExists = false;
+        if (_match([TokenType.ifKeyword])) {
+          if (_match([TokenType.existsKeyword])) {
+            ifExists = true;
+          }
+        } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'if') {
+          _advance();
+          if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'exists') {
+            _advance();
+            ifExists = true;
+          }
+        }
         final tableName = _consume(TokenType.identifier, "Expected table name after 'DROP TABLE'.").lexeme;
         if (_check(TokenType.semicolon)) _advance();
-        return DropTableStmt(tableName);
+        return DropTableStmt(tableName, ifExists: ifExists);
       } else if (_match([TokenType.indexKeyword])) {
         final indexName = _consume(TokenType.identifier, "Expected index name after 'DROP INDEX'.").lexeme;
         if (_check(TokenType.semicolon)) _advance();
         return DropIndexStmt(indexName);
       }
+    }
+    if (_match([TokenType.describeKeyword])) {
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name after DESCRIBE.");
+      if (_check(TokenType.semicolon)) _advance();
+      return DescribeTableStmt(tableNameToken.lexeme);
+    }
+    if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'desc') {
+      _advance();
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name after DESC.");
+      if (_check(TokenType.semicolon)) _advance();
+      return DescribeTableStmt(tableNameToken.lexeme);
+    }
+    if (_match([TokenType.pragmaKeyword])) {
+      final pragmaNameToken = _consume(TokenType.identifier, "Expected pragma name.");
+      if (pragmaNameToken.lexeme.toLowerCase() == 'table_info') {
+        _consume(TokenType.lParen, "Expected '(' after table_info.");
+        String tableName = '';
+        if (_match([TokenType.stringLiteral])) {
+          tableName = _previous().lexeme;
+          if (tableName.startsWith("'") || tableName.startsWith('"')) {
+            tableName = tableName.substring(1, tableName.length - 1);
+          }
+        } else {
+          tableName = _consume(TokenType.identifier, "Expected table name in PRAGMA table_info.").lexeme;
+        }
+        _consume(TokenType.rParen, "Expected ')' after table name in PRAGMA table_info.");
+        if (_check(TokenType.semicolon)) _advance();
+        return PragmaTableInfoStmt(tableName);
+      }
+    }
+    if (_match([TokenType.truncateKeyword])) {
+      if (_match([TokenType.table])) {}
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name after TRUNCATE.");
+      if (_check(TokenType.semicolon)) _advance();
+      return TruncateTableStmt(tableNameToken.lexeme);
     }
     if (_match([TokenType.alterKeyword])) {
       return _parseAlterTableStatement();
@@ -462,6 +530,9 @@ class Parser {
     }
     if (_match([TokenType.insert])) {
       return _parseInsertStatement();
+    }
+    if (_match([TokenType.replaceKeyword])) {
+      return _parseInsertStatement(isReplace: true);
     }
     if (_match([TokenType.withKeyword])) {
       return _parseCteStatement();
@@ -684,8 +755,17 @@ class Parser {
       }
       if (_check(TokenType.semicolon)) _advance();
       return ShowIndexesStmt(tableName: tableName);
+    } else if (_match([TokenType.columnsKeyword])) {
+      if (_match([TokenType.from]) || _match([TokenType.inKeyword])) {}
+      final tableNameToken = _consume(TokenType.identifier, "Expected table name after SHOW COLUMNS.");
+      if (_check(TokenType.semicolon)) _advance();
+      return ShowColumnsStmt(tableNameToken.lexeme);
+    } else if (_match([TokenType.schemasKeyword]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'databases')) {
+      if (_check(TokenType.identifier)) _advance();
+      if (_check(TokenType.semicolon)) _advance();
+      return ShowSchemasStmt();
     }
-    throw Exception("Expected 'TABLES' or 'INDEXES' after 'SHOW'.");
+    throw Exception("Expected 'TABLES', 'INDEXES', 'COLUMNS', or 'SCHEMAS' after 'SHOW'.");
   }
 
   Stmt _parseCreateStatement() {
@@ -864,6 +944,22 @@ class Parser {
       if (_check(TokenType.semicolon)) _advance();
       return CreateForeignTableStmt(tableName, columns, serverName, options);
     } else if (_match([TokenType.table])) {
+      bool ifNotExists = false;
+      if (_match([TokenType.ifKeyword])) {
+        if (_match([TokenType.notKeyword])) {
+          _match([TokenType.existsKeyword]);
+          ifNotExists = true;
+        }
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'if') {
+        _advance();
+        if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'not') {
+          _advance();
+          if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'exists') {
+            _advance();
+            ifNotExists = true;
+          }
+        }
+      }
       final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
       final tableName = tableNameToken.lexeme;
       
@@ -895,15 +991,20 @@ class Parser {
       PartitionByClause? partitionBy;
       if (partitionOf == null && _match([TokenType.partition])) {
         _consume(TokenType.by, "Expected 'BY' after 'PARTITION'.");
-        _consume(TokenType.rangeKeyword, "Expected 'RANGE' after 'PARTITION BY'.");
+        String strategy;
+        if (_match([TokenType.rangeKeyword])) {
+          strategy = 'RANGE';
+        } else {
+          throw Exception("Unsupported partitioning strategy.");
+        }
         _consume(TokenType.lParen, "Expected '('.");
         final colName = _consume(TokenType.identifier, "Expected column name.").lexeme;
         _consume(TokenType.rParen, "Expected ')'.");
-        partitionBy = PartitionByClause('RANGE', colName);
+        partitionBy = PartitionByClause(strategy, colName);
       }
 
       if (_check(TokenType.semicolon)) _advance();
-      return CreateTableStmt(tableName, columns, partitionBy: partitionBy, partitionOf: partitionOf);
+      return CreateTableStmt(tableName, columns, partitionBy: partitionBy, partitionOf: partitionOf, ifNotExists: ifNotExists);
     } else if (_match([TokenType.relationship])) {
       final relNameToken = _consume(TokenType.identifier, "Expected relationship name.");
       final relName = relNameToken.lexeme;
@@ -1091,7 +1192,7 @@ class Parser {
     }
   }
 
-  Stmt _parseInsertStatement() {
+  Stmt _parseInsertStatement({bool isReplace = false}) {
     _consume(TokenType.into, "Expected 'INTO' keyword.");
     final tableNameToken = _consume(TokenType.identifier, "Expected table name.");
     final tableName = tableNameToken.lexeme;
@@ -1115,11 +1216,46 @@ class Parser {
     } while (_match([TokenType.comma]));
 
     _consume(TokenType.rParen, "Expected ')' to close values list.");
+
+    bool onConflictDoNothing = false;
+    String? conflictTargetColumn;
+    Map<String, Expression>? updateAssignments;
+
+    if (_match([TokenType.on])) {
+      _consume(TokenType.conflictKeyword, "Expected 'CONFLICT' after ON.");
+      if (_match([TokenType.lParen])) {
+        final targetColToken = _consume(TokenType.identifier, "Expected conflict target column name.");
+        conflictTargetColumn = targetColToken.lexeme;
+        _consume(TokenType.rParen, "Expected ')' after conflict target column.");
+      }
+      _consume(TokenType.doKeyword, "Expected 'DO' after ON CONFLICT.");
+      if (_match([TokenType.nothingKeyword])) {
+        onConflictDoNothing = true;
+      } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'update') {
+        _advance();
+        _consume(TokenType.setKeyword, "Expected 'SET' after DO UPDATE.");
+        updateAssignments = {};
+        do {
+          final colToken = _consume(TokenType.identifier, "Expected column name in SET clause.");
+          _consume(TokenType.assign, "Expected '=' in SET clause.");
+          final expr = _parseExpression();
+          updateAssignments[colToken.lexeme] = expr;
+        } while (_match([TokenType.comma]));
+      }
+    }
     
     // Optional trailing semicolon
     if (_check(TokenType.semicolon)) _advance();
 
-    return InsertStmt(tableName, values, targetColumns);
+    return InsertStmt(
+      tableName,
+      values,
+      targetColumns,
+      isReplace,
+      onConflictDoNothing,
+      conflictTargetColumn,
+      updateAssignments,
+    );
   }
 
   Stmt _parseSelectStatement() {
@@ -1163,8 +1299,8 @@ class Parser {
         } else {
           throw Exception("Expected SelectStmt inside FROM subquery.");
         }
-      } else if (_check(TokenType.identifier) && _peekNext().type == TokenType.lParen) {
-        final funcNameToken = _consume(TokenType.identifier, "Expected function name.");
+      } else if ((_check(TokenType.identifier) || _check(TokenType.generate)) && _peekNext().type == TokenType.lParen) {
+        final funcNameToken = _advance();
         final funcName = funcNameToken.lexeme;
         _consume(TokenType.lParen, "Expected '(' after function name.");
         final args = <Expression>[];
@@ -1177,8 +1313,17 @@ class Parser {
         fromFunction = FunctionCallExpr(funcName, args);
         tableName = funcName;
       } else {
-        final tableNameToken = _consume(TokenType.identifier, "Expected source table name.");
-        tableName = tableNameToken.lexeme;
+        final parts = <String>[];
+        do {
+          if (_match([TokenType.identifier, TokenType.tablesKeyword, TokenType.columnsKeyword, TokenType.schemasKeyword, TokenType.systemKeyword, TokenType.generate])) {
+            parts.add(_previous().lexeme);
+          } else if (_check(TokenType.identifier)) {
+            parts.add(_advance().lexeme);
+          } else {
+            throw Exception("Expected source table name.");
+          }
+        } while (_match([TokenType.dot]));
+        tableName = parts.join('.');
       }
     }
 
@@ -1513,7 +1658,9 @@ class Parser {
       TokenType.lessThanOrEquals,
       TokenType.greaterThan,
       TokenType.greaterThanOrEquals,
-      TokenType.likeKeyword
+      TokenType.likeKeyword,
+      TokenType.ilikeKeyword,
+      TokenType.tilde
     ])) {
       final operatorToken = _previous();
       final right = _parseAdditive();
@@ -1560,6 +1707,17 @@ class Parser {
       } else {
         throw Exception("Unknown placeholder format: $lex");
       }
+    } else if (_match([TokenType.minus])) {
+      final right = _parsePrimary();
+      if (right is LiteralExpr && right.value is num) {
+        expr = LiteralExpr(-(right.value as num));
+      } else {
+        expr = BinaryExpr('-', LiteralExpr(0), right);
+      }
+    } else if (_match([TokenType.trueKeyword])) {
+      expr = LiteralExpr(true);
+    } else if (_match([TokenType.falseKeyword])) {
+      expr = LiteralExpr(false);
     } else if (_match([TokenType.nullKeyword])) {
       expr = LiteralExpr(null);
     } else if (_match([TokenType.numberLiteral])) {
@@ -1583,7 +1741,30 @@ class Parser {
       }
       _consume(TokenType.rBracket, "Expected ']' to close vector literal.");
       expr = VectorLiteralExpr(elements);
-    } else if (_match([TokenType.identifier, TokenType.matchKeyword, TokenType.timeKeyword])) {
+    } else if (_match([TokenType.castKeyword])) {
+      _consume(TokenType.lParen, "Expected '(' after CAST.");
+      final innerExpr = _parseExpression();
+      _consume(TokenType.as, "Expected 'AS' inside CAST.");
+      final targetType = _parseDataType();
+      _consume(TokenType.rParen, "Expected ')' to close CAST.");
+      expr = CastExpr(innerExpr, targetType);
+    } else if (_match([
+      TokenType.identifier,
+      TokenType.matchKeyword,
+      TokenType.timeKeyword,
+      TokenType.generate,
+      TokenType.typeInt,
+      TokenType.typeDouble,
+      TokenType.typeText,
+      TokenType.typeVector,
+      TokenType.typeJson,
+      TokenType.typeBool,
+      TokenType.typeUuid,
+      TokenType.typeDateTime,
+      TokenType.typeBlob,
+      TokenType.typeDecimal,
+      TokenType.replaceKeyword
+    ])) {
       final firstId = _previous().lexeme;
       if (firstId.toLowerCase() == 'match' || firstId.toLowerCase() == 'contains') {
         _consume(TokenType.lParen, "Expected '(' after MATCH.");
@@ -1618,7 +1799,7 @@ class Parser {
         _consume(TokenType.as, "Expected 'AS' inside CAST.");
         final targetType = _parseDataType();
         _consume(TokenType.rParen, "Expected ')' to close CAST.");
-        expr = FunctionCallExpr('cast', [innerExpr, LiteralExpr(targetType.toString())]);
+        expr = CastExpr(innerExpr, targetType);
       } else if (_check(TokenType.lParen)) {
         _advance(); // consume '('
         List<Expression> arguments = [];
@@ -1689,7 +1870,7 @@ class Parser {
       throw Exception("Unexpected token '${_peek().lexeme}' in expression.");
     }
 
-    // Parse postfix operators (arrow and arrowText)
+    // Parse postfix operators (arrow, arrowText, doubleColon)
     while (true) {
       if (_check(TokenType.arrow)) {
         _advance();
@@ -1699,6 +1880,9 @@ class Parser {
         _advance();
         final pathToken = _consume(TokenType.stringLiteral, "Expected string literal path after JSON operator '->>'.");
         expr = JsonExtractExpr(expr, pathToken.lexeme, true);
+      } else if (_match([TokenType.doubleColon])) {
+        final targetType = _parseDataType();
+        expr = CastExpr(expr, targetType);
       } else {
         break;
       }

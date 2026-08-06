@@ -698,6 +698,11 @@ class Catalog {
     if (saveToFile) save();
   }
 
+  void removeTable(String name, {bool saveToFile = true}) {
+    _tables.remove(name.toLowerCase());
+    if (saveToFile) save();
+  }
+
   RelationshipSchema? getRelationship(String name) => _relationships[name.toLowerCase()];
   bool hasRelationship(String name) => _relationships.containsKey(name.toLowerCase());
 

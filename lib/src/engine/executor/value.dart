@@ -33,6 +33,11 @@ abstract class DbValue implements Comparable<DbValue> {
     if (this is DbJson && other is DbJson) {
       return toString() == other.toString();
     }
+    if (this is DbBool && other is DbBool) return value == other.value;
+    if (this is DbUuid && other is DbUuid) return value == other.value;
+    if (this is DbDateTime && other is DbDateTime) return value == other.value;
+    if (this is DbBlob && other is DbBlob) return value == other.value;
+    if (this is DbDecimal && other is DbDecimal) return value == other.value;
     return false;
   }
 
@@ -52,6 +57,11 @@ abstract class DbValue implements Comparable<DbValue> {
     if (this is DbJson) {
       return toString().hashCode;
     }
+    if (this is DbBool) return value.hashCode;
+    if (this is DbUuid) return value.hashCode;
+    if (this is DbDateTime) return value.hashCode;
+    if (this is DbBlob) return value.hashCode;
+    if (this is DbDecimal) return value.hashCode;
     return 0;
   }
 
@@ -87,6 +97,18 @@ abstract class DbValue implements Comparable<DbValue> {
       case 5:
         final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
         return DbJson.fromBytes(bytes);
+      case 8:
+        return DbBool(data.getUint8(valOffset) != 0);
+      case 9:
+        final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
+        return DbUuid(utf8.decode(bytes));
+      case 10:
+        return DbDateTime(DateTime.fromMillisecondsSinceEpoch(data.getInt64(valOffset)));
+      case 11:
+        final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
+        return DbBlob(Uint8List.fromList(bytes));
+      case 12:
+        return DbDecimal(data.getFloat64(valOffset));
       default:
         return DbNull();
     }
@@ -94,6 +116,9 @@ abstract class DbValue implements Comparable<DbValue> {
 
   static DbValue parseLiteral(dynamic val) {
     if (val == null) return DbNull();
+    if (val is bool) return DbBool(val);
+    if (val is DateTime) return DbDateTime(val);
+    if (val is Uint8List) return DbBlob(val);
     if (val is int) {
       if (val >= -100 && val <= 1000) {
         return DbInt._smallIntCache[val + 100];
@@ -970,6 +995,239 @@ class DbList extends DbValue {
 
   @override
   String toString() => '[${elements.map((e) => e.toString()).join(", ")}]';
+}
+
+class DbBool extends DbValue {
+  @override
+  final bool value;
+  const DbBool(this.value);
+
+  @override
+  DataType get type => DataType.boolean;
+
+  @override
+  Uint8List toBytes() {
+    final buffer = Uint8List(2);
+    buffer[0] = 8;
+    buffer[1] = value ? 1 : 0;
+    return buffer;
+  }
+
+  @override
+  int compareTo(DbValue other) {
+    if (other is DbBool) {
+      if (value == other.value) return 0;
+      return value ? 1 : -1;
+    }
+    if (other is DbInt) return (value ? 1 : 0).compareTo(other.value);
+    return 1;
+  }
+
+  @override
+  DbValue operator +(DbValue other) => DbNull();
+  @override
+  DbValue operator -(DbValue other) => DbNull();
+  @override
+  DbValue operator *(DbValue other) => DbNull();
+  @override
+  DbValue operator /(DbValue other) => DbNull();
+  @override
+  DbValue concat(DbValue other) => DbText(toString() + other.toString());
+
+  @override
+  String toString() => value ? 'true' : 'false';
+}
+
+class DbUuid extends DbValue {
+  @override
+  final String value;
+  const DbUuid(this.value);
+
+  @override
+  DataType get type => DataType.uuid;
+
+  @override
+  Uint8List toBytes() {
+    final strBytes = utf8.encode(value);
+    final result = Uint8List(1 + strBytes.length);
+    result[0] = 9;
+    result.setAll(1, strBytes);
+    return result;
+  }
+
+  @override
+  int compareTo(DbValue other) {
+    if (other is DbUuid) return value.compareTo(other.value);
+    return value.compareTo(other.toString());
+  }
+
+  @override
+  DbValue operator +(DbValue other) => DbNull();
+  @override
+  DbValue operator -(DbValue other) => DbNull();
+  @override
+  DbValue operator *(DbValue other) => DbNull();
+  @override
+  DbValue operator /(DbValue other) => DbNull();
+  @override
+  DbValue concat(DbValue other) => DbText(value + other.toString());
+
+  @override
+  String toString() => value;
+}
+
+class DbDateTime extends DbValue {
+  @override
+  final DateTime value;
+  const DbDateTime(this.value);
+
+  @override
+  DataType get type => DataType.datetime;
+
+  @override
+  Uint8List toBytes() {
+    final bdata = ByteData(9);
+    bdata.setUint8(0, 10);
+    bdata.setInt64(1, value.millisecondsSinceEpoch);
+    return bdata.buffer.asUint8List();
+  }
+
+  @override
+  int compareTo(DbValue other) {
+    if (other is DbDateTime) return value.compareTo(other.value);
+    if (other is DbText) {
+      final parsed = DateTime.tryParse(other.value);
+      if (parsed != null) return value.compareTo(parsed);
+    }
+    return toString().compareTo(other.toString());
+  }
+
+  @override
+  DbValue operator +(DbValue other) => DbNull();
+  @override
+  DbValue operator -(DbValue other) => DbNull();
+  @override
+  DbValue operator *(DbValue other) => DbNull();
+  @override
+  DbValue operator /(DbValue other) => DbNull();
+  @override
+  DbValue concat(DbValue other) => DbText(toString() + other.toString());
+
+  @override
+  String toString() => value.toIso8601String();
+}
+
+class DbBlob extends DbValue {
+  @override
+  final Uint8List value;
+  const DbBlob(this.value);
+
+  @override
+  DataType get type => DataType.blob;
+
+  @override
+  Uint8List toBytes() {
+    final result = Uint8List(1 + value.length);
+    result[0] = 11;
+    result.setAll(1, value);
+    return result;
+  }
+
+  @override
+  int compareTo(DbValue other) {
+    if (other is DbBlob) {
+      final l1 = value.length;
+      final l2 = other.value.length;
+      final minL = math.min(l1, l2);
+      for (int i = 0; i < minL; i++) {
+        final cmp = value[i].compareTo(other.value[i]);
+        if (cmp != 0) return cmp;
+      }
+      return l1.compareTo(l2);
+    }
+    return -1;
+  }
+
+  @override
+  DbValue operator +(DbValue other) => DbNull();
+  @override
+  DbValue operator -(DbValue other) => DbNull();
+  @override
+  DbValue operator *(DbValue other) => DbNull();
+  @override
+  DbValue operator /(DbValue other) => DbNull();
+  @override
+  DbValue concat(DbValue other) {
+    if (other is DbBlob) {
+      final combined = Uint8List(value.length + other.value.length);
+      combined.setAll(0, value);
+      combined.setAll(value.length, other.value);
+      return DbBlob(combined);
+    }
+    return DbNull();
+  }
+
+  @override
+  String toString() => 'X\'${value.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}\'';
+}
+
+class DbDecimal extends DbValue {
+  @override
+  final double value;
+  const DbDecimal(this.value);
+
+  @override
+  DataType get type => DataType.decimal;
+
+  @override
+  Uint8List toBytes() {
+    final bdata = ByteData(9);
+    bdata.setUint8(0, 12);
+    bdata.setFloat64(1, value);
+    return bdata.buffer.asUint8List();
+  }
+
+  @override
+  int compareTo(DbValue other) {
+    if (other is DbDecimal) return value.compareTo(other.value);
+    if (other is DbInt) return value.compareTo(other.value.toDouble());
+    if (other is DbDouble) return value.compareTo(other.value);
+    return value.compareTo(double.tryParse(other.toString()) ?? 0.0);
+  }
+
+  @override
+  DbValue operator +(DbValue other) {
+    if (other is DbDecimal) return DbDecimal(value + other.value);
+    if (other is DbInt) return DbDecimal(value + other.value);
+    if (other is DbDouble) return DbDecimal(value + other.value);
+    return DbNull();
+  }
+  @override
+  DbValue operator -(DbValue other) {
+    if (other is DbDecimal) return DbDecimal(value - other.value);
+    if (other is DbInt) return DbDecimal(value - other.value);
+    if (other is DbDouble) return DbDecimal(value - other.value);
+    return DbNull();
+  }
+  @override
+  DbValue operator *(DbValue other) {
+    if (other is DbDecimal) return DbDecimal(value * other.value);
+    if (other is DbInt) return DbDecimal(value * other.value);
+    if (other is DbDouble) return DbDecimal(value * other.value);
+    return DbNull();
+  }
+  @override
+  DbValue operator /(DbValue other) {
+    if (other is DbDecimal) return DbDecimal(value / other.value);
+    if (other is DbInt) return DbDecimal(value / other.value);
+    if (other is DbDouble) return DbDecimal(value / other.value);
+    return DbNull();
+  }
+  @override
+  DbValue concat(DbValue other) => DbText(toString() + other.toString());
+
+  @override
+  String toString() => value.toString();
 }
 
 class SubqueryContext {

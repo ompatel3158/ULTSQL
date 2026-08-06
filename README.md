@@ -134,21 +134,72 @@ await db.flushWalSync(); // Flush WAL snapshot to disk
 
 ## <a name="sql--plsql-feature-guide"></a>🛠️ SQL & PL/SQL Feature Guide
 
-### Data Definition Language (DDL)
+### Data Definition Language (DDL) & Metadata Inspection
 ```sql
-CREATE TABLE users (
-  id INT PRIMARY KEY,
-  name TEXT,
-  balance DOUBLE,
+-- Enhanced DDL with IF NOT EXISTS / IF EXISTS and TRUNCATE
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY,
+  name VARCHAR(250),
+  active BOOL DEFAULT true,
+  created_at TIMESTAMP,
+  balance DECIMAL,
+  payload BLOB,
   metadata JSON,
   embedding VECTOR
 );
+
+-- DDL & Catalog Inspection Commands
+DESCRIBE users;
+SHOW COLUMNS FROM users;
+SHOW SCHEMAS;
+PRAGMA table_info('users');
+
+-- Query System Catalog Views
+SELECT table_name, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'users';
 ```
 
-### Data Manipulation Language (DML)
+### Data Manipulation, UPSERT & Series Generation
 ```sql
-INSERT INTO users VALUES (1, 'Alice', 1500.50, '{"role": "admin", "department": "Engineering"}', '[0.12, 0.85, -0.44]');
-INSERT INTO users VALUES (2, 'Bob', 820.00, '{"role": "developer", "department": "AI"}', '[0.91, 0.05, 0.12]');
+-- Series Generator
+SELECT * FROM generate_series(1, 10, 2);
+
+-- Standard DML & Multi-Row Inserts
+INSERT INTO users VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Alice', true, NOW(), 1500.50, NULL, '{"role": "admin"}', '[0.12, 0.85]');
+
+-- UPSERT (ON CONFLICT DO UPDATE / DO NOTHING) & REPLACE INTO
+INSERT INTO users (id, name, balance) VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Alice', 2000.00)
+ON CONFLICT (id) DO UPDATE SET balance = 2000.00;
+
+INSERT INTO users (id, name) VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Alice')
+ON CONFLICT DO NOTHING;
+
+REPLACE INTO users VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Alice Updated', true, NOW(), 2500.00, NULL, '{}', '[0.1, 0.2]');
+```
+
+### Casting, Regex & Developer Functions
+```sql
+-- ANSI CAST & PostgreSQL :: Typecasting
+SELECT balance::TEXT, CAST(active AS INT), name::VARCHAR FROM users;
+
+-- ILIKE (Case-Insensitive) & Regex Matching (~ operator and REGEXP_LIKE)
+SELECT * FROM users WHERE name ILIKE 'alice%' OR email ~ '^[a-z]+@';
+SELECT REGEXP_LIKE('ompatel@google.com', '^[a-z]+@[a-z]+\.[a-z]+$');
+
+-- Developer Scalar & Math Functions
+SELECT 
+  COALESCE(NULL, 'default_val'),
+  NULLIF(10, 10),
+  GREATEST(10, 50, 20),
+  LEAST(10, 50, 20),
+  CONCAT_WS('-', '2026', '08', '06'),
+  TYPEOF(100),
+  GEN_RANDOM_UUID(),
+  ABS(-42), ROUND(3.14159, 2), CEIL(4.2), FLOOR(4.8), POW(2, 3), SQRT(16),
+  REPLACE('hello world', 'world', 'ultsql'), SPLIT_PART('a.b.c', '.', 2), INITCAP('hello world'),
+  DATE_ADD('2026-08-06', 10), DATE_SUB('2026-08-06', 5), EXTRACT('year', NOW()),
+  VERSION();
 ```
 
 ### PL/SQL Procedural Script Execution

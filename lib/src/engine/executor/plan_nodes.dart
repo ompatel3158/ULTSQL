@@ -913,6 +913,9 @@ class FilterNode extends PlanNode {
       if (res is DbDouble && res.value > 0.0) {
         return row;
       }
+      if (res is DbBool && res.value) {
+        return row;
+      }
     }
   }
 
@@ -1123,7 +1126,7 @@ class GroupByNode extends PlanNode {
               baseNode = baseNode.child;
             }
           }
-          if (baseNode is IndexScanNode) {
+          if (baseNode is IndexScanNode && !hasFilter) {
             final scan = baseNode as IndexScanNode;
             final fastCount = scan.getFastCount();
             if (fastCount != null) {

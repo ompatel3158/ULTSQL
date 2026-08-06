@@ -27,6 +27,7 @@ enum TokenType {
   generate,
   groupKeyword,
   likeKeyword,
+  ilikeKeyword,
   showKeyword,
   tablesKeyword,
   indexesKeyword,
@@ -66,11 +67,18 @@ enum TokenType {
   typeText,
   typeVector,
   typeJson,
+  typeBool,
+  typeUuid,
+  typeDateTime,
+  typeBlob,
+  typeDecimal,
 
   // Literals
   identifier,
   numberLiteral,
   stringLiteral,
+  trueKeyword,
+  falseKeyword,
 
   // Operators
   plus,
@@ -88,6 +96,7 @@ enum TokenType {
   modulo, // %
   arrow, // ->
   arrowText, // ->>
+  doubleColon, // ::
 
   // Punctuation
   lParen,
@@ -156,7 +165,20 @@ enum TokenType {
   rangeKeyword,
   maskedKeyword,
   notKeyword,
-  nullKeyword
+  nullKeyword,
+  castKeyword,
+  pragmaKeyword,
+  describeKeyword,
+  columnsKeyword,
+  schemasKeyword,
+  truncateKeyword,
+  existsKeyword,
+  onKeyword,
+  conflictKeyword,
+  doKeyword,
+  nothingKeyword,
+  replaceKeyword,
+  tilde
 }
 
 class Token {

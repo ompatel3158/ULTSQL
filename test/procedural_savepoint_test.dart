@@ -11,7 +11,7 @@ void main() {
   setUp(() async {
     final dir = Directory(dbPath);
     if (dir.existsSync()) {
-      dir.deleteSync(recursive: true);
+      try { dir.deleteSync(recursive: true); } catch (_) {}
     }
     db = Database(dbPath);
     await db.init();
@@ -22,7 +22,7 @@ void main() {
     await db.close();
     final dir = Directory(dbPath);
     if (dir.existsSync()) {
-      dir.deleteSync(recursive: true);
+      try { dir.deleteSync(recursive: true); } catch (_) {}
     }
   });
 
