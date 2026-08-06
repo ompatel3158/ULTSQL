@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import '../parser/ast.dart';
@@ -770,7 +769,7 @@ class QueryPlanner {
           tableName: joinSchema.name,
           dbDirectory: dbDirectory,
         );
-        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: _getKeyColumnsCount(idx!));
+        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: _getKeyColumnsCount(idx));
         currentPlan = IndexJoinNode(
           left: currentPlan,
           rightTable: rightTableFile,

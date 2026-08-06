@@ -2,13 +2,16 @@
 
 ## 1.0.12
 
-- Added 100% full native engine support for all SQL & PL/SQL Guide features:
-  - DDL: `DROP TABLE` and `DROP INDEX` statement execution.
-  - PL/SQL: `FOR i IN start..end LOOP ... END LOOP;` syntax and JIT execution loop.
-  - Joins: Added `INNER JOIN` and `CROSS JOIN` support with streaming `NestedLoopJoinNode` fallback planner.
-  - Conditionals: Added `CASE ... WHEN ... THEN ... ELSE ... END` parsing, column dependency tracking, and JIT evaluation.
-  - Functions: Full JIT support for string functions (`CONCAT`, `LENGTH`, `UPPER`, `LOWER`, `SUBSTRING`, `TRIM`), date/time functions (`DATE`, `TIME`, `DATETIME`, `STRFTIME`), and conditional functions (`COALESCE`, `IFNULL`/`NVL`).
-  - Values: Added `NULL` literal parsing and evaluation.
+- Added `generate_series(start, stop [, step])` virtual series table generator.
+- Added `information_schema` virtual catalog views (`information_schema.tables`, `information_schema.columns`, `information_schema.schemata`).
+- Added DDL & metadata inspection statements (`DESCRIBE <table>`, `SHOW COLUMNS FROM <table>`, `SHOW SCHEMAS`, `PRAGMA table_info('<table>')`).
+- Added enhanced DDL syntax (`CREATE TABLE IF NOT EXISTS`, `DROP TABLE IF EXISTS`, `TRUNCATE TABLE <table>`).
+- Added UPSERT (`INSERT INTO ... ON CONFLICT (col) DO UPDATE SET ...`, `ON CONFLICT DO NOTHING`) and `REPLACE INTO` syntax.
+- Added expanded native data types (`BOOLEAN`, `UUID`, `DATETIME`/`TIMESTAMP`, `BLOB`/`BYTEA`, `DECIMAL`/`NUMERIC`).
+- Added ANSI `CAST(expr AS type)` and PostgreSQL `expr::type` typecasting syntax.
+- Added PostgreSQL case-insensitive `ILIKE` and `~` regex matching operator.
+- Added extended developer scalar functions (`COALESCE`, `NULLIF`, `GREATEST`, `LEAST`, `CONCAT_WS`, `SUBSTRING`, `TYPEOF`, `NOW`, `GEN_RANDOM_UUID`, `ABS`, `ROUND`, `CEIL`, `FLOOR`, `POW`, `SQRT`, `REPLACE`, `LPAD`, `RPAD`, `REVERSE`, `POSITION`, `SPLIT_PART`, `INITCAP`, `REGEXP_LIKE`, `DATE_ADD`, `DATE_SUB`, `DATE_TRUNC`, `EXTRACT`, `JSON_ARRAY`, `JSON_OBJECT`, `VERSION`).
+- Resolved static analysis warnings and optimized plan execution.
 
 ## 1.0.11
 

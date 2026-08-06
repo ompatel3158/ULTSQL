@@ -12,7 +12,6 @@ import 'jit_compiler.dart';
 import '../storage/hnsw_index.dart';
 import '../storage/fts_index.dart';
 import '../storage/ivf_flat_index.dart';
-import '../fdw/fdw_manager.dart';
 
 /// Abstract base class for Volcano-iterator physical execution plan nodes.
 abstract class PlanNode {
@@ -706,7 +705,6 @@ class ColumnScanNode extends PlanNode {
 
     _reusedMap.clear();
     for (int i = 0; i < projectedColIndexes.length; i++) {
-      final colIdx = projectedColIndexes[i];
       final it = _iterators[i];
       
       final val = it.current;
@@ -1127,7 +1125,7 @@ class GroupByNode extends PlanNode {
             }
           }
           if (baseNode is IndexScanNode && !hasFilter) {
-            final scan = baseNode as IndexScanNode;
+            final scan = baseNode;
             final fastCount = scan.getFastCount();
             if (fastCount != null) {
               count = fastCount;
@@ -1352,7 +1350,6 @@ class GroupByNode extends PlanNode {
         
         // Build the key and the modified row for this grouping set
         final keyParts = <String>[];
-        final groupedRow = Map<String, DbValue>.of(row);
         
         // Find which expressions are NOT in this grouping set and set their columns to DbNull()
         // Wait, it's easier to just form a key from the set index and the values.
