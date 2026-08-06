@@ -18,6 +18,7 @@ import 'value.dart';
 import 'plan_nodes.dart';
 import 'planner.dart';
 import 'jit_compiler.dart';
+import 'telemetry.dart';
 import 'parallel_scan_nodes.dart';
 import '../cache/engine_config.dart';
 
@@ -479,8 +480,11 @@ class Interpreter {
     _sessionContext = _db.cache.createSessionContext();
   }
 
+  FlightRecorderReport? lastTelemetryReport;
+
   Future<QueryResult> executeScript(String sqlScript) async {
     return runZoned(() async {
+      FlightRecorder.start(sqlScript, resetSteps: !FlightRecorder.isActive);
       final stopwatch = Stopwatch()..start();
       dbmsOutputLog.clear();
       _env.clear();
@@ -561,6 +565,8 @@ class Interpreter {
         }
         
         stopwatch.stop();
+
+        lastTelemetryReport = FlightRecorder.stop(rowsReturned: lastResult?.rows.length ?? 0);
 
         final combinedMessage = messages.join('\n');
 
