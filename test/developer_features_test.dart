@@ -23,14 +23,14 @@ void main() {
     // 1. GENERATE_SERIES
     print("Testing 1: GENERATE_SERIES...");
     final res1 = await interpreter.executeScript("SELECT * FROM generate_series(1, 5)");
-    expect(res1.rows.length, 5, "generate_series length");
-    expect(res1.rows[0][0], DbInt(1), "generate_series first");
-    expect(res1.rows[4][0], DbInt(5), "generate_series last");
+    expectVal(res1.rows.length, 5, "generate_series length");
+    expectVal(res1.rows[0][0], DbInt(1), "generate_series first");
+    expectVal(res1.rows[4][0], DbInt(5), "generate_series last");
 
     final res2 = await interpreter.executeScript("SELECT * FROM generate_series(10, 2, -2)");
-    expect(res2.rows.length, 5, "generate_series step length");
-    expect(res2.rows[0][0], DbInt(10), "generate_series step first");
-    expect(res2.rows[4][0], DbInt(2), "generate_series step last");
+    expectVal(res2.rows.length, 5, "generate_series step length");
+    expectVal(res2.rows[0][0], DbInt(10), "generate_series step first");
+    expectVal(res2.rows[4][0], DbInt(2), "generate_series step last");
 
     // 2. Data Types: BOOLEAN, UUID, DATETIME, BLOB, DECIMAL
     print("Testing 2: Expanded Data Types...");
@@ -39,58 +39,58 @@ void main() {
     await interpreter.executeScript("INSERT INTO dev_types VALUES (1, true, 'f47ac10b-58cc-4372-a567-0e02b2c3d479', '2026-08-05T15:00:00.000Z', 'hello', 99.95)");
 
     final resTypes = await interpreter.executeScript("SELECT * FROM dev_types WHERE id = 1");
-    expect(resTypes.rows.length, 1, "dev_types row count");
-    expect(resTypes.rows[0][1], DbBool(true), "BOOLEAN value");
-    expect(resTypes.rows[0][2], DbUuid('f47ac10b-58cc-4372-a567-0e02b2c3d479'), "UUID value");
-    expect(resTypes.rows[0][5], DbDecimal(99.95), "DECIMAL value");
+    expectVal(resTypes.rows.length, 1, "dev_types row count");
+    expectVal(resTypes.rows[0][1], DbBool(true), "BOOLEAN value");
+    expectVal(resTypes.rows[0][2], DbUuid('f47ac10b-58cc-4372-a567-0e02b2c3d479'), "UUID value");
+    expectVal(resTypes.rows[0][5], DbDecimal(99.95), "DECIMAL value");
 
     // 3. CAST & ::
     print("Testing 3: CAST and :: operators...");
     final resCast1 = await interpreter.executeScript("SELECT CAST(123 AS TEXT), CAST('456' AS INT), CAST(1 AS BOOLEAN)");
-    expect(resCast1.rows[0][0], DbText('123'), "CAST to TEXT");
-    expect(resCast1.rows[0][1], DbInt(456), "CAST to INT");
-    expect(resCast1.rows[0][2], DbBool(true), "CAST to BOOLEAN");
+    expectVal(resCast1.rows[0][0], DbText('123'), "CAST to TEXT");
+    expectVal(resCast1.rows[0][1], DbInt(456), "CAST to INT");
+    expectVal(resCast1.rows[0][2], DbBool(true), "CAST to BOOLEAN");
 
     final resCast2 = await interpreter.executeScript("SELECT 789::TEXT, '99.99'::DOUBLE");
-    expect(resCast2.rows[0][0], DbText('789'), "::TEXT operator");
-    expect(resCast2.rows[0][1], DbDouble(99.99), "::DOUBLE operator");
+    expectVal(resCast2.rows[0][0], DbText('789'), "::TEXT operator");
+    expectVal(resCast2.rows[0][1], DbDouble(99.99), "::DOUBLE operator");
 
     // 4. information_schema & catalog views
     print("Testing 4: information_schema views...");
     await interpreter.executeScript("CREATE TABLE products (id INT, title TEXT, price DECIMAL)");
 
     final tablesRes = await interpreter.executeScript("SELECT * FROM information_schema.tables");
-    expect(tablesRes.rows.isNotEmpty, true, "information_schema.tables not empty");
+    expectVal(tablesRes.rows.isNotEmpty, true, "information_schema.tables not empty");
     final tableNames = tablesRes.rows.map((r) => r[2].toString()).toList();
     if (!tableNames.contains('products')) {
       throw Exception("Expected information_schema.tables to contain 'products'");
     }
 
     final shorthandRes = await interpreter.executeScript("SELECT * FROM information.tables");
-    expect(shorthandRes.rows.length, tablesRes.rows.length, "information.tables shorthand");
+    expectVal(shorthandRes.rows.length, tablesRes.rows.length, "information.tables shorthand");
 
     final colsRes = await interpreter.executeScript("SELECT * FROM information_schema.columns");
-    expect(colsRes.rows.isNotEmpty, true, "information_schema.columns not empty");
+    expectVal(colsRes.rows.isNotEmpty, true, "information_schema.columns not empty");
 
     final schemasRes = await interpreter.executeScript("SELECT * FROM information_schema.schemata");
-    expect(schemasRes.rows.length, 1, "information_schema.schemata count");
+    expectVal(schemasRes.rows.length, 1, "information_schema.schemata count");
 
     // 5. Metadata inspection: DESCRIBE, SHOW COLUMNS, PRAGMA table_info, SHOW SCHEMAS
     print("Testing 5: Metadata inspection...");
     await interpreter.executeScript("CREATE TABLE items (id INT, name TEXT, qty INT)");
 
     final descRes = await interpreter.executeScript("DESCRIBE items");
-    expect(descRes.rows.length, 3, "DESCRIBE items row count");
-    expect(descRes.rows[0][0], DbText('id'), "DESCRIBE first column name");
+    expectVal(descRes.rows.length, 3, "DESCRIBE items row count");
+    expectVal(descRes.rows[0][0], DbText('id'), "DESCRIBE first column name");
 
     final showColRes = await interpreter.executeScript("SHOW COLUMNS FROM items");
-    expect(showColRes.rows.length, 3, "SHOW COLUMNS items count");
+    expectVal(showColRes.rows.length, 3, "SHOW COLUMNS items count");
 
     final pragmaRes = await interpreter.executeScript("PRAGMA table_info('items')");
-    expect(pragmaRes.rows.length, 3, "PRAGMA table_info count");
+    expectVal(pragmaRes.rows.length, 3, "PRAGMA table_info count");
 
     final showSchemasRes = await interpreter.executeScript("SHOW SCHEMAS");
-    expect(showSchemasRes.rows.length, 2, "SHOW SCHEMAS count");
+    expectVal(showSchemasRes.rows.length, 2, "SHOW SCHEMAS count");
 
     // 6. DDL: CREATE TABLE IF NOT EXISTS, DROP TABLE IF EXISTS, TRUNCATE TABLE
     print("Testing 6: Enhanced DDL...");
@@ -127,12 +127,12 @@ void main() {
         GEN_RANDOM_UUID()
     """);
 
-    expect(resFuncs.rows[0][0], DbText('default_val'), "COALESCE result");
-    expect(resFuncs.rows[0][1], DbNull(), "NULLIF result");
-    expect(resFuncs.rows[0][2], DbInt(50), "GREATEST result");
-    expect(resFuncs.rows[0][3], DbInt(10), "LEAST result");
-    expect(resFuncs.rows[0][4], DbText('2026-08-05'), "CONCAT_WS result");
-    expect(resFuncs.rows[0][5], DbText('INTEGER'), "TYPEOF result");
+    expectVal(resFuncs.rows[0][0], DbText('default_val'), "COALESCE result");
+    expectVal(resFuncs.rows[0][1], DbNull(), "NULLIF result");
+    expectVal(resFuncs.rows[0][2], DbInt(50), "GREATEST result");
+    expectVal(resFuncs.rows[0][3], DbInt(10), "LEAST result");
+    expectVal(resFuncs.rows[0][4], DbText('2026-08-05'), "CONCAT_WS result");
+    expectVal(resFuncs.rows[0][5], DbText('INTEGER'), "TYPEOF result");
     // 8. ILIKE & Extended Math/String functions
     print("Testing 8: ILIKE and Extended Math/String functions...");
     final resMath = await interpreter.executeScript("""
@@ -148,21 +148,21 @@ void main() {
     """);
 
     print("RESMATH MSG: ${resMath.message}, ROWS: ${resMath.rows}");
-    expect(resMath.rows[0][0], DbInt(42), "ABS result");
-    expect(resMath.rows[0][1], DbDouble(3.14), "ROUND result");
-    expect(resMath.rows[0][2], DbInt(5), "CEIL result");
-    expect(resMath.rows[0][3], DbInt(4), "FLOOR result");
-    expect(resMath.rows[0][4], DbDouble(8.0), "POW result");
-    expect(resMath.rows[0][5], DbDouble(4.0), "SQRT result");
-    expect(resMath.rows[0][6], DbText('hello ultsql'), "REPLACE result");
-    expect(resMath.rows[0][7], DbText('trad'), "REVERSE result");
+    expectVal(resMath.rows[0][0], DbInt(42), "ABS result");
+    expectVal(resMath.rows[0][1], DbDouble(3.14), "ROUND result");
+    expectVal(resMath.rows[0][2], DbInt(5), "CEIL result");
+    expectVal(resMath.rows[0][3], DbInt(4), "FLOOR result");
+    expectVal(resMath.rows[0][4], DbDouble(8.0), "POW result");
+    expectVal(resMath.rows[0][5], DbDouble(4.0), "SQRT result");
+    expectVal(resMath.rows[0][6], DbText('hello ultsql'), "REPLACE result");
+    expectVal(resMath.rows[0][7], DbText('trad'), "REVERSE result");
 
     await interpreter.executeScript("CREATE TABLE ilike_test (name TEXT)");
     await interpreter.executeScript("INSERT INTO ilike_test VALUES ('Antigravity')");
     await interpreter.executeScript("INSERT INTO ilike_test VALUES ('Gemini')");
     final resIlike = await interpreter.executeScript("SELECT * FROM ilike_test WHERE name ILIKE 'anti%'");
     print("ILIKE ROWS: ${resIlike.rows}, MESSAGE: ${resIlike.message}");
-    expect(resIlike.rows.length, 1, "ILIKE match count");
+    expectVal(resIlike.rows.length, 1, "ILIKE match count");
 
     // 9. Final Boss DB Extensions (Regex, Date Math, String Part, Version)
     print("Testing 9: Final Boss DB Extensions (Regex, Date Math, String Part, Version)...");

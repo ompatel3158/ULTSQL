@@ -60,6 +60,68 @@ class Database {
   late EngineConfig config;
   final Map<String, BTreeIndex> _indexCache = {};
 
+  final Map<String, Set<StreamController<String>>> _tableMutationControllers = {};
+
+  void notifyTableMutated(String tableName) {
+    final tName = tableName.toLowerCase();
+    final set = _tableMutationControllers[tName];
+    if (set != null) {
+      for (final ctrl in List<StreamController<String>>.from(set)) {
+        if (!ctrl.isClosed) ctrl.add(tName);
+      }
+    }
+    final globalSet = _tableMutationControllers['*'];
+    if (globalSet != null) {
+      for (final ctrl in List<StreamController<String>>.from(globalSet)) {
+        if (!ctrl.isClosed) ctrl.add(tName);
+      }
+    }
+  }
+
+  void _registerTableListener(String tableName, StreamController<String> ctrl) {
+    final tName = tableName.toLowerCase();
+    _tableMutationControllers.putIfAbsent(tName, () => {}).add(ctrl);
+  }
+
+  void _unregisterTableListener(StreamController<String> ctrl) {
+    for (final set in _tableMutationControllers.values) {
+      set.remove(ctrl);
+    }
+  }
+
+  Stream<QueryResult> watch(Interpreter interpreter, String sql) {
+    late StreamController<QueryResult> outController;
+    final inController = StreamController<String>();
+    final lowerSql = sql.toLowerCase();
+    final referencedTables = catalog.tables.keys.where((t) => lowerSql.contains(t.toLowerCase())).toList();
+
+    outController = StreamController<QueryResult>(
+      onListen: () async {
+        final initialRes = await interpreter.executeScript(sql);
+        if (!outController.isClosed) outController.add(initialRes);
+
+        if (referencedTables.isEmpty) {
+          _registerTableListener('*', inController);
+        } else {
+          for (final t in referencedTables) {
+            _registerTableListener(t, inController);
+          }
+        }
+
+        inController.stream.listen((_) async {
+          final updatedRes = await interpreter.executeScript(sql);
+          if (!outController.isClosed) outController.add(updatedRes);
+        });
+      },
+      onCancel: () {
+        inController.close();
+        _unregisterTableListener(inController);
+      },
+    );
+
+    return outController.stream;
+  }
+
   Database(this.directory, {String? passphrase, bool useWal = true, int maxCapacity = 1000}) {
     config = EngineConfig.defaultConfig();
     catalog = Catalog(directory);
@@ -1810,6 +1872,7 @@ END;
       _executeTriggerSync(trig, schema, rowValues);
     }
 
+    db.notifyTableMutated(tableName);
     return QueryResult(
       columns: [],
       rows: [],
@@ -1967,6 +2030,7 @@ END;
         db.cache.commitTransaction();
       }
 
+      db.notifyTableMutated(tableName);
       return QueryResult(
         columns: [],
         rows: [],
@@ -2219,6 +2283,7 @@ END;
         db.cache.commitTransaction();
       }
 
+      db.notifyTableMutated(tableName);
       return QueryResult(
         columns: [],
         rows: [],
@@ -3783,6 +3848,7 @@ END;
         tableFile.deleteSync();
       } catch (_) {}
     }
+    db.notifyTableMutated(cleanName);
     return QueryResult(columns: [], rows: [], message: "Table '$cleanName' truncated successfully.");
   }
 }
