@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.12
+## 1.0.13
 
 - Added `generate_series(start, stop [, step])` virtual series table generator.
 - Added `information_schema` virtual catalog views (`information_schema.tables`, `information_schema.columns`, `information_schema.schemata`).
