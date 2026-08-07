@@ -178,7 +178,10 @@ enum TokenType {
   doKeyword,
   nothingKeyword,
   replaceKeyword,
-  tilde
+  tilde,
+  macroKeyword,
+  streamKeyword,
+  emitKeyword
 }
 
 class Token {

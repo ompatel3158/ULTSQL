@@ -10,5 +10,6 @@ export 'src/engine/executor/value.dart';
 export 'src/engine/executor/plan_nodes.dart';
 export 'src/engine/storage/catalog.dart';
 export 'src/engine/network/pg_wire_server.dart';
+export 'src/engine/network/rest_server.dart';
 export 'src/engine/executor/telemetry.dart';
 export 'src/services/local_database_service.dart';

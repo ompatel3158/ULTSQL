@@ -420,6 +420,19 @@ class Parser {
   // SQL Parsing
   Stmt _parseStatement() {
     _placeholderCount = 0;
+    if (_match([TokenType.emitKeyword]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'emit' && (_advance() != null))) {
+      if (_match([TokenType.to]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'to' && (_advance() != null))) {}
+      final streamName = _consume(TokenType.identifier, "Expected stream name after EMIT TO.").lexeme;
+      _consume(TokenType.valuesKeyword, "Expected 'VALUES' after stream name.");
+      _consume(TokenType.lParen, "Expected '(' for stream emit values.");
+      List<Expression> values = [];
+      do {
+        values.add(_parseExpression());
+      } while (_match([TokenType.comma]));
+      _consume(TokenType.rParen, "Expected ')' after stream emit values.");
+      if (_check(TokenType.semicolon)) _advance();
+      return EmitStreamStmt(streamName: streamName, values: values);
+    }
     if (_match([TokenType.vacuumKeyword])) {
       bool full = false;
       if (_match([TokenType.fullKeyword])) {
@@ -903,6 +916,29 @@ class Parser {
       }).join(' ');
       
       return CreateFunctionStmt(name, params, returnType, body, sql);
+    }
+
+    if (_match([TokenType.macroKeyword]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'macro' && (_advance() != null))) {
+      final name = _consume(TokenType.identifier, "Expected macro name.").lexeme;
+      List<String> params = [];
+      if (_match([TokenType.lParen])) {
+        if (!_check(TokenType.rParen)) {
+          do {
+            params.add(_consume(TokenType.identifier, "Expected parameter name in macro.").lexeme);
+          } while (_match([TokenType.comma]));
+        }
+        _consume(TokenType.rParen, "Expected ')' after macro parameters.");
+      }
+      _consume(TokenType.as, "Expected 'AS' after macro declaration.");
+      final bodyExpr = _parseExpression();
+      if (_check(TokenType.semicolon)) _advance();
+      return CreateMacroStmt(name: name, params: params, bodyExpr: bodyExpr);
+    }
+
+    if (_match([TokenType.streamKeyword]) || (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'stream' && (_advance() != null))) {
+      final streamName = _consume(TokenType.identifier, "Expected stream name.").lexeme;
+      if (_check(TokenType.semicolon)) _advance();
+      return CreateStreamStmt(streamName: streamName);
     }
 
     if (_peek().lexeme.toLowerCase() == 'database') {

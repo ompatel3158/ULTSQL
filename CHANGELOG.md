@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.14
+
+- **Phase 1: Reactive Query Streams (`db.watch()`)**: Real-time `Stream<QueryResult>` query subscriptions with automated table mutation listeners (`INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`).
+- **Phase 2: FlightRecorder Telemetry & Diagnostics API**: Microsecond execution profiling, RSS memory allocation tracking, physical iterator node steps, `.toMarkdown()`, and `.toJson()` reporting.
+- **Phase 3: SQL Macros & Event Streaming Engine**: Reusable SQL components via `CREATE MACRO` and reactive pub-sub event channels via `CREATE STREAM` and `EMIT TO`.
+- **Phase 4: Embedded REST & OpenAPI Daemon (`RestServer` / `ultsql serve`)**: Embedded HTTP server daemon serving table REST endpoints (`GET`, `POST`, `DELETE`) and dynamic OpenAPI 3.0 documentation (`GET /openapi.json`).
+- **Phase 5: Copy-on-Write Database Branching (`ultsql branch`)**: Page-level copy-on-write database file branching (`main` → `feature-branch`), switching, merging, and rollback.
+
 ## 1.0.13
 
 - Added `generate_series(start, stop [, step])` virtual series table generator.

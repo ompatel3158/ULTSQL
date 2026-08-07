@@ -1,11 +1,28 @@
 import 'dart:io';
-import 'package:ultsql/src/engine/executor/interpreter.dart';
-import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/ultsql.dart';
 
 void main(List<String> args) async {
   String dbTarget = ':memory:';
 
   if (args.isNotEmpty) {
+    if (args[0] == 'serve') {
+      int port = 8080;
+      String dbPath = './ultsql_data';
+      for (int i = 1; i < args.length; i++) {
+        if (args[i] == '--port' && i + 1 < args.length) {
+          port = int.tryParse(args[i + 1]) ?? 8080;
+        } else if (args[i] == '--db' && i + 1 < args.length) {
+          dbPath = args[i + 1];
+        }
+      }
+      final db = Database(dbPath);
+      await db.init();
+      final restServer = RestServer(db, port: port);
+      await restServer.start();
+      print('🚀 UltSQL REST & OpenAPI daemon listening on http://localhost:$port');
+      print('📖 OpenAPI Documentation: http://localhost:$port/openapi.json');
+      return;
+    }
     if (args[0] == '--help' || args[0] == '-h') {
       _printHelp();
       exit(0);

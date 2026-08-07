@@ -123,6 +123,76 @@ class Database {
     return outController.stream;
   }
 
+  // --- SQL MACROS REGISTRY ---
+  final Map<String, CreateMacroStmt> _macros = {};
+  void registerMacro(CreateMacroStmt stmt) => _macros[stmt.name.toLowerCase()] = stmt;
+  CreateMacroStmt? getMacro(String name) => _macros[name.toLowerCase()];
+
+  // --- EVENT STREAMS ENGINE ---
+  final Map<String, StreamController<List<DbValue>>> _eventStreams = {};
+
+  Stream<List<DbValue>> getStream(String streamName) {
+    final sName = streamName.toLowerCase();
+    final controller = _eventStreams.putIfAbsent(sName, () => StreamController<List<DbValue>>.broadcast());
+    return controller.stream;
+  }
+
+  void createStream(String streamName) {
+    final sName = streamName.toLowerCase();
+    _eventStreams.putIfAbsent(sName, () => StreamController<List<DbValue>>.broadcast());
+  }
+
+  void emitStream(String streamName, List<DbValue> values) {
+    final sName = streamName.toLowerCase();
+    final controller = _eventStreams[sName];
+    if (controller != null && !controller.isClosed) {
+      controller.add(values);
+    }
+  }
+
+  // --- COPY-ON-WRITE DATABASE BRANCHING ---
+  String _currentBranch = 'main';
+  final Map<String, Set<String>> _branches = {'main': {}};
+
+  String get currentBranch => _currentBranch;
+
+  List<String> listBranches() => _branches.keys.toList();
+
+  void createBranch(String branchName) {
+    final bName = branchName.toLowerCase();
+    if (_branches.containsKey(bName)) {
+      throw Exception("Branch '$branchName' already exists.");
+    }
+    _branches[bName] = Set<String>.from(_branches[_currentBranch] ?? {});
+  }
+
+  void switchBranch(String branchName) {
+    final bName = branchName.toLowerCase();
+    if (!_branches.containsKey(bName)) {
+      throw Exception("Branch '$branchName' does not exist.");
+    }
+    _currentBranch = bName;
+  }
+
+  void mergeBranch(String sourceBranch) {
+    final src = sourceBranch.toLowerCase();
+    if (!_branches.containsKey(src)) {
+      throw Exception("Branch '$sourceBranch' does not exist.");
+    }
+    _branches[_currentBranch]?.addAll(_branches[src] ?? {});
+  }
+
+  void deleteBranch(String branchName) {
+    final bName = branchName.toLowerCase();
+    if (bName == 'main') {
+      throw Exception("Cannot delete default 'main' branch.");
+    }
+    if (bName == _currentBranch) {
+      throw Exception("Cannot delete currently active branch.");
+    }
+    _branches.remove(bName);
+  }
+
   Database(this.directory, {String? passphrase, bool useWal = true, int maxCapacity = 1000}) {
     config = EngineConfig.defaultConfig();
     catalog = Catalog(directory);
@@ -610,6 +680,22 @@ class Interpreter {
       final valFn = _jitCache.putIfAbsent(node.expr, () => JitCompiler.compile(node.expr));
       final val = valFn(_env);
       throw ReturnException(val);
+    }
+    if (node is CreateMacroStmt) {
+      db.registerMacro(node);
+      return QueryResult(columns: [], rows: [], message: "Macro '${node.name}' created successfully.");
+    }
+    if (node is CreateStreamStmt) {
+      db.createStream(node.streamName);
+      return QueryResult(columns: [], rows: [], message: "Event stream '${node.streamName}' created successfully.");
+    }
+    if (node is EmitStreamStmt) {
+      final evaluatedValues = node.values.map((e) {
+        final valFn = _jitCache.putIfAbsent(e, () => JitCompiler.compile(e));
+        return valFn(_env);
+      }).toList();
+      db.emitStream(node.streamName, evaluatedValues);
+      return QueryResult(columns: [], rows: [], message: "Event emitted to stream '${node.streamName}' successfully.");
     }
     if (node is CreateProcedureStmt) {
       return _executeCreateProcedure(node);

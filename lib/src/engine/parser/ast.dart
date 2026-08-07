@@ -671,6 +671,24 @@ class ForLoopStmt extends Stmt {
   ForLoopStmt(this.varName, this.startExpr, this.endExpr, this.body);
 }
 
+class CreateMacroStmt extends Stmt {
+  final String name;
+  final List<String> params;
+  final Expression bodyExpr;
+  CreateMacroStmt({required this.name, required this.params, required this.bodyExpr});
+}
+
+class CreateStreamStmt extends Stmt {
+  final String streamName;
+  CreateStreamStmt({required this.streamName});
+}
+
+class EmitStreamStmt extends Stmt {
+  final String streamName;
+  final List<Expression> values;
+  EmitStreamStmt({required this.streamName, required this.values});
+}
+
 String exprToSqlString(Expression expr) {
   if (expr._cachedSqlString != null) return expr._cachedSqlString!;
   
