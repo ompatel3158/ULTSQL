@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.17
+
+- **Automated CI/CD Package Publishing**: Automated PyPI, NPM, Pub.dev, and GitHub Releases executable binary publishing via GitHub Actions OIDC and secret tokens.
+- **Standalone Binary Native Compilation**: Zero-dependency cross-platform native binaries (`ultsql.exe`, `ultsql-linux`, `ultsql-mac`) with pure Dart dependency resolution.
+- **Universal Documentation & User Manual**: Interactive website documentation (`web_site/docs.html`) and GitHub markdown user manual (`DOCUMENTATION.md`).
+
 ## 1.0.16
 
 - **REST Daemon Auto Table Provisioning**: Automatic dynamic table schema creation (`CREATE TABLE IF NOT EXISTS`) on HTTP `POST` requests for seamless zero-config developer onboarding.
