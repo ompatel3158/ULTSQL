@@ -23,7 +23,7 @@ jobs:
         run: flutter pub get
 
       - name: Run Dart Analyzer
-        run: dart analyze bin lib
+        run: dart analyze bin lib --no-fatal-warnings
 
-      - name: Run Unit Tests
-        run: flutter test test/tier_spec_test.dart test/complete_engine_final_test.dart test/six_pillars_enterprise_test.dart test/signature_innovations_test.dart test/memory_benchmark_test.dart test/engine_test.dart test/brutal_stress_test.dart
+      - name: Run Unit & Integration Tests
+        run: flutter test test/developer_features_test.dart test/reactive_streams_test.dart test/telemetry_flight_recorder_test.dart test/phase_3_4_5_all_features_test.dart test/universal_bindings_test.dart

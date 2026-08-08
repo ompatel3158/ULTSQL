@@ -769,7 +769,7 @@ class QueryPlanner {
           tableName: joinSchema.name,
           dbDirectory: dbDirectory,
         );
-        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: _getKeyColumnsCount(idx!));
+        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: _getKeyColumnsCount(idx!));
         currentPlan = IndexJoinNode(
           left: currentPlan,
           rightTable: rightTableFile,
@@ -841,7 +841,7 @@ class QueryPlanner {
 
       BTreeIndex? targetIndex;
       if (hasIndex) {
-        targetIndex = BTreeIndex(cache: cache, indexPath: indexFile!, keyColumns: _getKeyColumnsCount(idx!));
+        targetIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: _getKeyColumnsCount(idx!));
       }
 
       currentPlan = GraphJoinNode(
