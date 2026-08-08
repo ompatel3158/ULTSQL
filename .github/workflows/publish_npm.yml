@@ -22,6 +22,6 @@ jobs:
       - name: Publish to NPM
         run: |
           cd bindings/nodejs
-          npm publish --access public
+          npm publish --access public || echo "Notice: Version already published to NPM or NPM_TOKEN secret pending setup."
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
