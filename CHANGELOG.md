@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.15
+
+- **Universal Multi-Language Bindings**: Added SQLite-compatible C API & FFI exports (`ultsql_open_c`, `ultsql_exec_async`, `ultsql_step_c`, `ultsql_column_text_c`, `ultsql_close_c`).
+- **Python Language Package (`bindings/python/ultsql.py`)**: Native Python client for querying ULTSQL over REST and PostgreSQL Wire Protocol.
+- **Node.js Language Package (`bindings/nodejs/index.js`)**: Native Node.js client for querying ULTSQL over REST and PostgreSQL Wire Protocol.
+- **C/C++ Header Package (`bindings/cpp/ultsql.h`)**: C/C++ header interface for embedding ULTSQL in native applications.
+- **CLI Meta Command (`.pgwire [port]`)**: Added `.pgwire` command to launch the PostgreSQL Wire Protocol daemon directly from the CLI.
+
 ## 1.0.14
 
 - **Phase 1: Reactive Query Streams (`db.watch()`)**: Real-time `Stream<QueryResult>` query subscriptions with automated table mutation listeners (`INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`).

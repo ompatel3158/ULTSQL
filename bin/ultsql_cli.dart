@@ -66,6 +66,14 @@ void main(List<String> args) async {
       } else if (trimmed.startsWith('.schema')) {
         _showSchema(db, trimmed);
         continue;
+      } else if (trimmed.startsWith('.pgwire')) {
+        final parts = trimmed.split(' ');
+        final port = parts.length > 1 ? (int.tryParse(parts[1]) ?? 5432) : 5432;
+        final server = PgWireServer(db, port: port);
+        await server.start();
+        print('🚀 PostgreSQL Wire Protocol daemon listening on port $port');
+        print('Connect with any Postgres client (psycopg2, node-postgres, JDBC, psql)!');
+        continue;
       } else if (trimmed == '.databases') {
         print('Main database: $dbTarget');
         continue;
