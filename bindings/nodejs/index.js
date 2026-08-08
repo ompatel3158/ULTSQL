@@ -44,4 +44,5 @@ class UltSQLClient {
   }
 }
 
+UltSQLClient.UltSQLClient = UltSQLClient;
 module.exports = UltSQLClient;
