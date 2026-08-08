@@ -19,9 +19,10 @@ jobs:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Publish to NPM
+      - name: Authenticate & Publish to NPM
         run: |
           cd bindings/nodejs
-          npm publish --access public || echo "Notice: Version already published to NPM or NPM_TOKEN secret pending setup."
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

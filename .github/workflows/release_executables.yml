@@ -37,3 +37,40 @@ jobs:
         with:
           name: ultsql-${{ matrix.os }}
           path: ultsql*
+
+  create-github-release:
+    name: Create GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: UltSQL ${{ github.ref_name }}
+          body: |
+            ## 🚀 UltSQL Release ${{ github.ref_name }}
+            
+            Zero-dependency standalone native executable binaries for Windows, Linux, and macOS.
+            
+            ### Quickstart
+            ```bash
+            # Windows
+            .\ultsql-windows.exe serve --port 8080 --db ./my_db
+
+            # Linux / macOS
+            ./ultsql-ubuntu-latest serve --port 8080 --db ./my_db
+            ```
+          files: |
+            binaries/**/*
+          draft: false
+          prerelease: false
