@@ -1,48 +1,62 @@
-# 🐍 UltSQL Python Package (`ultsql`)
+# 🐍 UltSQL for Python Developers
 
-The official Python client for **UltSQL** — the converged multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
+**Zero Dart / Zero Setup Required!** 
+
+If you are a Python developer, you **DO NOT need Dart or Flutter installed on your machine**. Everything works using standard Python code and tools (`pip`).
 
 ---
 
-## ⚡ Installation
+## 🚀 Quickstart Guide for Python Developers
 
+### Step 1: Install Package
 ```bash
 pip install ultsql
 ```
 
----
+### Step 2: Use in Python
 
-## 🚀 Quickstart Usage
-
+#### Method A: Using the UltSQL Python Client (REST API)
 ```python
 from ultsql import UltSQLClient
 
-# Connect to running UltSQL instance (via REST or PgWire)
+# Connect to ULTSQL
 db = UltSQLClient("http://localhost:8080")
 
-# 1. Query records
-result = db.query("users")
-print("Users:", result["rows"])
+# 1. Insert records
+db.insert("users", {"id": 1, "name": "Alice", "score": 98.5})
 
-# 2. Insert record
-db.insert("users", {"id": 1, "name": "Alice", "score": 95.5})
+# 2. Query records
+users = db.query("users")
+print("User rows:", users["rows"])
 
-# 3. Get OpenAPI 3.0 Documentation Schema
-spec = db.openapi_spec()
-print("OpenAPI Version:", spec["openapi"])
+# 3. Truncate table
+db.truncate("users")
 ```
 
----
+#### Method B: Using Standard PostgreSQL Drivers (`psycopg2` / `asyncpg`)
+Because ULTSQL speaks the **PostgreSQL Wire Protocol**, you can use standard Python database libraries:
 
-## 🔌 PostgreSQL Wire Protocol Compatibility
-
-You can also connect to UltSQL from Python using standard `psycopg2` or `asyncpg`:
+```bash
+pip install psycopg2-binary
+```
 
 ```python
 import psycopg2
 
+# Connect to ULTSQL PostgreSQL wire port (default: 5432)
 conn = psycopg2.connect("host=localhost port=5432 user=admin password=admin dbname=ultsql_db")
 cur = conn.cursor()
-cur.execute("SELECT * FROM users")
-print(cur.fetchall())
+
+cur.execute("SELECT * FROM users WHERE score >= %s", (90.0,))
+rows = cur.fetchall()
+print("Postgres Client Rows:", rows)
 ```
+
+---
+
+## ❓ Frequently Asked Questions for Python Users
+
+- **Do I need to install Dart or Flutter?**  
+  **No!** Python developers only need Python and `pip`.
+- **Can I run ULTSQL without any background server app?**  
+  **Yes!** ULTSQL bundles precompiled dynamic C libraries (`libultsql.so` on Linux, `ultsql.dll` on Windows, `libultsql.dylib` on macOS) so the database engine can run directly inside Python process memory just like SQLite.
