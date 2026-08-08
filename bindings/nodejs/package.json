@@ -1,0 +1,30 @@
+{
+  "name": "ultsql",
+  "version": "1.0.15",
+  "description": "Universal Node.js client for the UltSQL 100% Pure-Dart multimodal database engine.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "keywords": [
+    "ultsql",
+    "database",
+    "sql",
+    "vector-search",
+    "json-database",
+    "rest-api",
+    "postgres",
+    "sqlite"
+  ],
+  "author": "Om Patel <ompatel3158@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ompatel3158/ULTSQL.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ompatel3158/ULTSQL/issues"
+  },
+  "homepage": "https://github.com/ompatel3158/ULTSQL#readme"
+}
