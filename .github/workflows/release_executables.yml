@@ -1,0 +1,37 @@
+name: Release Standalone Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-binaries:
+    name: Build Standalone Executables
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Compile Executable (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: dart compile exe bin/ultsql_cli.dart -o ultsql-${{ matrix.os }}
+
+      - name: Compile Executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: dart compile exe bin/ultsql_cli.dart -o ultsql-windows.exe
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultsql-${{ matrix.os }}
+          path: ultsql*

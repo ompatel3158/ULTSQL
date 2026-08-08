@@ -16,6 +16,86 @@
 
 ---
 
+## 🌍 Universal Installation for All Languages & Operating Systems
+
+ULTSQL can be accessed by **any developer, programming language, or operating system**:
+
+```mermaid
+graph TD
+    subgraph "Your Application (Any System)"
+        Py[🐍 Python]
+        Node[🟢 Node.js / TS]
+        Dart[💙 Flutter / Dart]
+        CLI[🖥️ Windows / Mac / Linux Executable]
+        Docker[🐳 Docker Container]
+    end
+
+    subgraph "Package Registries"
+        PyPI[PyPI: pip install ultsql]
+        NPM[NPM: npm install ultsql]
+        Pub[Pub.dev: package:ultsql]
+        Releases[GitHub Releases: ultsql.exe]
+        Hub[Docker Hub: docker run]
+    end
+
+    Py --> PyPI
+    Node --> NPM
+    Dart --> Pub
+    CLI --> Releases
+    Docker --> Hub
+```
+
+### 1. 🐍 Python Developers
+**No Dart or Flutter required!**
+```bash
+pip install ultsql
+```
+```python
+from ultsql import UltSQLClient
+
+db = UltSQLClient("http://localhost:8080")
+db.insert("users", {"id": 1, "name": "Alice"})
+print(db.query("users"))
+```
+
+### 2. 🟢 Node.js & TypeScript Developers
+**No Dart or Flutter required!**
+```bash
+npm install ultsql
+```
+```javascript
+const { UltSQLClient } = require('ultsql');
+
+const db = new UltSQLClient({ host: 'localhost', port: 8080 });
+await db.insert('users', { id: 1, name: 'Alice' });
+console.log(await db.query('users'));
+```
+
+### 3. 🖥️ Standalone Executables (Windows, macOS, Linux)
+**Zero Dependencies! No Flutter, Dart, Python, or Node needed!**
+Download precompiled binaries directly from [GitHub Releases](https://github.com/ompatel3158/ULTSQL/releases):
+```bash
+# Windows
+ultsql.exe serve --port 8080 --db ./my_db
+
+# Linux / macOS
+./ultsql serve --port 8080 --db ./my_db
+```
+
+### 4. 🐳 Docker Container (Cloud & Servers)
+```bash
+docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db
+```
+
+### 5. 🔌 PostgreSQL Wire Protocol (`psycopg2`, `node-postgres`, `JDBC`, `psql`)
+Connect from any language using standard Postgres drivers:
+```bash
+# Start Postgres Wire Server on port 5432
+ultsql .pgwire 5432
+```
+
+---
+
 ## <a name="standalone-engine-metrics"></a>🌟 Standalone Engine Metrics
 
 | Capability / Benchmark | UltSQL Performance | Feature Status |
