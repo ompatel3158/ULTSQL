@@ -35,5 +35,8 @@ Documentation = "https://pub.dev/packages/ultsql"
 Repository = "https://github.com/ompatel3158/ULTSQL"
 Issues = "https://github.com/ompatel3158/ULTSQL/issues"
 
+[project.scripts]
+ultsql-server = "ultsql.server:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]

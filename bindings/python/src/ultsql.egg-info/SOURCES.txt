@@ -5,7 +5,9 @@ setup.py
 src/ultsql/__init__.py
 src/ultsql/client.py
 src/ultsql/py.typed
+src/ultsql/server.py
 src/ultsql.egg-info/PKG-INFO
 src/ultsql.egg-info/SOURCES.txt
 src/ultsql.egg-info/dependency_links.txt
+src/ultsql.egg-info/entry_points.txt
 src/ultsql.egg-info/top_level.txt

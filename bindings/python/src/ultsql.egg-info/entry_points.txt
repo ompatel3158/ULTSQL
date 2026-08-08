@@ -1,0 +1,2 @@
+[console_scripts]
+ultsql-server = ultsql.server:main
