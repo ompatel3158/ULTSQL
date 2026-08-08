@@ -1,6 +1,6 @@
 name: ultsql
 description: "A 100% Pure-Dart converged database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL with zero C dependencies."
-version: 1.0.15
+version: 1.0.16
 repository: https://github.com/ompatel3158/ULTSQL
 
 # The following defines the version and build number for your application.

@@ -65,6 +65,31 @@ class RestServer {
       }
 
       final tableName = segments[0].toLowerCase();
+      
+      if (method == 'POST' && !db.catalog.tables.containsKey(tableName)) {
+        final content = await utf8.decoder.bind(request).join();
+        final body = jsonDecode(content);
+        if (body is Map<String, dynamic>) {
+          final colDefs = body.entries.map((e) {
+            final val = e.value;
+            if (val is int) return '${e.key} INT';
+            if (val is double) return '${e.key} DOUBLE';
+            if (val is bool) return '${e.key} BOOLEAN';
+            return '${e.key} TEXT';
+          }).join(', ');
+          await _interpreter.executeScript("CREATE TABLE IF NOT EXISTS $tableName ($colDefs)");
+          
+          final cols = body.keys.join(', ');
+          final vals = body.values.map((v) => v is String ? "'$v'" : v.toString()).join(', ');
+          final res = await _interpreter.executeScript("INSERT INTO $tableName ($cols) VALUES ($vals)");
+          request.response.statusCode = HttpStatus.created;
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({'message': res.message}));
+          await request.response.close();
+          return;
+        }
+      }
+
       if (!db.catalog.tables.containsKey(tableName)) {
         request.response.statusCode = HttpStatus.notFound;
         request.response.headers.contentType = ContentType.json;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.16
+
+- **REST Daemon Auto Table Provisioning**: Automatic dynamic table schema creation (`CREATE TABLE IF NOT EXISTS`) on HTTP `POST` requests for seamless zero-config developer onboarding.
+- **Node.js Client Package (`ultsql`)**: Added full support for both default and named imports (`const UltSQLClient = require('ultsql')` and `const { UltSQLClient } = require('ultsql')`), plus `truncate()` and `openapiSpec()` client methods.
+- **Python Client Package (`ultsql`)**: Full PEP 621 PyPA compliance, `src/` layout, `py.typed` type hints, and live verified PyPI distribution.
+
 ## 1.0.15
 
 - **Universal Multi-Language Bindings**: Added SQLite-compatible C API & FFI exports (`ultsql_open_c`, `ultsql_exec_async`, `ultsql_step_c`, `ultsql_column_text_c`, `ultsql_close_c`).

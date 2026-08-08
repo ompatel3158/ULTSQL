@@ -42,6 +42,33 @@ class UltSQLClient {
       req.end();
     });
   }
+
+  truncate(tableName) {
+    return new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: this.host,
+        port: this.port,
+        path: `/${tableName}`,
+        method: 'DELETE'
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+  }
+
+  openapiSpec() {
+    return new Promise((resolve, reject) => {
+      http.get(`http://${this.host}:${this.port}/openapi.json`, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      }).on('error', reject);
+    });
+  }
 }
 
 UltSQLClient.UltSQLClient = UltSQLClient;
