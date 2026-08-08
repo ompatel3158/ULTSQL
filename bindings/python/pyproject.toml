@@ -7,13 +7,22 @@ name = "ultsql"
 version = "1.0.15"
 description = "Universal Python client for the UltSQL 100% Pure-Dart multimodal database engine."
 readme = "README.md"
+license = "BSD-3-Clause"
 authors = [
   { name = "Om Patel", email = "ompatel3158@gmail.com" }
 ]
-license = { text = "MIT" }
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Topic :: Database",
     "Topic :: Database :: Database Engines/Servers"
@@ -24,3 +33,7 @@ requires-python = ">=3.7"
 Homepage = "https://github.com/ompatel3158/ULTSQL"
 Documentation = "https://pub.dev/packages/ultsql"
 Repository = "https://github.com/ompatel3158/ULTSQL"
+Issues = "https://github.com/ompatel3158/ULTSQL/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

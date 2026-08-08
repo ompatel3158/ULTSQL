@@ -18,7 +18,7 @@
     "sqlite"
   ],
   "author": "Om Patel <ompatel3158@gmail.com>",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ompatel3158/ULTSQL.git"

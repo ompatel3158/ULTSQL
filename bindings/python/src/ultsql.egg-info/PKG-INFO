@@ -1,0 +1,82 @@
+Metadata-Version: 2.4
+Name: ultsql
+Version: 1.0.15
+Summary: Universal Python client for the UltSQL 100% Pure-Dart multimodal database engine.
+Home-page: https://github.com/ompatel3158/ULTSQL
+Author: Om Patel
+Author-email: Om Patel <ompatel3158@gmail.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/ompatel3158/ULTSQL
+Project-URL: Documentation, https://pub.dev/packages/ultsql
+Project-URL: Repository, https://github.com/ompatel3158/ULTSQL
+Project-URL: Issues, https://github.com/ompatel3158/ULTSQL/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Database Engines/Servers
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# 🐍 UltSQL Python Package (`ultsql`)
+
+The official Python client for **UltSQL** — the converged multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
+
+---
+
+## ⚡ Installation
+
+```bash
+pip install ultsql
+```
+
+---
+
+## 🚀 Quickstart Usage
+
+```python
+from ultsql import UltSQLClient
+
+# Connect to running UltSQL instance (via REST or PgWire)
+db = UltSQLClient("http://localhost:8080")
+
+# 1. Query records
+result = db.query("users")
+print("Users:", result["rows"])
+
+# 2. Insert record
+db.insert("users", {"id": 1, "name": "Alice", "score": 95.5})
+
+# 3. Get OpenAPI 3.0 Documentation Schema
+spec = db.openapi_spec()
+print("OpenAPI Version:", spec["openapi"])
+```
+
+---
+
+## 🔌 PostgreSQL Wire Protocol Compatibility
+
+You can also connect to UltSQL from Python using standard `psycopg2` or `asyncpg`:
+
+```python
+import psycopg2
+
+conn = psycopg2.connect("host=localhost port=5432 user=admin password=admin dbname=ultsql_db")
+cur = conn.cursor()
+cur.execute("SELECT * FROM users")
+print(cur.fetchall())
+```
