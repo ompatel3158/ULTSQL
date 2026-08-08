@@ -71,16 +71,19 @@ await db.insert('users', { id: 1, name: 'Alice' });
 console.log(await db.query('users'));
 ```
 
-### 3. 🖥️ Standalone Executables (Windows, macOS, Linux)
-**Zero Dependencies! No Flutter, Dart, Python, or Node needed!**
-Download precompiled binaries directly from [GitHub Releases](https://github.com/ompatel3158/ULTSQL/releases):
-```bash
-# Windows
-ultsql.exe serve --port 8080 --db ./my_db
+### 3. 🖥️ 1-Line Standalone CLI Installers (Windows, macOS, Linux)
+**Zero Dependencies! Automatically downloads binary and adds `ultsql` to your system PATH:**
 
-# Linux / macOS
-./ultsql serve --port 8080 --db ./my_db
-```
+- **Windows (PowerShell)**:
+  ```powershell
+  iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
+  ```
+- **Linux & macOS (Bash)**:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash
+  ```
+
+Once installed, type `ultsql serve` in any terminal!
 
 ### 4. 🐳 Docker Container (Cloud & Servers)
 ```bash

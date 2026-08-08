@@ -47,13 +47,13 @@
       <div class="pillars-grid">
         <div class="pillar-card">
           <span class="pillar-tag">METHOD A</span>
-          <h3>🖥️ Standalone Binary (Zero Dependencies)</h3>
-          <p>No Flutter, Dart, Python, or Node required. Download <code>ultsql.exe</code> from GitHub Releases and run directly:</p>
-          <pre><code># Start REST Daemon on port 8080
-./ultsql serve --port 8080 --db ./my_database
+          <h3>🖥️ 1-Line CLI Auto-Installer (Windows, Linux, macOS)</h3>
+          <p>No Flutter, Dart, Python, or Node required. Automatically downloads binary and configures your system <code>PATH</code>:</p>
+          <pre><code># Windows (PowerShell)
+iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
 
-# Start PostgreSQL Wire Protocol Daemon on port 5432
-./ultsql .pgwire 5432</code></pre>
+# Linux & macOS (Bash)
+curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash</code></pre>
         </div>
 
         <div class="pillar-card">
