@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation & Commands — UltSQL Database Engine</title>
+  <meta name="description" content="Complete documentation, CLI commands, server configuration options, Python SDK, Node.js SDK, and SQL feature guide for UltSQL.">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <a href="index.html" class="nav-brand">
+      <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
+      <span class="brand-version">v1.0.16 Docs</span>
+    </a>
+    <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="#server-start">Start Server</a></li>
+      <li><a href="#cli-commands">CLI & Options</a></li>
+      <li><a href="#python-sdk">Python SDK</a></li>
+      <li><a href="#nodejs-sdk">Node.js SDK</a></li>
+      <li><a href="#sql-features">SQL Features</a></li>
+    </ul>
+  </nav>
+
+  <!-- DOCS HEADER -->
+  <header class="hero" style="min-height: 40vh; padding-top: 6rem;">
+    <h1>UltSQL Documentation</h1>
+    <p>The complete manual for starting the engine, connecting clients, running CLI commands, and utilizing advanced multimodal SQL features.</p>
+  </header>
+
+  <main style="max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem;">
+
+    <!-- SECTION 1: STARTING THE SERVER -->
+    <section class="section" id="server-start">
+      <h2 class="section-title">1. Starting the UltSQL Server Daemon</h2>
+      <p class="section-subtitle">Choose the server startup method for your operating system or language stack.</p>
+
+      <div class="pillars-grid">
+        <div class="pillar-card">
+          <span class="pillar-tag">METHOD A</span>
+          <h3>🖥️ Standalone Binary (Zero Dependencies)</h3>
+          <p>No Flutter, Dart, Python, or Node required. Download <code>ultsql.exe</code> from GitHub Releases and run directly:</p>
+          <pre><code># Start REST Daemon on port 8080
+./ultsql serve --port 8080 --db ./my_database
+
+# Start PostgreSQL Wire Protocol Daemon on port 5432
+./ultsql .pgwire 5432</code></pre>
+        </div>
+
+        <div class="pillar-card">
+          <span class="pillar-tag">METHOD B</span>
+          <h3>🐍 Python `ultsql-server` CLI</h3>
+          <p>When installed via <code>pip install ultsql</code>, launch the server directly from Python terminal:</p>
+          <pre><code>pip install ultsql
+
+# Start daemon
+ultsql-server --port 8080 --db ./my_database</code></pre>
+        </div>
+
+        <div class="pillar-card">
+          <span class="pillar-tag">METHOD C</span>
+          <h3>🐳 Docker Container</h3>
+          <p>Run UltSQL in production cloud servers or Kubernetes with zero local installation:</p>
+          <pre><code>docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: CLI COMMANDS & META OPTIONS -->
+    <section class="section" id="cli-commands">
+      <h2 class="section-title">2. CLI Terminal Commands & Interactive Meta-Commands</h2>
+      <p class="section-subtitle">All interactive terminal commands available inside the <code>ultsql</code> CLI prompt.</p>
+
+      <table class="benchmark-table" style="width: 100%; margin-top: 1.5rem;">
+        <thead>
+          <tr>
+            <th>Command</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ultsql serve [--port 8080] [--db path]</code></td>
+            <td>Launches the HTTP REST daemon and live OpenAPI 3.0 specification server.</td>
+            <td><code>ultsql serve --port 8080 --db ./app.db</code></td>
+          </tr>
+          <tr>
+            <td><code>.pgwire [port]</code></td>
+            <td>Starts the PostgreSQL Wire Protocol server daemon inside CLI session.</td>
+            <td><code>.pgwire 5432</code></td>
+          </tr>
+          <tr>
+            <td><code>.tables</code></td>
+            <td>Lists all tables in the active catalog schema.</td>
+            <td><code>.tables</code></td>
+          </tr>
+          <tr>
+            <td><code>.schema [table]</code></td>
+            <td>Shows DDL schema definition and column types for a table.</td>
+            <td><code>.schema users</code></td>
+          </tr>
+          <tr>
+            <td><code>.databases</code></td>
+            <td>Displays active database storage path.</td>
+            <td><code>.databases</code></td>
+          </tr>
+          <tr>
+            <td><code>.exit</code> / <code>exit</code></td>
+            <td>Flushes WAL logs and safely exits the interactive prompt.</td>
+            <td><code>.exit</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SECTION 3: PYTHON SDK -->
+    <section class="section" id="python-sdk">
+      <h2 class="section-title">3. Python Package (`pip install ultsql`)</h2>
+      <p class="section-subtitle">Official PyPA compliant client library. Zero Dart/Flutter setup required!</p>
+
+      <pre><code># 1. Install via pip
+pip install ultsql
+
+# 2. Connect and execute in Python
+from ultsql import UltSQLClient
+
+# Connect to UltSQL Daemon
+db = UltSQLClient("http://localhost:8080")
+
+# Insert record (auto-provisions table schema if missing)
+db.insert("products", {"id": 1, "name": "Quantum Laptop", "price": 1299.99})
+
+# Fetch records
+result = db.query("products")
+print("Count:", result["count"])
+print("Rows:", result["rows"])
+
+# Fetch OpenAPI Specification
+spec = db.openapi_spec()
+print("OpenAPI Title:", spec["info"]["title"])</code></pre>
+    </section>
+
+    <!-- SECTION 4: NODE.JS SDK -->
+    <section class="section" id="nodejs-sdk">
+      <h2 class="section-title">4. Node.js & TypeScript Package (`npm install ultsql`)</h2>
+      <p class="section-subtitle">Official Node.js & TypeScript client library with full type definitions.</p>
+
+      <pre><code>// 1. Install via npm
+npm install ultsql
+
+// 2. Connect and execute in JavaScript / TypeScript
+const { UltSQLClient } = require('ultsql');
+
+const db = new UltSQLClient({ host: 'localhost', port: 8080 });
+
+async function run() {
+  // Insert record
+  await db.insert('users', { id: 101, name: 'Om Patel', tier: 'VIP' });
+
+  // Query records
+  const result = await db.query('users');
+  console.log('Users:', result.rows);
+}
+
+run();</code></pre>
+    </section>
+
+    <!-- SECTION 5: ADVANCED MULTIMODAL FEATURES -->
+    <section class="section" id="sql-features">
+      <h2 class="section-title">5. Advanced Multimodal SQL Features Syntax</h2>
+      <p class="section-subtitle">Syntax guide for UltSQL's advanced multimodal engine capabilities.</p>
+
+      <div class="pillars-grid">
+        <div class="pillar-card">
+          <h3>⚡ Reactive Query Streams (`db.watch()`)</h3>
+          <pre><code>final stream = db.watch(interpreter, "SELECT * FROM users WHERE active = true");
+stream.listen((result) {
+  print("Updated rows: ${result.rows}");
+});</code></pre>
+        </div>
+
+        <div class="pillar-card">
+          <h3>🔄 SQL Macros (`CREATE MACRO`)</h3>
+          <pre><code>CREATE MACRO calculate_tax(amount) AS amount * 0.15;
+SELECT id, price, calculate_tax(price) AS tax FROM orders;</code></pre>
+        </div>
+
+        <div class="pillar-card">
+          <h3>📡 Event Streams (`CREATE STREAM`)</h3>
+          <pre><code>CREATE STREAM order_events;
+EMIT TO order_events VALUES (101, 'order_placed', NOW());</code></pre>
+        </div>
+
+        <div class="pillar-card">
+          <h3>🌿 Database Branching (`ultsql branch`)</h3>
+          <pre><code>db.createBranch('feature-dev');
+db.switchBranch('feature-dev');
+db.mergeBranch('feature-dev', 'main');</code></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>UltSQL Database Engine — BSD 3-Clause License &copy; 2026 Om Patel & Engine Authors.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
