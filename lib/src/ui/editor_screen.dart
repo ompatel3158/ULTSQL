@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import '../engine/executor/interpreter.dart';
 import '../engine/executor/value.dart';
 import 'result_grid.dart';
@@ -21,8 +20,8 @@ class _EditorScreenState extends State<EditorScreen> with SingleTickerProviderSt
   
   Database? _db;
   Interpreter? _interpreter;
-  bool _isLoading = true;
-  String _statusMessage = 'Initializing database...';
+  bool _isLoading = false;
+  String _statusMessage = 'Initializing...';
 
   // Execution outputs
   List<String> _columns = [];
@@ -35,18 +34,20 @@ class _EditorScreenState extends State<EditorScreen> with SingleTickerProviderSt
   static final RegExp _plSqlTxRegExp = RegExp(r'\bbegin\s*(transaction|work)?;');
   static final RegExp _nosqlDotRegExp = RegExp(r'[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+');
 
-  String _detectedCategory = 'Standard SQL';
+  String _detectedCategory = 'Relational';
 
   final Map<String, String> _templates = {
-    'Relational SQL (JOIN & Aggregation)': '''-- 1. Create Relational Tables
+    'Relational SQL (JOIN & Aggregate)': '''-- 1. Create tables with foreign key & primary key constraints
 CREATE TABLE depts (id INT PRIMARY KEY, name TEXT);
+CREATE TABLE employees (id INT PRIMARY KEY, name TEXT, salary DOUBLE, dept_id INT);
+
+-- 2. Insert sample records
 INSERT INTO depts VALUES (1, 'Engineering');
 INSERT INTO depts VALUES (2, 'AI Research');
 INSERT INTO depts VALUES (3, 'Marketing');
 
-CREATE TABLE employees (id INT PRIMARY KEY, name TEXT, salary DOUBLE, dept_id INT);
-INSERT INTO employees VALUES (101, 'Alice Vance', 125000.0, 1);
-INSERT INTO employees VALUES (102, 'Bob Builder', 98000.0, 1);
+INSERT INTO employees VALUES (101, 'Alice Architect', 125000.0, 1);
+INSERT INTO employees VALUES (102, 'Bob Dev', 95000.0, 1);
 INSERT INTO employees VALUES (103, 'Charlie AI', 145000.0, 2);
 INSERT INTO employees VALUES (104, 'Diana Marketer', 88000.0, 3);
 
@@ -57,19 +58,6 @@ JOIN depts ON employees.dept_id = depts.id
 WHERE employees.salary > 90000.0
 ORDER BY employees.salary DESC;''',
 
-    'NoSQL (Dotted JSON Document)': '''-- 1. Create table with JSON document type
-CREATE TABLE customers (id INT PRIMARY KEY, info JSON);
-
--- 2. Insert flexible schema documents
-INSERT INTO customers VALUES (1, '{"name": "Alice", "age": 28, "address": {"city": "New York", "zip": 10001}, "tags": ["vip", "tech"]}');
-INSERT INTO customers VALUES (2, '{"name": "Bob", "age": 22, "address": {"city": "Boston", "zip": 02108}, "tags": ["standard"]}');
-INSERT INTO customers VALUES (3, '{"name": "Charlie", "age": 35, "address": {"city": "Chicago", "zip": 60601}, "tags": ["enterprise"]}');
-
--- 3. Query nested paths using dotted notation
-SELECT info.name, info.age, info.address.city, info.address.zip 
-FROM customers 
-WHERE info.age > 24;''',
-
     'AI Vector Similarity Search (HNSW)': '''-- 1. Create Columnar Table with VECTOR type
 CREATE TABLE products (id INT PRIMARY KEY, name TEXT, embedding VECTOR);
 
@@ -79,34 +67,31 @@ INSERT INTO products VALUES (2, 'Quantum Physics Book', '[0.9, 0.1, 0.1, -0.05]'
 INSERT INTO products VALUES (3, 'Classic Cotton T-Shirt', '[0.15, 0.7, -0.1, 0.38]');
 INSERT INTO products VALUES (4, 'Smart AI Watch', '[0.12, 0.82, -0.18, 0.40]');
 
--- 3. Semantic Vector Search using Cosine Distance
-SELECT name, vector_distance(embedding, '[0.11, 0.84, -0.19, 0.42]') AS similarity_dist
+-- 3. Perform cosine similarity vector search
+SELECT name, VECTOR_SIMILARITY(embedding, '[0.11, 0.84, -0.19, 0.42]') AS score
 FROM products
-ORDER BY similarity_dist ASC
-LIMIT 3;''',
+ORDER BY score DESC;''',
 
-    'PL/SQL Procedural Script': '''DECLARE
-  counter INT := 0;
-  total DOUBLE := 0.0;
+    'PL/SQL Procedural Script': '''-- High-speed procedural programming
+DECLARE
+  v_count INT := 0;
 BEGIN
-  DBMS_OUTPUT.PUT_LINE('Starting PL/SQL Execution Loop...');
-  
-  WHILE counter < 10 LOOP
-    counter := counter + 1;
-    total := total + (counter * 15.5);
-    
-    IF counter % 2 = 0 THEN
-      DBMS_OUTPUT.PUT_LINE('Step ' || counter || ': EVEN total=' || total);
-    ELSE
-      DBMS_OUTPUT.PUT_LINE('Step ' || counter || ': ODD total=' || total);
-    END IF;
+  FOR i IN 1..5 LOOP
+    v_count := v_count + i;
   END LOOP;
-
-  DBMS_OUTPUT.PUT_LINE('Finished. Final Cumulative Sum: ' || total);
+  DBMS_OUTPUT.PUT_LINE('Computed Sum: ' || v_count);
 END;''',
 
-    'Zero-Knowledge Ciphertext Search': '''-- Zero-Knowledge Encrypted Enclave Test
-SELECT 'ZK Enclave Ciphertext Search Verified' AS status;''',
+    'Data Masking & Security': '''-- 1. Create table with dynamic data masking
+CREATE TABLE users_secure (
+  id INT PRIMARY KEY, 
+  email TEXT MASKED WITH FUNCTION = 'email', 
+  card TEXT MASKED WITH FUNCTION = 'credit_card'
+);
+
+INSERT INTO users_secure VALUES (1, 'om@ultsql.io', '4532-1122-3344-9876');
+
+SELECT * FROM users_secure;'''
   };
 
   final FocusNode _editorFocusNode = FocusNode();
@@ -116,15 +101,14 @@ SELECT 'ZK Enclave Ciphertext Search Verified' AS status;''',
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _initDatabase();
-    _codeController.text = _templates.values.first;
+    _codeController.text = _templates['Relational SQL (JOIN & Aggregate)']!;
     _detectedCategory = _detectQueryType(_codeController.text);
     _codeController.addListener(_onCodeChanged);
   }
 
   Future<void> _initDatabase() async {
     try {
-      final docDir = await getApplicationDocumentsDirectory();
-      final dbPath = '${docDir.path}/hybrid_db_data';
+      final dbPath = ':memory:';
       
       _db = Database(dbPath);
       await _db!.init();
@@ -152,25 +136,10 @@ SELECT 'ZK Enclave Ciphertext Search Verified' AS status;''',
         _db = null;
         _interpreter = null;
       }
-      final docDir = await getApplicationDocumentsDirectory();
-      final dbPath = '${docDir.path}/hybrid_db_data';
-      final dir = Directory(dbPath);
-      if (await dir.exists()) {
-        await dir.delete(recursive: true);
-      }
-      
-      _db = Database(dbPath);
-      await _db!.init();
-      _interpreter = Interpreter(_db!);
-      
+      await _initDatabase();
       setState(() {
-        _isLoading = false;
         _statusMessage = 'Database reset and ready.';
-        _columns = [];
-        _rows = [];
-        _message = 'Database reset successfully.';
         _consoleLogs = [];
-        _execTimeStr = '';
       });
     } catch (e) {
       setState(() {
