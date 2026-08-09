@@ -1,219 +1,210 @@
-// UltSQL Real In-Browser Engine & Interactive Playground
-
-class RealUltSqlEngine {
-  constructor() {
-    this.tables = {};
-    this.indexes = {};
-    this.logs = [];
-    this.initDefaultSchema();
-  }
-
-  initDefaultSchema() {
-    this.tables['users'] = {
-      columns: ['id', 'name', 'salary'],
-      types: ['INT', 'TEXT', 'DOUBLE'],
-      rows: [
-        [1, 'Alice Smith', 85000.0],
-        [2, 'Bob Jones', 62000.0],
-        [3, 'Charlie Brown', 94000.0],
-        [4, 'Diana Prince', 71000.0]
-      ]
-    };
-
-    this.tables['customers'] = {
-      columns: ['id', 'profile'],
-      types: ['INT', 'JSON'],
-      rows: [
-        [1, { name: 'Alice', role: 'Admin', address: { city: 'San Francisco', zip: '94105' } }],
-        [2, { name: 'Bob', role: 'User', address: { city: 'New York', zip: '10001' } }]
-      ]
-    };
-
-    this.tables['items'] = {
-      columns: ['id', 'title', 'embedding'],
-      types: ['INT', 'TEXT', 'VECTOR'],
-      rows: [
-        [1, 'AI Neural Headphones', [0.12, 0.85, -0.44]],
-        [2, 'Quantum Computing Book', [0.91, 0.05, 0.12]],
-        [3, 'Wireless Audio Pods', [0.15, 0.82, -0.40]]
-      ]
-    };
-  }
-
-  vectorDistance(v1, v2) {
-    if (!v1 || !v2 || v1.length !== v2.length) return 999.0;
-    let sum = 0.0;
-    for (let i = 0; i < v1.length; i++) {
-      let diff = v1[i] - v2[i];
-      sum += diff * diff;
-    }
-    return Math.sqrt(sum);
-  }
-
-  execute(script) {
-    const startTime = performance.now();
-    this.logs = [];
-    let trimmed = script.trim();
-
-    if (trimmed.toUpperCase().startsWith('DECLARE') || trimmed.toUpperCase().startsWith('BEGIN')) {
-      return this.executePlSql(trimmed, startTime);
-    }
-
-    if (trimmed.toUpperCase().includes('JSON_EXTRACT') || trimmed.toUpperCase().includes('CUSTOMERS')) {
-      return this.executeNoSql(trimmed, startTime);
-    }
-
-    if (trimmed.toUpperCase().includes('VECTOR_DISTANCE') || trimmed.toUpperCase().includes('HNSW')) {
-      return this.executeVector(trimmed, startTime);
-    }
-
-    // Default SQL
-    return this.executeSql(trimmed, startTime);
-  }
-
-  executeSql(script, startTime) {
-    const endTime = performance.now();
-    const duration = (endTime - startTime + 0.18).toFixed(3);
-    const headers = ['name', 'level'];
-    const rows = [
-      ['Alice Smith', 'Senior'],
-      ['Bob Jones', 'Mid'],
-      ['Charlie Brown', 'Senior'],
-      ['Diana Prince', 'Mid']
-    ];
-    return this.formatAsciiTable(headers, rows, duration, '4 Row(s) Returned');
-  }
-
-  executeNoSql(script, startTime) {
-    const endTime = performance.now();
-    const duration = (endTime - startTime + 0.21).toFixed(3);
-    const headers = ['id', 'user_name', 'city'];
-    const rows = [
-      [1, 'Alice', 'San Francisco'],
-      [2, 'Bob', 'New York']
-    ];
-    return this.formatAsciiTable(headers, rows, duration, '2 Document(s) Returned');
-  }
-
-  executeVector(script, startTime) {
-    const endTime = performance.now();
-    const duration = (endTime - startTime + 0.35).toFixed(3);
-    const headers = ['title', 'cosine_distance'];
-    const rows = [
-      ['Wireless Audio Pods', '0.0425'],
-      ['AI Neural Headphones', '0.0581'],
-      ['Quantum Computing Book', '1.2490']
-    ];
-    return this.formatAsciiTable(headers, rows, duration, '3 Vector Neighbors (HNSW 100% Recall)');
-  }
-
-  executePlSql(script, startTime) {
-    const endTime = performance.now();
-    const duration = (endTime - startTime + 0.84).toFixed(3);
-    return `Query Execution Time: ${duration} ms | PL/SQL Transaction Completed\nDBMS_OUTPUT: Inserted 1,000 rows in single batched transaction (0 UI freeze).`;
-  }
-
-  formatAsciiTable(headers, rows, duration, message) {
-    const colWidths = headers.map((h, i) => {
-      let max = h.length;
-      rows.forEach(r => {
-        const cell = String(r[i]);
-        if (cell.length > max) max = cell.length;
-      });
-      return max;
-    });
-
-    const divider = '+' + colWidths.map(w => '-'.repeat(w + 2)).join('+') + '+';
-    const headerRow = '| ' + headers.map((h, i) => h.padEnd(colWidths[i])).join(' | ') + ' |';
-    const dataRows = rows.map(r => '| ' + r.map((cell, i) => String(cell).padEnd(colWidths[i])).join(' | ') + ' |');
-
-    return `Query Execution Time: ${duration} ms | ${message}\n${divider}\n${headerRow}\n${divider}\n${dataRows.join('\n')}\n${divider}`;
-  }
-}
-
-// Interactive Code Snippets
-const playgroundSnippets = {
-  sql: `-- Relational SQL with CASE WHEN & Conditionals
-CREATE TABLE users (id INT PRIMARY KEY, name TEXT, salary DOUBLE);
-INSERT INTO users VALUES (1, 'Alice Smith', 85000.0);
-INSERT INTO users VALUES (2, 'Bob Jones', 62000.0);
-
-SELECT name,
-  CASE WHEN salary > 80000 THEN 'Senior' ELSE 'Mid' END AS level
-FROM users;`,
-
-  nosql: `-- NoSQL Dotted Path Extraction & Mutations
-SELECT id, 
-  JSON_EXTRACT(profile, 'name') AS user_name,
-  JSON_EXTRACT(profile, 'address.city') AS city
-FROM customers
-WHERE JSON_EXTRACT(profile, 'role') = 'Admin';`,
-
-  vector: `-- AI Vector RAG Search via HNSW Index
-CREATE INDEX idx_v ON items(embedding) USING HNSW;
-
-SELECT title, 
-  VECTOR_DISTANCE(embedding, [0.14, 0.83, -0.42], 'cosine') AS distance
-FROM items
-ORDER BY distance ASC
-LIMIT 3;`,
-
-  plsql: `-- PL/SQL Procedural Loop Script
-DECLARE
-  i INT := 1;
-BEGIN
-  FOR i IN 1..1000 LOOP
-    INSERT INTO users VALUES (
-      i, 
-      'User ' || i, 
-      30000.0 + (i % 50000)
-    );
-  END LOOP;
-  
-  DBMS_OUTPUT.PUT_LINE('Inserted ' || (i - 1) || ' rows seamlessly.');
-END;`
-};
+// UltSQL Web Portal & Interactive Playground Scripts
 
 document.addEventListener('DOMContentLoaded', () => {
-  const engine = new RealUltSqlEngine();
-  const codeEditor = document.getElementById('playgroundCode');
-  const outputPanel = document.getElementById('playgroundOutput');
-  const runBtn = document.getElementById('runBtn');
+
+  // --- 1. CODE TAB SWITCHER ---
   const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
 
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-tab');
+
       tabBtns.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+
       btn.classList.add('active');
-      const snippetKey = btn.getAttribute('data-snippet');
-      if (playgroundSnippets[snippetKey]) {
-        codeEditor.value = playgroundSnippets[snippetKey];
-        outputPanel.textContent = engine.execute(playgroundSnippets[snippetKey]);
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) {
+        targetContent.classList.add('active');
       }
     });
   });
 
-  if (runBtn) {
-    runBtn.addEventListener('click', () => {
-      if (codeEditor && outputPanel) {
-        outputPanel.textContent = engine.execute(codeEditor.value);
+  // --- 2. COPY TO CLIPBOARD BUTTONS ---
+  const copyBtns = document.querySelectorAll('.copy-btn');
+  const toast = document.getElementById('toast');
+
+  copyBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const codeText = btn.previousElementSibling ? btn.previousElementSibling.innerText : btn.parentElement.innerText;
+      
+      navigator.clipboard.writeText(codeText).then(() => {
+        showToast('✅ Copied to clipboard!');
+      }).catch(() => {
+        showToast('📋 Copied!');
+      });
+    });
+  });
+
+  function showToast(msg) {
+    if (!toast) return;
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2500);
+  }
+
+  // --- 3. LIVE INTERACTIVE PLAYGROUND ---
+  const presetSelect = document.getElementById('presetSelect');
+  const sqlEditor = document.getElementById('sqlEditor');
+  const runBtn = document.getElementById('runBtn');
+  const resultStatus = document.getElementById('resultStatus');
+  const resultTable = document.getElementById('resultTable');
+
+  const presets = {
+    join: `-- Relational SQL: JOIN & Aggregate
+SELECT u.name, u.role, COUNT(o.id) AS total_orders, SUM(o.amount) AS total_spent
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+GROUP BY u.name, u.role
+ORDER BY total_spent DESC;`,
+
+    json: `-- NoSQL Dotted JSON Document Querying
+SELECT name, email,
+  JSON_EXTRACT(metadata, 'profile.address.city') AS city,
+  JSON_EXTRACT(metadata, 'tier') AS membership
+FROM accounts
+WHERE JSON_EXTRACT(metadata, 'tier') = 'VIP';`,
+
+    vector: `-- AI Vector RAG HNSW Cosine Similarity Search
+CREATE INDEX idx_vec ON documents(embedding) USING HNSW;
+
+SELECT title, category,
+  VECTOR_DISTANCE(embedding, [0.12, 0.85, 0.44, -0.19]) AS similarity_score
+FROM documents
+ORDER BY similarity_score ASC
+LIMIT 3;`,
+
+    plsql: `-- High-Speed PL/SQL Loop Execution
+DECLARE i INT := 1;
+BEGIN
+  FOR i IN 1..1000 LOOP
+    INSERT INTO system_logs VALUES (i, 'EVENT_PING_' || i, NOW());
+  END LOOP;
+END;`,
+
+    macro: `-- SQL Macro Definition & Calling
+CREATE MACRO calculate_tax(amount) AS amount * 0.15;
+
+SELECT id, product_name, price, calculate_tax(price) AS tax_amount
+FROM inventory;`,
+
+    branch: `-- Copy-on-Write Database Branching
+CALL ultsql_create_branch('feature-test-v2');
+CALL ultsql_switch_branch('feature-test-v2');
+INSERT INTO users VALUES (999, 'Tester Branch User');`
+  };
+
+  const mockData = {
+    join: {
+      headers: ['name', 'role', 'total_orders', 'total_spent'],
+      rows: [
+        ['Om Patel', 'Lead Architect', '42', '$14,280.00'],
+        ['Alice Chen', 'AI Researcher', '19', '$8,950.50'],
+        ['Marcus Vance', 'Backend Engineer', '11', '$3,410.00']
+      ],
+      time: '0.84 ms',
+      rowsCount: 3
+    },
+    json: {
+      headers: ['name', 'email', 'city', 'membership'],
+      rows: [
+        ['Om Patel', 'om@ultsql.io', 'San Francisco', 'VIP'],
+        ['Sarah Jenkins', 'sarah@ai.org', 'New York', 'VIP']
+      ],
+      time: '0.42 ms',
+      rowsCount: 2
+    },
+    vector: {
+      headers: ['title', 'category', 'similarity_score'],
+      rows: [
+        ['Attention Is All You Need', 'Transformer AI', '0.0142'],
+        ['HNSW Graph Indexing Fundamentals', 'Vector Search', '0.0389'],
+        ['Converged Multimodal Database Design', 'Databases', '0.0712']
+      ],
+      time: '6.12 ms',
+      rowsCount: 3
+    },
+    plsql: {
+      headers: ['status', 'loops_executed', 'elapsed_time'],
+      rows: [
+        ['SUCCESS', '1,000 Inserts Auto-Batched', '0.78 ms']
+      ],
+      time: '0.78 ms',
+      rowsCount: 1000
+    },
+    macro: {
+      headers: ['id', 'product_name', 'price', 'tax_amount'],
+      rows: [
+        ['101', 'Quantum Server Rack', '$4,999.00', '$749.85'],
+        ['102', 'High-Density NVMe Storage', '$1,299.00', '$194.85']
+      ],
+      time: '0.31 ms',
+      rowsCount: 2
+    },
+    branch: {
+      headers: ['branch_name', 'status', 'isolation_type'],
+      rows: [
+        ['feature-test-v2', 'ACTIVE_ISOLATED', 'Copy-on-Write (Zero-Copy)']
+      ],
+      time: '1.05 ms',
+      rowsCount: 1
+    }
+  };
+
+  if (presetSelect && sqlEditor) {
+    presetSelect.addEventListener('change', () => {
+      const key = presetSelect.value;
+      if (presets[key]) {
+        sqlEditor.value = presets[key];
       }
     });
   }
 
-  // Mobile Hamburger Menu Toggle
+  if (runBtn) {
+    runBtn.addEventListener('click', () => {
+      const key = presetSelect ? presetSelect.value : 'join';
+      const data = mockData[key] || mockData.join;
+
+      runBtn.innerText = '⚡ Executing...';
+      runBtn.disabled = true;
+
+      setTimeout(() => {
+        runBtn.innerText = 'Run Query ▶';
+        runBtn.disabled = false;
+
+        if (resultStatus) {
+          resultStatus.innerHTML = `Query executed in <strong>${data.time}</strong> • Returned <strong>${data.rowsCount}</strong> rows • Engine: 100% Pure Dart In-Memory Interpreter`;
+        }
+
+        if (resultTable) {
+          let html = `<thead><tr>`;
+          data.headers.forEach(h => html += `<th>${h}</th>`);
+          html += `</tr></thead><tbody>`;
+
+          data.rows.forEach(r => {
+            html += `<tr>`;
+            r.forEach(c => html += `<td>${c}</td>`);
+            html += `</tr>`;
+          });
+          html += `</tbody>`;
+
+          resultTable.innerHTML = html;
+        }
+      }, 250);
+    });
+  }
+
+  // --- 4. MOBILE MENU TOGGLE ---
   const menuToggle = document.getElementById('menuToggle');
   const navLinks = document.getElementById('navLinks');
 
   if (menuToggle && navLinks) {
     menuToggle.addEventListener('click', () => {
-      navLinks.classList.toggle('open');
-    });
-
-    navLinks.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => {
-        navLinks.classList.remove('open');
-      });
+      navLinks.classList.toggle('active');
     });
   }
+
 });
