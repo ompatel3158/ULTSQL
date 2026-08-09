@@ -252,6 +252,7 @@ class AlterTableStmt extends Stmt {
 class InsertStmt extends Stmt {
   final String tableName;
   final List<Expression> values;
+  final List<List<Expression>>? multiValues;
   final List<String>? columnNames;
   final bool isReplace;
   final bool onConflictDoNothing;
@@ -266,6 +267,7 @@ class InsertStmt extends Stmt {
     this.onConflictDoNothing = false,
     this.conflictTargetColumn,
     this.updateAssignments,
+    this.multiValues,
   ]);
 }
 

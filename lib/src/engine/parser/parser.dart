@@ -1244,14 +1244,19 @@ class Parser {
     }
 
     _consume(TokenType.valuesKeyword, "Expected 'VALUES' keyword.");
-    _consume(TokenType.lParen, "Expected '(' to list values.");
 
-    List<Expression> values = [];
+    List<List<Expression>> multiValues = [];
     do {
-      values.add(_parseExpression());
+      _consume(TokenType.lParen, "Expected '(' to list values.");
+      List<Expression> row = [];
+      do {
+        row.add(_parseExpression());
+      } while (_match([TokenType.comma]));
+      _consume(TokenType.rParen, "Expected ')' to close values list.");
+      multiValues.add(row);
     } while (_match([TokenType.comma]));
 
-    _consume(TokenType.rParen, "Expected ')' to close values list.");
+    List<Expression> values = multiValues.first;
 
     bool onConflictDoNothing = false;
     String? conflictTargetColumn;
@@ -1291,6 +1296,7 @@ class Parser {
       onConflictDoNothing,
       conflictTargetColumn,
       updateAssignments,
+      multiValues.length > 1 ? multiValues : null,
     );
   }
 

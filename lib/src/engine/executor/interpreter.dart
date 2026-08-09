@@ -1576,6 +1576,24 @@ END;
   }
 
   QueryResult _executeInsert(InsertStmt stmt) {
+    if (stmt.multiValues != null && stmt.multiValues!.length > 1) {
+      int insertedCount = 0;
+      for (final rowExprs in stmt.multiValues!) {
+        final singleInsert = InsertStmt(
+          stmt.tableName,
+          rowExprs,
+          stmt.columnNames,
+          stmt.isReplace,
+          stmt.onConflictDoNothing,
+          stmt.conflictTargetColumn,
+          stmt.updateAssignments,
+        );
+        _executeInsert(singleInsert);
+        insertedCount++;
+      }
+      return QueryResult(columns: [], rows: [], message: "$insertedCount rows inserted into table '${stmt.tableName}'.");
+    }
+
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'insert')) {
       throw Exception("Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
     }
