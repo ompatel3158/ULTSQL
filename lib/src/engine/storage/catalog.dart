@@ -747,9 +747,10 @@ class Catalog {
   }
 
   Future<void> load() async {
-    final file = File(_catalogPath);
-    if (!await file.exists()) return;
+    if (basePath == ':memory:') return;
     try {
+      final file = File(_catalogPath);
+      if (!await file.exists()) return;
       final content = await file.readAsString();
       final Map<String, dynamic> jsonMap = json.decode(content);
       _tableIndexesCache.clear();
@@ -826,10 +827,12 @@ class Catalog {
   }
 
   void save() {
-    final file = File(_catalogPath);
-    if (!file.parent.existsSync()) {
-      file.parent.createSync(recursive: true);
-    }
+    if (basePath == ':memory:') return;
+    try {
+      final file = File(_catalogPath);
+      if (!file.parent.existsSync()) {
+        file.parent.createSync(recursive: true);
+      }
     final Map<String, dynamic> tablesMap = {};
     _tables.forEach((key, val) {
       tablesMap[key] = val.toJson();
@@ -878,6 +881,7 @@ class Catalog {
       'triggers': triggersMap,
     };
     file.writeAsStringSync(json.encode(outputMap));
+    } catch (_) {}
   }
 }
 

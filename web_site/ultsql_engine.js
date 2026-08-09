@@ -8168,9 +8168,11 @@ A.eb.prototype={
 dh(a,b){var s=this.e
 if(s==null)return
 new A.ht(new A.hs(A.qT(s))).fw(a,b)},
-bH(){if(this.b==null){var s=A.aG(this.a)
-if(!s.aa()){A.b_(A.br(s.gaj())).b8(!0)
-A.vs(A.bT(),s.b,!1)}this.b=s.cV(B.ax)}},
+bH(){var s,r,q,p=this
+if(p.b==null)try{s=A.aG(p.a)
+if(!s.aa()){r=s
+A.b_(A.br(r.gaj())).b8(!0)
+A.vs(A.bT(),r.b,!1)}p.b=s.cV(B.ax)}catch(q){p.b=null}},
 a1(){var s=this.d
 if(s!==-1)return s
 this.bH()
@@ -8290,110 +8292,113 @@ n.cm(r,p)
 n.cm(r,o)}else{o=b
 p=q}n.da(2,o,p,a.a,a.b)
 s.l(0,a)},
-jr(b0){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7=this,a8=null,a9=a7.c
-if(a9==null)return
-s=A.aG(a9+"/wal.log")
+jr(b4){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1=this,b2=null,b3=b1.c
+if(b3==null||b3===":memory:")return
+try{s=A.aG(b3+"/wal.log")
 if(s.aa()){s.c6()
-a9=!1}else a9=!0
-if(a9)return
+b3=!1}else b3=!0
+if(b3)return
 A.b3("WAL file found. Starting recovery...")
 r=s.c9()
 q=0
 p=null
 o=A.b([],t.hr)
 n=!1
-try{a9=t.L
-for(;;){a=q
-a0=J.S(r)
-if(typeof a!=="number")return a.ag()
-if(!(a<a0))break
+try{b3=t.L
+for(;;){a4=q
+a5=J.S(r)
+if(typeof a4!=="number")return a4.ag()
+if(!(a4<a5))break
 m=J.M(r,q)
-a=q
-if(typeof a!=="number")return a.N()
-q=a+1
-if(J.aD(m,1)){a=q
-a0=q
-if(typeof a0!=="number")return a0.N()
-l=A.ap(r,a,a0+4).getUint32(0,!1)
-a0=q
-if(typeof a0!=="number")return a0.N()
-q=a0+4
-a0=r
-a=q
-a1=q
-a2=l
-if(typeof a1!=="number")return a1.N()
-if(typeof a2!=="number")return A.ce(a2)
-A.I(a)
-k=new Uint8Array(a0.subarray(a,A.hj(a,a1+a2,J.S(a0))))
-a0=q
-a2=l
-if(typeof a0!=="number")return a0.N()
-if(typeof a2!=="number")return A.ce(a2)
-q=a0+a2
-a2=a9.a(k)
-p=new A.cC(!1).bu(a2,0,a8,!0)}else if(J.aD(m,2)){a=q
-a0=q
-if(typeof a0!=="number")return a0.N()
-j=A.ap(r,a,a0+4).getUint32(0,!1)
-a0=q
-if(typeof a0!=="number")return a0.N()
-q=a0+4
-a0=q
-a=q
-if(typeof a!=="number")return a.N()
-i=A.ap(r,a0,a+4).getUint32(0,!1)
-a=q
-if(typeof a!=="number")return a.N()
-q=a+4
-a=r
-a0=q
-a1=q
-a2=j
-if(typeof a1!=="number")return a1.N()
-if(typeof a2!=="number")return A.ce(a2)
-A.I(a0)
-h=new Uint8Array(a.subarray(a0,A.hj(a0,a1+a2,J.S(a))))
-a=q
-a2=j
-if(typeof a!=="number")return a.N()
-if(typeof a2!=="number")return A.ce(a2)
-q=a+a2
-a2=a9.a(h)
-g=new A.cC(!1).bu(a2,0,a8,!0)
-a=r
-a0=q
-a1=q
-if(typeof a1!=="number")return a1.N()
-A.I(a0)
-f=new Uint8Array(a.subarray(a0,A.hj(a0,a1+4096,J.S(a))))
-a=q
-if(typeof a!=="number")return a.N()
-q=a+4096
-a=r
-a1=q
-a0=q
-if(typeof a0!=="number")return a0.N()
-A.I(a1)
-e=new Uint8Array(a.subarray(a1,A.hj(a1,a0+4096,J.S(a))))
-a=q
-if(typeof a!=="number")return a.N()
-q=a+4096
-if(a7.f!=null){a7.cm(i,f)
-a7.cm(i,e)}J.af(o,new A.iU(g,i,f,e))}else if(J.aD(m,3))n=!0}}catch(a3){d=A.aP(a3)
+a4=q
+if(typeof a4!=="number")return a4.N()
+q=a4+1
+if(J.aD(m,1)){a4=q
+a5=q
+if(typeof a5!=="number")return a5.N()
+l=A.ap(r,a4,a5+4).getUint32(0,!1)
+a5=q
+if(typeof a5!=="number")return a5.N()
+q=a5+4
+a5=r
+a4=q
+a6=q
+a7=l
+if(typeof a6!=="number")return a6.N()
+if(typeof a7!=="number")return A.ce(a7)
+A.I(a4)
+k=new Uint8Array(a5.subarray(a4,A.hj(a4,a6+a7,J.S(a5))))
+a5=q
+a7=l
+if(typeof a5!=="number")return a5.N()
+if(typeof a7!=="number")return A.ce(a7)
+q=a5+a7
+a7=b3.a(k)
+p=new A.cC(!1).bu(a7,0,b2,!0)}else if(J.aD(m,2)){a4=q
+a5=q
+if(typeof a5!=="number")return a5.N()
+j=A.ap(r,a4,a5+4).getUint32(0,!1)
+a5=q
+if(typeof a5!=="number")return a5.N()
+q=a5+4
+a5=q
+a4=q
+if(typeof a4!=="number")return a4.N()
+i=A.ap(r,a5,a4+4).getUint32(0,!1)
+a4=q
+if(typeof a4!=="number")return a4.N()
+q=a4+4
+a4=r
+a5=q
+a6=q
+a7=j
+if(typeof a6!=="number")return a6.N()
+if(typeof a7!=="number")return A.ce(a7)
+A.I(a5)
+h=new Uint8Array(a4.subarray(a5,A.hj(a5,a6+a7,J.S(a4))))
+a4=q
+a7=j
+if(typeof a4!=="number")return a4.N()
+if(typeof a7!=="number")return A.ce(a7)
+q=a4+a7
+a7=b3.a(h)
+g=new A.cC(!1).bu(a7,0,b2,!0)
+a4=r
+a5=q
+a6=q
+if(typeof a6!=="number")return a6.N()
+A.I(a5)
+f=new Uint8Array(a4.subarray(a5,A.hj(a5,a6+4096,J.S(a4))))
+a4=q
+if(typeof a4!=="number")return a4.N()
+q=a4+4096
+a4=r
+a6=q
+a5=q
+if(typeof a5!=="number")return a5.N()
+A.I(a6)
+e=new Uint8Array(a4.subarray(a6,A.hj(a6,a5+4096,J.S(a4))))
+a4=q
+if(typeof a4!=="number")return a4.N()
+q=a4+4096
+if(b1.f!=null){b1.cm(i,f)
+b1.cm(i,e)}J.af(o,new A.iU(g,i,f,e))}else if(J.aD(m,3))n=!0}}catch(a8){d=A.aP(a8)
 A.b3("WAL parsing ended or failed: "+A.J(d))}if(n){A.b3("Transaction committed. Replaying modifications...")
-for(a9=o,a=a9.length,a4=0;a4<a9.length;a9.length===a||(0,A.q)(a9),++a4){a5=a9[a4]
-a7.Z(a5.a).bO(a5.b,a5.d)}}else{A.b3("Transaction was not committed. Reverting modifications...")
-for(a9=o,a=a9.length,a4=0;a4<a9.length;a9.length===a||(0,A.q)(a9),++a4){a5=a9[a4]
-a7.Z(a5.a).bO(a5.b,a5.c)}if(p!=null)try{c=t.P.a(B.m.ad(p))
-b0.d_(c)
-b0.aG()}catch(a3){}}for(a9=a7.r,a9=new A.au(a9,a9.r,a9.e,A.A(a9).h("au<2>"));a9.u();){a=a9.d.b
-if(a!=null){if(a.b)A.ad(A.aV("An async operation is currently pending",a.a,a8))
-if(a.e)A.ad(A.aV("File closed",a.a,a8))
-a6=a.d.fG()
-A.ad(A.aV("flush failed",a.a,a6))}}try{s.aL(!1)
-A.b3("WAL recovery completed successfully. WAL file deleted.")}catch(a3){b=A.aP(a3)
-A.b3("Failed to delete WAL file: "+A.J(b))}},
+for(b3=o,a4=b3.length,a9=0;a9<b3.length;b3.length===a4||(0,A.q)(b3),++a9){c=b3[a9]
+b=b1.Z(c.a)
+b.bO(c.b,c.d)}}else{A.b3("Transaction was not committed. Reverting modifications...")
+for(b3=o,a4=b3.length,a9=0;a9<b3.length;b3.length===a4||(0,A.q)(b3),++a9){a=b3[a9]
+a0=b1.Z(a.a)
+a0.bO(a.b,a.c)}if(p!=null)try{a1=t.P.a(B.m.ad(p))
+b4.d_(a1)
+b4.aG()}catch(a8){}}for(b3=b1.r,b3=new A.au(b3,b3.r,b3.e,A.A(b3).h("au<2>"));b3.u();){a2=b3.d
+a4=a2.b
+if(a4!=null){if(a4.b)A.ad(A.aV("An async operation is currently pending",a4.a,b2))
+if(a4.e)A.ad(A.aV("File closed",a4.a,b2))
+b0=a4.d.fG()
+A.ad(A.aV("flush failed",a4.a,b0))}}try{s.aL(!1)
+A.b3("WAL recovery completed successfully. WAL file deleted.")}catch(a8){a3=A.aP(a8)
+A.b3("Failed to delete WAL file: "+A.J(a3))}}catch(a8){}},
 cg(a){var s,r,q,p,o,n=this,m=n.ax,l=m.a++
 m.b.j(0,l,B.av)
 m=m.c
@@ -17712,66 +17717,71 @@ for(s=this.e,s=new A.au(s,s.r,s.e,A.A(s).h("au<2>"));s.u();){r=s.d
 if(r.b.toLowerCase()===q&&r.c.toLowerCase()===p)return r}return null},
 c7(){var s=0,r=A.bd(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0
 var $async$c7=A.be(function(a1,a2){if(a1===1){o.push(a2)
-s=p}for(;;)switch(s){case 0:a=A.aG(n.a+"/catalog.db")
-s=3
-return A.an(a.j_(),$async$c7)
-case 3:if(!a2){s=1
-break}p=5
-s=8
-return A.an(a.cW(),$async$c7)
-case 8:m=a2
-c=t.P
-l=c.a(B.m.ad(m))
+s=p}for(;;)switch(s){case 0:a=n.a
+if(a===":memory:"){s=1
+break}p=4
+m=A.aG(a+"/catalog.db")
+s=7
+return A.an(m.j_(),$async$c7)
+case 7:if(!a2){s=1
+break}s=8
+return A.an(m.cW(),$async$c7)
+case 8:l=a2
+a=t.P
+k=a.a(B.m.ad(l))
 n.r.t(0)
 n.c.t(0)
 n.d.t(0)
 n.e.t(0)
-if(l.D("tables")){k=c.a(J.M(l,"tables"))
-J.c9(k,new A.jg(n))}else J.c9(l,new A.jh(n))
-if(l.D("relationships")){j=c.a(J.M(l,"relationships"))
-J.c9(j,new A.ji(n))}if(l.D("indexes")){i=c.a(J.M(l,"indexes"))
-J.c9(i,new A.jj(n))}if(l.D("stats")){h=c.a(J.M(l,"stats"))
-J.c9(h,new A.jk(n))}n.w.t(0)
-if(l.D("permissions")){g=c.a(J.M(l,"permissions"))
-J.c9(g,new A.jl(n))}n.x.t(0)
-if(l.D("procedures")){f=c.a(J.M(l,"procedures"))
-J.c9(f,new A.jm(n))}n.y.t(0)
-if(l.D("functions")){e=c.a(J.M(l,"functions"))
-J.c9(e,new A.jn(n))}n.z.t(0)
-if(l.D("triggers")){d=c.a(J.M(l,"triggers"))
-J.c9(d,new A.jo(n))}p=2
-s=7
+if(k.D("tables")){j=a.a(J.M(k,"tables"))
+J.c9(j,new A.jg(n))}else J.c9(k,new A.jh(n))
+if(k.D("relationships")){i=a.a(J.M(k,"relationships"))
+J.c9(i,new A.ji(n))}if(k.D("indexes")){h=a.a(J.M(k,"indexes"))
+J.c9(h,new A.jj(n))}if(k.D("stats")){g=a.a(J.M(k,"stats"))
+J.c9(g,new A.jk(n))}n.w.t(0)
+if(k.D("permissions")){f=a.a(J.M(k,"permissions"))
+J.c9(f,new A.jl(n))}n.x.t(0)
+if(k.D("procedures")){e=a.a(J.M(k,"procedures"))
+J.c9(e,new A.jm(n))}n.y.t(0)
+if(k.D("functions")){d=a.a(J.M(k,"functions"))
+J.c9(d,new A.jn(n))}n.z.t(0)
+if(k.D("triggers")){c=a.a(J.M(k,"triggers"))
+J.c9(c,new A.jo(n))}p=2
+s=6
 break
-case 5:p=4
+case 4:p=3
 a0=o.pop()
-s=7
+s=6
 break
-case 4:s=2
+case 3:s=2
 break
-case 7:case 1:return A.bb(q,r)
+case 6:case 1:return A.bb(q,r)
 case 2:return A.ba(o.at(-1),r)}})
 return A.bc($async$c7,r)},
-aG(){var s,r,q,p,o,n,m,l,k,j,i=this,h=A.aG(i.a+"/catalog.db")
-if(!A.b_(A.br(h.gaj())).aa())A.b_(A.br(h.gaj())).b8(!0)
-s=t.N
-r=t.z
-q=A.p(s,r)
-i.c.W(0,new A.jx(q))
-p=A.p(s,r)
-i.d.W(0,new A.jy(p))
-o=A.p(s,r)
-i.e.W(0,new A.jz(o))
-n=A.p(s,r)
-i.f.W(0,new A.jA(n))
-m=A.p(s,r)
-i.w.W(0,new A.jB(m))
-l=A.p(s,r)
-i.x.W(0,new A.jC(l))
-k=A.p(s,r)
-i.y.W(0,new A.jD(k))
-j=A.p(s,r)
-i.z.W(0,new A.jE(j))
-h.d0(B.m.b_(A.av(["tables",q,"relationships",p,"indexes",o,"stats",n,"permissions",m,"procedures",l,"functions",k,"triggers",j],s,t.P)))}}
+aG(){var s,r,q,p,o,n,m,l,k,j,i,h,g=this,f=g.a
+if(f===":memory:")return
+try{s=A.aG(f+"/catalog.db")
+if(!A.b_(A.br(s.gaj())).aa())A.b_(A.br(s.gaj())).b8(!0)
+f=t.N
+i=t.z
+r=A.p(f,i)
+g.c.W(0,new A.jx(r))
+q=A.p(f,i)
+g.d.W(0,new A.jy(q))
+p=A.p(f,i)
+g.e.W(0,new A.jz(p))
+o=A.p(f,i)
+g.f.W(0,new A.jA(o))
+n=A.p(f,i)
+g.w.W(0,new A.jB(n))
+m=A.p(f,i)
+g.x.W(0,new A.jC(m))
+l=A.p(f,i)
+g.y.W(0,new A.jD(l))
+k=A.p(f,i)
+g.z.W(0,new A.jE(k))
+j=A.av(["tables",r,"relationships",q,"indexes",p,"stats",o,"permissions",n,"procedures",m,"functions",l,"triggers",k],f,t.P)
+s.d0(B.m.b_(j))}catch(h){}}}
 A.jc.prototype={
 $1(a){t.hf.a(a)
 return a.d.toLowerCase()===this.a&&a.b.toUpperCase()===this.b&&a.c.toUpperCase()===this.c},

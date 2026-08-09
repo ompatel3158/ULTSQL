@@ -47,20 +47,28 @@ class Pager {
 
   void openSync() {
     if (_file != null) return;
-    final file = File(filePath);
-    if (!file.existsSync()) {
-      file.createSync(recursive: true);
-    }
-    _file = file.openSync(mode: FileMode.append);
-  }
-
-  void _ensureOpenSync() {
-    if (_file == null) {
+    try {
       final file = File(filePath);
       if (!file.existsSync()) {
         file.createSync(recursive: true);
       }
       _file = file.openSync(mode: FileMode.append);
+    } catch (_) {
+      _file = null;
+    }
+  }
+
+  void _ensureOpenSync() {
+    if (_file == null) {
+      try {
+        final file = File(filePath);
+        if (!file.existsSync()) {
+          file.createSync(recursive: true);
+        }
+        _file = file.openSync(mode: FileMode.append);
+      } catch (_) {
+        _file = null;
+      }
     }
   }
 
@@ -364,9 +372,10 @@ class PageCache {
   }
 
   void recoverSync(Catalog catalog) {
-    if (dbDirectory == null) return;
-    final walFile = File('$dbDirectory/wal.log');
-    if (!walFile.existsSync() || walFile.lengthSync() == 0) return;
+    if (dbDirectory == null || dbDirectory == ':memory:') return;
+    try {
+      final walFile = File('$dbDirectory/wal.log');
+      if (!walFile.existsSync() || walFile.lengthSync() == 0) return;
 
     print('WAL file found. Starting recovery...');
     final bytes = walFile.readAsBytesSync();
@@ -448,6 +457,7 @@ class PageCache {
     } catch (e) {
       print('Failed to delete WAL file: $e');
     }
+    } catch (_) {}
   }
 
   void startTransaction(Catalog catalog) {
