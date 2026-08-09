@@ -1617,17 +1617,23 @@ END;
       _reusedInsertRowValues = List<DbValue>.filled(len, DbNull());
     }
     final rowValues = _reusedInsertRowValues!;
-    final placeholderIndices = _insertPlaceholderIndicesCache.putIfAbsent(stmt, () {
+    List<int>? placeholderIndices;
+    if (_insertPlaceholderIndicesCache.containsKey(stmt)) {
+      placeholderIndices = _insertPlaceholderIndicesCache[stmt];
+    } else {
+      bool isAllPlaceholders = true;
       final list = <int>[];
       for (final expr in stmt.values) {
         if (expr is PlaceholderExpr && expr.index != null) {
           list.add(expr.index!);
         } else {
-          return null;
+          isAllPlaceholders = false;
+          break;
         }
       }
-      return list;
-    });
+      placeholderIndices = isAllPlaceholders ? list : null;
+      _insertPlaceholderIndicesCache[stmt] = placeholderIndices;
+    }
 
     if (placeholderIndices != null) {
       final params = JitCompiler.currentParams;
