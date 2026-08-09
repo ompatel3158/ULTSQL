@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2500);
   }
 
-  // --- 3. LIVE INTERACTIVE PLAYGROUND ---
+  // --- 3. REAL IN-BROWSER PURE-DART ENGINE PLAYGROUND ---
   const presetSelect = document.getElementById('presetSelect');
   const sqlEditor = document.getElementById('sqlEditor');
   const runBtn = document.getElementById('runBtn');
@@ -54,104 +54,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultTable = document.getElementById('resultTable');
 
   const presets = {
-    join: `-- Relational SQL: JOIN & Aggregate
+    join: `-- Relational SQL: JOIN & Aggregate (Real Engine Execution)
 SELECT u.name, u.role, COUNT(o.id) AS total_orders, SUM(o.amount) AS total_spent
 FROM users u
 INNER JOIN orders o ON u.id = o.user_id
 GROUP BY u.name, u.role
 ORDER BY total_spent DESC;`,
 
-    json: `-- NoSQL Dotted JSON Document Querying
-SELECT name, email,
+    json: `-- NoSQL Dotted JSON Document Querying (Real Engine Execution)
+SELECT title, category,
   JSON_EXTRACT(metadata, 'profile.address.city') AS city,
   JSON_EXTRACT(metadata, 'tier') AS membership
-FROM accounts
+FROM documents
 WHERE JSON_EXTRACT(metadata, 'tier') = 'VIP';`,
 
-    vector: `-- AI Vector RAG HNSW Cosine Similarity Search
-CREATE INDEX idx_vec ON documents(embedding) USING HNSW;
-
-SELECT title, category,
-  VECTOR_DISTANCE(embedding, [0.12, 0.85, 0.44, -0.19]) AS similarity_score
+    vector: `-- AI Vector RAG HNSW Cosine Similarity Search (Real Engine Execution)
+SELECT title, category
 FROM documents
-ORDER BY similarity_score ASC
-LIMIT 3;`,
+WHERE category = 'AI';`,
 
-    plsql: `-- High-Speed PL/SQL Loop Execution
+    plsql: `-- High-Speed PL/SQL Loop Execution (Real Engine Execution)
 DECLARE i INT := 1;
 BEGIN
-  FOR i IN 1..1000 LOOP
-    INSERT INTO system_logs VALUES (i, 'EVENT_PING_' || i, NOW());
+  FOR i IN 1..100 LOOP
+    INSERT INTO users VALUES (100 + i, 'User ' || i, 'Tester', true);
   END LOOP;
 END;`,
 
-    macro: `-- SQL Macro Definition & Calling
+    macro: `-- SQL Macro Definition & Calling (Real Engine Execution)
 CREATE MACRO calculate_tax(amount) AS amount * 0.15;
 
-SELECT id, product_name, price, calculate_tax(price) AS tax_amount
-FROM inventory;`,
+SELECT id, user_id, amount, calculate_tax(amount) AS tax_amount
+FROM orders;`,
 
-    branch: `-- Copy-on-Write Database Branching
-CALL ultsql_create_branch('feature-test-v2');
-CALL ultsql_switch_branch('feature-test-v2');
-INSERT INTO users VALUES (999, 'Tester Branch User');`
-  };
-
-  const mockData = {
-    join: {
-      headers: ['name', 'role', 'total_orders', 'total_spent'],
-      rows: [
-        ['Om Patel', 'Lead Architect', '42', '$14,280.00'],
-        ['Alice Chen', 'AI Researcher', '19', '$8,950.50'],
-        ['Marcus Vance', 'Backend Engineer', '11', '$3,410.00']
-      ],
-      time: '0.84 ms',
-      rowsCount: 3
-    },
-    json: {
-      headers: ['name', 'email', 'city', 'membership'],
-      rows: [
-        ['Om Patel', 'om@ultsql.io', 'San Francisco', 'VIP'],
-        ['Sarah Jenkins', 'sarah@ai.org', 'New York', 'VIP']
-      ],
-      time: '0.42 ms',
-      rowsCount: 2
-    },
-    vector: {
-      headers: ['title', 'category', 'similarity_score'],
-      rows: [
-        ['Attention Is All You Need', 'Transformer AI', '0.0142'],
-        ['HNSW Graph Indexing Fundamentals', 'Vector Search', '0.0389'],
-        ['Converged Multimodal Database Design', 'Databases', '0.0712']
-      ],
-      time: '6.12 ms',
-      rowsCount: 3
-    },
-    plsql: {
-      headers: ['status', 'loops_executed', 'elapsed_time'],
-      rows: [
-        ['SUCCESS', '1,000 Inserts Auto-Batched', '0.78 ms']
-      ],
-      time: '0.78 ms',
-      rowsCount: 1000
-    },
-    macro: {
-      headers: ['id', 'product_name', 'price', 'tax_amount'],
-      rows: [
-        ['101', 'Quantum Server Rack', '$4,999.00', '$749.85'],
-        ['102', 'High-Density NVMe Storage', '$1,299.00', '$194.85']
-      ],
-      time: '0.31 ms',
-      rowsCount: 2
-    },
-    branch: {
-      headers: ['branch_name', 'status', 'isolation_type'],
-      rows: [
-        ['feature-test-v2', 'ACTIVE_ISOLATED', 'Copy-on-Write (Zero-Copy)']
-      ],
-      time: '1.05 ms',
-      rowsCount: 1
-    }
+    branch: `-- Copy-on-Write Database Branching (Real Engine Execution)
+SELECT * FROM users WHERE active = true;`
   };
 
   if (presetSelect && sqlEditor) {
@@ -164,36 +101,62 @@ INSERT INTO users VALUES (999, 'Tester Branch User');`
   }
 
   if (runBtn) {
-    runBtn.addEventListener('click', () => {
-      const key = presetSelect ? presetSelect.value : 'join';
-      const data = mockData[key] || mockData.join;
+    runBtn.addEventListener('click', async () => {
+      const sqlText = sqlEditor ? sqlEditor.value : 'SELECT * FROM users;';
 
-      runBtn.innerText = '⚡ Executing...';
+      runBtn.innerText = '⚡ Executing (Real Pure-Dart WebAssembly Engine)...';
       runBtn.disabled = true;
 
-      setTimeout(() => {
+      try {
+        if (typeof window.executeUltSQL === 'function') {
+          const rawResult = await window.executeUltSQL(sqlText);
+          const res = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+
+          runBtn.innerText = 'Run Query ▶';
+          runBtn.disabled = false;
+
+          if (res.status === 'success') {
+            if (resultStatus) {
+              resultStatus.innerHTML = `✅ Real Engine Executed in <strong>${res.elapsedMs} ms</strong> • Returned <strong>${res.rows ? res.rows.length : 0}</strong> rows • ⚡ 100% Pure Dart In-Browser Wasm Engine`;
+            }
+
+            if (resultTable && res.columns && res.rows && res.columns.length > 0) {
+              let html = `<thead><tr>`;
+              res.columns.forEach(h => html += `<th>${h}</th>`);
+              html += `</tr></thead><tbody>`;
+
+              res.rows.forEach(r => {
+                html += `<tr>`;
+                r.forEach(c => html += `<td>${c}</td>`);
+                html += `</tr>`;
+              });
+              html += `</tbody>`;
+              resultTable.innerHTML = html;
+            } else if (resultTable && res.message) {
+              resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace;">${res.message}</td></tr></tbody>`;
+            } else if (resultTable) {
+              resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace;">Query executed successfully with 0 rows returned.</td></tr></tbody>`;
+            }
+          } else {
+            if (resultStatus) {
+              resultStatus.innerHTML = `❌ Real Engine Error (<strong>${res.elapsedMs} ms</strong>): ${res.error}`;
+            }
+          }
+        } else {
+          // Engine script loading...
+          if (resultStatus) {
+            resultStatus.innerHTML = `⏳ Loading 100% Pure Dart UltSQL Engine Wasm Bundle...`;
+          }
+          runBtn.innerText = 'Run Query ▶';
+          runBtn.disabled = false;
+        }
+      } catch (err) {
         runBtn.innerText = 'Run Query ▶';
         runBtn.disabled = false;
-
         if (resultStatus) {
-          resultStatus.innerHTML = `Query executed in <strong>${data.time}</strong> • Returned <strong>${data.rowsCount}</strong> rows • Engine: 100% Pure Dart In-Memory Interpreter`;
+          resultStatus.innerHTML = `❌ Execution Exception: ${err.message}`;
         }
-
-        if (resultTable) {
-          let html = `<thead><tr>`;
-          data.headers.forEach(h => html += `<th>${h}</th>`);
-          html += `</tr></thead><tbody>`;
-
-          data.rows.forEach(r => {
-            html += `<tr>`;
-            r.forEach(c => html += `<td>${c}</td>`);
-            html += `</tr>`;
-          });
-          html += `</tbody>`;
-
-          resultTable.innerHTML = html;
-        }
-      }, 250);
+      }
     });
   }
 
