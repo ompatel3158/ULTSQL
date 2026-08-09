@@ -24,8 +24,14 @@ class UltSqlEngine {
 
   /// 2. Open an In-Memory Ultra-Fast Ephemeral Database
   static Future<UltSqlEngine> openMemory({String? passphrase}) async {
-    final tempDir = Directory.systemTemp.createTempSync('ultsql_mem_');
-    final db = Database(tempDir.path, passphrase: passphrase);
+    String memPath = ':memory:';
+    try {
+      final tempDir = Directory.systemTemp.createTempSync('ultsql_mem_');
+      memPath = tempDir.path;
+    } catch (_) {
+      memPath = ':memory:';
+    }
+    final db = Database(memPath, passphrase: passphrase);
     await db.init();
     return UltSqlEngine._(db);
   }

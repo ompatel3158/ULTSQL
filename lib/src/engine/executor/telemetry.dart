@@ -121,12 +121,19 @@ class FlightRecorder {
     final totalMicro = _sessionStopwatch?.elapsedMicroseconds ?? 0;
     _active = false;
 
+    int currentMemory = 0;
+    try {
+      currentMemory = ProcessInfo.currentRss;
+    } catch (_) {
+      currentMemory = 0;
+    }
+
     return FlightRecorderReport(
       sql: _currentSql,
       totalDurationMicroseconds: totalMicro,
       rowsReturned: rowsReturned,
       cacheHitRatePercentage: cacheHitRatePercentage,
-      peakMemoryBytes: ProcessInfo.currentRss,
+      peakMemoryBytes: currentMemory,
       steps: List.unmodifiable(_currentSteps),
     );
   }
