@@ -48,42 +48,14 @@ Future<JSString> _runQuery(String sql) async {
 
 Future<void> _seedSampleData() async {
   try {
-    await engine.query('''
-      CREATE TABLE users (
-        id INT PRIMARY KEY,
-        name VARCHAR(100),
-        role VARCHAR(50),
-        active BOOLEAN
-      );
+    await engine.query('CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);');
+    await engine.query("INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true), (2, 'Alice Chen', 'AI Researcher', true), (3, 'Marcus Vance', 'Backend Engineer', false);");
 
-      INSERT INTO users VALUES 
-      (1, 'Om Patel', 'Lead Architect', true),
-      (2, 'Alice Chen', 'AI Researcher', true),
-      (3, 'Marcus Vance', 'Backend Engineer', false);
+    await engine.query('CREATE TABLE IF NOT EXISTS orders (id INT PRIMARY KEY, user_id INT, amount DOUBLE);');
+    await engine.query("INSERT INTO orders VALUES (101, 1, 14280.00), (102, 1, 350.00), (103, 2, 8950.50), (104, 3, 3410.00);");
 
-      CREATE TABLE orders (
-        id INT PRIMARY KEY,
-        user_id INT,
-        amount DOUBLE
-      );
-
-      INSERT INTO orders VALUES 
-      (101, 1, 14280.00),
-      (102, 1, 350.00),
-      (103, 2, 8950.50),
-      (104, 3, 3410.00);
-
-      CREATE TABLE documents (
-        id INT PRIMARY KEY,
-        title VARCHAR(100),
-        category VARCHAR(50),
-        metadata JSON
-      );
-
-      INSERT INTO documents VALUES 
-      (1, 'Attention Is All You Need', 'AI', '{"tier": "VIP", "profile": {"address": {"city": "San Francisco"}}}'),
-      (2, 'Converged Database Architecture', 'Database', '{"tier": "VIP", "profile": {"address": {"city": "New York"}}}');
-    ''');
+    await engine.query('CREATE TABLE IF NOT EXISTS documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), metadata JSON);');
+    await engine.query("INSERT INTO documents VALUES (1, 'Attention Is All You Need', 'AI', '{\"tier\": \"VIP\", \"profile\": {\"address\": {\"city\": \"San Francisco\"}}}'), (2, 'Converged Database Architecture', 'Database', '{\"tier\": \"VIP\", \"profile\": {\"address\": {\"city\": \"New York\"}}}');");
   } catch (e) {
     print('Seed warning: $e');
   }

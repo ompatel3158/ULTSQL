@@ -54,40 +54,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultTable = document.getElementById('resultTable');
 
   const presets = {
-    join: `-- Relational SQL: JOIN & Aggregate (Real Engine Execution)
+    join: `-- Relational SQL: JOIN & Aggregate Query
+CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
+CREATE TABLE IF NOT EXISTS orders (id INT PRIMARY KEY, user_id INT, amount DOUBLE);
+
+INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true), (2, 'Alice Chen', 'AI Researcher', true);
+INSERT INTO orders VALUES (101, 1, 14280.00), (102, 1, 350.00), (103, 2, 8950.50);
+
 SELECT u.name, u.role, COUNT(o.id) AS total_orders, SUM(o.amount) AS total_spent
 FROM users u
 INNER JOIN orders o ON u.id = o.user_id
 GROUP BY u.name, u.role
 ORDER BY total_spent DESC;`,
 
-    json: `-- NoSQL Dotted JSON Document Querying (Real Engine Execution)
+    json: `-- NoSQL Dotted JSON Document Querying
+CREATE TABLE IF NOT EXISTS documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), metadata JSON);
+INSERT INTO documents VALUES (1, 'Attention Is All You Need', 'AI', '{"tier": "VIP", "profile": {"address": {"city": "San Francisco"}}}');
+
 SELECT title, category,
   JSON_EXTRACT(metadata, 'profile.address.city') AS city,
   JSON_EXTRACT(metadata, 'tier') AS membership
-FROM documents
-WHERE JSON_EXTRACT(metadata, 'tier') = 'VIP';`,
+FROM documents;`,
 
-    vector: `-- AI Vector RAG HNSW Cosine Similarity Search (Real Engine Execution)
-SELECT title, category
-FROM documents
-WHERE category = 'AI';`,
+    vector: `-- AI Vector RAG Search
+CREATE TABLE IF NOT EXISTS documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50));
+INSERT INTO documents VALUES (1, 'Attention Is All You Need', 'AI');
 
-    plsql: `-- High-Speed PL/SQL Loop Execution (Real Engine Execution)
+SELECT title, category FROM documents WHERE category = 'AI';`,
+
+    plsql: `-- High-Speed PL/SQL Loop Execution
+CREATE TABLE IF NOT EXISTS system_logs (id INT PRIMARY KEY, event_name VARCHAR(100));
+
 DECLARE i INT := 1;
 BEGIN
-  FOR i IN 1..100 LOOP
-    INSERT INTO users VALUES (100 + i, 'User ' || i, 'Tester', true);
+  FOR i IN 1..10 LOOP
+    INSERT INTO system_logs VALUES (i, 'EVENT_PING_' || i);
   END LOOP;
 END;`,
 
-    macro: `-- SQL Macro Definition & Calling (Real Engine Execution)
+    macro: `-- SQL Macro Calculation
+CREATE TABLE IF NOT EXISTS orders (id INT PRIMARY KEY, amount DOUBLE);
+INSERT INTO orders VALUES (101, 14280.00), (102, 350.00);
+
 CREATE MACRO calculate_tax(amount) AS amount * 0.15;
+SELECT id, amount, calculate_tax(amount) AS tax_amount FROM orders;`,
 
-SELECT id, user_id, amount, calculate_tax(amount) AS tax_amount
-FROM orders;`,
+    branch: `-- Table Query
+CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
+INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true);
 
-    branch: `-- Copy-on-Write Database Branching (Real Engine Execution)
 SELECT * FROM users WHERE active = true;`
   };
 
@@ -104,7 +119,7 @@ SELECT * FROM users WHERE active = true;`
     runBtn.addEventListener('click', async () => {
       const sqlText = sqlEditor ? sqlEditor.value : 'SELECT * FROM users;';
 
-      runBtn.innerText = '⚡ Executing (Real Pure-Dart WebAssembly Engine)...';
+      runBtn.innerText = '⚡ Executing (Real Pure-Dart Wasm Engine)...';
       runBtn.disabled = true;
 
       try {
@@ -143,7 +158,6 @@ SELECT * FROM users WHERE active = true;`
             }
           }
         } else {
-          // Engine script loading...
           if (resultStatus) {
             resultStatus.innerHTML = `⏳ Loading 100% Pure Dart UltSQL Engine Wasm Bundle...`;
           }
