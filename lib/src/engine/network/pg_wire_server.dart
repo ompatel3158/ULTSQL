@@ -14,10 +14,22 @@ class PgWireServer {
 
   PgWireServer(this.db, {this.port = 5432, this.address = '127.0.0.1'});
 
-  Future<void> start() async {
-    _server = await ServerSocket.bind(address, port);
-    print('PgWireServer listening on $address:$port');
-    _server!.listen(_handleConnection);
+  Future<int> start({bool autoPort = true}) async {
+    int boundPort = port;
+    int attempts = 0;
+    while (attempts < 50) {
+      try {
+        _server = await ServerSocket.bind(address, boundPort);
+        print('PgWireServer listening on $address:$boundPort');
+        _server!.listen(_handleConnection);
+        return boundPort;
+      } catch (e) {
+        if (!autoPort) rethrow;
+        boundPort++;
+        attempts++;
+      }
+    }
+    throw SocketException("Failed to bind PgWire server on $address starting at port $port after 50 attempts.");
   }
 
   Future<void> stop() async {

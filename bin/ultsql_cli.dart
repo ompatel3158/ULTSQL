@@ -22,9 +22,20 @@ void main(List<String> args) async {
       final db = Database(dbPath);
       await db.init();
       final restServer = RestServer(db, port: port);
-      await restServer.start();
-      print('🚀 UltSQL REST & OpenAPI daemon listening on http://localhost:$port');
-      print('📖 OpenAPI Documentation: http://localhost:$port/openapi.json');
+      final boundPort = await restServer.start(autoPort: true);
+
+      print('===============================================================');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.17)');
+      print('===============================================================');
+      print('📁 Database Path       : $dbPath');
+      if (boundPort != port) {
+        print('🌐 REST & OpenAPI API  : http://localhost:$boundPort (Port $port was occupied, auto-selected $boundPort)');
+      } else {
+        print('🌐 REST & OpenAPI API  : http://localhost:$boundPort');
+      }
+      print('📖 OpenAPI Specs       : http://localhost:$boundPort/openapi.json');
+      print('===============================================================');
+      print('Press Ctrl+C to stop the server daemon.\n');
       return;
     }
     if (args[0] == '--help' || args[0] == '-h') {

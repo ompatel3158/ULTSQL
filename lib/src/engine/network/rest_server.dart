@@ -17,9 +17,21 @@ class RestServer {
 
   bool get isRunning => _server != null;
 
-  Future<void> start() async {
-    _server = await HttpServer.bind(host, port);
-    _server!.listen(_handleRequest);
+  Future<int> start({bool autoPort = true}) async {
+    int boundPort = port;
+    int attempts = 0;
+    while (attempts < 50) {
+      try {
+        _server = await HttpServer.bind(host, boundPort);
+        _server!.listen(_handleRequest);
+        return boundPort;
+      } catch (e) {
+        if (!autoPort) rethrow;
+        boundPort++;
+        attempts++;
+      }
+    }
+    throw SocketException("Failed to bind REST server on $host starting at port $port after 50 attempts.");
   }
 
   Future<void> stop() async {
