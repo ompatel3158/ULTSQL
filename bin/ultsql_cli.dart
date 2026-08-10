@@ -11,8 +11,12 @@ void main(List<String> args) async {
       for (int i = 1; i < args.length; i++) {
         if (args[i] == '--port' && i + 1 < args.length) {
           port = int.tryParse(args[i + 1]) ?? 8080;
+        } else if (args[i].startsWith('--port=')) {
+          port = int.tryParse(args[i].substring(7)) ?? 8080;
         } else if (args[i] == '--db' && i + 1 < args.length) {
           dbPath = args[i + 1];
+        } else if (args[i].startsWith('--db=')) {
+          dbPath = args[i].substring(5);
         }
       }
       final db = Database(dbPath);
@@ -31,11 +35,11 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.0)');
+  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.17)');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
   print('Type ".help" for meta commands or ".exit" to quit.');
-  print('Type SQL or PL/SQL scripts and press Enter to execute.\n');
+  print('Type SQL, NoSQL JSON, or PL/SQL scripts and press Enter to execute.\n');
 
   final db = Database(dbTarget);
   await db.init();
@@ -52,8 +56,8 @@ void main(List<String> args) async {
 
     final trimmed = line.trim();
 
-    if (scriptBuffer.isEmpty) {
-      if (trimmed == '.exit' || trimmed == 'exit' || trimmed == 'quit') {
+    if (scriptBuffer.isEmpty && trimmed.startsWith('.')) {
+      if (trimmed == '.exit' || trimmed == '.quit') {
         print('Bye!');
         await db.close();
         exit(0);
@@ -75,9 +79,18 @@ void main(List<String> args) async {
         print('Connect with any Postgres client (psycopg2, node-postgres, JDBC, psql)!');
         continue;
       } else if (trimmed == '.databases') {
-        print('Main database: $dbTarget');
+        print('Main database: $dbTarget\n');
+        continue;
+      } else {
+        print('Unrecognized meta command: $trimmed. Type .help for available commands.\n');
         continue;
       }
+    }
+
+    if (scriptBuffer.isEmpty && (trimmed == 'exit' || trimmed == 'quit')) {
+      print('Bye!');
+      await db.close();
+      exit(0);
     }
 
     scriptBuffer.writeln(line);
@@ -176,11 +189,13 @@ void _printResultTable(List<String> columns, List<List<DbValue>> rows) {
 void _printHelp() {
   print('''
 UltSQL CLI Usage:
-  dart run bin/ultsql_cli.dart [database_file]
+  ultsql [database_file]
+  ultsql serve [--port=8080] [--db=./ultsql_data]
 
 Examples:
-  dart run bin/ultsql_cli.dart               # In-Memory database
-  dart run bin/ultsql_cli.dart my_data.db    # Physical disk database
+  ultsql                    # Launch in-memory SQL & NoSQL terminal
+  ultsql my_data.db         # Open disk database file
+  ultsql serve --port=8081  # Start REST & OpenAPI server daemon on port 8081
 ''');
 }
 
