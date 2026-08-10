@@ -10,6 +10,21 @@ The official Node.js & TypeScript client for **UltSQL** — the converged multim
 npm install ultsql
 ```
 
+### 💻 Install the `ultsql` CLI (1-Line Auto-Installer)
+
+If you want to run the standalone `ultsql` server daemon or interactive CLI shell directly from your system terminal:
+
+- **Windows (PowerShell)**:
+  ```powershell
+  iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
+  ```
+- **Linux & macOS (Bash)**:
+  ```bash
+  curl -sSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash
+  ```
+
+After installation, open a new terminal window and run `ultsql --help` or `ultsql server`.
+
 ---
 
 ## 🚀 Quickstart Usage

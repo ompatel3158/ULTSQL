@@ -13,6 +13,20 @@ If you are a Python developer, you **DO NOT need Dart or Flutter installed on yo
 pip install ultsql
 ```
 
+### 💻 Install the `ultsql` CLI (1-Line Auto-Installer)
+If you want to run the standalone `ultsql` server daemon or interactive CLI shell directly from your terminal:
+
+- **Windows (PowerShell)**:
+  ```powershell
+  iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
+  ```
+- **Linux & macOS (Bash)**:
+  ```bash
+  curl -sSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash
+  ```
+
+After running the installer, open a new terminal and type `ultsql --help` or `ultsql server`.
+
 ### Step 2: Use in Python
 
 #### Method A: Using the UltSQL Python Client (REST API)
