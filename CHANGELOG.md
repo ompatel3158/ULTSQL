@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.18
+
+- **Multi-Row Tuple `INSERT` Grammar**: Full SQL parser & query planner support for comma-separated multi-tuple inserts (`INSERT INTO tbl VALUES (r1), (r2), (r3);`).
+- **Fail-Safe Server Daemon (`ultsql serve`)**: Added automatic port fallback logic to `RestServer` and `PgWireServer` so server daemons automatically bind to open ports without socket conflicts.
+- **WebAssembly Engine Browser Compatibility**: Guarded platform file I/O operations for Web JS runtimes (`ultsql_engine.js`).
+- **Map Cache Null Safety**: Replaced `putIfAbsent` returning `null` with explicit map key checks in `_insertPlaceholderIndicesCache`.
+- **Package README 1-Line CLI Installers**: Added 1-line auto-installer scripts (`install.ps1` and `install.sh`) to Python & Node.js package documentation.
+
 ## 1.0.17
 
 - **Automated CI/CD Package Publishing**: Automated PyPI, NPM, Pub.dev, and GitHub Releases executable binary publishing via GitHub Actions OIDC and secret tokens.

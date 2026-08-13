@@ -25,7 +25,7 @@ void main(List<String> args) async {
       final boundPort = await restServer.start(autoPort: true);
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.17)');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.18)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (boundPort != port) {
@@ -46,7 +46,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.17)');
+  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.18)');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
   print('Type ".help" for meta commands or ".exit" to quit.');
