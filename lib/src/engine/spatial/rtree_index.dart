@@ -62,18 +62,18 @@ class RTreeIndex<T> {
       // Find best child (simplest: least enlargement)
       RTreeNode<T>? bestChild;
       double minEnlargement = double.infinity;
-      
+
       for (var child in node.children) {
         final currentBox = child.boundingBox ?? entry.box;
         final enlargedBox = currentBox.expandToInclude(entry.box);
         final enlargement = enlargedBox.area() - currentBox.area();
-        
+
         if (enlargement < minEnlargement) {
           minEnlargement = enlargement;
           bestChild = child;
         }
       }
-      
+
       if (bestChild != null) {
         _insert(bestChild, entry);
         bestChild.updateBoundingBox();
@@ -96,7 +96,7 @@ class RTreeIndex<T> {
     if (node.boundingBox != null && !node.boundingBox!.intersects(queryBox)) {
       return;
     }
-    
+
     if (node.isLeaf) {
       for (var entry in node.entries) {
         if (entry.box.intersects(queryBox)) {

@@ -41,7 +41,11 @@ class H3Indexer {
     for (int dx = -k; dx <= k; dx++) {
       for (int dy = -k; dy <= k; dy++) {
         if (sqrt(dx * dx + dy * dy) <= k) {
-          final cellId = latLngToH3(lat + (dx * step), lng + (dy * step), resolution);
+          final cellId = latLngToH3(
+            lat + (dx * step),
+            lng + (dy * step),
+            resolution,
+          );
           neighbors.add(cellId);
         }
       }

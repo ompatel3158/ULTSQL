@@ -19,7 +19,10 @@ class AutoManager {
   }
 
   /// Automatically generates missing B+ Tree indexes when sequential scan count exceeds threshold
-  static Future<int> suggestAndBuildIndexes(Catalog catalog, Database db) async {
+  static Future<int> suggestAndBuildIndexes(
+    Catalog catalog,
+    Database db,
+  ) async {
     int indexCreatedCount = 0;
     final entries = List<MapEntry<String, int>>.from(_scanTelemetry.entries);
 

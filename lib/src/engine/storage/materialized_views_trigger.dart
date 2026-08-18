@@ -13,12 +13,13 @@ class MaterializedViewDef {
   });
 
   Map<String, dynamic> toJson() => {
-        'viewName': viewName,
-        'sourceTable': sourceTable,
-        'selectQuery': selectQuery,
-      };
+    'viewName': viewName,
+    'sourceTable': sourceTable,
+    'selectQuery': selectQuery,
+  };
 
-  factory MaterializedViewDef.fromJson(Map<String, dynamic> json) => MaterializedViewDef(
+  factory MaterializedViewDef.fromJson(Map<String, dynamic> json) =>
+      MaterializedViewDef(
         viewName: json['viewName'],
         sourceTable: json['sourceTable'],
         selectQuery: json['selectQuery'],
@@ -67,6 +68,8 @@ class MaterializedViewManager {
 
   List<MaterializedViewDef> getViewsForTable(String tableName) {
     final tName = tableName.toLowerCase();
-    return _views.values.where((v) => v.sourceTable.toLowerCase() == tName).toList();
+    return _views.values
+        .where((v) => v.sourceTable.toLowerCase() == tName)
+        .toList();
   }
 }

@@ -28,7 +28,8 @@ class UniversalFileAdapter {
       if (line.isEmpty) continue;
       final cols = line.split(',');
 
-      if (whereValue.isEmpty || line.toLowerCase().contains(whereValue.toLowerCase())) {
+      if (whereValue.isEmpty ||
+          line.toLowerCase().contains(whereValue.toLowerCase())) {
         final row = <DbValue>[];
         for (final col in cols) {
           final parsedInt = int.tryParse(col);
@@ -48,7 +49,10 @@ class UniversalFileAdapter {
   }
 
   /// Queries raw JSON files directly
-  static List<List<DbValue>> queryJsonFile(String filePath, String jsonPathFilter) {
+  static List<List<DbValue>> queryJsonFile(
+    String filePath,
+    String jsonPathFilter,
+  ) {
     final file = File(filePath);
     if (!file.existsSync()) return [];
 
@@ -58,7 +62,10 @@ class UniversalFileAdapter {
     final rows = <List<DbValue>>[];
     for (final item in decoded) {
       if (item is Map<String, dynamic>) {
-        if (jsonPathFilter.isEmpty || item.toString().toLowerCase().contains(jsonPathFilter.toLowerCase())) {
+        if (jsonPathFilter.isEmpty ||
+            item.toString().toLowerCase().contains(
+              jsonPathFilter.toLowerCase(),
+            )) {
           final row = item.values.map((v) => _rawToDbValue(v)).toList();
           rows.add(row);
         }
@@ -68,7 +75,10 @@ class UniversalFileAdapter {
   }
 
   /// Queries raw server log files directly via regex pattern matching
-  static List<List<DbValue>> queryLogFile(String filePath, String regexPattern) {
+  static List<List<DbValue>> queryLogFile(
+    String filePath,
+    String regexPattern,
+  ) {
     final file = File(filePath);
     if (!file.existsSync()) return [];
 

@@ -1,11 +1,11 @@
 import 'dart:ffi';
-import 'dart:io';
 import 'package:ffi/ffi.dart';
 import '../executor/interpreter.dart';
 import '../executor/value.dart';
 
 /// Opaque pointers for C FFI bindings.
 final class UltSqlDbStruct extends Opaque {}
+
 final class UltSqlResStruct extends Opaque {}
 
 /// C FFI Session Handle wrapper.
@@ -88,9 +88,9 @@ Future<int> ultsql_exec_async(int dbHandleId, Pointer<Utf8> sqlPtr) async {
   final dbHandle = _cDbHandles[dbHandleId];
   if (dbHandle == null) return 0;
   final sql = sqlPtr.toDartString();
-  
+
   final res = await dbHandle.interpreter.executeScript(sql);
-  
+
   final resHandleId = _handleCounter++;
   _cResHandles[resHandleId] = UltSqlResHandle(res);
   return resHandleId;

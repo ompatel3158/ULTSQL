@@ -6,7 +6,7 @@ class Page {
   late final ByteData byteData;
   bool isDirty = false;
   int pinCount = 0;
-  
+
   // Last access timestamp for LRU eviction
   int lastAccessTime = 0;
 
@@ -17,8 +17,7 @@ class Page {
   int? rowCount;
   int? freeSpaceOffset;
 
-  Page(this.pageId, {int pageSize = 4096})
-      : data = Uint8List(pageSize) {
+  Page(this.pageId, {int pageSize = 4096}) : data = Uint8List(pageSize) {
     byteData = ByteData.sublistView(data);
   }
 

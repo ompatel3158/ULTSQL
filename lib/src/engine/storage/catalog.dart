@@ -27,10 +27,7 @@ class ProcedureSchema {
     }
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'sql': sql,
-      };
+  Map<String, dynamic> toJson() => {'name': name, 'sql': sql};
 
   factory ProcedureSchema.fromJson(Map<String, dynamic> json) {
     return ProcedureSchema(name: json['name'], sql: json['sql']);
@@ -62,10 +59,7 @@ class FunctionSchema {
     }
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'sql': sql,
-      };
+  Map<String, dynamic> toJson() => {'name': name, 'sql': sql};
 
   factory FunctionSchema.fromJson(Map<String, dynamic> json) {
     return FunctionSchema(name: json['name'], sql: json['sql']);
@@ -79,7 +73,7 @@ class TriggerSchema {
   final String tableName;
   final bool forEachRow;
   final String sql;
-  
+
   late final List<VarDeclare> declarations;
   late final List<Stmt> body;
 
@@ -108,13 +102,13 @@ class TriggerSchema {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'timing': timing,
-        'event': event,
-        'tableName': tableName,
-        'forEachRow': forEachRow,
-        'sql': sql,
-      };
+    'name': name,
+    'timing': timing,
+    'event': event,
+    'tableName': tableName,
+    'forEachRow': forEachRow,
+    'sql': sql,
+  };
 
   factory TriggerSchema.fromJson(Map<String, dynamic> json) {
     return TriggerSchema(
@@ -135,9 +129,9 @@ class PolicySchema {
   PolicySchema({required this.name, required this.condition});
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'condition': exprToSqlString(condition),
-      };
+    'name': name,
+    'condition': exprToSqlString(condition),
+  };
 
   factory PolicySchema.fromJson(Map<String, dynamic> json) {
     final lexer = Lexer(json['condition']);
@@ -164,7 +158,7 @@ class TableSchema {
   final List<Expression?> columnCheckExpressions;
   final List<PolicySchema> policies;
   final List<String?> columnMaskedWith;
-  
+
   final bool isForeign;
   final String? foreignServer;
   final Map<String, String>? foreignOptions;
@@ -202,24 +196,35 @@ class TableSchema {
     this.partitionFromValue,
     this.partitionToValue,
     List<String>? partitionChildren,
-  })  : columnPrimaryKey = columnPrimaryKey ?? List.filled(columnNames.length, false),
-        columnUnique = columnUnique ?? List.filled(columnNames.length, false),
-        columnReferencesTable = columnReferencesTable ?? List.filled(columnNames.length, null),
-        columnReferencesColumn = columnReferencesColumn ?? List.filled(columnNames.length, null),
-        columnOnDeleteCascade = columnOnDeleteCascade ?? List.filled(columnNames.length, false),
-        columnDefaultValues = columnDefaultValues ?? List.filled(columnNames.length, null),
-        columnCheckExpressions = columnCheckExpressions ?? List.filled(columnNames.length, null),
-        policies = policies ?? [],
-        columnMaskedWith = columnMaskedWith ?? List.filled(columnNames.length, null),
-        partitionChildren = partitionChildren ?? [] {
+  }) : columnPrimaryKey =
+           columnPrimaryKey ?? List.filled(columnNames.length, false),
+       columnUnique = columnUnique ?? List.filled(columnNames.length, false),
+       columnReferencesTable =
+           columnReferencesTable ?? List.filled(columnNames.length, null),
+       columnReferencesColumn =
+           columnReferencesColumn ?? List.filled(columnNames.length, null),
+       columnOnDeleteCascade =
+           columnOnDeleteCascade ?? List.filled(columnNames.length, false),
+       columnDefaultValues =
+           columnDefaultValues ?? List.filled(columnNames.length, null),
+       columnCheckExpressions =
+           columnCheckExpressions ?? List.filled(columnNames.length, null),
+       policies = policies ?? [],
+       columnMaskedWith =
+           columnMaskedWith ?? List.filled(columnNames.length, null),
+       partitionChildren = partitionChildren ?? [] {
     columnNamesLower = columnNames.map((c) => c.toLowerCase()).toList();
-    columnIndexMap = {for (int i = 0; i < columnNamesLower.length; i++) columnNamesLower[i]: i};
+    columnIndexMap = {
+      for (int i = 0; i < columnNamesLower.length; i++) columnNamesLower[i]: i,
+    };
     hasForeignKeys = this.columnReferencesTable.any((t) => t != null);
-    hasUniqueOrPrimaryKey = this.columnPrimaryKey.any((b) => b) || this.columnUnique.any((b) => b);
+    hasUniqueOrPrimaryKey =
+        this.columnPrimaryKey.any((b) => b) || this.columnUnique.any((b) => b);
   }
 
   late final Map<String, int> columnIndexMap;
-  int getColumnIndex(String colName) => columnIndexMap[colName.toLowerCase()] ?? -1;
+  int getColumnIndex(String colName) =>
+      columnIndexMap[colName.toLowerCase()] ?? -1;
 
   TableSchema addColumn(ColumnDef col) {
     return TableSchema(
@@ -248,11 +253,16 @@ class TableSchema {
     final newTypes = List<DataType>.from(columnTypes)..removeAt(idx);
     final newPrimaryKey = List<bool>.from(columnPrimaryKey)..removeAt(idx);
     final newUnique = List<bool>.from(columnUnique)..removeAt(idx);
-    final newReferencesTable = List<String?>.from(columnReferencesTable)..removeAt(idx);
-    final newReferencesColumn = List<String?>.from(columnReferencesColumn)..removeAt(idx);
-    final newOnDeleteCascade = List<bool>.from(columnOnDeleteCascade)..removeAt(idx);
-    final newDefaultValues = List<Expression?>.from(columnDefaultValues)..removeAt(idx);
-    final newCheckExpressions = List<Expression?>.from(columnCheckExpressions)..removeAt(idx);
+    final newReferencesTable = List<String?>.from(columnReferencesTable)
+      ..removeAt(idx);
+    final newReferencesColumn = List<String?>.from(columnReferencesColumn)
+      ..removeAt(idx);
+    final newOnDeleteCascade = List<bool>.from(columnOnDeleteCascade)
+      ..removeAt(idx);
+    final newDefaultValues = List<Expression?>.from(columnDefaultValues)
+      ..removeAt(idx);
+    final newCheckExpressions = List<Expression?>.from(columnCheckExpressions)
+      ..removeAt(idx);
 
     return TableSchema(
       name: name,
@@ -335,27 +345,31 @@ class TableSchema {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'columnNames': columnNames,
-        'columnTypes': columnTypes.map((t) => t.index).toList(),
-        'isColumnar': isColumnar,
-        'isForeign': isForeign,
-        'foreignServer': foreignServer,
-        'foreignOptions': foreignOptions,
-        'columnPrimaryKey': columnPrimaryKey,
-        'columnUnique': columnUnique,
-        'columnReferencesTable': columnReferencesTable,
-        'columnReferencesColumn': columnReferencesColumn,
-        'columnOnDeleteCascade': columnOnDeleteCascade,
-        'columnDefaultValues': columnDefaultValues.map((e) => e != null ? exprToSqlString(e) : null).toList(),
-        'columnCheckExpressions': columnCheckExpressions.map((e) => e != null ? exprToSqlString(e) : null).toList(),
-        'policies': policies.map((p) => p.toJson()).toList(),
-        'partitionByColumn': partitionByColumn,
-        'partitionOfParent': partitionOfParent,
-        'partitionFromValue': partitionFromValue,
-        'partitionToValue': partitionToValue,
-        'partitionChildren': partitionChildren,
-      };
+    'name': name,
+    'columnNames': columnNames,
+    'columnTypes': columnTypes.map((t) => t.index).toList(),
+    'isColumnar': isColumnar,
+    'isForeign': isForeign,
+    'foreignServer': foreignServer,
+    'foreignOptions': foreignOptions,
+    'columnPrimaryKey': columnPrimaryKey,
+    'columnUnique': columnUnique,
+    'columnReferencesTable': columnReferencesTable,
+    'columnReferencesColumn': columnReferencesColumn,
+    'columnOnDeleteCascade': columnOnDeleteCascade,
+    'columnDefaultValues': columnDefaultValues
+        .map((e) => e != null ? exprToSqlString(e) : null)
+        .toList(),
+    'columnCheckExpressions': columnCheckExpressions
+        .map((e) => e != null ? exprToSqlString(e) : null)
+        .toList(),
+    'policies': policies.map((p) => p.toJson()).toList(),
+    'partitionByColumn': partitionByColumn,
+    'partitionOfParent': partitionOfParent,
+    'partitionFromValue': partitionFromValue,
+    'partitionToValue': partitionToValue,
+    'partitionChildren': partitionChildren,
+  };
 
   factory TableSchema.fromJson(Map<String, dynamic> json) {
     final names = List<String>.from(json['columnNames']);
@@ -406,17 +420,21 @@ class TableSchema {
       columnCheckExpressions: checkExprs,
       policies: json.containsKey('policies')
           ? (json['policies'] as List)
-              .map((p) => PolicySchema.fromJson(p))
-              .toList()
+                .map((p) => PolicySchema.fromJson(p))
+                .toList()
           : null,
       isForeign: json['isForeign'] ?? false,
       foreignServer: json['foreignServer'],
-      foreignOptions: json['foreignOptions'] != null ? Map<String, String>.from(json['foreignOptions']) : null,
+      foreignOptions: json['foreignOptions'] != null
+          ? Map<String, String>.from(json['foreignOptions'])
+          : null,
       partitionByColumn: json['partitionByColumn'],
       partitionOfParent: json['partitionOfParent'],
       partitionFromValue: json['partitionFromValue'],
       partitionToValue: json['partitionToValue'],
-      partitionChildren: json['partitionChildren'] != null ? List<String>.from(json['partitionChildren']) : null,
+      partitionChildren: json['partitionChildren'] != null
+          ? List<String>.from(json['partitionChildren'])
+          : null,
     );
   }
 }
@@ -437,14 +455,15 @@ class RelationshipSchema {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'fromTable': fromTable,
-        'toTable': toTable,
-        'fromKey': fromKey,
-        'toKey': toKey,
-      };
+    'name': name,
+    'fromTable': fromTable,
+    'toTable': toTable,
+    'fromKey': fromKey,
+    'toKey': toKey,
+  };
 
-  factory RelationshipSchema.fromJson(Map<String, dynamic> json) => RelationshipSchema(
+  factory RelationshipSchema.fromJson(Map<String, dynamic> json) =>
+      RelationshipSchema(
         name: json['name'],
         fromTable: json['fromTable'],
         toTable: json['toTable'],
@@ -467,18 +486,18 @@ class IndexSchema {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'tableName': tableName,
-        'columnName': columnName,
-        'usingMethod': usingMethod,
-      };
+    'name': name,
+    'tableName': tableName,
+    'columnName': columnName,
+    'usingMethod': usingMethod,
+  };
 
   factory IndexSchema.fromJson(Map<String, dynamic> json) => IndexSchema(
-        name: json['name'],
-        tableName: json['tableName'],
-        columnName: json['columnName'],
-        usingMethod: json['usingMethod'],
-      );
+    name: json['name'],
+    tableName: json['tableName'],
+    columnName: json['columnName'],
+    usingMethod: json['usingMethod'],
+  );
 }
 
 /// System catalog maintaining metadata, schemas, indexes, and procedures for an UltSQL database.
@@ -521,14 +540,21 @@ class Catalog {
     if (saveToFile) save();
   }
 
-  List<TriggerSchema> getTriggersForTable(String tableName, String timing, String event) {
+  List<TriggerSchema> getTriggersForTable(
+    String tableName,
+    String timing,
+    String event,
+  ) {
     final tName = tableName.toLowerCase();
     final tim = timing.toUpperCase();
     final ev = event.toUpperCase();
     return _triggers.values
-        .where((trig) => trig.tableName.toLowerCase() == tName &&
-                         trig.timing.toUpperCase() == tim &&
-                         trig.event.toUpperCase() == ev)
+        .where(
+          (trig) =>
+              trig.tableName.toLowerCase() == tName &&
+              trig.timing.toUpperCase() == tim &&
+              trig.event.toUpperCase() == ev,
+        )
         .toList();
   }
 
@@ -581,7 +607,9 @@ class Catalog {
       'tables': Map<String, TableSchema>.from(_tables),
       'relationships': Map<String, RelationshipSchema>.from(_relationships),
       'indexes': Map<String, IndexSchema>.from(_indexes),
-      'stats': _stats.map((k, v) => MapEntry(k, TableStats.fromJson(v.toJson()))),
+      'stats': _stats.map(
+        (k, v) => MapEntry(k, TableStats.fromJson(v.toJson())),
+      ),
       'procedures': Map<String, ProcedureSchema>.from(_procedures),
       'functions': Map<String, FunctionSchema>.from(_functions),
       'triggers': Map<String, TriggerSchema>.from(_triggers),
@@ -597,7 +625,9 @@ class Catalog {
         if (v is TableSchema) {
           _tables[k.toString()] = v;
         } else if (v is Map) {
-          _tables[k.toString()] = TableSchema.fromJson(Map<String, dynamic>.from(v));
+          _tables[k.toString()] = TableSchema.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -609,7 +639,9 @@ class Catalog {
         if (v is RelationshipSchema) {
           _relationships[k.toString()] = v;
         } else if (v is Map) {
-          _relationships[k.toString()] = RelationshipSchema.fromJson(Map<String, dynamic>.from(v));
+          _relationships[k.toString()] = RelationshipSchema.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -621,7 +653,9 @@ class Catalog {
         if (v is IndexSchema) {
           _indexes[k.toString()] = v;
         } else if (v is Map) {
-          _indexes[k.toString()] = IndexSchema.fromJson(Map<String, dynamic>.from(v));
+          _indexes[k.toString()] = IndexSchema.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -633,7 +667,9 @@ class Catalog {
         if (v is TableStats) {
           _stats[k.toString()] = v;
         } else if (v is Map) {
-          _stats[k.toString()] = TableStats.fromJson(Map<String, dynamic>.from(v));
+          _stats[k.toString()] = TableStats.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -645,7 +681,9 @@ class Catalog {
         if (v is ProcedureSchema) {
           _procedures[k.toString()] = v;
         } else if (v is Map) {
-          _procedures[k.toString()] = ProcedureSchema.fromJson(Map<String, dynamic>.from(v));
+          _procedures[k.toString()] = ProcedureSchema.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -657,7 +695,9 @@ class Catalog {
         if (v is FunctionSchema) {
           _functions[k.toString()] = v;
         } else if (v is Map) {
-          _functions[k.toString()] = FunctionSchema.fromJson(Map<String, dynamic>.from(v));
+          _functions[k.toString()] = FunctionSchema.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -669,7 +709,9 @@ class Catalog {
         if (v is TriggerSchema) {
           _triggers[k.toString()] = v;
         } else if (v is Map) {
-          _triggers[k.toString()] = TriggerSchema.fromJson(Map<String, dynamic>.from(v));
+          _triggers[k.toString()] = TriggerSchema.fromJson(
+            Map<String, dynamic>.from(v),
+          );
         }
       });
     }
@@ -703,8 +745,10 @@ class Catalog {
     if (saveToFile) save();
   }
 
-  RelationshipSchema? getRelationship(String name) => _relationships[name.toLowerCase()];
-  bool hasRelationship(String name) => _relationships.containsKey(name.toLowerCase());
+  RelationshipSchema? getRelationship(String name) =>
+      _relationships[name.toLowerCase()];
+  bool hasRelationship(String name) =>
+      _relationships.containsKey(name.toLowerCase());
 
   void addRelationship(RelationshipSchema rel, {bool saveToFile = true}) {
     _relationships[rel.name.toLowerCase()] = rel;
@@ -729,7 +773,9 @@ class Catalog {
   List<IndexSchema> getIndexesForTable(String tableName) {
     final tName = tableName.toLowerCase();
     return _tableIndexesCache.putIfAbsent(tName, () {
-      return _indexes.values.where((idx) => idx.tableName.toLowerCase() == tName).toList();
+      return _indexes.values
+          .where((idx) => idx.tableName.toLowerCase() == tName)
+          .toList();
     });
   }
 
@@ -739,7 +785,8 @@ class Catalog {
     final tName = tableName.toLowerCase();
     final cName = columnName.toLowerCase();
     for (final idx in _indexes.values) {
-      if (idx.tableName.toLowerCase() == tName && idx.columnName.toLowerCase() == cName) {
+      if (idx.tableName.toLowerCase() == tName &&
+          idx.columnName.toLowerCase() == cName) {
         return idx;
       }
     }
@@ -833,54 +880,54 @@ class Catalog {
       if (!file.parent.existsSync()) {
         file.parent.createSync(recursive: true);
       }
-    final Map<String, dynamic> tablesMap = {};
-    _tables.forEach((key, val) {
-      tablesMap[key] = val.toJson();
-    });
-    final Map<String, dynamic> relsMap = {};
-    _relationships.forEach((key, val) {
-      relsMap[key] = val.toJson();
-    });
-    final Map<String, dynamic> indexesMap = {};
-    _indexes.forEach((key, val) {
-      indexesMap[key] = val.toJson();
-    });
-    final Map<String, dynamic> statsMap = {};
-    _stats.forEach((key, val) {
-      statsMap[key] = val.toJson();
-    });
-    final Map<String, dynamic> permissionsMap = {};
-    _permissions.forEach((user, tables) {
-      final Map<String, dynamic> userMap = {};
-      tables.forEach((table, privs) {
-        userMap[table] = privs;
+      final Map<String, dynamic> tablesMap = {};
+      _tables.forEach((key, val) {
+        tablesMap[key] = val.toJson();
       });
-      permissionsMap[user] = userMap;
-    });
-    final Map<String, dynamic> proceduresMap = {};
-    _procedures.forEach((key, val) {
-      proceduresMap[key] = val.toJson();
-    });
-    final Map<String, dynamic> functionsMap = {};
-    _functions.forEach((key, val) {
-      functionsMap[key] = val.toJson();
-    });
-    final Map<String, dynamic> triggersMap = {};
-    _triggers.forEach((key, val) {
-      triggersMap[key] = val.toJson();
-    });
+      final Map<String, dynamic> relsMap = {};
+      _relationships.forEach((key, val) {
+        relsMap[key] = val.toJson();
+      });
+      final Map<String, dynamic> indexesMap = {};
+      _indexes.forEach((key, val) {
+        indexesMap[key] = val.toJson();
+      });
+      final Map<String, dynamic> statsMap = {};
+      _stats.forEach((key, val) {
+        statsMap[key] = val.toJson();
+      });
+      final Map<String, dynamic> permissionsMap = {};
+      _permissions.forEach((user, tables) {
+        final Map<String, dynamic> userMap = {};
+        tables.forEach((table, privs) {
+          userMap[table] = privs;
+        });
+        permissionsMap[user] = userMap;
+      });
+      final Map<String, dynamic> proceduresMap = {};
+      _procedures.forEach((key, val) {
+        proceduresMap[key] = val.toJson();
+      });
+      final Map<String, dynamic> functionsMap = {};
+      _functions.forEach((key, val) {
+        functionsMap[key] = val.toJson();
+      });
+      final Map<String, dynamic> triggersMap = {};
+      _triggers.forEach((key, val) {
+        triggersMap[key] = val.toJson();
+      });
 
-    final outputMap = {
-      'tables': tablesMap,
-      'relationships': relsMap,
-      'indexes': indexesMap,
-      'stats': statsMap,
-      'permissions': permissionsMap,
-      'procedures': proceduresMap,
-      'functions': functionsMap,
-      'triggers': triggersMap,
-    };
-    file.writeAsStringSync(json.encode(outputMap));
+      final outputMap = {
+        'tables': tablesMap,
+        'relationships': relsMap,
+        'indexes': indexesMap,
+        'stats': statsMap,
+        'permissions': permissionsMap,
+        'procedures': proceduresMap,
+        'functions': functionsMap,
+        'triggers': triggersMap,
+      };
+      file.writeAsStringSync(json.encode(outputMap));
     } catch (_) {}
   }
 }
@@ -893,16 +940,16 @@ class MinMaxStats {
   MinMaxStats({this.min, this.max, this.distinctCount = 0});
 
   Map<String, dynamic> toJson() => {
-        'min': min,
-        'max': max,
-        'distinctCount': distinctCount,
-      };
+    'min': min,
+    'max': max,
+    'distinctCount': distinctCount,
+  };
 
   factory MinMaxStats.fromJson(Map<String, dynamic> json) => MinMaxStats(
-        min: json['min'],
-        max: json['max'],
-        distinctCount: json['distinctCount'] ?? 0,
-      );
+    min: json['min'],
+    max: json['max'],
+    distinctCount: json['distinctCount'] ?? 0,
+  );
 }
 
 class ColumnHistogram {
@@ -942,9 +989,7 @@ class ColumnHistogram {
     return 1.0 / buckets.length;
   }
 
-  Map<String, dynamic> toJson() => {
-        'buckets': buckets,
-      };
+  Map<String, dynamic> toJson() => {'buckets': buckets};
 
   factory ColumnHistogram.fromJson(Map<String, dynamic> json) {
     return ColumnHistogram(List<double>.from(json['buckets'] ?? []));
@@ -956,15 +1001,18 @@ class TableStats {
   final Map<String, MinMaxStats> columnStats;
   final Map<String, ColumnHistogram> histograms;
 
-  TableStats({this.rowCount = 0, Map<String, MinMaxStats>? columnStats, Map<String, ColumnHistogram>? histograms})
-      : columnStats = columnStats ?? {},
-        histograms = histograms ?? {};
+  TableStats({
+    this.rowCount = 0,
+    Map<String, MinMaxStats>? columnStats,
+    Map<String, ColumnHistogram>? histograms,
+  }) : columnStats = columnStats ?? {},
+       histograms = histograms ?? {};
 
   Map<String, dynamic> toJson() => {
-        'rowCount': rowCount,
-        'columnStats': columnStats.map((k, v) => MapEntry(k, v.toJson())),
-        'histograms': histograms.map((k, v) => MapEntry(k, v.toJson())),
-      };
+    'rowCount': rowCount,
+    'columnStats': columnStats.map((k, v) => MapEntry(k, v.toJson())),
+    'histograms': histograms.map((k, v) => MapEntry(k, v.toJson())),
+  };
 
   factory TableStats.fromJson(Map<String, dynamic> json) {
     final stats = TableStats(rowCount: json['rowCount'] ?? 0);

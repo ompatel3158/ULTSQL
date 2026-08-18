@@ -52,7 +52,11 @@ class BTreeIndex {
   late final int siblingOffset;
   late final int rootOffset;
 
-  BTreeIndex({required this.cache, required this.indexPath, this.keyColumns = 1}) {
+  BTreeIndex({
+    required this.cache,
+    required this.indexPath,
+    this.keyColumns = 1,
+  }) {
     keySize = keyColumns * 8;
     maxKeys = 50; // Cap at 50 to easily fit composite keys in 4KB page
     pageIdOffset = 4 + maxKeys * keySize;
@@ -98,7 +102,9 @@ class BTreeIndex {
         cache.unpinPageSync(indexPath, curr, isDirty: false);
         return curr;
       }
-      final childPageId = page.byteData.getInt32(pageIdOffset + keyCount * 4); // rightmost child
+      final childPageId = page.byteData.getInt32(
+        pageIdOffset + keyCount * 4,
+      ); // rightmost child
       cache.unpinPageSync(indexPath, curr, isDirty: false);
       curr = childPageId;
     }
@@ -142,7 +148,9 @@ class BTreeIndex {
         final keyCount = page.byteData.getUint16(2);
         final List<double> keyList = key is List<double> ? key : [searchVal];
         int idx = _binarySearch(page, keyList, keyCount);
-        bool isMatch = idx < keyCount && page.byteData.getFloat64(4 + idx * 8) == searchVal;
+        bool isMatch =
+            idx < keyCount &&
+            page.byteData.getFloat64(4 + idx * 8) == searchVal;
         if (isMatch) {
           final pageId = page.byteData.getInt32(pageIdOffset + idx * 4);
           final slotId = page.byteData.getUint16(slotIdOffset + idx * 2);
@@ -165,7 +173,9 @@ class BTreeIndex {
         bool isMatch = false;
         if (idx < keyCount) {
           if (keyColumns == 1) {
-            final double searchVal = key is double ? key : (key as List<double>)[0];
+            final double searchVal = key is double
+                ? key
+                : (key as List<double>)[0];
             isMatch = page.byteData.getFloat64(4 + idx * 8) == searchVal;
           } else {
             isMatch = _compareKeys(_getKey(page, idx), key) == 0;
@@ -175,18 +185,20 @@ class BTreeIndex {
           if (keyColumns == 1 && keyCount > 0) {
             _cachedLeafPageId = currentPageId;
             _cachedLeafMinKey = page.byteData.getFloat64(4);
-            _cachedLeafMaxKey = page.byteData.getFloat64(4 + (keyCount - 1) * 8);
+            _cachedLeafMaxKey = page.byteData.getFloat64(
+              4 + (keyCount - 1) * 8,
+            );
           }
           final pageId = page.byteData.getInt32(pageIdOffset + idx * 4);
           final slotId = page.byteData.getUint16(slotIdOffset + idx * 2);
           cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
           return BTreePointer(pageId, slotId);
         }
-        
+
         // If not found, check the immediate right sibling (needed for boundary keys)
         final siblingId = page.byteData.getInt32(siblingOffset);
         cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
-        
+
         if (siblingId != -1) {
           final sibPage = cache.pinPageSync(indexPath, siblingId);
           final sibKeyCount = sibPage.byteData.getUint16(2);
@@ -194,8 +206,11 @@ class BTreeIndex {
           bool sibMatch = false;
           if (sibIdx < sibKeyCount) {
             if (keyColumns == 1) {
-              final double searchVal = key is double ? key : (key as List<double>)[0];
-              sibMatch = sibPage.byteData.getFloat64(4 + sibIdx * 8) == searchVal;
+              final double searchVal = key is double
+                  ? key
+                  : (key as List<double>)[0];
+              sibMatch =
+                  sibPage.byteData.getFloat64(4 + sibIdx * 8) == searchVal;
             } else {
               sibMatch = _compareKeys(_getKey(sibPage, sibIdx), key) == 0;
             }
@@ -204,29 +219,24 @@ class BTreeIndex {
             if (keyColumns == 1 && sibKeyCount > 0) {
               _cachedLeafPageId = siblingId;
               _cachedLeafMinKey = sibPage.byteData.getFloat64(4);
-              _cachedLeafMaxKey = sibPage.byteData.getFloat64(4 + (sibKeyCount - 1) * 8);
+              _cachedLeafMaxKey = sibPage.byteData.getFloat64(
+                4 + (sibKeyCount - 1) * 8,
+              );
             }
             final pageId = sibPage.byteData.getInt32(pageIdOffset + sibIdx * 4);
-            final slotId = sibPage.byteData.getUint16(slotIdOffset + sibIdx * 2);
+            final slotId = sibPage.byteData.getUint16(
+              slotIdOffset + sibIdx * 2,
+            );
             cache.unpinPageSync(indexPath, siblingId, isDirty: false);
             return BTreePointer(pageId, slotId);
           }
           cache.unpinPageSync(indexPath, siblingId, isDirty: false);
         }
-        
+
         return null;
       } else {
         // Find child node to traverse
         int idx = _binarySearch(page, key, keyCount);
-        bool isMatch = false;
-        if (idx < keyCount) {
-          if (keyColumns == 1) {
-            final double searchVal = key is double ? key : (key as List<double>)[0];
-            isMatch = page.byteData.getFloat64(4 + idx * 8) == searchVal;
-          } else {
-            isMatch = _compareKeys(_getKey(page, idx), key) == 0;
-          }
-        }
         final childPageId = page.byteData.getInt32(pageIdOffset + idx * 4);
         cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
         currentPageId = childPageId;
@@ -265,7 +275,9 @@ class BTreeIndex {
           currentPageId = curr;
           break;
         }
-        final childPageId = page.byteData.getInt32(pageIdOffset); // leftmost child
+        final childPageId = page.byteData.getInt32(
+          pageIdOffset,
+        ); // leftmost child
         cache.unpinPageSync(indexPath, curr, isDirty: false);
         curr = childPageId;
       }
@@ -276,7 +288,7 @@ class BTreeIndex {
     while (currentPageId != -1) {
       final page = cache.pinPageSync(indexPath, currentPageId);
       final keyCount = page.byteData.getUint16(2);
-      
+
       for (int i = 0; i < keyCount; i++) {
         if (keyColumns == 1) {
           final val = page.byteData.getFloat64(4 + i * 8);
@@ -297,8 +309,10 @@ class BTreeIndex {
         final slotId = page.byteData.getUint16(slotIdOffset + i * 2);
         results.add(BTreePointer(pageId, slotId));
       }
-      
-      final nextPageId = page.byteData.getInt32(siblingOffset); // rightSiblingPageId
+
+      final nextPageId = page.byteData.getInt32(
+        siblingOffset,
+      ); // rightSiblingPageId
       cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
       currentPageId = nextPageId;
     }
@@ -318,7 +332,12 @@ class BTreeIndex {
   int countRangeSync(List<double>? low, List<double>? high) {
     final activeInterpreter = JitCompiler.activeInterpreter;
     if (activeInterpreter != null) {
-      final fileName = indexPath.split('/').last.split('\\').last.replaceAll('.idx', '');
+      final fileName = indexPath
+          .split('/')
+          .last
+          .split('\\')
+          .last
+          .replaceAll('.idx', '');
       String tableName = fileName;
       if (fileName.startsWith('idx_')) {
         final parts = fileName.split('_');
@@ -326,7 +345,9 @@ class BTreeIndex {
           tableName = parts[1];
         }
       }
-      final tableStats = activeInterpreter.db.catalog.getOrCreateStats(tableName);
+      final tableStats = activeInterpreter.db.catalog.getOrCreateStats(
+        tableName,
+      );
       if (tableStats.rowCount > 0) {
         return tableStats.rowCount;
       }
@@ -345,7 +366,9 @@ class BTreeIndex {
           currentPageId = curr;
           break;
         }
-        final childPageId = page.byteData.getInt32(pageIdOffset); // leftmost child
+        final childPageId = page.byteData.getInt32(
+          pageIdOffset,
+        ); // leftmost child
         cache.unpinPageSync(indexPath, curr, isDirty: false);
         curr = childPageId;
       }
@@ -375,7 +398,11 @@ class BTreeIndex {
         continue;
       }
 
-      if (keyCount > 0 && keyColumns == 1 && low != null && high != null && low[0] == high[0]) {
+      if (keyCount > 0 &&
+          keyColumns == 1 &&
+          low != null &&
+          high != null &&
+          low[0] == high[0]) {
         final targetVal = low[0];
         final firstVal = bd.getFloat64(4);
         final lastVal = bd.getFloat64(4 + (keyCount - 1) * 8);
@@ -429,7 +456,7 @@ class BTreeIndex {
     _lastInsertHadKey = false;
     final rootPage = cache.pinPageSync(indexPath, _rootPageId);
     final isRootLeaf = rootPage.byteData.getUint8(1) == 1;
-    
+
     if (isRootLeaf) {
       final count = rootPage.byteData.getUint16(2);
       final idx = _binarySearch(rootPage, key, count);
@@ -437,26 +464,34 @@ class BTreeIndex {
         _lastInsertHadKey = true;
       }
 
-      final success = _insertIntoLeaf(rootPage, key, recordPageId, recordSlotId);
+      final success = _insertIntoLeaf(
+        rootPage,
+        key,
+        recordPageId,
+        recordSlotId,
+      );
       if (!success) {
         // Split root leaf
         final pager = cache.getOrCreatePager(indexPath);
         final newPageId = pager.getPageCountSync();
         final newPage = cache.pinPageSync(indexPath, newPageId);
-        
+
         // Initialize new leaf
         newPage.byteData.setUint8(0, 2);
         newPage.byteData.setUint8(1, 1);
         newPage.byteData.setUint16(2, 0);
-        newPage.byteData.setInt32(siblingOffset, rootPage.byteData.getInt32(siblingOffset)); // Sibling pointer
-        
+        newPage.byteData.setInt32(
+          siblingOffset,
+          rootPage.byteData.getInt32(siblingOffset),
+        ); // Sibling pointer
+
         // Link sibling
         rootPage.byteData.setInt32(siblingOffset, newPageId);
 
         // Split keys
         final count = rootPage.byteData.getUint16(2);
         final mid = count ~/ 2;
-        
+
         // Copy right half to new page
         int newIdx = 0;
         for (int i = mid; i < count; i++) {
@@ -507,7 +542,12 @@ class BTreeIndex {
     return !_lastInsertHadKey;
   }
 
-  BTreeSplitResult? _insertRecursiveSync(int pageId, List<double> key, int rPageId, int rSlotId) {
+  BTreeSplitResult? _insertRecursiveSync(
+    int pageId,
+    List<double> key,
+    int rPageId,
+    int rSlotId,
+  ) {
     final page = cache.pinPageSync(indexPath, pageId);
     final isLeaf = page.byteData.getUint8(1) == 1;
     final keyCount = page.byteData.getUint16(2);
@@ -522,7 +562,7 @@ class BTreeIndex {
         cache.unpinPageSync(indexPath, pageId, isDirty: true);
         return null;
       }
-      
+
       // Split leaf
       final pager = cache.getOrCreatePager(indexPath);
       final newPageId = pager.getPageCountSync();
@@ -531,7 +571,10 @@ class BTreeIndex {
       newPage.byteData.setUint8(0, 2);
       newPage.byteData.setUint8(1, 1);
       newPage.byteData.setUint16(2, 0);
-      newPage.byteData.setInt32(siblingOffset, page.byteData.getInt32(siblingOffset));
+      newPage.byteData.setInt32(
+        siblingOffset,
+        page.byteData.getInt32(siblingOffset),
+      );
 
       page.byteData.setInt32(siblingOffset, newPageId);
 
@@ -566,12 +609,21 @@ class BTreeIndex {
       final childPageId = page.byteData.getInt32(pageIdOffset + idx * 4);
       cache.unpinPageSync(indexPath, pageId, isDirty: false);
 
-      final splitResult = _insertRecursiveSync(childPageId, key, rPageId, rSlotId);
+      final splitResult = _insertRecursiveSync(
+        childPageId,
+        key,
+        rPageId,
+        rSlotId,
+      );
       if (splitResult == null) return null;
 
       // Insert split result into this internal node
       final parentPage = cache.pinPageSync(indexPath, pageId);
-      final success = _insertIntoInternal(parentPage, splitResult.key, splitResult.newPageId);
+      final success = _insertIntoInternal(
+        parentPage,
+        splitResult.key,
+        splitResult.newPageId,
+      );
       if (success) {
         cache.unpinPageSync(indexPath, pageId, isDirty: true);
         return null;
@@ -591,14 +643,19 @@ class BTreeIndex {
 
       // Copy keys and child pointers to new internal node
       final promoteKey = _getKey(parentPage, mid);
-      
+
       int newIdx = 0;
       // Copy child pointer after mid
-      newPage.byteData.setInt32(pageIdOffset, parentPage.byteData.getInt32(pageIdOffset + (mid + 1) * 4));
-      
+      newPage.byteData.setInt32(
+        pageIdOffset,
+        parentPage.byteData.getInt32(pageIdOffset + (mid + 1) * 4),
+      );
+
       for (int i = mid + 1; i < count; i++) {
         final k = _getKey(parentPage, i);
-        final childId = parentPage.byteData.getInt32(pageIdOffset + (i + 1) * 4);
+        final childId = parentPage.byteData.getInt32(
+          pageIdOffset + (i + 1) * 4,
+        );
         _setKey(newPage, newIdx, k);
         newPage.byteData.setInt32(pageIdOffset + (newIdx + 1) * 4, childId);
         newIdx++;
@@ -643,8 +700,14 @@ class BTreeIndex {
     // Shift keys and pointers right
     for (int i = count; i > idx; i--) {
       _setKey(page, i, _getKey(page, i - 1));
-      page.byteData.setInt32(pageIdOffset + i * 4, page.byteData.getInt32(pageIdOffset + (i - 1) * 4));
-      page.byteData.setUint16(slotIdOffset + i * 2, page.byteData.getUint16(slotIdOffset + (i - 1) * 2));
+      page.byteData.setInt32(
+        pageIdOffset + i * 4,
+        page.byteData.getInt32(pageIdOffset + (i - 1) * 4),
+      );
+      page.byteData.setUint16(
+        slotIdOffset + i * 2,
+        page.byteData.getUint16(slotIdOffset + (i - 1) * 2),
+      );
     }
 
     _setKey(page, idx, key);
@@ -665,7 +728,10 @@ class BTreeIndex {
     // Shift keys and pointers right
     for (int i = count; i > idx; i--) {
       _setKey(page, i, _getKey(page, i - 1));
-      page.byteData.setInt32(pageIdOffset + (i + 1) * 4, page.byteData.getInt32(pageIdOffset + i * 4));
+      page.byteData.setInt32(
+        pageIdOffset + (i + 1) * 4,
+        page.byteData.getInt32(pageIdOffset + i * 4),
+      );
     }
 
     _setKey(page, idx, key);
@@ -724,7 +790,13 @@ class BTreeIndex {
     }
   }
 
-  void insertSortedBatchSync(Float64List keys, Int32List pageIds, Int32List slotIds, int K, {Int32List? indices}) {
+  void insertSortedBatchSync(
+    Float64List keys,
+    Int32List pageIds,
+    Int32List slotIds,
+    int K, {
+    Int32List? indices,
+  }) {
     if (pageIds.isEmpty) return;
     _cachedLeafPageId = null;
     print('insertSortedBatchSync total = ${pageIds.length}, K = $K');
@@ -741,7 +813,9 @@ class BTreeIndex {
         break;
       }
       final keyCount = page.byteData.getUint16(2);
-      final rightmostChild = page.byteData.getInt32(pageIdOffset + keyCount * 4);
+      final rightmostChild = page.byteData.getInt32(
+        pageIdOffset + keyCount * 4,
+      );
       cache.unpinPageSync(indexPath, curr, isDirty: false);
       curr = rightmostChild;
     }
@@ -754,7 +828,9 @@ class BTreeIndex {
       ByteData byteData = page.byteData;
       bool pageDirty = false;
       int count = byteData.getUint16(2);
-      double lastKeyVal = count > 0 ? byteData.getFloat64(4 + (count - 1) * 8) : -double.infinity;
+      double lastKeyVal = count > 0
+          ? byteData.getFloat64(4 + (count - 1) * 8)
+          : -double.infinity;
 
       for (int i = 0; i < total; i++) {
         final idx = indices != null ? indices[i] : i;
@@ -776,7 +852,7 @@ class BTreeIndex {
         // Before split/insert, write back count
         byteData.setUint16(2, count);
         cache.unpinPageSync(indexPath, leafPageId, isDirty: pageDirty);
-        
+
         final oldLeaf = leafPageId;
         _bulkSplitInsert(path, keyVal, rPageId, rSlotId);
 
@@ -788,9 +864,11 @@ class BTreeIndex {
         byteData = page.byteData;
         pageDirty = false;
         count = byteData.getUint16(2);
-        lastKeyVal = count > 0 ? byteData.getFloat64(4 + (count - 1) * 8) : -double.infinity;
+        lastKeyVal = count > 0
+            ? byteData.getFloat64(4 + (count - 1) * 8)
+            : -double.infinity;
       }
-      
+
       byteData.setUint16(2, count);
       cache.unpinPageSync(indexPath, leafPageId, isDirty: pageDirty);
     } else {
@@ -837,7 +915,9 @@ class BTreeIndex {
             break;
           }
           final keyCountT = pageT.byteData.getUint16(2);
-          final rightmostChildT = pageT.byteData.getInt32(pageIdOffset + keyCountT * 4);
+          final rightmostChildT = pageT.byteData.getInt32(
+            pageIdOffset + keyCountT * 4,
+          );
           cache.unpinPageSync(indexPath, traverseCurr, isDirty: false);
           traverseCurr = rightmostChildT;
         }
@@ -855,10 +935,15 @@ class BTreeIndex {
     }
   }
 
-  void _bulkSplitInsert(List<int> path, double keyVal, int rPageId, int rSlotId) {
+  void _bulkSplitInsert(
+    List<int> path,
+    double keyVal,
+    int rPageId,
+    int rSlotId,
+  ) {
     final leafPageId = path.last;
     final leafPage = cache.pinPageSync(indexPath, leafPageId);
-    
+
     final pager = cache.getOrCreatePager(indexPath);
     final newLeafPageId = pager.getPageCountSync();
     final newLeafPage = cache.pinPageSync(indexPath, newLeafPageId);
@@ -866,7 +951,10 @@ class BTreeIndex {
     newLeafPage.byteData.setUint8(0, 2);
     newLeafPage.byteData.setUint8(1, 1);
     newLeafPage.byteData.setUint16(2, 0);
-    newLeafPage.byteData.setInt32(siblingOffset, leafPage.byteData.getInt32(siblingOffset));
+    newLeafPage.byteData.setInt32(
+      siblingOffset,
+      leafPage.byteData.getInt32(siblingOffset),
+    );
 
     leafPage.byteData.setInt32(siblingOffset, newLeafPageId);
 
@@ -877,7 +965,7 @@ class BTreeIndex {
       final k = leafPage.byteData.getFloat64(4 + i * 8);
       final pId = leafPage.byteData.getInt32(pageIdOffset + i * 4);
       final sId = leafPage.byteData.getUint16(slotIdOffset + i * 2);
-      
+
       newLeafPage.byteData.setFloat64(4 + newIdx * 8, k);
       newLeafPage.byteData.setInt32(pageIdOffset + newIdx * 4, pId);
       newLeafPage.byteData.setUint16(slotIdOffset + newIdx * 2, sId);
@@ -899,7 +987,12 @@ class BTreeIndex {
     _propagateSplitUp(path, path.length - 1, splitKey, newLeafPageId);
   }
 
-  void _insertIntoLeafDouble(Page page, double keyVal, int rPageId, int rSlotId) {
+  void _insertIntoLeafDouble(
+    Page page,
+    double keyVal,
+    int rPageId,
+    int rSlotId,
+  ) {
     final count = page.byteData.getUint16(2);
     int idx = 0;
     int low = 0;
@@ -916,9 +1009,18 @@ class BTreeIndex {
     idx = low;
 
     for (int i = count; i > idx; i--) {
-      page.byteData.setFloat64(4 + i * 8, page.byteData.getFloat64(4 + (i - 1) * 8));
-      page.byteData.setInt32(pageIdOffset + i * 4, page.byteData.getInt32(pageIdOffset + (i - 1) * 4));
-      page.byteData.setUint16(slotIdOffset + i * 2, page.byteData.getUint16(slotIdOffset + (i - 1) * 2));
+      page.byteData.setFloat64(
+        4 + i * 8,
+        page.byteData.getFloat64(4 + (i - 1) * 8),
+      );
+      page.byteData.setInt32(
+        pageIdOffset + i * 4,
+        page.byteData.getInt32(pageIdOffset + (i - 1) * 4),
+      );
+      page.byteData.setUint16(
+        slotIdOffset + i * 2,
+        page.byteData.getUint16(slotIdOffset + (i - 1) * 2),
+      );
     }
 
     page.byteData.setFloat64(4 + idx * 8, keyVal);
@@ -928,7 +1030,12 @@ class BTreeIndex {
     page.markDirty();
   }
 
-  void _propagateSplitUp(List<int> path, int pathIndex, double splitKey, int newPageId) {
+  void _propagateSplitUp(
+    List<int> path,
+    int pathIndex,
+    double splitKey,
+    int newPageId,
+  ) {
     if (pathIndex == 0) {
       final rootPageId = path[0];
       final pager = cache.getOrCreatePager(indexPath);
@@ -946,7 +1053,7 @@ class BTreeIndex {
       cache.unpinPageSync(indexPath, newRootPageId, isDirty: true);
 
       _updateRootPageIdSync(newRootPageId);
-      
+
       path.insert(0, newRootPageId);
       path[1] = newPageId;
       return;
@@ -972,14 +1079,22 @@ class BTreeIndex {
       final mid = count ~/ 2;
       final promoteKey = parentPage.byteData.getFloat64(4 + mid * 8);
 
-      newParentPage.byteData.setInt32(pageIdOffset, parentPage.byteData.getInt32(pageIdOffset + (mid + 1) * 4));
+      newParentPage.byteData.setInt32(
+        pageIdOffset,
+        parentPage.byteData.getInt32(pageIdOffset + (mid + 1) * 4),
+      );
 
       int newIdx = 0;
       for (int i = mid + 1; i < count; i++) {
         final k = parentPage.byteData.getFloat64(4 + i * 8);
-        final childId = parentPage.byteData.getInt32(pageIdOffset + (i + 1) * 4);
+        final childId = parentPage.byteData.getInt32(
+          pageIdOffset + (i + 1) * 4,
+        );
         newParentPage.byteData.setFloat64(4 + newIdx * 8, k);
-        newParentPage.byteData.setInt32(pageIdOffset + (newIdx + 1) * 4, childId);
+        newParentPage.byteData.setInt32(
+          pageIdOffset + (newIdx + 1) * 4,
+          childId,
+        );
         newIdx++;
       }
       newParentPage.byteData.setUint16(2, newIdx);
@@ -1017,8 +1132,14 @@ class BTreeIndex {
     idx = low;
 
     for (int i = count; i > idx; i--) {
-      page.byteData.setFloat64(4 + i * 8, page.byteData.getFloat64(4 + (i - 1) * 8));
-      page.byteData.setInt32(pageIdOffset + (i + 1) * 4, page.byteData.getInt32(pageIdOffset + i * 4));
+      page.byteData.setFloat64(
+        4 + i * 8,
+        page.byteData.getFloat64(4 + (i - 1) * 8),
+      );
+      page.byteData.setInt32(
+        pageIdOffset + (i + 1) * 4,
+        page.byteData.getInt32(pageIdOffset + i * 4),
+      );
     }
 
     page.byteData.setFloat64(4 + idx * 8, keyVal);

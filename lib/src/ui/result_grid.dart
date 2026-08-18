@@ -48,12 +48,19 @@ class _ResultGridState extends State<ResultGrid> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E1E2E),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFF38BA8), width: 1.5),
+                    border: Border.all(
+                      color: const Color(0xFFF38BA8),
+                      width: 1.5,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline, color: Color(0xFFF38BA8), size: 28),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Color(0xFFF38BA8),
+                        size: 28,
+                      ),
                       const SizedBox(width: 16),
                       Flexible(
                         child: Column(
@@ -71,7 +78,10 @@ class _ResultGridState extends State<ResultGrid> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              message.replaceFirst(RegExp(r'^[Ee]rror:\s*'), ''),
+                              message.replaceFirst(
+                                RegExp(r'^[Ee]rror:\s*'),
+                                '',
+                              ),
                               style: const TextStyle(
                                 color: Color(0xFFCDD6F4),
                                 fontSize: 14,
@@ -83,13 +93,19 @@ class _ResultGridState extends State<ResultGrid> {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: Color(0xFFF38BA8), size: 20),
+                        icon: const Icon(
+                          Icons.copy,
+                          color: Color(0xFFF38BA8),
+                          size: 20,
+                        ),
                         tooltip: 'Copy Error',
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: message));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Error message copied to clipboard!'),
+                              content: Text(
+                                'Error message copied to clipboard!',
+                              ),
                               backgroundColor: Color(0xFF1E1E2E),
                               duration: Duration(seconds: 2),
                             ),
@@ -142,11 +158,17 @@ class _ResultGridState extends State<ResultGrid> {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E2E),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFFA6E3A1).withAlpha(76)),
+                border: Border.all(
+                  color: const Color(0xFFA6E3A1).withAlpha(76),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_outline, color: Color(0xFFA6E3A1), size: 16),
+                  const Icon(
+                    Icons.check_circle_outline,
+                    color: Color(0xFFA6E3A1),
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -176,7 +198,9 @@ class _ResultGridState extends State<ResultGrid> {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(const Color(0xFF181825)),
+                    headingRowColor: WidgetStateProperty.all(
+                      const Color(0xFF181825),
+                    ),
                     dataRowColor: WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) {
                         return const Color(0xFF45475A);
@@ -206,8 +230,8 @@ class _ResultGridState extends State<ResultGrid> {
                                 color: cellVal is DbNull
                                     ? Colors.grey
                                     : (cellVal is DbInt || cellVal is DbDouble
-                                        ? const Color(0xFFF9E2AF)
-                                        : const Color(0xFFCDD6F4)),
+                                          ? const Color(0xFFF9E2AF)
+                                          : const Color(0xFFCDD6F4)),
                                 fontFamily: 'Courier',
                               ),
                             ),
@@ -251,9 +275,9 @@ class _ResultGridState extends State<ResultGrid> {
                     ),
                     const SizedBox(width: 4),
                     Theme(
-                      data: Theme.of(context).copyWith(
-                        canvasColor: const Color(0xFF181825),
-                      ),
+                      data: Theme.of(
+                        context,
+                      ).copyWith(canvasColor: const Color(0xFF181825)),
                       child: DropdownButton<int>(
                         value: _pageSize,
                         underline: const SizedBox(),
@@ -281,7 +305,9 @@ class _ResultGridState extends State<ResultGrid> {
                     const SizedBox(width: 16),
                     IconButton(
                       icon: const Icon(Icons.first_page, size: 20),
-                      color: _currentPage > 1 ? const Color(0xFFCBA6F7) : Colors.grey.shade700,
+                      color: _currentPage > 1
+                          ? const Color(0xFFCBA6F7)
+                          : Colors.grey.shade700,
                       onPressed: _currentPage > 1
                           ? () => setState(() => _currentPage = 1)
                           : null,
@@ -289,7 +315,9 @@ class _ResultGridState extends State<ResultGrid> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.chevron_left, size: 20),
-                      color: _currentPage > 1 ? const Color(0xFFCBA6F7) : Colors.grey.shade700,
+                      color: _currentPage > 1
+                          ? const Color(0xFFCBA6F7)
+                          : Colors.grey.shade700,
                       onPressed: _currentPage > 1
                           ? () => setState(() => _currentPage--)
                           : null,
@@ -305,7 +333,9 @@ class _ResultGridState extends State<ResultGrid> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.chevron_right, size: 20),
-                      color: _currentPage < actualTotalPages ? const Color(0xFFCBA6F7) : Colors.grey.shade700,
+                      color: _currentPage < actualTotalPages
+                          ? const Color(0xFFCBA6F7)
+                          : Colors.grey.shade700,
                       onPressed: _currentPage < actualTotalPages
                           ? () => setState(() => _currentPage++)
                           : null,
@@ -313,9 +343,12 @@ class _ResultGridState extends State<ResultGrid> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.last_page, size: 20),
-                      color: _currentPage < actualTotalPages ? const Color(0xFFCBA6F7) : Colors.grey.shade700,
+                      color: _currentPage < actualTotalPages
+                          ? const Color(0xFFCBA6F7)
+                          : Colors.grey.shade700,
                       onPressed: _currentPage < actualTotalPages
-                          ? () => setState(() => _currentPage = actualTotalPages)
+                          ? () =>
+                                setState(() => _currentPage = actualTotalPages)
                           : null,
                       tooltip: 'Last Page',
                     ),

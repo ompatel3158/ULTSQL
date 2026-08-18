@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class ConsoleOutput extends StatelessWidget {
   final List<String> logs;
 
-  const ConsoleOutput({
-    super.key,
-    required this.logs,
-  });
+  const ConsoleOutput({super.key, required this.logs});
 
   @override
   Widget build(BuildContext context) {
@@ -14,10 +11,7 @@ class ConsoleOutput extends StatelessWidget {
       return const Center(
         child: Text(
           'Console output is empty.\n(Use DBMS_OUTPUT.PUT_LINE in PL/SQL)',
-          style: TextStyle(
-            color: Colors.grey,
-            fontStyle: FontStyle.italic,
-          ),
+          style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
           textAlign: TextAlign.center,
         ),
       );

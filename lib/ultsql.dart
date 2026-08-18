@@ -5,11 +5,25 @@
 library;
 
 export 'src/engine/ult_sql_engine.dart';
-export 'src/engine/executor/interpreter.dart';
-export 'src/engine/executor/value.dart';
-export 'src/engine/executor/plan_nodes.dart';
-export 'src/engine/storage/catalog.dart';
-export 'src/engine/network/pg_wire_server.dart';
-export 'src/engine/network/rest_server.dart';
-export 'src/engine/executor/telemetry.dart';
-export 'src/services/local_database_service.dart';
+export 'src/engine/executor/interpreter.dart'
+    show Interpreter, QueryResult, PreparedStatement, Database;
+export 'src/engine/executor/value.dart'
+    show
+        DbValue,
+        DbInt,
+        DbDouble,
+        DbText,
+        DbBool,
+        DbBlob,
+        DbJson,
+        DbVector,
+        DbNull,
+        DbDateTime,
+        DbUuid,
+        DbDecimal;
+export 'src/engine/parser/ast.dart' show DataType;
+export 'src/engine/network/pg_wire_server.dart' show PgWireServer;
+export 'src/engine/network/rest_server.dart' show RestServer;
+export 'src/engine/executor/telemetry.dart'
+    show FlightRecorder, FlightRecorderReport, FlightRecorderStep;
+export 'src/services/local_database_service.dart' show LocalDatabaseService;

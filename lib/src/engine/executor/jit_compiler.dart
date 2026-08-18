@@ -21,10 +21,14 @@ bool matchLike(String str, String pattern) {
   if (!pattern.contains('_') && !pattern.contains('\\')) {
     final firstPct = pattern.startsWith('%');
     final lastPct = pattern.endsWith('%');
-    final middlePct = pattern.substring(firstPct ? 1 : 0, pattern.length - (lastPct ? 1 : 0)).contains('%');
+    final middlePct = pattern
+        .substring(firstPct ? 1 : 0, pattern.length - (lastPct ? 1 : 0))
+        .contains('%');
     if (!middlePct) {
       final subject = _toLowerCaseFast(str);
-      final query = pattern.substring(firstPct ? 1 : 0, pattern.length - (lastPct ? 1 : 0)).toLowerCase();
+      final query = pattern
+          .substring(firstPct ? 1 : 0, pattern.length - (lastPct ? 1 : 0))
+          .toLowerCase();
       if (firstPct && lastPct) {
         return subject.contains(query);
       } else if (firstPct) {
@@ -50,7 +54,9 @@ class JitCompiler {
   static dynamic activeInterpreter;
 
   static JitClosure compile(Expression expr) {
-    if (expr is LiteralExpr || expr is PlaceholderExpr || expr is VectorLiteralExpr) {
+    if (expr is LiteralExpr ||
+        expr is PlaceholderExpr ||
+        expr is VectorLiteralExpr) {
       return _compileDefault(expr);
     }
     final sqlStr = exprToSqlString(expr);
@@ -108,7 +114,13 @@ class JitCompiler {
               if (rows.length == 1 && rows[0].length == 1) {
                 return rows[0][0];
               }
-              return DbList(rows.map<DbValue>((r) => r.isNotEmpty ? r[0] as DbValue : DbNull()).toList());
+              return DbList(
+                rows
+                    .map<DbValue>(
+                      (r) => r.isNotEmpty ? r[0] as DbValue : DbNull(),
+                    )
+                    .toList(),
+              );
             }
           }
           return DbNull();
@@ -216,7 +228,9 @@ class JitCompiler {
             if (idx != null) {
               resolvedIndex = idx;
               final val = row.values[idx];
-              if (isSubPath && val is DbJson && jsonPathStartIndex < path.length) {
+              if (isSubPath &&
+                  val is DbJson &&
+                  jsonPathStartIndex < path.length) {
                 return val.extractPath(path.sublist(jsonPathStartIndex));
               }
               return val;
@@ -292,8 +306,12 @@ class JitCompiler {
         case '%':
           final leftExpr = expr.left;
           final rightExpr = expr.right;
-          if (leftExpr is VariableExpr && rightExpr is VariableExpr && (rightExpr.fullName.toLowerCase() == 'found' || rightExpr.fullName.toLowerCase() == 'notfound')) {
-            final attrKey = '${leftExpr.fullName}%${rightExpr.fullName}'.toLowerCase();
+          if (leftExpr is VariableExpr &&
+              rightExpr is VariableExpr &&
+              (rightExpr.fullName.toLowerCase() == 'found' ||
+                  rightExpr.fullName.toLowerCase() == 'notfound')) {
+            final attrKey = '${leftExpr.fullName}%${rightExpr.fullName}'
+                .toLowerCase();
             return (row) => row[attrKey] ?? DbNull();
           }
           return (row) {
@@ -316,11 +334,16 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
-            if (l is DbInt && r is DbInt) return l.value == r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbDouble) return l.value == r.value ? DbInt.one : DbInt.zero;
-            if (l is DbInt && r is DbDouble) return l.value == r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbInt) return l.value == r.value ? DbInt.one : DbInt.zero;
-            if (l is DbText && r is DbText) return l.value == r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbInt)
+              return l.value == r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbDouble)
+              return l.value == r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbDouble)
+              return l.value == r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbInt)
+              return l.value == r.value ? DbInt.one : DbInt.zero;
+            if (l is DbText && r is DbText)
+              return l.value == r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) == 0 ? DbInt.one : DbInt.zero;
           };
         case '!=':
@@ -328,51 +351,72 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
-            if (l is DbInt && r is DbInt) return l.value != r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbDouble) return l.value != r.value ? DbInt.one : DbInt.zero;
-            if (l is DbInt && r is DbDouble) return l.value != r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbInt) return l.value != r.value ? DbInt.one : DbInt.zero;
-            if (l is DbText && r is DbText) return l.value != r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbInt)
+              return l.value != r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbDouble)
+              return l.value != r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbDouble)
+              return l.value != r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbInt)
+              return l.value != r.value ? DbInt.one : DbInt.zero;
+            if (l is DbText && r is DbText)
+              return l.value != r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) != 0 ? DbInt.one : DbInt.zero;
           };
         case '<':
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
-            if (l is DbInt && r is DbInt) return l.value < r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbDouble) return l.value < r.value ? DbInt.one : DbInt.zero;
-            if (l is DbInt && r is DbDouble) return l.value < r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbInt) return l.value < r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbInt)
+              return l.value < r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbDouble)
+              return l.value < r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbDouble)
+              return l.value < r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbInt)
+              return l.value < r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) < 0 ? DbInt.one : DbInt.zero;
           };
         case '<=':
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
-            if (l is DbInt && r is DbInt) return l.value <= r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbDouble) return l.value <= r.value ? DbInt.one : DbInt.zero;
-            if (l is DbInt && r is DbDouble) return l.value <= r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbInt) return l.value <= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbInt)
+              return l.value <= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbDouble)
+              return l.value <= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbDouble)
+              return l.value <= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbInt)
+              return l.value <= r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) <= 0 ? DbInt.one : DbInt.zero;
           };
         case '>':
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
-            if (l is DbInt && r is DbInt) return l.value > r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbDouble) return l.value > r.value ? DbInt.one : DbInt.zero;
-            if (l is DbInt && r is DbDouble) return l.value > r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbInt) return l.value > r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbInt)
+              return l.value > r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbDouble)
+              return l.value > r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbDouble)
+              return l.value > r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbInt)
+              return l.value > r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) > 0 ? DbInt.one : DbInt.zero;
           };
         case '>=':
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
-            if (l is DbInt && r is DbInt) return l.value >= r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbDouble) return l.value >= r.value ? DbInt.one : DbInt.zero;
-            if (l is DbInt && r is DbDouble) return l.value >= r.value ? DbInt.one : DbInt.zero;
-            if (l is DbDouble && r is DbInt) return l.value >= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbInt)
+              return l.value >= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbDouble)
+              return l.value >= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbInt && r is DbDouble)
+              return l.value >= r.value ? DbInt.one : DbInt.zero;
+            if (l is DbDouble && r is DbInt)
+              return l.value >= r.value ? DbInt.one : DbInt.zero;
             return l.compareTo(r) >= 0 ? DbInt.one : DbInt.zero;
           };
         case '~':
@@ -391,12 +435,13 @@ class JitCompiler {
         case 'like':
         case 'ilike':
           final right = expr.right;
-          final rightIsConstant = right is LiteralExpr || right is PlaceholderExpr;
+          final rightIsConstant =
+              right is LiteralExpr || right is PlaceholderExpr;
           if (rightIsConstant) {
             RegExp? cachedRegex;
             String? lastPattern;
             DbValue? lastParam;
-            
+
             bool isSimpleContains = false;
             bool isSimpleStartsWith = false;
             bool isSimpleEndsWith = false;
@@ -408,7 +453,9 @@ class JitCompiler {
             return (row) {
               if (paramIdx != null) {
                 final params = JitCompiler.currentParams;
-                final curParam = (params != null && paramIdx < params.length) ? params[paramIdx] : null;
+                final curParam = (params != null && paramIdx < params.length)
+                    ? params[paramIdx]
+                    : null;
                 if (!identical(lastParam, curParam)) {
                   lastParam = curParam;
                   final pat = curParam?.toString() ?? '';
@@ -420,17 +467,26 @@ class JitCompiler {
                   if (!pat.contains('_') && !pat.contains('\\')) {
                     final firstPct = pat.startsWith('%');
                     final lastPct = pat.endsWith('%');
-                    final middlePct = pat.substring(firstPct ? 1 : 0, pat.length - (lastPct ? 1 : 0)).contains('%');
+                    final middlePct = pat
+                        .substring(
+                          firstPct ? 1 : 0,
+                          pat.length - (lastPct ? 1 : 0),
+                        )
+                        .contains('%');
                     if (!middlePct) {
                       if (firstPct && lastPct && pat.length >= 2) {
                         isSimpleContains = true;
-                        simpleQuery = pat.substring(1, pat.length - 1).toLowerCase();
+                        simpleQuery = pat
+                            .substring(1, pat.length - 1)
+                            .toLowerCase();
                       } else if (firstPct && !lastPct && pat.length >= 1) {
                         isSimpleEndsWith = true;
                         simpleQuery = pat.substring(1).toLowerCase();
                       } else if (!firstPct && lastPct && pat.length >= 1) {
                         isSimpleStartsWith = true;
-                        simpleQuery = pat.substring(0, pat.length - 1).toLowerCase();
+                        simpleQuery = pat
+                            .substring(0, pat.length - 1)
+                            .toLowerCase();
                       } else if (!firstPct && !lastPct) {
                         isSimpleEquals = true;
                         simpleQuery = pat.toLowerCase();
@@ -444,7 +500,11 @@ class JitCompiler {
                     cachedRegex = null;
                   }
 
-                  if (cachedRegex == null && !isSimpleContains && !isSimpleStartsWith && !isSimpleEndsWith && !isSimpleEquals) {
+                  if (cachedRegex == null &&
+                      !isSimpleContains &&
+                      !isSimpleStartsWith &&
+                      !isSimpleEndsWith &&
+                      !isSimpleEquals) {
                     final escaped = RegExp.escape(pat)
                         .replaceAll(r'\%', '%')
                         .replaceAll(r'\_', '_')
@@ -464,17 +524,26 @@ class JitCompiler {
                   if (!pat.contains('_') && !pat.contains('\\')) {
                     final firstPct = pat.startsWith('%');
                     final lastPct = pat.endsWith('%');
-                    final middlePct = pat.substring(firstPct ? 1 : 0, pat.length - (lastPct ? 1 : 0)).contains('%');
+                    final middlePct = pat
+                        .substring(
+                          firstPct ? 1 : 0,
+                          pat.length - (lastPct ? 1 : 0),
+                        )
+                        .contains('%');
                     if (!middlePct) {
                       if (firstPct && lastPct && pat.length >= 2) {
                         isSimpleContains = true;
-                        simpleQuery = pat.substring(1, pat.length - 1).toLowerCase();
+                        simpleQuery = pat
+                            .substring(1, pat.length - 1)
+                            .toLowerCase();
                       } else if (firstPct && !lastPct && pat.length >= 1) {
                         isSimpleEndsWith = true;
                         simpleQuery = pat.substring(1).toLowerCase();
                       } else if (!firstPct && lastPct && pat.length >= 1) {
                         isSimpleStartsWith = true;
-                        simpleQuery = pat.substring(0, pat.length - 1).toLowerCase();
+                        simpleQuery = pat
+                            .substring(0, pat.length - 1)
+                            .toLowerCase();
                       } else if (!firstPct && !lastPct) {
                         isSimpleEquals = true;
                         simpleQuery = pat.toLowerCase();
@@ -488,7 +557,11 @@ class JitCompiler {
                     cachedRegex = null;
                   }
 
-                  if (cachedRegex == null && !isSimpleContains && !isSimpleStartsWith && !isSimpleEndsWith && !isSimpleEquals) {
+                  if (cachedRegex == null &&
+                      !isSimpleContains &&
+                      !isSimpleStartsWith &&
+                      !isSimpleEndsWith &&
+                      !isSimpleEquals) {
                     final escaped = RegExp.escape(pat)
                         .replaceAll(r'\%', '%')
                         .replaceAll(r'\_', '_')
@@ -519,7 +592,10 @@ class JitCompiler {
               return cachedRegex!.hasMatch(subject) ? DbInt.one : DbInt.zero;
             };
           }
-          return (row) => matchLike(leftFn(row).toString(), rightFn(row).toString()) ? DbInt.one : DbInt.zero;
+          return (row) =>
+              matchLike(leftFn(row).toString(), rightFn(row).toString())
+              ? DbInt.one
+              : DbInt.zero;
         case 'in':
           return (row) {
             final leftVal = leftFn(row);
@@ -541,16 +617,24 @@ class JitCompiler {
           return (row) {
             final leftVal = leftFn(row);
             final rightVal = rightFn(row);
-            final leftTrue = (leftVal is DbInt && leftVal.value == 1) || (leftVal is DbDouble && leftVal.value > 0.0);
-            final rightTrue = (rightVal is DbInt && rightVal.value == 1) || (rightVal is DbDouble && rightVal.value > 0.0);
+            final leftTrue =
+                (leftVal is DbInt && leftVal.value == 1) ||
+                (leftVal is DbDouble && leftVal.value > 0.0);
+            final rightTrue =
+                (rightVal is DbInt && rightVal.value == 1) ||
+                (rightVal is DbDouble && rightVal.value > 0.0);
             return leftTrue && rightTrue ? DbInt.one : DbInt.zero;
           };
         case 'or':
           return (row) {
             final leftVal = leftFn(row);
             final rightVal = rightFn(row);
-            final leftTrue = (leftVal is DbInt && leftVal.value == 1) || (leftVal is DbDouble && leftVal.value > 0.0);
-            final rightTrue = (rightVal is DbInt && rightVal.value == 1) || (rightVal is DbDouble && rightVal.value > 0.0);
+            final leftTrue =
+                (leftVal is DbInt && leftVal.value == 1) ||
+                (leftVal is DbDouble && leftVal.value > 0.0);
+            final rightTrue =
+                (rightVal is DbInt && rightVal.value == 1) ||
+                (rightVal is DbDouble && rightVal.value > 0.0);
             return leftTrue || rightTrue ? DbInt.one : DbInt.zero;
           };
         default:
@@ -559,19 +643,26 @@ class JitCompiler {
     }
 
     if (expr is CaseExpr) {
-      final whenFns = expr.whenBranches.map((w) => (
-        condFn: _compileDefault(w.condition),
-        thenFn: _compileDefault(w.thenExpr),
-      )).toList();
-      final elseFn = expr.elseBranch != null ? _compileDefault(expr.elseBranch!) : null;
+      final whenFns = expr.whenBranches
+          .map(
+            (w) => (
+              condFn: _compileDefault(w.condition),
+              thenFn: _compileDefault(w.thenExpr),
+            ),
+          )
+          .toList();
+      final elseFn = expr.elseBranch != null
+          ? _compileDefault(expr.elseBranch!)
+          : null;
 
       return (row) {
         for (final branch in whenFns) {
           final condVal = branch.condFn(row);
           // print("DEBUG CASE: row=$row, condVal=$condVal");
-          final isTrue = (condVal is DbInt && condVal.value == 1) ||
-                         (condVal is DbDouble && condVal.value > 0.0) ||
-                         (condVal is DbText && condVal.value.toLowerCase() == 'true');
+          final isTrue =
+              (condVal is DbInt && condVal.value == 1) ||
+              (condVal is DbDouble && condVal.value > 0.0) ||
+              (condVal is DbText && condVal.value.toLowerCase() == 'true');
           if (isTrue) {
             return branch.thenFn(row);
           }
@@ -682,11 +773,17 @@ class JitCompiler {
           final str = argFns[0](row).toString();
           if (str.isEmpty) return DbText('');
           final startVal = argFns.length > 1 ? argFns[1](row) : DbInt(1);
-          final start = (startVal is DbInt ? startVal.value : int.tryParse(startVal.toString()) ?? 1) - 1;
+          final start =
+              (startVal is DbInt
+                  ? startVal.value
+                  : int.tryParse(startVal.toString()) ?? 1) -
+              1;
           final clampStart = start.clamp(0, str.length);
           if (argFns.length > 2) {
             final lenVal = argFns[2](row);
-            final len = lenVal is DbInt ? lenVal.value : int.tryParse(lenVal.toString()) ?? str.length;
+            final len = lenVal is DbInt
+                ? lenVal.value
+                : int.tryParse(lenVal.toString()) ?? str.length;
             final end = (clampStart + len).clamp(clampStart, str.length);
             return DbText(str.substring(clampStart, end));
           }
@@ -748,14 +845,21 @@ class JitCompiler {
           u[6] = (u[6] & 0x0f) | 0x40;
           u[8] = (u[8] & 0x3f) | 0x80;
           final hex = u.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-          final uuidStr = '${hex.substring(0,8)}-${hex.substring(8,12)}-${hex.substring(12,16)}-${hex.substring(16,20)}-${hex.substring(20)}';
+          final uuidStr =
+              '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
           return DbUuid(uuidStr);
         }
         if (name == 'generate_series') {
           final args = argFns.map((fn) => fn(row)).toList();
-          final start = args.isNotEmpty && args[0] is DbInt ? (args[0] as DbInt).value : int.tryParse(args.isNotEmpty ? args[0].toString() : '1') ?? 1;
-          final stop = args.length > 1 && args[1] is DbInt ? (args[1] as DbInt).value : int.tryParse(args.length > 1 ? args[1].toString() : '10') ?? 10;
-          final step = args.length > 2 && args[2] is DbInt ? (args[2] as DbInt).value : int.tryParse(args.length > 2 ? args[2].toString() : '1') ?? 1;
+          final start = args.isNotEmpty && args[0] is DbInt
+              ? (args[0] as DbInt).value
+              : int.tryParse(args.isNotEmpty ? args[0].toString() : '1') ?? 1;
+          final stop = args.length > 1 && args[1] is DbInt
+              ? (args[1] as DbInt).value
+              : int.tryParse(args.length > 1 ? args[1].toString() : '10') ?? 10;
+          final step = args.length > 2 && args[2] is DbInt
+              ? (args[2] as DbInt).value
+              : int.tryParse(args.length > 2 ? args[2].toString() : '1') ?? 1;
           final list = <DbValue>[];
           if (step > 0) {
             for (int i = start; i <= stop; i += step) {
@@ -774,14 +878,18 @@ class JitCompiler {
           return v1 is! DbNull ? v1 : argFns[1](row);
         }
         if (name == 'date') {
-          final val = argFns.isEmpty ? DateTime.now().toIso8601String() : argFns[0](row).toString();
+          final val = argFns.isEmpty
+              ? DateTime.now().toIso8601String()
+              : argFns[0](row).toString();
           final dt = DateTime.tryParse(val) ?? DateTime.now();
           final m = dt.month.toString().padLeft(2, '0');
           final d = dt.day.toString().padLeft(2, '0');
           return DbText('${dt.year}-$m-$d');
         }
         if (name == 'time') {
-          final val = argFns.isEmpty ? DateTime.now().toIso8601String() : argFns[0](row).toString();
+          final val = argFns.isEmpty
+              ? DateTime.now().toIso8601String()
+              : argFns[0](row).toString();
           final dt = DateTime.tryParse(val) ?? DateTime.now();
           final h = dt.hour.toString().padLeft(2, '0');
           final m = dt.minute.toString().padLeft(2, '0');
@@ -790,7 +898,9 @@ class JitCompiler {
         }
         if (name == 'datetime') {
           final val = argFns.isEmpty ? null : argFns[0](row).toString();
-          final dt = val != null && val != 'now' ? (DateTime.tryParse(val) ?? DateTime.now()) : DateTime.now();
+          final dt = val != null && val != 'now'
+              ? (DateTime.tryParse(val) ?? DateTime.now())
+              : DateTime.now();
           final m = dt.month.toString().padLeft(2, '0');
           final d = dt.day.toString().padLeft(2, '0');
           final h = dt.hour.toString().padLeft(2, '0');
@@ -804,11 +914,15 @@ class JitCompiler {
           if (v is DbDouble) return DbDouble(v.value.abs());
           if (v is DbDecimal) return DbDecimal(v.value.abs());
           final numVal = num.tryParse(v.toString()) ?? 0;
-          return numVal is int ? DbInt(numVal.abs()) : DbDouble(numVal.abs().toDouble());
+          return numVal is int
+              ? DbInt(numVal.abs())
+              : DbDouble(numVal.abs().toDouble());
         }
         if (name == 'round' && argFns.isNotEmpty) {
           final v = argFns[0](row);
-          final decimals = argFns.length > 1 ? (int.tryParse(argFns[1](row).toString()) ?? 0) : 0;
+          final decimals = argFns.length > 1
+              ? (int.tryParse(argFns[1](row).toString()) ?? 0)
+              : 0;
           final d = double.tryParse(v.toString()) ?? 0.0;
           if (decimals == 0) return DbInt(d.round());
           final mod = math.pow(10, decimals);
@@ -850,13 +964,15 @@ class JitCompiler {
         }
         if (name == 'lpad' && argFns.length >= 2) {
           final str = argFns[0](row).toString();
-          final targetLen = int.tryParse(argFns[1](row).toString()) ?? str.length;
+          final targetLen =
+              int.tryParse(argFns[1](row).toString()) ?? str.length;
           final padChar = argFns.length > 2 ? argFns[2](row).toString() : ' ';
           return DbText(str.padLeft(targetLen, padChar));
         }
         if (name == 'rpad' && argFns.length >= 2) {
           final str = argFns[0](row).toString();
-          final targetLen = int.tryParse(argFns[1](row).toString()) ?? str.length;
+          final targetLen =
+              int.tryParse(argFns[1](row).toString()) ?? str.length;
           final padChar = argFns.length > 2 ? argFns[2](row).toString() : ' ';
           return DbText(str.padRight(targetLen, padChar));
         }
@@ -879,7 +995,14 @@ class JitCompiler {
         }
         if (name == 'initcap' && argFns.isNotEmpty) {
           final str = argFns[0](row).toString();
-          final res = str.split(' ').map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+          final res = str
+              .split(' ')
+              .map(
+                (w) => w.isEmpty
+                    ? ''
+                    : w[0].toUpperCase() + w.substring(1).toLowerCase(),
+              )
+              .join(' ');
           return DbText(res);
         }
         if (name == 'date_add' && argFns.length >= 2) {
@@ -905,9 +1028,18 @@ class JitCompiler {
           final val = argFns[1](row).toString();
           final dt = DateTime.tryParse(val) ?? DateTime.now();
           if (unit == 'year') return DbText('${dt.year}-01-01 00:00:00');
-          if (unit == 'month') return DbText('${dt.year}-${dt.month.toString().padLeft(2, '0')}-01 00:00:00');
-          if (unit == 'day') return DbText('${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} 00:00:00');
-          if (unit == 'hour') return DbText('${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:00:00');
+          if (unit == 'month')
+            return DbText(
+              '${dt.year}-${dt.month.toString().padLeft(2, '0')}-01 00:00:00',
+            );
+          if (unit == 'day')
+            return DbText(
+              '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} 00:00:00',
+            );
+          if (unit == 'hour')
+            return DbText(
+              '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:00:00',
+            );
           return DbText(dt.toIso8601String());
         }
         if (name == 'extract' && argFns.length >= 2) {
@@ -930,8 +1062,10 @@ class JitCompiler {
           final map = <String, dynamic>{};
           for (int i = 0; i < argFns.length - 1; i += 2) {
             final k = argFns[i](row).toString();
-            final v = argFns[i+1](row);
-            map[k] = v is DbInt ? v.value : (v is DbDouble ? v.value : v.toString());
+            final v = argFns[i + 1](row);
+            map[k] = v is DbInt
+                ? v.value
+                : (v is DbDouble ? v.value : v.toString());
           }
           return DbJson(map);
         }
@@ -948,7 +1082,9 @@ class JitCompiler {
           if (argFns.length < 2) return DbNull();
           final fmt = argFns[0](row).toString();
           final val = argFns[1](row).toString();
-          final dt = val == 'now' ? DateTime.now() : (DateTime.tryParse(val) ?? DateTime.now());
+          final dt = val == 'now'
+              ? DateTime.now()
+              : (DateTime.tryParse(val) ?? DateTime.now());
           final res = fmt
               .replaceAll('%Y', dt.year.toString())
               .replaceAll('%m', dt.month.toString().padLeft(2, '0'))
@@ -966,10 +1102,14 @@ class JitCompiler {
           final x = argFns[0](row);
           final y = argFns[1](row);
           double dx = 0.0, dy = 0.0;
-          if (x is DbDouble) dx = x.value;
-          else if (x is DbInt) dx = x.value.toDouble();
-          if (y is DbDouble) dy = y.value;
-          else if (y is DbInt) dy = y.value.toDouble();
+          if (x is DbDouble)
+            dx = x.value;
+          else if (x is DbInt)
+            dx = x.value.toDouble();
+          if (y is DbDouble)
+            dy = y.value;
+          else if (y is DbInt)
+            dy = y.value.toDouble();
           return DbText('POINT($dx $dy)');
         }
         if (name == 'st_distance' && argFns.length == 2) {
@@ -979,7 +1119,9 @@ class JitCompiler {
             final pt1 = _parsePoint(p1.value);
             final pt2 = _parsePoint(p2.value);
             if (pt1 != null && pt2 != null) {
-              final dist = math.sqrt(math.pow(pt1[0] - pt2[0], 2) + math.pow(pt1[1] - pt2[1], 2));
+              final dist = math.sqrt(
+                math.pow(pt1[0] - pt2[0], 2) + math.pow(pt1[1] - pt2[1], 2),
+              );
               return DbDouble(dist);
             }
           }
@@ -993,7 +1135,11 @@ class JitCompiler {
             final point = _parsePoint(pt.value);
             if (polygon != null && point != null) {
               bool inside = false;
-              for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+              for (
+                int i = 0, j = polygon.length - 1;
+                i < polygon.length;
+                j = i++
+              ) {
                 if ((polygon[i][1] > point[1]) != (polygon[j][1] > point[1]) &&
                     point[0] <
                         (polygon[j][0] - polygon[i][0]) *
@@ -1044,22 +1190,36 @@ class JitCompiler {
             if (dt != null) {
               int bucketMillis = 0;
               if (bucketStr.endsWith('m')) {
-                bucketMillis = (int.tryParse(bucketStr.replaceAll('m', '')) ?? 0) * 60 * 1000;
+                bucketMillis =
+                    (int.tryParse(bucketStr.replaceAll('m', '')) ?? 0) *
+                    60 *
+                    1000;
               } else if (bucketStr.endsWith('h')) {
-                bucketMillis = (int.tryParse(bucketStr.replaceAll('h', '')) ?? 0) * 60 * 60 * 1000;
+                bucketMillis =
+                    (int.tryParse(bucketStr.replaceAll('h', '')) ?? 0) *
+                    60 *
+                    60 *
+                    1000;
               } else if (bucketStr.endsWith('s')) {
-                bucketMillis = (int.tryParse(bucketStr.replaceAll('s', '')) ?? 0) * 1000;
+                bucketMillis =
+                    (int.tryParse(bucketStr.replaceAll('s', '')) ?? 0) * 1000;
               }
               if (bucketMillis > 0) {
                 final ms = dt.millisecondsSinceEpoch;
                 final bucketed = (ms ~/ bucketMillis) * bucketMillis;
-                return DbText(DateTime.fromMillisecondsSinceEpoch(bucketed, isUtc: dt.isUtc).toIso8601String());
+                return DbText(
+                  DateTime.fromMillisecondsSinceEpoch(
+                    bucketed,
+                    isUtc: dt.isUtc,
+                  ).toIso8601String(),
+                );
               }
             }
           }
           return DbNull();
         }
-        if (name == 'vector_distance' && (argFns.length == 2 || argFns.length == 3)) {
+        if (name == 'vector_distance' &&
+            (argFns.length == 2 || argFns.length == 3)) {
           var v1 = argFns[0](row);
           var v2 = argFns[1](row);
           String metric = 'euclidean';
@@ -1130,7 +1290,10 @@ class JitCompiler {
       final body = trimmed.substring(1, trimmed.length - 1).trim();
       if (body.isEmpty) return DbVector([]);
       try {
-        final elements = body.split(',').map((e) => double.parse(e.trim())).toList();
+        final elements = body
+            .split(',')
+            .map((e) => double.parse(e.trim()))
+            .toList();
         return DbVector(elements);
       } catch (_) {
         return null;
@@ -1141,7 +1304,10 @@ class JitCompiler {
 
   static List<double>? _parsePoint(String s) {
     // Expected format: POINT(x y)
-    final regex = RegExp(r'POINT\s*\(\s*([0-9.-]+)\s+([0-9.-]+)\s*\)', caseSensitive: false);
+    final regex = RegExp(
+      r'POINT\s*\(\s*([0-9.-]+)\s+([0-9.-]+)\s*\)',
+      caseSensitive: false,
+    );
     final match = regex.firstMatch(s);
     if (match != null) {
       return [double.parse(match.group(1)!), double.parse(match.group(2)!)];
@@ -1154,13 +1320,18 @@ class JitCompiler {
     if (s.trim().startsWith('[')) {
       try {
         final decoded = json.decode(s) as List;
-        return decoded.map((e) => [ (e[0] as num).toDouble(), (e[1] as num).toDouble() ]).toList();
+        return decoded
+            .map((e) => [(e[0] as num).toDouble(), (e[1] as num).toDouble()])
+            .toList();
       } catch (_) {
         return null;
       }
     }
-    
-    final regex = RegExp(r'POLYGON\s*\(\s*\(([^)]+)\)\s*\)', caseSensitive: false);
+
+    final regex = RegExp(
+      r'POLYGON\s*\(\s*\(([^)]+)\)\s*\)',
+      caseSensitive: false,
+    );
     final match = regex.firstMatch(s);
     if (match != null) {
       final pointsStr = match.group(1)!;

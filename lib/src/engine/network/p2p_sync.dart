@@ -4,8 +4,8 @@ class CrdtState {
   final Map<String, int> timestamps;
 
   CrdtState({Map<String, dynamic>? addSet, Map<String, int>? timestamps})
-      : addSet = addSet ?? {},
-        timestamps = timestamps ?? {};
+    : addSet = addSet ?? {},
+      timestamps = timestamps ?? {};
 
   void update(String key, dynamic value, int timestamp) {
     if (!timestamps.containsKey(key) || timestamp >= timestamps[key]!) {
@@ -30,7 +30,8 @@ class P2pSyncNode {
       final value = entry.value;
       final remoteTs = remoteState.timestamps[key] ?? 0;
 
-      if (!localState.timestamps.containsKey(key) || remoteTs > localState.timestamps[key]!) {
+      if (!localState.timestamps.containsKey(key) ||
+          remoteTs > localState.timestamps[key]!) {
         localState.update(key, value, remoteTs);
         stateChanged = true;
       }

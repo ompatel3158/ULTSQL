@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ultsql"
-version = "1.0.18"
+version = "1.0.19"
 description = "Universal Python client for the UltSQL 100% Pure-Dart multimodal database engine."
 readme = "README.md"
 license = "BSD-3-Clause"

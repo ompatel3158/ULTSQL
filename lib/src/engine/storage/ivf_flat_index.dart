@@ -15,10 +15,10 @@ class IvfFlatNode {
   });
 
   Map<String, dynamic> toJson() => {
-        'vector': vector.value,
-        'pageId': pageId,
-        'slotId': slotId,
-      };
+    'vector': vector.value,
+    'pageId': pageId,
+    'slotId': slotId,
+  };
 
   factory IvfFlatNode.fromJson(Map<String, dynamic> json) {
     final vecList = List<double>.from(json['vector'] as List);
@@ -55,7 +55,7 @@ class IvfFlatIndex {
       try {
         final content = file.readAsStringSync();
         final data = json.decode(content);
-        
+
         if (data['metric'] != null) metric = data['metric'];
         if (data['numCentroids'] != null) numCentroids = data['numCentroids'];
         if (data['nprobe'] != null) nprobe = data['nprobe'];
@@ -72,11 +72,13 @@ class IvfFlatIndex {
           final bMap = data['buckets'] as Map<String, dynamic>;
           bMap.forEach((key, val) {
             final idx = int.parse(key);
-            final nodeList = (val as List).map((n) => IvfFlatNode.fromJson(n)).toList();
+            final nodeList = (val as List)
+                .map((n) => IvfFlatNode.fromJson(n))
+                .toList();
             buckets[idx] = nodeList;
           });
         }
-        
+
         _tempNodes.clear();
         if (data['tempNodes'] != null) {
           for (final n in data['tempNodes']) {
@@ -91,7 +93,7 @@ class IvfFlatIndex {
 
   void trainAndPartition() {
     if (_tempNodes.isEmpty) return;
-    
+
     int k = numCentroids;
     if (k > _tempNodes.length) {
       k = _tempNodes.length;
@@ -101,7 +103,7 @@ class IvfFlatIndex {
     final random = Random(42);
     final tempNodesCopy = List<IvfFlatNode>.from(_tempNodes);
     tempNodesCopy.shuffle(random);
-    
+
     centroids.clear();
     for (int i = 0; i < k; i++) {
       centroids.add(tempNodesCopy[i].vector);
@@ -166,18 +168,21 @@ class IvfFlatIndex {
     if (_tempNodes.isNotEmpty) {
       trainAndPartition();
     }
-    
+
     final file = File(indexPath);
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);
     }
-    
+
     final data = {
       'metric': metric,
       'numCentroids': numCentroids,
       'nprobe': nprobe,
       'centroids': centroids.map((c) => c.value).toList(),
-      'buckets': buckets.map((key, val) => MapEntry(key.toString(), val.map((n) => n.toJson()).toList())),
+      'buckets': buckets.map(
+        (key, val) =>
+            MapEntry(key.toString(), val.map((n) => n.toJson()).toList()),
+      ),
       'tempNodes': _tempNodes.map((n) => n.toJson()).toList(),
     };
     file.writeAsStringSync(json.encode(data));
@@ -216,12 +221,18 @@ class IvfFlatIndex {
     }
   }
 
-  List<IvfFlatNode> search(DbVector query, int limit, {bool Function(int pageId, int slotId)? filter}) {
+  List<IvfFlatNode> search(
+    DbVector query,
+    int limit, {
+    bool Function(int pageId, int slotId)? filter,
+  }) {
     if (centroids.isEmpty) {
       final list = <_IvfFlatDistance>[];
       for (final node in _tempNodes) {
         if (filter == null || filter(node.pageId, node.slotId)) {
-          list.add(_IvfFlatDistance(node, _calculateDistance(node.vector, query)));
+          list.add(
+            _IvfFlatDistance(node, _calculateDistance(node.vector, query)),
+          );
         }
       }
       list.sort((a, b) => a.distance.compareTo(b.distance));
@@ -230,11 +241,16 @@ class IvfFlatIndex {
 
     final centroidDists = <_CentroidDistance>[];
     for (int i = 0; i < centroids.length; i++) {
-      centroidDists.add(_CentroidDistance(i, _calculateDistance(centroids[i], query)));
+      centroidDists.add(
+        _CentroidDistance(i, _calculateDistance(centroids[i], query)),
+      );
     }
     centroidDists.sort((a, b) => a.distance.compareTo(b.distance));
 
-    final probeCentroids = centroidDists.take(nprobe).map((x) => x.index).toList();
+    final probeCentroids = centroidDists
+        .take(nprobe)
+        .map((x) => x.index)
+        .toList();
 
     final candidates = <_IvfFlatDistance>[];
     for (final cIdx in probeCentroids) {
@@ -242,7 +258,9 @@ class IvfFlatIndex {
       if (bucketNodes != null) {
         for (final node in bucketNodes) {
           if (filter == null || filter(node.pageId, node.slotId)) {
-            candidates.add(_IvfFlatDistance(node, _calculateDistance(node.vector, query)));
+            candidates.add(
+              _IvfFlatDistance(node, _calculateDistance(node.vector, query)),
+            );
           }
         }
       }

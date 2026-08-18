@@ -6,7 +6,8 @@ import '../cache/crc32.dart';
 import '../storage/catalog.dart';
 
 class WalRecord {
-  final int type; // 1 = START_TX, 2 = PAGE_RECORD, 3 = COMMIT_TX, 4 = SAVEPOINT, 5 = CHECKPOINT
+  final int
+  type; // 1 = START_TX, 2 = PAGE_RECORD, 3 = COMMIT_TX, 4 = SAVEPOINT, 5 = CHECKPOINT
   final String filePath;
   final int pageId;
   final Uint8List? beforeData;
@@ -41,7 +42,9 @@ class WalRecoveryEngine {
       return {'status': 'no_wal_found', 'recovered_transactions': 0};
     }
 
-    print('🛡️ [ULTSQL Recovery Engine] Active WAL log detected ($dbDirectory/wal.log). Inspecting...');
+    print(
+      '🛡️ [ULTSQL Recovery Engine] Active WAL log detected ($dbDirectory/wal.log). Inspecting...',
+    );
     final bytes = walFile.readAsBytesSync();
     int offset = 0;
 
@@ -58,9 +61,14 @@ class WalRecoveryEngine {
         final type = bytes[offset];
         offset += 1;
 
-        if (type == 1) { // START_TX
+        if (type == 1) {
+          // START_TX
           if (offset + 4 > bytes.length) break;
-          final jsonLen = ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.big);
+          final jsonLen = ByteData.sublistView(
+            bytes,
+            offset,
+            offset + 4,
+          ).getUint32(0, Endian.big);
           offset += 4;
           if (offset + jsonLen > bytes.length) break;
           final jsonBytes = bytes.sublist(offset, offset + jsonLen);
@@ -69,10 +77,19 @@ class WalRecoveryEngine {
           currentTxRecords.clear();
           txCommitted = false;
           totalRecords++;
-        } else if (type == 2) { // PAGE_RECORD
+        } else if (type == 2) {
+          // PAGE_RECORD
           if (offset + 8 > bytes.length) break;
-          final pathLen = ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.big);
-          final pageId = ByteData.sublistView(bytes, offset + 4, offset + 8).getUint32(0, Endian.big);
+          final pathLen = ByteData.sublistView(
+            bytes,
+            offset,
+            offset + 4,
+          ).getUint32(0, Endian.big);
+          final pageId = ByteData.sublistView(
+            bytes,
+            offset + 4,
+            offset + 8,
+          ).getUint32(0, Endian.big);
           offset += 8;
 
           if (offset + pathLen > bytes.length) break;
@@ -82,25 +99,33 @@ class WalRecoveryEngine {
           final pageSize = pageCache.pageSize;
           if (offset + (pageSize * 2) > bytes.length) break;
 
-          final beforeData = Uint8List.fromList(bytes.sublist(offset, offset + pageSize));
+          final beforeData = Uint8List.fromList(
+            bytes.sublist(offset, offset + pageSize),
+          );
           offset += pageSize;
-          final afterData = Uint8List.fromList(bytes.sublist(offset, offset + pageSize));
+          final afterData = Uint8List.fromList(
+            bytes.sublist(offset, offset + pageSize),
+          );
           offset += pageSize;
 
           final checksum = Crc32.compute(afterData);
-          currentTxRecords.add(WalRecord(
-            type: type,
-            filePath: filePath,
-            pageId: pageId,
-            beforeData: beforeData,
-            afterData: afterData,
-            checksum: checksum,
-          ));
+          currentTxRecords.add(
+            WalRecord(
+              type: type,
+              filePath: filePath,
+              pageId: pageId,
+              beforeData: beforeData,
+              afterData: afterData,
+              checksum: checksum,
+            ),
+          );
           totalRecords++;
-        } else if (type == 3) { // COMMIT_TX
+        } else if (type == 3) {
+          // COMMIT_TX
           txCommitted = true;
           totalRecords++;
-        } else if (type == 5) { // CHECKPOINT
+        } else if (type == 5) {
+          // CHECKPOINT
           currentTxRecords.clear();
           txCommitted = true;
           totalRecords++;
@@ -111,7 +136,9 @@ class WalRecoveryEngine {
     }
 
     if (txCommitted) {
-      print('✅ Replaying ${currentTxRecords.length} committed page writes from WAL...');
+      print(
+        '✅ Replaying ${currentTxRecords.length} committed page writes from WAL...',
+      );
       for (final rec in currentTxRecords) {
         if (rec.afterData != null) {
           final pager = pageCache.getOrCreatePager(rec.filePath);
@@ -129,7 +156,9 @@ class WalRecoveryEngine {
       }
       committedTransactions++;
     } else {
-      print('⚠️ Transaction was not committed. Reverting ${currentTxRecords.length} page writes to before-image state...');
+      print(
+        '⚠️ Transaction was not committed. Reverting ${currentTxRecords.length} page writes to before-image state...',
+      );
       for (final rec in currentTxRecords.reversed) {
         if (rec.beforeData != null) {
           final pager = pageCache.getOrCreatePager(rec.filePath);

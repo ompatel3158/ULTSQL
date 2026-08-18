@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:ultsql/src/engine/storage/catalog.dart';
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/network/pg_wire_server.dart';
 import 'package:ultsql/src/engine/executor/value.dart';
@@ -7,6 +6,7 @@ import 'package:ultsql/src/engine/executor/value.dart';
 /// Unified Multi-Platform & Multi-Mode Deployment Driver for UltSQL.
 /// Supports Embedded File DB, In-Memory DB, PGWire TCP Server, and Web storage.
 class UltSqlEngine {
+  /// The underlying [Database] instance.
   final Database db;
   late final Interpreter _interpreter;
   PgWireServer? _server;
@@ -15,14 +15,17 @@ class UltSqlEngine {
     _interpreter = Interpreter(db);
   }
 
-  /// 1. Open a File-Persisted Disk Database (Mobile, Desktop, Cloud)
-  static Future<UltSqlEngine> openFile(String dbPath, {String? passphrase}) async {
+  /// Open a file-persisted disk database on mobile, desktop, or server.
+  static Future<UltSqlEngine> openFile(
+    String dbPath, {
+    String? passphrase,
+  }) async {
     final db = Database(dbPath, passphrase: passphrase);
     await db.init();
     return UltSqlEngine._(db);
   }
 
-  /// 2. Open an In-Memory Ultra-Fast Ephemeral Database
+  /// Open an in-memory high-speed ephemeral database.
   static Future<UltSqlEngine> openMemory({String? passphrase}) async {
     String memPath = ':memory:';
     try {
@@ -36,14 +39,14 @@ class UltSqlEngine {
     return UltSqlEngine._(db);
   }
 
-  /// 3. Start PostgreSQL Wire Server on TCP Port (Cloud, Server, Desktop Remote)
+  /// Start PostgreSQL Wire Protocol Server daemon on the specified TCP [port].
   Future<int> startServer({int port = 5432}) async {
     _server = PgWireServer(db, port: port);
     await _server!.start();
     return port;
   }
 
-  /// Stop PostgreSQL Wire Server
+  /// Stop the active PostgreSQL Wire Protocol Server daemon.
   Future<void> stopServer() async {
     if (_server != null) {
       await _server!.stop();
@@ -51,32 +54,41 @@ class UltSqlEngine {
     }
   }
 
-  /// Execute SQL / PL-SQL script string
+  /// Execute an SQL, PL/SQL, NoSQL, or Vector query script.
   Future<EngineQueryResult> query(String sql) async {
     final res = await _interpreter.executeScript(sql);
     return EngineQueryResult(res);
   }
 
-  /// Close database and clean resources
+  /// Close the database and release all underlying resources.
   Future<void> close() async {
     await stopServer();
     await db.close();
   }
 }
 
-/// Structured Query Result Wrapper
+/// Structured query result wrapper with helper methods.
 class EngineQueryResult {
+  /// Column names returned by the query.
   final List<String> columns;
+
+  /// Row values returned by the query.
   final List<List<DbValue>> rows;
+
+  /// Status or execution message.
   final String message;
+
+  /// Total duration elapsed during execution.
   final Duration executionTime;
 
+  /// Creates a new [EngineQueryResult] wrapping a raw [QueryResult].
   EngineQueryResult(QueryResult res)
       : columns = res.columns,
         rows = res.rows,
         message = res.message,
         executionTime = res.executionTime;
 
+  /// Converts the result rows into a list of key-value maps.
   List<Map<String, dynamic>> toList() {
     final list = <Map<String, dynamic>>[];
     for (final row in rows) {
@@ -89,5 +101,6 @@ class EngineQueryResult {
     return list;
   }
 
+  /// Number of rows in the result set.
   int get length => rows.length;
 }

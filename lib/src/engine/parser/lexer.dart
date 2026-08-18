@@ -162,8 +162,9 @@ class Lexer {
   bool get _isAtEnd => _position >= source.length;
 
   String _peek() => _isAtEnd ? '' : source[_position];
-  
-  String _peekNext() => (_position + 1 >= source.length) ? '' : source[_position + 1];
+
+  String _peekNext() =>
+      (_position + 1 >= source.length) ? '' : source[_position + 1];
 
   String _advance() {
     if (_isAtEnd) return '';
@@ -227,7 +228,12 @@ class Lexer {
           buffer.write(_advance());
         }
       }
-      return Token(TokenType.numberLiteral, buffer.toString(), startLine, startCol);
+      return Token(
+        TokenType.numberLiteral,
+        buffer.toString(),
+        startLine,
+        startCol,
+      );
     }
 
     // Strings (bounded by single quotes)
@@ -240,10 +246,20 @@ class Lexer {
         buffer.write(_advance());
       }
       if (_isAtEnd) {
-        return Token(TokenType.invalid, 'Unterminated string literal', startLine, startCol);
+        return Token(
+          TokenType.invalid,
+          'Unterminated string literal',
+          startLine,
+          startCol,
+        );
       }
       _advance(); // Consume closing quote
-      return Token(TokenType.stringLiteral, buffer.toString(), startLine, startCol);
+      return Token(
+        TokenType.stringLiteral,
+        buffer.toString(),
+        startLine,
+        startCol,
+      );
     }
 
     // Single/Multi character operators & punctuation
@@ -294,7 +310,12 @@ class Lexer {
       case '>':
         if (_peek() == '=') {
           _advance();
-          return Token(TokenType.greaterThanOrEquals, '>=', startLine, startCol);
+          return Token(
+            TokenType.greaterThanOrEquals,
+            '>=',
+            startLine,
+            startCol,
+          );
         }
         return Token(TokenType.greaterThan, '>', startLine, startCol);
       case '!':
@@ -328,7 +349,12 @@ class Lexer {
           buffer.write(_advance());
         }
         if (buffer.length > 1) {
-          return Token(TokenType.placeholder, buffer.toString(), startLine, startCol);
+          return Token(
+            TokenType.placeholder,
+            buffer.toString(),
+            startLine,
+            startCol,
+          );
         }
         return Token(TokenType.invalid, '\$', startLine, startCol);
     }
@@ -356,8 +382,8 @@ class Lexer {
     if (char.isEmpty) return false;
     final code = char.codeUnitAt(0);
     return (code >= 65 && code <= 90) || // A-Z
-           (code >= 97 && code <= 122) || // a-z
-           code == 95; // _
+        (code >= 97 && code <= 122) || // a-z
+        code == 95; // _
   }
 
   bool _isDigit(String char) {

@@ -13,7 +13,10 @@ class PorterStemmer {
       word = word.substring(0, word.length - 2) + "i";
     } else if (word.endsWith("ss")) {
       // Do nothing
-    } else if (word.endsWith("s") && !word.endsWith("us") && !word.endsWith("is") && !word.endsWith("as")) {
+    } else if (word.endsWith("s") &&
+        !word.endsWith("us") &&
+        !word.endsWith("is") &&
+        !word.endsWith("as")) {
       word = word.substring(0, word.length - 1);
     }
 
@@ -36,7 +39,8 @@ class PorterStemmer {
     }
 
     // Step 1c (y to i)
-    if (word.endsWith("y") && _containsVowel(word.substring(0, word.length - 1))) {
+    if (word.endsWith("y") &&
+        _containsVowel(word.substring(0, word.length - 1))) {
       word = word.substring(0, word.length - 1) + "i";
     }
 
@@ -85,11 +89,30 @@ class PorterStemmer {
     }
 
     // Step 4
-    if (word.endsWith("al") || word.endsWith("ance") || word.endsWith("ence") || 
-        word.endsWith("er") || word.endsWith("ic") || word.endsWith("able") || 
-        word.endsWith("ible") || word.endsWith("ant") || word.endsWith("ement") || 
-        word.endsWith("ment") || word.endsWith("ent")) {
-      final suffix = _findSuffix(word, ["al", "ance", "ence", "er", "ic", "able", "ible", "ant", "ement", "ment", "ent"]);
+    if (word.endsWith("al") ||
+        word.endsWith("ance") ||
+        word.endsWith("ence") ||
+        word.endsWith("er") ||
+        word.endsWith("ic") ||
+        word.endsWith("able") ||
+        word.endsWith("ible") ||
+        word.endsWith("ant") ||
+        word.endsWith("ement") ||
+        word.endsWith("ment") ||
+        word.endsWith("ent")) {
+      final suffix = _findSuffix(word, [
+        "al",
+        "ance",
+        "ence",
+        "er",
+        "ic",
+        "able",
+        "ible",
+        "ant",
+        "ement",
+        "ment",
+        "ent",
+      ]);
       final stem = word.substring(0, word.length - suffix.length);
       if (_measure(stem) > 1) {
         word = stem;
@@ -151,7 +174,10 @@ class PorterStemmer {
     if (stem.endsWith("at") || stem.endsWith("bl") || stem.endsWith("iz")) {
       return stem + "e";
     }
-    if (_doubleConsonant(stem) && !stem.endsWith("l") && !stem.endsWith("s") && !stem.endsWith("z")) {
+    if (_doubleConsonant(stem) &&
+        !stem.endsWith("l") &&
+        !stem.endsWith("s") &&
+        !stem.endsWith("z")) {
       return stem.substring(0, stem.length - 1);
     }
     if (_measure(stem) == 1 && _cvc(stem)) {
@@ -170,12 +196,12 @@ class PorterStemmer {
   static bool _cvc(String word) {
     if (word.length < 3) return false;
     final c1 = word[word.length - 1];
-    final c2 = word[word.length - 2];
-    final c3 = word[word.length - 3];
-    return !_isVowel(word, word.length - 1) && 
-           _isVowel(word, word.length - 2) && 
-           !_isVowel(word, word.length - 3) &&
-           c1 != 'w' && c1 != 'x' && c1 != 'y';
+    return !_isVowel(word, word.length - 1) &&
+        _isVowel(word, word.length - 2) &&
+        !_isVowel(word, word.length - 3) &&
+        c1 != 'w' &&
+        c1 != 'x' &&
+        c1 != 'y';
   }
 
   static String _replaceSuffix(String word, String suffix, String replacement) {
@@ -195,22 +221,180 @@ class PorterStemmer {
 }
 
 const Set<String> stopWords = {
-  "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't",
-  "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by",
-  "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't",
-  "down", "during", "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't", "have",
-  "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself",
-  "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into",
-  "is", "isn't", "it", "it's", "its", "itself", "let's", "me", "more", "most", "mustn't", "my",
-  "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our",
-  "ours", "ourselves", "out", "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's",
-  "should", "shouldn't", "so", "some", "such", "than", "that", "that's", "the", "their", "theirs",
-  "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're",
-  "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't",
-  "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's",
-  "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't",
-  "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself",
-  "yourselves"
+  "a",
+  "about",
+  "above",
+  "after",
+  "again",
+  "against",
+  "all",
+  "am",
+  "an",
+  "and",
+  "any",
+  "are",
+  "aren't",
+  "as",
+  "at",
+  "be",
+  "because",
+  "been",
+  "before",
+  "being",
+  "below",
+  "between",
+  "both",
+  "but",
+  "by",
+  "can't",
+  "cannot",
+  "could",
+  "couldn't",
+  "did",
+  "didn't",
+  "do",
+  "does",
+  "doesn't",
+  "doing",
+  "don't",
+  "down",
+  "during",
+  "each",
+  "few",
+  "for",
+  "from",
+  "further",
+  "had",
+  "hadn't",
+  "has",
+  "hasn't",
+  "have",
+  "haven't",
+  "having",
+  "he",
+  "he'd",
+  "he'll",
+  "he's",
+  "her",
+  "here",
+  "here's",
+  "hers",
+  "herself",
+  "him",
+  "himself",
+  "his",
+  "how",
+  "how's",
+  "i",
+  "i'd",
+  "i'll",
+  "i'm",
+  "i've",
+  "if",
+  "in",
+  "into",
+  "is",
+  "isn't",
+  "it",
+  "it's",
+  "its",
+  "itself",
+  "let's",
+  "me",
+  "more",
+  "most",
+  "mustn't",
+  "my",
+  "myself",
+  "no",
+  "nor",
+  "not",
+  "of",
+  "off",
+  "on",
+  "once",
+  "only",
+  "or",
+  "other",
+  "ought",
+  "our",
+  "ours",
+  "ourselves",
+  "out",
+  "over",
+  "own",
+  "same",
+  "shan't",
+  "she",
+  "she'd",
+  "she'll",
+  "she's",
+  "should",
+  "shouldn't",
+  "so",
+  "some",
+  "such",
+  "than",
+  "that",
+  "that's",
+  "the",
+  "their",
+  "theirs",
+  "them",
+  "themselves",
+  "then",
+  "there",
+  "there's",
+  "these",
+  "they",
+  "they'd",
+  "they'll",
+  "they're",
+  "they've",
+  "this",
+  "those",
+  "through",
+  "to",
+  "too",
+  "under",
+  "until",
+  "up",
+  "very",
+  "was",
+  "wasn't",
+  "we",
+  "we'd",
+  "we'll",
+  "we're",
+  "we've",
+  "were",
+  "weren't",
+  "what",
+  "what's",
+  "when",
+  "when's",
+  "where",
+  "where's",
+  "which",
+  "while",
+  "who",
+  "who's",
+  "whom",
+  "why",
+  "why's",
+  "with",
+  "won't",
+  "would",
+  "wouldn't",
+  "you",
+  "you'd",
+  "you'll",
+  "you're",
+  "you've",
+  "your",
+  "yours",
+  "yourself",
+  "yourselves",
 };
 
 List<String> tokenizeAndStem(String text) {
@@ -234,7 +418,8 @@ class FtsPosting {
   FtsPosting(this.pageId, this.slotId);
 
   Map<String, dynamic> toJson() => {'p': pageId, 's': slotId};
-  factory FtsPosting.fromJson(Map<String, dynamic> json) => FtsPosting(json['p'], json['s']);
+  factory FtsPosting.fromJson(Map<String, dynamic> json) =>
+      FtsPosting(json['p'], json['s']);
 }
 
 class FtsIndex {
@@ -251,7 +436,9 @@ class FtsIndex {
         final Map<String, dynamic> data = json.decode(content);
         index.clear();
         data.forEach((term, postingsList) {
-          final postings = (postingsList as List).map((p) => FtsPosting.fromJson(p)).toList();
+          final postings = (postingsList as List)
+              .map((p) => FtsPosting.fromJson(p))
+              .toList();
           index[term] = postings;
         });
       } catch (_) {}
@@ -294,7 +481,13 @@ class FtsIndex {
       if (results == null) {
         results = List<FtsPosting>.from(postings);
       } else {
-        results = results.where((r) => postings.any((p) => p.pageId == r.pageId && p.slotId == r.slotId)).toList();
+        results = results
+            .where(
+              (r) => postings.any(
+                (p) => p.pageId == r.pageId && p.slotId == r.slotId,
+              ),
+            )
+            .toList();
       }
     }
     return results ?? [];

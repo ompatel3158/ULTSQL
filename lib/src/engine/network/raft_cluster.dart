@@ -1,8 +1,4 @@
-enum RaftNodeRole {
-  follower,
-  candidate,
-  leader,
-}
+enum RaftNodeRole { follower, candidate, leader }
 
 class RaftNode {
   final String nodeId;
@@ -19,7 +15,12 @@ class RaftNode {
     this.role = RaftNodeRole.follower,
   }) : logEntries = logEntries ?? [];
 
-  bool requestVote(int term, String candidateId, int lastLogIndex, int lastLogTerm) {
+  bool requestVote(
+    int term,
+    String candidateId,
+    int lastLogIndex,
+    int lastLogTerm,
+  ) {
     if (term < currentTerm) {
       return false;
     }
@@ -38,7 +39,14 @@ class RaftNode {
     return false;
   }
 
-  bool appendEntries(int term, String leaderId, int prevLogIndex, int prevLogTerm, List<dynamic> entries, int leaderCommit) {
+  bool appendEntries(
+    int term,
+    String leaderId,
+    int prevLogIndex,
+    int prevLogTerm,
+    List<dynamic> entries,
+    int leaderCommit,
+  ) {
     if (term < currentTerm) {
       return false;
     }
@@ -82,7 +90,8 @@ class TwoPhaseCommitCoordinator {
   }
 
   bool commitTransaction(String txId) {
-    if (!_transactionStates.containsKey(txId) || _transactionStates[txId] != 'PREPARED') {
+    if (!_transactionStates.containsKey(txId) ||
+        _transactionStates[txId] != 'PREPARED') {
       return false;
     }
     _transactionStates[txId] = 'COMMITTED';

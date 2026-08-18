@@ -41,7 +41,9 @@ List<Map<String, DbValue>> runParallelScanWorker(ParallelScanTask task) {
   final cache = PageCache(maxCapacity: 100, dbDirectory: null);
   cache.encryptionKey = task.encryptionKey;
 
-  final conditionFn = task.condition != null ? JitCompiler.compile(task.condition!) : null;
+  final conditionFn = task.condition != null
+      ? JitCompiler.compile(task.condition!)
+      : null;
   final results = <Map<String, DbValue>>[];
 
   for (int pageId = task.startPage; pageId < task.endPage; pageId++) {
@@ -67,8 +69,9 @@ List<Map<String, DbValue>> runParallelScanWorker(ParallelScanTask task) {
 
         if (conditionFn != null) {
           final filterVal = conditionFn(rowMap);
-          final isTrue = (filterVal is DbInt && filterVal.value == 1) ||
-                         (filterVal is DbDouble && filterVal.value > 0.0);
+          final isTrue =
+              (filterVal is DbInt && filterVal.value == 1) ||
+              (filterVal is DbDouble && filterVal.value > 0.0);
           if (!isTrue) continue;
         }
 
@@ -76,7 +79,11 @@ List<Map<String, DbValue>> runParallelScanWorker(ParallelScanTask task) {
           final projectedRow = <String, DbValue>{};
           for (final proj in task.projections!) {
             final val = evaluateExpression(proj.expr, rowMap);
-            final key = proj.alias ?? (proj.expr is VariableExpr ? (proj.expr as VariableExpr).fullName : val.toString());
+            final key =
+                proj.alias ??
+                (proj.expr is VariableExpr
+                    ? (proj.expr as VariableExpr).fullName
+                    : val.toString());
             projectedRow[key] = val;
           }
           results.add(projectedRow);
@@ -97,8 +104,12 @@ List<Map<String, DbValue>> runParallelAggWorker(ParallelScanTask task) {
   final cache = PageCache(maxCapacity: 100, dbDirectory: null);
   cache.encryptionKey = task.encryptionKey;
 
-  final conditionFn = task.condition != null ? JitCompiler.compile(task.condition!) : null;
-  final groupKeyFn = task.groupByExpr != null ? JitCompiler.compile(task.groupByExpr!) : null;
+  final conditionFn = task.condition != null
+      ? JitCompiler.compile(task.condition!)
+      : null;
+  final groupKeyFn = task.groupByExpr != null
+      ? JitCompiler.compile(task.groupByExpr!)
+      : null;
 
   final argJits = <Projection, JitClosure>{};
   if (task.aggProjections != null) {
@@ -137,8 +148,9 @@ List<Map<String, DbValue>> runParallelAggWorker(ParallelScanTask task) {
 
         if (conditionFn != null) {
           final filterVal = conditionFn(rowMap);
-          final isTrue = (filterVal is DbInt && filterVal.value == 1) ||
-                         (filterVal is DbDouble && filterVal.value > 0.0);
+          final isTrue =
+              (filterVal is DbInt && filterVal.value == 1) ||
+              (filterVal is DbDouble && filterVal.value > 0.0);
           if (!isTrue) continue;
         }
 
@@ -177,7 +189,9 @@ List<Map<String, DbValue>> runParallelAggWorker(ParallelScanTask task) {
           if (sumVal == null) {
             aggMap[key] = DbNull();
           } else {
-            aggMap[key] = (state.sumsIsDouble[key] ?? false) ? DbDouble(sumVal) : DbInt(sumVal.toInt());
+            aggMap[key] = (state.sumsIsDouble[key] ?? false)
+                ? DbDouble(sumVal)
+                : DbInt(sumVal.toInt());
           }
         } else if (funcName == 'avg') {
           aggMap[key] = DbDouble(state.avgSums[key] ?? 0.0);
@@ -241,8 +255,12 @@ class ParallelScanNode extends PlanNode {
     final futures = <Future<List<Map<String, DbValue>>>>[];
 
     for (int k = 0; k < numWorkers; k++) {
-      final startPage = k * (pageCount ~/ numWorkers) + (k < pageCount % numWorkers ? k : pageCount % numWorkers);
-      final endPage = (k + 1) * (pageCount ~/ numWorkers) + ((k + 1) < pageCount % numWorkers ? (k + 1) : pageCount % numWorkers);
+      final startPage =
+          k * (pageCount ~/ numWorkers) +
+          (k < pageCount % numWorkers ? k : pageCount % numWorkers);
+      final endPage =
+          (k + 1) * (pageCount ~/ numWorkers) +
+          ((k + 1) < pageCount % numWorkers ? (k + 1) : pageCount % numWorkers);
 
       if (startPage >= endPage) continue;
 
@@ -269,7 +287,7 @@ class ParallelScanNode extends PlanNode {
 
     if (groupByExpr != null || aggProjections != null) {
       final mergedGroups = <DbValue, Map<String, DbValue>>{};
-      
+
       for (final workerRes in results) {
         for (final row in workerRes) {
           final groupKey = row['group_key']!;
@@ -288,13 +306,20 @@ class ParallelScanNode extends PlanNode {
                   if (val1 is DbInt && val2 is DbInt) {
                     mergedRow[key] = DbInt(val1.value + val2.value);
                   } else if (val1 is DbDouble || val2 is DbDouble) {
-                    final d1 = val1 is DbInt ? val1.value.toDouble() : (val1 is DbDouble ? val1.value : 0.0);
-                    final d2 = val2 is DbInt ? val2.value.toDouble() : (val2 is DbDouble ? val2.value : 0.0);
+                    final d1 = val1 is DbInt
+                        ? val1.value.toDouble()
+                        : (val1 is DbDouble ? val1.value : 0.0);
+                    final d2 = val2 is DbInt
+                        ? val2.value.toDouble()
+                        : (val2 is DbDouble ? val2.value : 0.0);
                     mergedRow[key] = DbDouble(d1 + d2);
                   }
                 } else if (funcName == 'avg') {
-                  final totalSum = (val1 as DbDouble).value + (val2 as DbDouble).value;
-                  final totalCount = (mergedRow['${key}_count'] as DbInt).value + (row['${key}_count'] as DbInt).value;
+                  final totalSum =
+                      (val1 as DbDouble).value + (val2 as DbDouble).value;
+                  final totalCount =
+                      (mergedRow['${key}_count'] as DbInt).value +
+                      (row['${key}_count'] as DbInt).value;
                   mergedRow[key] = DbDouble(totalSum);
                   mergedRow['${key}_count'] = DbInt(totalCount);
                 } else if (funcName == 'min') {
@@ -315,7 +340,7 @@ class ParallelScanNode extends PlanNode {
           }
         }
       }
-      
+
       for (final row in mergedGroups.values) {
         row.remove('group_key');
         for (final proj in aggProjections!) {
@@ -324,12 +349,14 @@ class ParallelScanNode extends PlanNode {
             final key = proj.alias ?? exprToSqlString(expr);
             final totalSum = row[key] as DbDouble;
             final totalCount = row['${key}_count'] as DbInt;
-            row[key] = totalCount.value > 0 ? DbDouble(totalSum.value / totalCount.value) : DbNull();
+            row[key] = totalCount.value > 0
+                ? DbDouble(totalSum.value / totalCount.value)
+                : DbNull();
             row.remove('${key}_count');
           }
         }
       }
-      
+
       _rows = mergedGroups.values.toList();
     } else {
       _rows = results.expand((x) => x).toList();
@@ -339,7 +366,9 @@ class ParallelScanNode extends PlanNode {
   @override
   Map<String, DbValue>? next() {
     if (_rows == null) {
-      throw StateError("ParallelScanNode not executed. Call executeParallelScan() first.");
+      throw StateError(
+        "ParallelScanNode not executed. Call executeParallelScan() first.",
+      );
     }
     if (_cursor >= _rows!.length) return null;
     return _rows![_cursor++];
@@ -410,7 +439,7 @@ Float64List runParallelIndexKeyExtractor(IndexExtractorTask task) {
       }
 
       final count = byteData.getUint16(rowStartOffset);
-      
+
       bool hasAllKeys = true;
       final compositeKey = List<double>.filled(K, 0.0);
       for (int i = 0; i < K; i++) {
@@ -451,7 +480,10 @@ Float64List runParallelIndexKeyExtractor(IndexExtractorTask task) {
         } else if (typeCode == 3) {
           final valOffset = cellPageOffset + 1;
           final valLen = len - 1;
-          final bytes = byteData.buffer.asUint8List(byteData.offsetInBytes + valOffset, valLen);
+          final bytes = byteData.buffer.asUint8List(
+            byteData.offsetInBytes + valOffset,
+            valLen,
+          );
           final str = utf8.decode(bytes);
           final parsed = double.tryParse(str);
           if (parsed != null) {

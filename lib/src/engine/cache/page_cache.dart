@@ -93,7 +93,7 @@ class Pager {
     final offset = pageId * _pageSize;
     _file!.setPositionSync(offset);
     _file!.readIntoSync(buffer);
-    
+
     // Decrypt in-place
     _cryptPage(pageId, buffer);
   }
@@ -105,7 +105,7 @@ class Pager {
     _ensureOpenSync();
     final offset = pageId * _pageSize;
     _file!.setPositionSync(offset);
-    
+
     // Encrypt a copy of buffer so cache remains clear text
     if (encryptionKey != null) {
       final encryptedBuffer = Uint8List.fromList(buffer);
@@ -125,11 +125,15 @@ class Pager {
     _ensureOpenSync();
     final offset = startPageId * _pageSize;
     _file!.setPositionSync(offset);
-    
+
     if (encryptionKey != null) {
       final encryptedBuffer = Uint8List.fromList(combinedBuffer);
       for (int i = 0; i < pageCount; i++) {
-        final view = Uint8List.view(encryptedBuffer.buffer, encryptedBuffer.offsetInBytes + i * _pageSize, _pageSize);
+        final view = Uint8List.view(
+          encryptedBuffer.buffer,
+          encryptedBuffer.offsetInBytes + i * _pageSize,
+          _pageSize,
+        );
         _cryptPage(startPageId + i, view);
       }
       _file!.writeFromSync(encryptedBuffer);
@@ -198,7 +202,7 @@ class PageCache {
   final Map<PageKey, Page> _cache = {};
   final Set<PageKey> _unpinnedKeys = {};
   Uint8List? encryptionKey;
-  
+
   // Track active pagers to write pages back on eviction/flush
   final Map<String, Pager> _pagers = {};
   final Map<String, Uint8List> _encodedPathsCache = {};
@@ -298,7 +302,12 @@ class PageCache {
 
   bool useWal;
   late EngineConfig config;
-  PageCache({this.maxCapacity = 4000, this.pageSize = 4096, this.dbDirectory, this.useWal = true}) {
+  PageCache({
+    this.maxCapacity = 4000,
+    this.pageSize = 4096,
+    this.dbDirectory,
+    this.useWal = true,
+  }) {
     config = EngineConfig.defaultConfig();
   }
 
@@ -318,21 +327,32 @@ class PageCache {
     _walFile = file.openSync(mode: FileMode.writeOnlyAppend);
   }
 
-  void _appendWalRecordSync(int type, {String filePath = '', int pageId = 0, dynamic before, Uint8List? after}) {
+  void _appendWalRecordSync(
+    int type, {
+    String filePath = '',
+    int pageId = 0,
+    dynamic before,
+    Uint8List? after,
+  }) {
     _ensureWalOpenSync();
     if (_walFile == null) return;
 
     final builder = BytesBuilder();
     builder.addByte(type);
 
-    if (type == 1) { // START_TX (catalog backup)
+    if (type == 1) {
+      // START_TX (catalog backup)
       final catalogJson = before as Map<String, dynamic>;
       final jsonBytes = utf8.encode(json.encode(catalogJson));
       final header = ByteData(4)..setUint32(0, jsonBytes.length, Endian.big);
       builder.add(header.buffer.asUint8List());
       builder.add(jsonBytes);
-    } else if (type == 2) { // PAGE_RECORD
-      final pathBytes = _encodedPathsCache.putIfAbsent(filePath, () => Uint8List.fromList(utf8.encode(filePath)));
+    } else if (type == 2) {
+      // PAGE_RECORD
+      final pathBytes = _encodedPathsCache.putIfAbsent(
+        filePath,
+        () => Uint8List.fromList(utf8.encode(filePath)),
+      );
       final header = ByteData(8)
         ..setUint32(0, pathBytes.length, Endian.big)
         ..setUint32(4, pageId, Endian.big);
@@ -340,7 +360,8 @@ class PageCache {
       builder.add(pathBytes);
       builder.add(before as Uint8List);
       builder.add(after!);
-    } else if (type == 3) { // COMMIT_TX
+    } else if (type == 3) {
+      // COMMIT_TX
       // No extra payload
     }
 
@@ -353,8 +374,9 @@ class PageCache {
     if (state == null || dbDirectory == null) return;
     if (state.loggedPages.contains(key)) return;
 
-    final beforeData = state.originalPages[key]?.originalData ?? Uint8List(pageSize);
-    
+    final beforeData =
+        state.originalPages[key]?.originalData ?? Uint8List(pageSize);
+
     final Uint8List encBefore;
     final Uint8List encAfter;
     if (encryptionKey != null) {
@@ -367,7 +389,13 @@ class PageCache {
       encAfter = afterData;
     }
 
-    _appendWalRecordSync(2, filePath: key.filePath, pageId: key.pageId, before: encBefore, after: encAfter);
+    _appendWalRecordSync(
+      2,
+      filePath: key.filePath,
+      pageId: key.pageId,
+      before: encBefore,
+      after: encAfter,
+    );
     state.loggedPages.add(key);
   }
 
@@ -377,95 +405,111 @@ class PageCache {
       final walFile = File('$dbDirectory/wal.log');
       if (!walFile.existsSync() || walFile.lengthSync() == 0) return;
 
-    print('WAL file found. Starting recovery...');
-    final bytes = walFile.readAsBytesSync();
-    int offset = 0;
+      print('WAL file found. Starting recovery...');
+      final bytes = walFile.readAsBytesSync();
+      int offset = 0;
 
-    String? catalogBackupJson;
-    final List<_WalPageRecord> pageRecords = [];
-    bool isCommitted = false;
+      String? catalogBackupJson;
+      final List<_WalPageRecord> pageRecords = [];
+      bool isCommitted = false;
 
-    try {
-      while (offset < bytes.length) {
-        final type = bytes[offset];
-        offset += 1;
+      try {
+        while (offset < bytes.length) {
+          final type = bytes[offset];
+          offset += 1;
 
-        if (type == 1) { // START_TX
-          final jsonLen = ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.big);
-          offset += 4;
-          final jsonBytes = bytes.sublist(offset, offset + jsonLen);
-          offset += jsonLen;
-          catalogBackupJson = utf8.decode(jsonBytes);
-        } else if (type == 2) { // PAGE_RECORD
-          final pathLen = ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.big);
-          offset += 4;
-          final pageId = ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.big);
-          offset += 4;
-          final pathBytes = bytes.sublist(offset, offset + pathLen);
-          offset += pathLen;
-          final filePath = utf8.decode(pathBytes);
+          if (type == 1) {
+            // START_TX
+            final jsonLen = ByteData.sublistView(
+              bytes,
+              offset,
+              offset + 4,
+            ).getUint32(0, Endian.big);
+            offset += 4;
+            final jsonBytes = bytes.sublist(offset, offset + jsonLen);
+            offset += jsonLen;
+            catalogBackupJson = utf8.decode(jsonBytes);
+          } else if (type == 2) {
+            // PAGE_RECORD
+            final pathLen = ByteData.sublistView(
+              bytes,
+              offset,
+              offset + 4,
+            ).getUint32(0, Endian.big);
+            offset += 4;
+            final pageId = ByteData.sublistView(
+              bytes,
+              offset,
+              offset + 4,
+            ).getUint32(0, Endian.big);
+            offset += 4;
+            final pathBytes = bytes.sublist(offset, offset + pathLen);
+            offset += pathLen;
+            final filePath = utf8.decode(pathBytes);
 
-          final beforeBytes = bytes.sublist(offset, offset + pageSize);
-          offset += pageSize;
+            final beforeBytes = bytes.sublist(offset, offset + pageSize);
+            offset += pageSize;
 
-          final afterBytes = bytes.sublist(offset, offset + pageSize);
-          offset += pageSize;
+            final afterBytes = bytes.sublist(offset, offset + pageSize);
+            offset += pageSize;
 
-          // Decrypt if encryption key is present
-          if (encryptionKey != null) {
-            _cryptPageData(pageId, beforeBytes);
-            _cryptPageData(pageId, afterBytes);
+            // Decrypt if encryption key is present
+            if (encryptionKey != null) {
+              _cryptPageData(pageId, beforeBytes);
+              _cryptPageData(pageId, afterBytes);
+            }
+
+            pageRecords.add(
+              _WalPageRecord(filePath, pageId, beforeBytes, afterBytes),
+            );
+          } else if (type == 3) {
+            // COMMIT_TX
+            isCommitted = true;
           }
+        }
+      } catch (e) {
+        print('WAL parsing ended or failed: $e');
+      }
 
-          pageRecords.add(_WalPageRecord(filePath, pageId, beforeBytes, afterBytes));
-        } else if (type == 3) { // COMMIT_TX
-          isCommitted = true;
+      if (isCommitted) {
+        print('Transaction committed. Replaying modifications...');
+        for (final rec in pageRecords) {
+          final pager = getOrCreatePager(rec.filePath);
+          pager.writePageSync(rec.pageId, rec.afterBytes);
+        }
+      } else {
+        print('Transaction was not committed. Reverting modifications...');
+        for (final rec in pageRecords) {
+          final pager = getOrCreatePager(rec.filePath);
+          pager.writePageSync(rec.pageId, rec.beforeBytes);
+        }
+        if (catalogBackupJson != null) {
+          try {
+            final Map<String, dynamic> jsonMap = json.decode(catalogBackupJson);
+            catalog.restoreBackupState(jsonMap);
+            catalog.save();
+          } catch (_) {}
         }
       }
-    } catch (e) {
-      print('WAL parsing ended or failed: $e');
-    }
 
-    if (isCommitted) {
-      print('Transaction committed. Replaying modifications...');
-      for (final rec in pageRecords) {
-        final pager = getOrCreatePager(rec.filePath);
-        pager.writePageSync(rec.pageId, rec.afterBytes);
+      for (final pager in _pagers.values) {
+        pager.flushSync();
       }
-    } else {
-      print('Transaction was not committed. Reverting modifications...');
-      for (final rec in pageRecords) {
-        final pager = getOrCreatePager(rec.filePath);
-        pager.writePageSync(rec.pageId, rec.beforeBytes);
-      }
-      if (catalogBackupJson != null) {
-        try {
-          final Map<String, dynamic> jsonMap = json.decode(catalogBackupJson);
-          catalog.restoreBackupState(jsonMap);
-          catalog.save();
-        } catch (_) {}
-      }
-    }
 
-    for (final pager in _pagers.values) {
-      pager.flushSync();
-    }
-
-    try {
-      walFile.deleteSync();
-      print('WAL recovery completed successfully. WAL file deleted.');
-    } catch (e) {
-      print('Failed to delete WAL file: $e');
-    }
+      try {
+        walFile.deleteSync();
+        print('WAL recovery completed successfully. WAL file deleted.');
+      } catch (e) {
+        print('Failed to delete WAL file: $e');
+      }
     } catch (_) {}
   }
 
   void startTransaction(Catalog catalog) {
     currentMvccTx = mvccTxManager.startTransaction();
     final catalogBackup = catalog.getBackupState();
-    _txState = TransactionState()
-      ..catalogBackup = catalogBackup;
-    
+    _txState = TransactionState()..catalogBackup = catalogBackup;
+
     if (useWal && dbDirectory != null) {
       final file = File('$dbDirectory/wal.log');
       if (file.existsSync()) {
@@ -737,7 +781,10 @@ class PageCache {
     _ensureFileTrackedSync(key.filePath);
 
     if (!state.originalPages.containsKey(key)) {
-      state.originalPageCounts.putIfAbsent(key.filePath, () => getActualPageCountSync(key.filePath));
+      state.originalPageCounts.putIfAbsent(
+        key.filePath,
+        () => getActualPageCountSync(key.filePath),
+      );
       final originalCount = state.originalPageCounts[key.filePath]!;
       if (key.pageId < originalCount) {
         state.originalPages[key] = PageUndoInfo(Uint8List.fromList(page.data));
@@ -751,7 +798,10 @@ class PageCache {
   }
 
   Pager getOrCreatePager(String filePath) {
-    final pager = _pagers.putIfAbsent(filePath, () => Pager(filePath, pageSize: pageSize));
+    final pager = _pagers.putIfAbsent(
+      filePath,
+      () => Pager(filePath, pageSize: pageSize),
+    );
     pager.encryptionKey = encryptionKey;
     return pager;
   }
@@ -782,7 +832,7 @@ class PageCache {
     final pager = getOrCreatePager(filePath);
     final page = Page(pageId, pageSize: pageSize);
     pager.readPageSync(pageId, page.data);
-    
+
     if (_txState != null) {
       _logPageOriginalData(key, page);
     }
@@ -905,7 +955,7 @@ class PageCache {
       });
 
     final flushedPagers = <Pager>{};
-    
+
     // Group sorted keys by filePath
     final pagesByFile = <String, List<PageKey>>{};
     for (final key in sortedKeys) {
@@ -923,9 +973,9 @@ class PageCache {
       while (idx < keys.length) {
         int runStart = idx;
         int runEnd = idx;
-        
-        while (runEnd + 1 < keys.length && 
-               keys[runEnd + 1].pageId == keys[runEnd].pageId + 1) {
+
+        while (runEnd + 1 < keys.length &&
+            keys[runEnd + 1].pageId == keys[runEnd].pageId + 1) {
           runEnd++;
         }
 
@@ -933,11 +983,17 @@ class PageCache {
         if (runLength > 1) {
           int chunkStart = runStart;
           while (chunkStart <= runEnd) {
-            final chunkEnd = (chunkStart + 255 < runEnd) ? chunkStart + 255 : runEnd;
+            final chunkEnd = (chunkStart + 255 < runEnd)
+                ? chunkStart + 255
+                : runEnd;
             final chunkLen = chunkEnd - chunkStart + 1;
             final combined = (chunkLen == 256)
                 ? _sharedFlushBuffer
-                : Uint8List.view(_sharedFlushBuffer.buffer, 0, chunkLen * pageSize);
+                : Uint8List.view(
+                    _sharedFlushBuffer.buffer,
+                    0,
+                    chunkLen * pageSize,
+                  );
             for (int r = 0; r < chunkLen; r++) {
               final key = keys[chunkStart + r];
               final page = dirtyPages[key]!;
@@ -967,7 +1023,9 @@ class PageCache {
 
   void evictTableSync(String filePath) {
     flushAllSync();
-    final keysToRemove = _cache.keys.where((k) => k.filePath == filePath).toList();
+    final keysToRemove = _cache.keys
+        .where((k) => k.filePath == filePath)
+        .toList();
     for (final k in keysToRemove) {
       _cache.remove(k);
       _unpinnedKeys.remove(k);
@@ -1023,9 +1081,7 @@ class MvccTransaction {
 
 class MvccTransactionManager {
   int _nextTxId = 1;
-  final Map<int, TxStatus> txStatusMap = {
-    0: TxStatus.committed,
-  };
+  final Map<int, TxStatus> txStatusMap = {0: TxStatus.committed};
   final Set<int> _activeTxIds = {};
 
   int get nextTxId => _nextTxId;
@@ -1123,7 +1179,16 @@ class MvccRecord {
     final xmin = bd.getUint32(0);
     final xmax = bd.getUint32(4);
     final rollPtr = bd.getUint32(8);
-    final rowData = Uint8List.view(bytes.buffer, bytes.offsetInBytes + 12, bytes.length - 12);
-    return MvccRecord(xmin: xmin, xmax: xmax, rollPtr: rollPtr, rowData: rowData);
+    final rowData = Uint8List.view(
+      bytes.buffer,
+      bytes.offsetInBytes + 12,
+      bytes.length - 12,
+    );
+    return MvccRecord(
+      xmin: xmin,
+      xmax: xmax,
+      rollPtr: rollPtr,
+      rowData: rowData,
+    );
   }
 }

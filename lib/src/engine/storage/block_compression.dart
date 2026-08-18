@@ -19,11 +19,12 @@ class BlockCompressor {
       inputSize & 0xff,
       (inputSize >> 8) & 0xff,
       (inputSize >> 16) & 0xff,
-      (inputSize >> 24) & 0xff
+      (inputSize >> 24) & 0xff,
     ]);
 
     final int hashBits = 12; // 4096 entries in hash table
-    final Int32List hashTable = Int32List(1 << hashBits)..fillRange(0, 1 << hashBits, -65536);
+    final Int32List hashTable = Int32List(1 << hashBits)
+      ..fillRange(0, 1 << hashBits, -65536);
 
     int ip = 0;
     int anchor = 0;
@@ -60,7 +61,9 @@ class BlockCompressor {
         // Output literals
         int litLen = ip - anchor;
         int tokenLit = litLen >= 15 ? 15 : litLen;
-        int tokenMatch = (matchLen - _minMatch) >= 15 ? 15 : (matchLen - _minMatch);
+        int tokenMatch = (matchLen - _minMatch) >= 15
+            ? 15
+            : (matchLen - _minMatch);
 
         out.addByte((tokenLit << 4) | tokenMatch);
 
@@ -119,11 +122,12 @@ class BlockCompressor {
       return Uint8List(0);
     }
 
-    int expectedSize = compressedBytes[0] |
+    int expectedSize =
+        compressedBytes[0] |
         (compressedBytes[1] << 8) |
         (compressedBytes[2] << 16) |
         (compressedBytes[3] << 24);
-    
+
     if (expectedSize == 0) return Uint8List(0);
 
     Uint8List out = Uint8List(expectedSize);
@@ -137,7 +141,8 @@ class BlockCompressor {
       if (litLen == 15) {
         int l;
         do {
-          if (ip >= compressedBytes.length) throw Exception("Corrupt data: unexpected end reading litLen");
+          if (ip >= compressedBytes.length)
+            throw Exception("Corrupt data: unexpected end reading litLen");
           l = compressedBytes[ip++];
           litLen += l;
         } while (l == 255);
@@ -153,7 +158,8 @@ class BlockCompressor {
 
       if (ip >= compressedBytes.length) break; // Last sequence has no match
 
-      if (ip + 1 >= compressedBytes.length) throw Exception("Corrupt data: missing match offset");
+      if (ip + 1 >= compressedBytes.length)
+        throw Exception("Corrupt data: missing match offset");
       int offset = compressedBytes[ip] | (compressedBytes[ip + 1] << 8);
       ip += 2;
 
@@ -165,7 +171,8 @@ class BlockCompressor {
       if (matchLen == 15) {
         int m;
         do {
-          if (ip >= compressedBytes.length) throw Exception("Corrupt data: unexpected end reading matchLen");
+          if (ip >= compressedBytes.length)
+            throw Exception("Corrupt data: unexpected end reading matchLen");
           m = compressedBytes[ip++];
           matchLen += m;
         } while (m == 255);
@@ -173,7 +180,9 @@ class BlockCompressor {
       matchLen += _minMatch;
 
       if (op + matchLen > expectedSize) {
-        throw Exception("Corrupt data: match overflow, op=$op, matchLen=$matchLen, expected=$expectedSize");
+        throw Exception(
+          "Corrupt data: match overflow, op=$op, matchLen=$matchLen, expected=$expectedSize",
+        );
       }
 
       int ref = op - offset;
@@ -183,7 +192,9 @@ class BlockCompressor {
     }
 
     if (op != expectedSize) {
-      throw Exception("Size mismatch after decompression: expected $expectedSize, got $op");
+      throw Exception(
+        "Size mismatch after decompression: expected $expectedSize, got $op",
+      );
     }
 
     return out;

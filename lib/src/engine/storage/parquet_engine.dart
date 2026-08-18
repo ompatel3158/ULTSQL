@@ -19,7 +19,10 @@ class ParquetEngine {
   }
 
   /// Export table schema & row data records to binary Parquet file byte stream
-  static Uint8List exportToParquet(TableSchema schema, List<List<DbValue>> rows) {
+  static Uint8List exportToParquet(
+    TableSchema schema,
+    List<List<DbValue>> rows,
+  ) {
     final builder = BytesBuilder();
 
     // 1. Write Header Magic Bytes 'PAR1'
@@ -70,7 +73,10 @@ class ParquetEngine {
   }
 
   /// Import binary Parquet byte stream into structured table rows
-  static List<List<DbValue>> importFromParquet(Uint8List parquetBytes, TableSchema schema) {
+  static List<List<DbValue>> importFromParquet(
+    Uint8List parquetBytes,
+    TableSchema schema,
+  ) {
     if (parquetBytes.length < 8) {
       throw Exception('Invalid Parquet file: byte stream too short.');
     }
@@ -79,7 +85,9 @@ class ParquetEngine {
     for (int i = 0; i < 4; i++) {
       if (parquetBytes[i] != _parquetMagic[i] ||
           parquetBytes[parquetBytes.length - 4 + i] != _parquetMagic[i]) {
-        throw Exception('Invalid Parquet file: magic header/footer PAR1 missing.');
+        throw Exception(
+          'Invalid Parquet file: magic header/footer PAR1 missing.',
+        );
       }
     }
 
@@ -87,7 +95,8 @@ class ParquetEngine {
     final dataLen = bd.getInt32(4, Endian.big);
     final dataBytes = parquetBytes.sublist(8, 8 + dataLen);
 
-    final decodedJson = json.decode(utf8.decode(dataBytes)) as Map<String, dynamic>;
+    final decodedJson =
+        json.decode(utf8.decode(dataBytes)) as Map<String, dynamic>;
     final columnDataList = (decodedJson['data'] as List).cast<List<dynamic>>();
     final numRows = (decodedJson['metadata']['num_rows'] as int);
 

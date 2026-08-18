@@ -60,7 +60,11 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
           if (rows.length == 1 && rows[0].length == 1) {
             return rows[0][0];
           }
-          return DbList(rows.map<DbValue>((r) => r.isNotEmpty ? r[0] as DbValue : DbNull()).toList());
+          return DbList(
+            rows
+                .map<DbValue>((r) => r.isNotEmpty ? r[0] as DbValue : DbNull())
+                .toList(),
+          );
         }
       }
       return DbNull();
@@ -228,7 +232,9 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
       case '>=':
         return DbInt(leftVal.compareTo(rightVal) >= 0 ? 1 : 0);
       case 'like':
-        return DbInt(matchLike(leftVal.toString(), rightVal.toString()) ? 1 : 0);
+        return DbInt(
+          matchLike(leftVal.toString(), rightVal.toString()) ? 1 : 0,
+        );
       case 'in':
         if (rightVal is DbList) {
           bool found = false;
@@ -243,12 +249,20 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
           return DbInt(leftVal.compareTo(rightVal) == 0 ? 1 : 0);
         }
       case 'and':
-        final leftTrue = (leftVal is DbInt && leftVal.value == 1) || (leftVal is DbDouble && leftVal.value > 0.0);
-        final rightTrue = (rightVal is DbInt && rightVal.value == 1) || (rightVal is DbDouble && rightVal.value > 0.0);
+        final leftTrue =
+            (leftVal is DbInt && leftVal.value == 1) ||
+            (leftVal is DbDouble && leftVal.value > 0.0);
+        final rightTrue =
+            (rightVal is DbInt && rightVal.value == 1) ||
+            (rightVal is DbDouble && rightVal.value > 0.0);
         return DbInt(leftTrue && rightTrue ? 1 : 0);
       case 'or':
-        final leftTrue = (leftVal is DbInt && leftVal.value == 1) || (leftVal is DbDouble && leftVal.value > 0.0);
-        final rightTrue = (rightVal is DbInt && rightVal.value == 1) || (rightVal is DbDouble && rightVal.value > 0.0);
+        final leftTrue =
+            (leftVal is DbInt && leftVal.value == 1) ||
+            (leftVal is DbDouble && leftVal.value > 0.0);
+        final rightTrue =
+            (rightVal is DbInt && rightVal.value == 1) ||
+            (rightVal is DbDouble && rightVal.value > 0.0);
         return DbInt(leftTrue || rightTrue ? 1 : 0);
       default:
         return DbNull();
@@ -257,7 +271,9 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
 
   if (expr is FunctionCallExpr) {
     final name = expr.name.toLowerCase();
-    final args = expr.arguments.map((a) => evaluateExpression(a, rowContext)).toList();
+    final args = expr.arguments
+        .map((a) => evaluateExpression(a, rowContext))
+        .toList();
     if (name == 'in_list') {
       return DbList(args);
     }
@@ -363,9 +379,18 @@ class RowScanNode extends PlanNode {
   late final List<String> _shortKeys;
   late final Map<String, int> _staticKeyToIndex;
 
-  RowScanNode(this.tableFile, this.schema, [this.projectedColIndexes, this.asOfTxId]) {
-    _colsToLoad = projectedColIndexes ?? List<int>.generate(schema.columnNames.length, (i) => i);
-    _prefixKeys = _colsToLoad.map((idx) => '${schema.name}.${schema.columnNames[idx]}').toList();
+  RowScanNode(
+    this.tableFile,
+    this.schema, [
+    this.projectedColIndexes,
+    this.asOfTxId,
+  ]) {
+    _colsToLoad =
+        projectedColIndexes ??
+        List<int>.generate(schema.columnNames.length, (i) => i);
+    _prefixKeys = _colsToLoad
+        .map((idx) => '${schema.name}.${schema.columnNames[idx]}')
+        .toList();
     _shortKeys = _colsToLoad.map((idx) => schema.columnNames[idx]).toList();
     _staticKeyToIndex = {};
     for (int i = 0; i < _colsToLoad.length; i++) {
@@ -378,14 +403,16 @@ class RowScanNode extends PlanNode {
   @override
   void open() {
     final currentTx = tableFile.cache.currentMvccTx;
-    _iterator = tableFile.scanSync(
-      currentTxId: currentTx?.txId ?? 0,
-      activeTxIds: currentTx?.activeTxIds ?? const <int>{},
-      txManager: tableFile.cache.mvccTxManager,
-      projectedColIndexes: _colsToLoad,
-      expectedColumnCount: schema.columnNames.length,
-      asOfTxId: asOfTxId,
-    ).iterator;
+    _iterator = tableFile
+        .scanSync(
+          currentTxId: currentTx?.txId ?? 0,
+          activeTxIds: currentTx?.activeTxIds ?? const <int>{},
+          txManager: tableFile.cache.mvccTxManager,
+          projectedColIndexes: _colsToLoad,
+          expectedColumnCount: schema.columnNames.length,
+          asOfTxId: asOfTxId,
+        )
+        .iterator;
   }
 
   @override
@@ -406,7 +433,9 @@ class RowScanNode extends PlanNode {
   @override
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
-    final colsStr = projectedColIndexes != null ? ', projected: $projectedColIndexes' : '';
+    final colsStr = projectedColIndexes != null
+        ? ', projected: $projectedColIndexes'
+        : '';
     return '${padding}RowScanNode(table: ${schema.name}$colsStr)';
   }
 }
@@ -459,7 +488,7 @@ class SubqueryScanNode extends PlanNode {
 class FunctionScanNode extends PlanNode {
   final FunctionCallExpr functionCall;
   final String? alias;
-  
+
   List<Map<String, DbValue>>? _rows;
   int _cursor = 0;
 
@@ -469,12 +498,12 @@ class FunctionScanNode extends PlanNode {
   void open() {
     _cursor = 0;
     _rows = [];
-    
+
     final active = JitCompiler.activeInterpreter;
     if (active == null) {
       return;
     }
-    
+
     final dbVal = evaluateExpression(functionCall, {});
     List<dynamic> elements = [];
     if (dbVal is DbList) {
@@ -491,7 +520,7 @@ class FunctionScanNode extends PlanNode {
         }
       } catch (_) {}
     }
-    
+
     for (final element in elements) {
       final rowMap = <String, DbValue>{};
       if (element is Map) {
@@ -553,7 +582,9 @@ class FunctionScanNode extends PlanNode {
         }
       } else {
         final colName = 'value';
-        final dbV = element is DbValue ? element : DbValue.parseLiteral(element);
+        final dbV = element is DbValue
+            ? element
+            : DbValue.parseLiteral(element);
         rowMap[colName] = dbV;
         if (alias != null) {
           rowMap['${alias!.toLowerCase()}.$colName'] = dbV;
@@ -600,16 +631,19 @@ class ForeignScanNode extends PlanNode {
     // In a fully async engine, this would yield.
     final server = stmt.serverName.toLowerCase();
     var filename = stmt.options['filename'];
-    if (filename == null) throw Exception('Foreign table requires filename in options');
-    
+    if (filename == null)
+      throw Exception('Foreign table requires filename in options');
+
     // Strip quotes if any
     if (filename.startsWith("'") && filename.endsWith("'")) {
       filename = filename.substring(1, filename.length - 1);
     }
-    
+
     final file = File(filename);
     if (!file.existsSync()) {
-      print('Foreign file does not exist: $filename (absolute: ${file.absolute.path})');
+      print(
+        'Foreign file does not exist: $filename (absolute: ${file.absolute.path})',
+      );
       return;
     }
 
@@ -625,8 +659,11 @@ class ForeignScanNode extends PlanNode {
           final colName = header[j].trim();
           final val = parts[j].trim();
           final colNameLower = colName.toLowerCase();
-          final def = stmt.columns.firstWhere((c) => c.name.toLowerCase() == colNameLower, orElse: () => ColumnDef(colName, DataType.text));
-          
+          final def = stmt.columns.firstWhere(
+            (c) => c.name.toLowerCase() == colNameLower,
+            orElse: () => ColumnDef(colName, DataType.text),
+          );
+
           DbValue dbVal;
           if (def.type == DataType.integer) {
             dbVal = DbInt(int.tryParse(val) ?? 0);
@@ -677,8 +714,12 @@ class ColumnScanNode extends PlanNode {
   late final List<String> _shortKeys;
 
   ColumnScanNode(this.tableFile, this.schema, this.projectedColIndexes) {
-    _prefixKeys = projectedColIndexes.map((idx) => '${schema.name}.${schema.columnNames[idx]}').toList();
-    _shortKeys = projectedColIndexes.map((idx) => schema.columnNames[idx]).toList();
+    _prefixKeys = projectedColIndexes
+        .map((idx) => '${schema.name}.${schema.columnNames[idx]}')
+        .toList();
+    _shortKeys = projectedColIndexes
+        .map((idx) => schema.columnNames[idx])
+        .toList();
   }
 
   @override
@@ -706,7 +747,7 @@ class ColumnScanNode extends PlanNode {
     _reusedMap.clear();
     for (int i = 0; i < projectedColIndexes.length; i++) {
       final it = _iterators[i];
-      
+
       final val = it.current;
       _reusedMap[_prefixKeys[i]] = val;
       _reusedMap[_shortKeys[i]] = val;
@@ -728,7 +769,9 @@ class ColumnScanNode extends PlanNode {
   @override
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
-    final cols = projectedColIndexes.map((idx) => schema.columnNames[idx]).join(', ');
+    final cols = projectedColIndexes
+        .map((idx) => schema.columnNames[idx])
+        .join(', ');
     return '${padding}ColumnScanNode(table: ${schema.name}, columns: [$cols])';
   }
 }
@@ -760,8 +803,12 @@ class IndexScanNode extends PlanNode {
     required this.high,
     required this.projectedColIndexes,
   }) {
-    _prefixKeys = projectedColIndexes.map((idx) => '${schema.name}.${schema.columnNames[idx]}').toList();
-    _shortKeys = projectedColIndexes.map((idx) => schema.columnNames[idx]).toList();
+    _prefixKeys = projectedColIndexes
+        .map((idx) => '${schema.name}.${schema.columnNames[idx]}')
+        .toList();
+    _shortKeys = projectedColIndexes
+        .map((idx) => schema.columnNames[idx])
+        .toList();
     _staticKeyToIndex = {};
     for (int i = 0; i < projectedColIndexes.length; i++) {
       final colIdx = projectedColIndexes[i];
@@ -789,7 +836,9 @@ class IndexScanNode extends PlanNode {
     index.initSync();
     _fastCount = index.countRangeSync(low, high);
     sw.stop();
-    print('--> TIME: IndexScanNode.getFastCount took: ${sw.elapsedMicroseconds}us, count=$_fastCount');
+    print(
+      '--> TIME: IndexScanNode.getFastCount took: ${sw.elapsedMicroseconds}us, count=$_fastCount',
+    );
     return _fastCount;
   }
 
@@ -813,11 +862,21 @@ class IndexScanNode extends PlanNode {
     return txManager.isVisible(xmin, xmax, currentTxId, activeTxIds);
   }
 
-  DbValue _getVisibleCellValue(RowTableFile tableFile, ByteData bd, int length, int colIndex) {
+  DbValue _getVisibleCellValue(
+    RowTableFile tableFile,
+    ByteData bd,
+    int length,
+    int colIndex,
+  ) {
     if (length < 12) {
       return RecordSerializer.deserializeCellFromView(bd, 0, length, colIndex);
     }
-    return RecordSerializer.deserializeCellFromView(bd, 12, length - 12, colIndex);
+    return RecordSerializer.deserializeCellFromView(
+      bd,
+      12,
+      length - 12,
+      colIndex,
+    );
   }
 
   @override
@@ -835,13 +894,20 @@ class IndexScanNode extends PlanNode {
     }
     while (_cursor < _pointers!.length) {
       final ptr = _pointers![_cursor++];
-      
+
       // Keep page pinned if it is the same page
       if (_pinnedPageId != ptr.pageId) {
         if (_pinnedPage != null) {
-          tableFile.cache.unpinPageSync(tableFile.filePath, _pinnedPageId!, isDirty: false);
+          tableFile.cache.unpinPageSync(
+            tableFile.filePath,
+            _pinnedPageId!,
+            isDirty: false,
+          );
         }
-        _pinnedPage = tableFile.cache.pinPageSync(tableFile.filePath, ptr.pageId);
+        _pinnedPage = tableFile.cache.pinPageSync(
+          tableFile.filePath,
+          ptr.pageId,
+        );
         _pinnedPageId = ptr.pageId;
       }
 
@@ -852,15 +918,24 @@ class IndexScanNode extends PlanNode {
           _reusedRowList.fillRange(0, _reusedRowList.length, DbNull());
           for (int i = 0; i < projectedColIndexes.length; i++) {
             final idx = projectedColIndexes[i];
-            _reusedRowList[idx] = _getVisibleCellValue(tableFile, bd, recBytes.length, idx);
+            _reusedRowList[idx] = _getVisibleCellValue(
+              tableFile,
+              bd,
+              recBytes.length,
+              idx,
+            );
           }
           return RowMap(_reusedRowList, _staticKeyToIndex);
         }
       }
     }
-    
+
     if (_pinnedPage != null) {
-      tableFile.cache.unpinPageSync(tableFile.filePath, _pinnedPageId!, isDirty: false);
+      tableFile.cache.unpinPageSync(
+        tableFile.filePath,
+        _pinnedPageId!,
+        isDirty: false,
+      );
       _pinnedPage = null;
       _pinnedPageId = null;
     }
@@ -870,7 +945,11 @@ class IndexScanNode extends PlanNode {
   @override
   void close() {
     if (_pinnedPage != null) {
-      tableFile.cache.unpinPageSync(tableFile.filePath, _pinnedPageId!, isDirty: false);
+      tableFile.cache.unpinPageSync(
+        tableFile.filePath,
+        _pinnedPageId!,
+        isDirty: false,
+      );
       _pinnedPage = null;
       _pinnedPageId = null;
     }
@@ -884,7 +963,6 @@ class IndexScanNode extends PlanNode {
     return '${padding}IndexScanNode(table: ${schema.name}, index: $indexName, range: [${low ?? '-∞'}, ${high ?? '∞'}])';
   }
 }
-
 
 class FilterNode extends PlanNode {
   final PlanNode child;
@@ -948,7 +1026,8 @@ class ProjectNode extends PlanNode {
     final projectedRow = <String, DbValue>{};
     for (int i = 0; i < projections.length; i++) {
       final proj = projections[i];
-      if (proj.expr is VariableExpr && (proj.expr as VariableExpr).path.first == '*') {
+      if (proj.expr is VariableExpr &&
+          (proj.expr as VariableExpr).path.first == '*') {
         projectedRow.addAll(row);
         continue;
       }
@@ -971,7 +1050,9 @@ class ProjectNode extends PlanNode {
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
     final childPlan = child.getPlanString(indent + 1);
-    final projs = projections.map((p) => p.alias ?? exprToSqlString(p.expr)).join(', ');
+    final projs = projections
+        .map((p) => p.alias ?? exprToSqlString(p.expr))
+        .join(', ');
     return '${padding}ProjectNode(projections: [$projs])\n$childPlan';
   }
 }
@@ -987,16 +1068,23 @@ class AggregationState {
   final Map<String, DbValue> maxes = {};
   final Map<String, DbValue> firstVals = {};
 
-  AggregationState(Map<String, DbValue> row) : groupKeyRow = Map<String, DbValue>.of(row);
+  AggregationState(Map<String, DbValue> row)
+    : groupKeyRow = Map<String, DbValue>.of(row);
 
-  void update(Map<String, DbValue> row, List<Projection> projections, Map<Projection, JitClosure> argJits) {
+  void update(
+    Map<String, DbValue> row,
+    List<Projection> projections,
+    Map<Projection, JitClosure> argJits,
+  ) {
     for (final proj in projections) {
       final expr = proj.expr;
       final alias = proj.alias ?? exprToSqlString(expr);
       if (expr is FunctionCallExpr) {
         final funcName = expr.name.toLowerCase();
         if (funcName == 'count') {
-          if (expr.arguments.isEmpty || (expr.arguments[0] is VariableExpr && (expr.arguments[0] as VariableExpr).path.first == '*')) {
+          if (expr.arguments.isEmpty ||
+              (expr.arguments[0] is VariableExpr &&
+                  (expr.arguments[0] as VariableExpr).path.first == '*')) {
             counts[alias] = (counts[alias] ?? 0) + 1;
           } else {
             final val = argJits[proj]!(row);
@@ -1061,7 +1149,9 @@ class AggregationState {
           if (sumVal == null) {
             result[alias] = DbNull();
           } else {
-            result[alias] = (sumsIsDouble[alias] ?? false) ? DbDouble(sumVal) : DbInt(sumVal.toInt());
+            result[alias] = (sumsIsDouble[alias] ?? false)
+                ? DbDouble(sumVal)
+                : DbInt(sumVal.toInt());
           }
         } else if (funcName == 'avg') {
           final count = avgCounts[alias] ?? 0;
@@ -1087,11 +1177,16 @@ class GroupByNode extends PlanNode {
   final Expression groupByExpr;
   final List<Projection> projections;
   final Expression? havingCondition;
-  
+
   List<Map<String, DbValue>>? _aggregatedRows;
   int _currentIndex = 0;
 
-  GroupByNode(this.child, this.groupByExpr, this.projections, {this.havingCondition});
+  GroupByNode(
+    this.child,
+    this.groupByExpr,
+    this.projections, {
+    this.havingCondition,
+  });
 
   @override
   void open() {
@@ -1099,7 +1194,7 @@ class GroupByNode extends PlanNode {
     _aggregatedRows = null;
     _currentIndex = 0;
   }
-  
+
   void _performAggregation() {
     // Fast path: Global COUNT(*) aggregation without any GROUP BY columns
     if (groupByExpr is LiteralExpr &&
@@ -1107,10 +1202,16 @@ class GroupByNode extends PlanNode {
         projections[0].expr is FunctionCallExpr) {
       final func = projections[0].expr as FunctionCallExpr;
       if (func.name.toLowerCase() == 'count') {
-        final isCountAll = func.arguments.isEmpty ||
+        final isCountAll =
+            func.arguments.isEmpty ||
             (func.arguments.length == 1 &&
-             ((func.arguments[0] is VariableExpr && (func.arguments[0] as VariableExpr).path.first == '*') ||
-              (func.arguments[0] is LiteralExpr && (func.arguments[0] as LiteralExpr).value.toString().contains('*'))));
+                ((func.arguments[0] is VariableExpr &&
+                        (func.arguments[0] as VariableExpr).path.first ==
+                            '*') ||
+                    (func.arguments[0] is LiteralExpr &&
+                        (func.arguments[0] as LiteralExpr).value
+                            .toString()
+                            .contains('*'))));
         if (isCountAll) {
           int count = 0;
           bool fastCountSuccess = false;
@@ -1135,7 +1236,9 @@ class GroupByNode extends PlanNode {
             final scan = baseNode;
             final activeInterpreter = JitCompiler.activeInterpreter;
             if (activeInterpreter != null) {
-              final stats = activeInterpreter.db.catalog.getOrCreateStats(scan.schema.name);
+              final stats = activeInterpreter.db.catalog.getOrCreateStats(
+                scan.schema.name,
+              );
               if (stats.rowCount > 0) {
                 count = stats.rowCount;
                 fastCountSuccess = true;
@@ -1157,7 +1260,7 @@ class GroupByNode extends PlanNode {
               sqlStr: DbInt(count),
               'COUNT(*)': DbInt(count),
               'count(*)': DbInt(count),
-            }
+            },
           ];
           return;
         }
@@ -1169,7 +1272,7 @@ class GroupByNode extends PlanNode {
       final aggTypes = Int8List(len);
       final argJitsList = List<JitClosure?>.filled(len, null);
       final aliases = List<String>.filled(len, '');
-      
+
       final counts = Int32List(len);
       final sums = Float64List(len);
       final sumsIsDouble = Uint8List(len);
@@ -1186,7 +1289,9 @@ class GroupByNode extends PlanNode {
         if (expr is FunctionCallExpr) {
           final funcName = expr.name.toLowerCase();
           if (funcName == 'count') {
-            if (expr.arguments.isEmpty || (expr.arguments[0] is VariableExpr && (expr.arguments[0] as VariableExpr).path.first == '*')) {
+            if (expr.arguments.isEmpty ||
+                (expr.arguments[0] is VariableExpr &&
+                    (expr.arguments[0] as VariableExpr).path.first == '*')) {
               aggTypes[i] = 1;
             } else {
               aggTypes[i] = 2;
@@ -1270,10 +1375,14 @@ class GroupByNode extends PlanNode {
           resultRow[alias] = DbInt(counts[i]);
         } else if (type == 3) {
           final isDouble = sumsIsDouble[i] == 1;
-          resultRow[alias] = isDouble ? DbDouble(sums[i]) : DbInt(sums[i].toInt());
+          resultRow[alias] = isDouble
+              ? DbDouble(sums[i])
+              : DbInt(sums[i].toInt());
         } else if (type == 4) {
           final count = avgCounts[i];
-          resultRow[alias] = count > 0 ? DbDouble(avgSums[i] / count) : DbNull();
+          resultRow[alias] = count > 0
+              ? DbDouble(avgSums[i] / count)
+              : DbNull();
         } else if (type == 5) {
           resultRow[alias] = mins[i] ?? DbNull();
         } else if (type == 6) {
@@ -1283,7 +1392,9 @@ class GroupByNode extends PlanNode {
         }
       }
 
-      final jitHaving = havingCondition != null ? JitCompiler.compile(havingCondition!) : null;
+      final jitHaving = havingCondition != null
+          ? JitCompiler.compile(havingCondition!)
+          : null;
       if (jitHaving != null) {
         final pass = jitHaving(resultRow);
         if (pass is DbInt && pass.value == 0 || pass is DbNull) {
@@ -1297,7 +1408,7 @@ class GroupByNode extends PlanNode {
     }
 
     final groups = <String, AggregationState>{};
-    
+
     List<List<Expression>> sets = [];
     if (groupByExpr is GroupingSetsExpr) {
       sets = (groupByExpr as GroupingSetsExpr).sets;
@@ -1320,12 +1431,18 @@ class GroupByNode extends PlanNode {
         sets.add(subset);
       }
     } else {
-      sets = [[groupByExpr]];
+      sets = [
+        [groupByExpr],
+      ];
     }
 
     // JIT compile expressions for each grouping set
-    final setJits = sets.map((set) => set.map((e) => JitCompiler.compile(e)).toList()).toList();
-    final setExprStrings = sets.map((set) => set.map((e) => exprToSqlString(e)).toList()).toList();
+    final setJits = sets
+        .map((set) => set.map((e) => JitCompiler.compile(e)).toList())
+        .toList();
+    final setExprStrings = sets
+        .map((set) => set.map((e) => exprToSqlString(e)).toList())
+        .toList();
 
     // JIT compile all aggregate inputs and projection expressions beforehand
     final argJits = <Projection, JitClosure>{};
@@ -1337,7 +1454,9 @@ class GroupByNode extends PlanNode {
         argJits[proj] = JitCompiler.compile(expr);
       }
     }
-    final jitHaving = havingCondition != null ? JitCompiler.compile(havingCondition!) : null;
+    final jitHaving = havingCondition != null
+        ? JitCompiler.compile(havingCondition!)
+        : null;
 
     while (true) {
       final row = child.next();
@@ -1347,19 +1466,19 @@ class GroupByNode extends PlanNode {
       for (int sIdx = 0; sIdx < sets.length; sIdx++) {
         final currentSetJits = setJits[sIdx];
         final currentSetExprs = setExprStrings[sIdx];
-        
+
         // Build the key and the modified row for this grouping set
         final keyParts = <String>[];
-        
+
         // Find which expressions are NOT in this grouping set and set their columns to DbNull()
         // Wait, it's easier to just form a key from the set index and the values.
         for (int i = 0; i < currentSetJits.length; i++) {
           final val = currentSetJits[i](row);
           keyParts.add(val.toString());
         }
-        
+
         final key = '$sIdx:' + keyParts.join(',');
-        
+
         // To construct the group's "base row", we take the first row and set missing grouping columns to DbNull
         final state = groups.putIfAbsent(key, () {
           final stateRow = Map<String, DbValue>.of(row);
@@ -1368,7 +1487,9 @@ class GroupByNode extends PlanNode {
           // Wait, any column in the original row that is part of the overall grouping expressions but not in this set should be null.
           if (sets.length > 1) {
             // Find all unique expressions across all sets
-            final allExprs = sets.expand((s) => s.map((e) => exprToSqlString(e))).toSet();
+            final allExprs = sets
+                .expand((s) => s.map((e) => exprToSqlString(e)))
+                .toSet();
             for (final exprStr in allExprs) {
               if (!currentSetExprs.contains(exprStr)) {
                 // Set the corresponding column in stateRow to NULL if it exists
@@ -1405,7 +1526,7 @@ class GroupByNode extends PlanNode {
     for (final entry in groups.entries) {
       final state = entry.value;
       final projectedRow = state.finalize(projections);
-      
+
       if (jitHaving != null) {
         final pass = jitHaving(projectedRow);
         if (pass is DbInt && pass.value == 0) {
@@ -1414,11 +1535,10 @@ class GroupByNode extends PlanNode {
           continue;
         }
       }
-      
+
       _aggregatedRows!.add(projectedRow);
     }
   }
-
 
   @override
   Map<String, DbValue>? next() {
@@ -1441,8 +1561,12 @@ class GroupByNode extends PlanNode {
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
     final childPlan = child.getPlanString(indent + 1);
-    final projs = projections.map((p) => p.alias ?? exprToSqlString(p.expr)).join(', ');
-    final havingStr = havingCondition != null ? ', having: ${exprToSqlString(havingCondition!)}' : '';
+    final projs = projections
+        .map((p) => p.alias ?? exprToSqlString(p.expr))
+        .join(', ');
+    final havingStr = havingCondition != null
+        ? ', having: ${exprToSqlString(havingCondition!)}'
+        : '';
     return '${padding}GroupByNode(groupBy: ${exprToSqlString(groupByExpr)}, projections: [$projs]$havingStr)\n$childPlan';
   }
 }
@@ -1548,7 +1672,8 @@ class HashJoinNode extends PlanNode {
         if (isRightJoin || isFullJoin) {
           _seenRightRows.add(rightRow);
         }
-        final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(rightRow);
+        final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)
+          ..addAll(rightRow);
         return mergedRow;
       }
 
@@ -1558,7 +1683,9 @@ class HashJoinNode extends PlanNode {
         // Left relation is exhausted.
         // If this is a RIGHT or FULL join, we must now stream the unmatched right rows!
         if (isRightJoin || isFullJoin) {
-          final unmatched = _allRightRows.where((r) => !_seenRightRows.contains(r)).toList();
+          final unmatched = _allRightRows
+              .where((r) => !_seenRightRows.contains(r))
+              .toList();
           _unmatchedRightIterator = unmatched.iterator;
           continue; // Loop again to process the iterator
         }
@@ -1575,7 +1702,8 @@ class HashJoinNode extends PlanNode {
         _currentMatches = null;
         if (isLeftJoin || isFullJoin) {
           final nullRow = _createNullRow();
-          final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(nullRow);
+          final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)
+            ..addAll(nullRow);
           return mergedRow;
         }
       }
@@ -1680,7 +1808,9 @@ class NestedLoopJoinNode extends PlanNode {
         _currentLeftRow = left.next();
         if (_currentLeftRow == null) {
           if (isRightJoin || isFullJoin) {
-            final unmatched = _allRightRows.where((r) => !_seenRightRows.contains(r)).toList();
+            final unmatched = _allRightRows
+                .where((r) => !_seenRightRows.contains(r))
+                .toList();
             _unmatchedRightIterator = unmatched.iterator;
             continue;
           }
@@ -1692,9 +1822,12 @@ class NestedLoopJoinNode extends PlanNode {
 
       while (_rightIdx < _allRightRows.length) {
         final rightRow = _allRightRows[_rightIdx++];
-        final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)..addAll(rightRow);
+        final mergedRow = Map<String, DbValue>.from(_currentLeftRow!)
+          ..addAll(rightRow);
         final condVal = _jitCond(mergedRow);
-        final isTrue = (condVal is DbInt && condVal.value == 1) || (condVal is DbDouble && condVal.value > 0.0);
+        final isTrue =
+            (condVal is DbInt && condVal.value == 1) ||
+            (condVal is DbDouble && condVal.value > 0.0);
         if (isTrue) {
           _matchedCurrentLeft = true;
           if (isRightJoin || isFullJoin) {
@@ -1808,7 +1941,9 @@ class WindowNode extends PlanNode {
       allRows.add(Map<String, DbValue>.of(row));
     }
 
-    final partitionJits = windowExpr.partitionBy.map((expr) => JitCompiler.compile(expr)).toList();
+    final partitionJits = windowExpr.partitionBy
+        .map((expr) => JitCompiler.compile(expr))
+        .toList();
     final partitions = <String, List<Map<String, DbValue>>>{};
     for (final row in allRows) {
       final key = partitionJits.isEmpty
@@ -1839,7 +1974,9 @@ class WindowNode extends PlanNode {
       if (fnName == 'rank') {
         int currentRank = 1;
         DbValue? prevVal;
-        final jitOrder = orderBy != null ? JitCompiler.compile(orderBy.expr) : null;
+        final jitOrder = orderBy != null
+            ? JitCompiler.compile(orderBy.expr)
+            : null;
         for (int i = 0; i < partitionRows.length; i++) {
           final row = Map<String, DbValue>.of(partitionRows[i]);
           if (jitOrder != null) {
@@ -1857,7 +1994,9 @@ class WindowNode extends PlanNode {
       } else if (fnName == 'dense_rank') {
         int currentRank = 1;
         DbValue? prevVal;
-        final jitOrder = orderBy != null ? JitCompiler.compile(orderBy.expr) : null;
+        final jitOrder = orderBy != null
+            ? JitCompiler.compile(orderBy.expr)
+            : null;
         for (int i = 0; i < partitionRows.length; i++) {
           final row = Map<String, DbValue>.of(partitionRows[i]);
           if (jitOrder != null) {
@@ -1874,7 +2013,9 @@ class WindowNode extends PlanNode {
         }
       } else if (fnName == 'lag' || fnName == 'lead') {
         int offset = 1;
-        final rawArg = windowExpr.arguments.isNotEmpty ? exprToSqlString(windowExpr.arguments.first) : '';
+        final rawArg = windowExpr.arguments.isNotEmpty
+            ? exprToSqlString(windowExpr.arguments.first)
+            : '';
         for (int i = 0; i < partitionRows.length; i++) {
           final row = Map<String, DbValue>.of(partitionRows[i]);
           final targetIdx = fnName == 'lag' ? i - offset : i + offset;
@@ -1891,7 +2032,9 @@ class WindowNode extends PlanNode {
                 }
               }
             } else {
-              targetVal = targetRow.values.isNotEmpty ? targetRow.values.first : DbNull();
+              targetVal = targetRow.values.isNotEmpty
+                  ? targetRow.values.first
+                  : DbNull();
             }
             row[colName] = targetVal;
           } else {
@@ -1963,12 +2106,14 @@ class FtsScanNode extends PlanNode {
     _matchingRows = [];
     IndexSchema? idxSchema;
     for (final idx in catalog.getIndexesForTable(tableName)) {
-      if (idx.usingMethod == 'fts' && idx.columnName.toLowerCase() == columnName.toLowerCase()) {
+      if (idx.usingMethod == 'fts' &&
+          idx.columnName.toLowerCase() == columnName.toLowerCase()) {
         idxSchema = idx;
         break;
       }
     }
-    final indexPath = '$dbDirectory/${idxSchema?.name.toLowerCase() ?? "fts_${tableName}_$columnName"}.fts';
+    final indexPath =
+        '$dbDirectory/${idxSchema?.name.toLowerCase() ?? "fts_${tableName}_$columnName"}.fts';
     final ftsIndex = FtsIndex(indexPath: indexPath);
     ftsIndex.initSync();
 
@@ -1979,7 +2124,11 @@ class FtsScanNode extends PlanNode {
     final schema = catalog.getTableSchema(tableName.toLowerCase());
     if (schema == null) return;
 
-    final rowTable = RowTableFile(cache: cache, tableName: schema.name, dbDirectory: dbDirectory);
+    final rowTable = RowTableFile(
+      cache: cache,
+      tableName: schema.name,
+      dbDirectory: dbDirectory,
+    );
     rowTable.flushActivePageSync();
 
     for (final posting in postings) {
@@ -1993,7 +2142,12 @@ class FtsScanNode extends PlanNode {
           final txManager = cache.mvccTxManager;
           final currentTxId = currentTx?.txId ?? 0;
           final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-          if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+          if (txManager.isVisible(
+            mvccRecord.xmin,
+            mvccRecord.xmax,
+            currentTxId,
+            activeTxIds,
+          )) {
             rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
           }
         } catch (_) {
@@ -2002,7 +2156,8 @@ class FtsScanNode extends PlanNode {
         if (rowValues != null) {
           final rowMap = <String, DbValue>{};
           for (int i = 0; i < schema.columnNames.length; i++) {
-            rowMap['${schema.name.toLowerCase()}.${schema.columnNamesLower[i]}'] = rowValues[i];
+            rowMap['${schema.name.toLowerCase()}.${schema.columnNamesLower[i]}'] =
+                rowValues[i];
             rowMap[schema.columnNamesLower[i]] = rowValues[i];
           }
           _matchingRows!.add(rowMap);
@@ -2094,7 +2249,9 @@ class RecursiveCteNode extends PlanNode {
     int depth = 0;
     while (workingTable.isNotEmpty && depth < maxDepth) {
       depth++;
-      final currentWorkingPlan = MemoryScanNode(List<Map<String, DbValue>>.from(workingTable));
+      final currentWorkingPlan = MemoryScanNode(
+        List<Map<String, DbValue>>.from(workingTable),
+      );
       final recursivePlan = recursiveChildBuilder(currentWorkingPlan);
       recursivePlan.open();
 
@@ -2210,7 +2367,10 @@ DbVector? _parseVectorFromString(String s) {
     final body = trimmed.substring(1, trimmed.length - 1).trim();
     if (body.isEmpty) return DbVector([]);
     try {
-      final elements = body.split(',').map((e) => double.parse(e.trim())).toList();
+      final elements = body
+          .split(',')
+          .map((e) => double.parse(e.trim()))
+          .toList();
       return DbVector(elements);
     } catch (_) {
       return null;
@@ -2219,15 +2379,27 @@ DbVector? _parseVectorFromString(String s) {
   return null;
 }
 
-List<DbValue>? _getVisibleRowValues(RowTableFile tableFile, Uint8List recBytes, [int? expectedColumnCount]) {
+List<DbValue>? _getVisibleRowValues(
+  RowTableFile tableFile,
+  Uint8List recBytes, [
+  int? expectedColumnCount,
+]) {
   try {
     final mvccRecord = MvccRecord.fromBytes(recBytes);
     final currentTx = tableFile.cache.currentMvccTx;
     final txManager = tableFile.cache.mvccTxManager;
     final currentTxId = currentTx?.txId ?? 0;
     final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-    if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-      return RecordSerializer.deserializeRow(mvccRecord.rowData, expectedColumnCount);
+    if (txManager.isVisible(
+      mvccRecord.xmin,
+      mvccRecord.xmax,
+      currentTxId,
+      activeTxIds,
+    )) {
+      return RecordSerializer.deserializeRow(
+        mvccRecord.rowData,
+        expectedColumnCount,
+      );
     }
     return null;
   } catch (_) {
@@ -2348,7 +2520,9 @@ class IndexJoinNode extends PlanNode {
       if (leftRow == null) {
         // Left is exhausted, stream unmatched right rows if RIGHT or FULL join
         if (isRightJoin || isFullJoin) {
-          final unmatched = _allRightRows.where((r) => !_seenRightRows.contains(r)).toList();
+          final unmatched = _allRightRows
+              .where((r) => !_seenRightRows.contains(r))
+              .toList();
           _unmatchedRightIterator = unmatched.iterator;
           continue;
         }
@@ -2372,12 +2546,14 @@ class IndexJoinNode extends PlanNode {
                 }
               }
             }
-            final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(rightRow);
+            final mergedRow = Map<String, DbValue>.from(leftRow)
+              ..addAll(rightRow);
             return mergedRow;
           }
           if (isLeftJoin || isFullJoin) {
             final nullRow = _createNullRow();
-            final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(nullRow);
+            final mergedRow = Map<String, DbValue>.from(leftRow)
+              ..addAll(nullRow);
             return mergedRow;
           }
           continue;
@@ -2387,14 +2563,28 @@ class IndexJoinNode extends PlanNode {
         if (ptr != null) {
           if (_pinnedPageId != ptr.pageId) {
             if (_pinnedPage != null) {
-              rightTable.cache.unpinPageSync(rightTable.filePath, _pinnedPageId!, isDirty: false);
+              rightTable.cache.unpinPageSync(
+                rightTable.filePath,
+                _pinnedPageId!,
+                isDirty: false,
+              );
             }
-            _pinnedPage = rightTable.cache.pinPageSync(rightTable.filePath, ptr.pageId);
+            _pinnedPage = rightTable.cache.pinPageSync(
+              rightTable.filePath,
+              ptr.pageId,
+            );
             _pinnedPageId = ptr.pageId;
           }
-          final recBytes = SlottedPageHelper.getRecord(_pinnedPage!, ptr.slotId);
+          final recBytes = SlottedPageHelper.getRecord(
+            _pinnedPage!,
+            ptr.slotId,
+          );
           if (recBytes != null) {
-            final rightRowValues = _getVisibleRowValues(rightTable, recBytes, rightSchema.columnNames.length);
+            final rightRowValues = _getVisibleRowValues(
+              rightTable,
+              recBytes,
+              rightSchema.columnNames.length,
+            );
             if (rightRowValues != null) {
               final rightRow = <String, DbValue>{};
               for (int i = 0; i < rightSchema.columnNames.length; i++) {
@@ -2413,7 +2603,8 @@ class IndexJoinNode extends PlanNode {
                   }
                 }
               }
-              final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(rightRow);
+              final mergedRow = Map<String, DbValue>.from(leftRow)
+                ..addAll(rightRow);
               return mergedRow;
             }
           }
@@ -2437,7 +2628,11 @@ class IndexJoinNode extends PlanNode {
   @override
   void close() {
     if (_pinnedPage != null) {
-      rightTable.cache.unpinPageSync(rightTable.filePath, _pinnedPageId!, isDirty: false);
+      rightTable.cache.unpinPageSync(
+        rightTable.filePath,
+        _pinnedPageId!,
+        isDirty: false,
+      );
       _pinnedPage = null;
       _pinnedPageId = null;
     }
@@ -2449,7 +2644,10 @@ class IndexJoinNode extends PlanNode {
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
     final leftPlan = left.getPlanString(indent + 1);
-    final indexName = rightIndex.indexPath.split('/').last.replaceAll('.idx', '');
+    final indexName = rightIndex.indexPath
+        .split('/')
+        .last
+        .replaceAll('.idx', '');
     return '${padding}IndexJoinNode(on: $leftJoinCol = ${rightSchema.name}.$indexName)\n$leftPlan';
   }
 }
@@ -2491,7 +2689,7 @@ class GraphJoinNode extends PlanNode {
       if (leftRow == null) return null;
 
       final keyVal = _jitLeftKey(leftRow);
-      
+
       // Index lookup path
       if (rightIndex != null && rightTable != null) {
         final double? searchKey = keyVal is DbInt
@@ -2501,31 +2699,50 @@ class GraphJoinNode extends PlanNode {
         if (searchKey != null) {
           final ptr = rightIndex!.searchSync([searchKey]);
           if (ptr != null) {
-            final page = rightTable!.cache.pinPageSync(rightTable!.filePath, ptr.pageId);
+            final page = rightTable!.cache.pinPageSync(
+              rightTable!.filePath,
+              ptr.pageId,
+            );
             final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
             if (recBytes != null) {
-              final rightRowValues = _getVisibleRowValues(rightTable!, recBytes, rightSchema.columnNames.length);
+              final rightRowValues = _getVisibleRowValues(
+                rightTable!,
+                recBytes,
+                rightSchema.columnNames.length,
+              );
               if (rightRowValues != null) {
                 final rightRow = <String, DbValue>{};
                 for (int i = 0; i < rightSchema.columnNames.length; i++) {
                   if (i < rightRowValues.length) {
                     final colName = rightSchema.columnNames[i];
-                    rightRow['${rightSchema.name}.$colName'] = rightRowValues[i];
+                    rightRow['${rightSchema.name}.$colName'] =
+                        rightRowValues[i];
                     rightRow[colName] = rightRowValues[i];
                   }
                 }
-                rightTable!.cache.unpinPageSync(rightTable!.filePath, ptr.pageId, isDirty: false);
-                final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(rightRow);
+                rightTable!.cache.unpinPageSync(
+                  rightTable!.filePath,
+                  ptr.pageId,
+                  isDirty: false,
+                );
+                final mergedRow = Map<String, DbValue>.from(leftRow)
+                  ..addAll(rightRow);
                 return mergedRow;
               }
             }
-            rightTable!.cache.unpinPageSync(rightTable!.filePath, ptr.pageId, isDirty: false);
+            rightTable!.cache.unpinPageSync(
+              rightTable!.filePath,
+              ptr.pageId,
+              isDirty: false,
+            );
           }
         }
       } else if (rightColumnTable != null) {
         // Columnar fallback scan path
         final rightJoinColLower = rightJoinCol.toLowerCase();
-        final rightJoinColIdx = rightSchema.columnNamesLower.indexOf(rightJoinColLower);
+        final rightJoinColIdx = rightSchema.columnNamesLower.indexOf(
+          rightJoinColLower,
+        );
         if (rightJoinColIdx != -1) {
           final iterators = <Iterator<DbValue>>[];
           for (int i = 0; i < rightSchema.columnNames.length; i++) {
@@ -2559,14 +2776,17 @@ class GraphJoinNode extends PlanNode {
           }
 
           if (matchedRow != null) {
-            final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(matchedRow);
+            final mergedRow = Map<String, DbValue>.from(leftRow)
+              ..addAll(matchedRow);
             return mergedRow;
           }
         }
       } else if (rightTable != null) {
         // Row table fallback scan path (O(N) search)
         final rightJoinColLower = rightJoinCol.toLowerCase();
-        final rightJoinColIdx = rightSchema.columnNamesLower.indexOf(rightJoinColLower);
+        final rightJoinColIdx = rightSchema.columnNamesLower.indexOf(
+          rightJoinColLower,
+        );
         if (rightJoinColIdx != -1) {
           Map<String, DbValue>? matchedRow;
           final rows = rightTable!.scanSync();
@@ -2587,7 +2807,8 @@ class GraphJoinNode extends PlanNode {
             }
           }
           if (matchedRow != null) {
-            final mergedRow = Map<String, DbValue>.from(leftRow)..addAll(matchedRow);
+            final mergedRow = Map<String, DbValue>.from(leftRow)
+              ..addAll(matchedRow);
             return mergedRow;
           }
         }
@@ -2663,7 +2884,11 @@ class HnswScanNode extends PlanNode {
                 map[colName] = val;
               }
             } finally {
-              tableFile.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+              tableFile.cache.unpinPageSync(
+                colFilePath,
+                pageId,
+                isDirty: false,
+              );
             }
           }
         } else {
@@ -2682,28 +2907,31 @@ class HnswScanNode extends PlanNode {
               }
             }
           } finally {
-            tableFile.cache.unpinPageSync(tableFile.filePath, pageId, isDirty: false);
+            tableFile.cache.unpinPageSync(
+              tableFile.filePath,
+              pageId,
+              isDirty: false,
+            );
           }
         }
         final res = jitFilter(map);
-        return (res is DbInt && res.value == 1) || (res is DbDouble && res.value > 0.0);
+        return (res is DbInt && res.value == 1) ||
+            (res is DbDouble && res.value > 0.0);
       };
     }
     _results = index.search(queryVector, limit, filter: filterPredicate);
     if (maxDistance != null) {
-      _results = _results!
-          .where((n) {
-            switch (index.metric.toLowerCase()) {
-              case 'cosine':
-                return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
-              case 'dot':
-                return n.vector.dotProductTo(queryVector) <= maxDistance!;
-              case 'euclidean':
-              default:
-                return n.vector.distanceTo(queryVector) <= maxDistance!;
-            }
-          })
-          .toList();
+      _results = _results!.where((n) {
+        switch (index.metric.toLowerCase()) {
+          case 'cosine':
+            return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
+          case 'dot':
+            return n.vector.dotProductTo(queryVector) <= maxDistance!;
+          case 'euclidean':
+          default:
+            return n.vector.distanceTo(queryVector) <= maxDistance!;
+        }
+      }).toList();
     }
     _cursor = 0;
   }
@@ -2713,7 +2941,7 @@ class HnswScanNode extends PlanNode {
     if (_results == null || _cursor >= _results!.length) return null;
     final node = _results![_cursor++];
     final map = <String, DbValue>{};
-    
+
     if (schema.isColumnar) {
       final colTable = ColumnTableFile(
         cache: tableFile.cache,
@@ -2742,7 +2970,11 @@ class HnswScanNode extends PlanNode {
       final page = tableFile.cache.pinPageSync(tableFile.filePath, node.pageId);
       final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
       if (recBytes == null) {
-        tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
+        tableFile.cache.unpinPageSync(
+          tableFile.filePath,
+          node.pageId,
+          isDirty: false,
+        );
         return next(); // Try next
       }
       final values = RecordSerializer.deserializeRow(recBytes);
@@ -2753,7 +2985,11 @@ class HnswScanNode extends PlanNode {
           map[colName] = values[i];
         }
       }
-      tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
+      tableFile.cache.unpinPageSync(
+        tableFile.filePath,
+        node.pageId,
+        isDirty: false,
+      );
     }
     return map;
   }
@@ -2766,7 +3002,9 @@ class HnswScanNode extends PlanNode {
   @override
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
-    final condStr = filterCondition != null ? ', filter: ${exprToSqlString(filterCondition!)}' : '';
+    final condStr = filterCondition != null
+        ? ', filter: ${exprToSqlString(filterCondition!)}'
+        : '';
     return '${padding}HnswScanNode(table: ${schema.name}, limit: $limit, maxDistance: $maxDistance$condStr)';
   }
 }
@@ -2826,7 +3064,11 @@ class IvfFlatScanNode extends PlanNode {
                 map[colName] = val;
               }
             } finally {
-              tableFile.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+              tableFile.cache.unpinPageSync(
+                colFilePath,
+                pageId,
+                isDirty: false,
+              );
             }
           }
         } else {
@@ -2845,28 +3087,31 @@ class IvfFlatScanNode extends PlanNode {
               }
             }
           } finally {
-            tableFile.cache.unpinPageSync(tableFile.filePath, pageId, isDirty: false);
+            tableFile.cache.unpinPageSync(
+              tableFile.filePath,
+              pageId,
+              isDirty: false,
+            );
           }
         }
         final res = jitFilter(map);
-        return (res is DbInt && res.value == 1) || (res is DbDouble && res.value > 0.0);
+        return (res is DbInt && res.value == 1) ||
+            (res is DbDouble && res.value > 0.0);
       };
     }
     _results = index.search(queryVector, limit, filter: filterPredicate);
     if (maxDistance != null) {
-      _results = _results!
-          .where((n) {
-            switch (index.metric.toLowerCase()) {
-              case 'cosine':
-                return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
-              case 'dot':
-                return n.vector.dotProductTo(queryVector) <= maxDistance!;
-              case 'euclidean':
-              default:
-                return n.vector.distanceTo(queryVector) <= maxDistance!;
-            }
-          })
-          .toList();
+      _results = _results!.where((n) {
+        switch (index.metric.toLowerCase()) {
+          case 'cosine':
+            return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
+          case 'dot':
+            return n.vector.dotProductTo(queryVector) <= maxDistance!;
+          case 'euclidean':
+          default:
+            return n.vector.distanceTo(queryVector) <= maxDistance!;
+        }
+      }).toList();
     }
     _cursor = 0;
   }
@@ -2876,7 +3121,7 @@ class IvfFlatScanNode extends PlanNode {
     if (_results == null || _cursor >= _results!.length) return null;
     final node = _results![_cursor++];
     final map = <String, DbValue>{};
-    
+
     if (schema.isColumnar) {
       final colTable = ColumnTableFile(
         cache: tableFile.cache,
@@ -2905,7 +3150,11 @@ class IvfFlatScanNode extends PlanNode {
       final page = tableFile.cache.pinPageSync(tableFile.filePath, node.pageId);
       final recBytes = SlottedPageHelper.getRecord(page, node.slotId);
       if (recBytes == null) {
-        tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
+        tableFile.cache.unpinPageSync(
+          tableFile.filePath,
+          node.pageId,
+          isDirty: false,
+        );
         return next(); // Try next
       }
       final values = RecordSerializer.deserializeRow(recBytes);
@@ -2916,7 +3165,11 @@ class IvfFlatScanNode extends PlanNode {
           map[colName] = values[i];
         }
       }
-      tableFile.cache.unpinPageSync(tableFile.filePath, node.pageId, isDirty: false);
+      tableFile.cache.unpinPageSync(
+        tableFile.filePath,
+        node.pageId,
+        isDirty: false,
+      );
     }
     return map;
   }
@@ -2929,12 +3182,12 @@ class IvfFlatScanNode extends PlanNode {
   @override
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
-    final condStr = filterCondition != null ? ', filter: ${exprToSqlString(filterCondition!)}' : '';
+    final condStr = filterCondition != null
+        ? ', filter: ${exprToSqlString(filterCondition!)}'
+        : '';
     return '${padding}IvfFlatScanNode(table: ${schema.name}, limit: $limit, maxDistance: $maxDistance$condStr)';
   }
 }
-
-
 
 class RowValueList {
   final List<DbValue> values;
@@ -3355,4 +3608,3 @@ class DistinctNode extends PlanNode {
     return '${padding}DistinctNode\n${child.getPlanString(indent + 1)}';
   }
 }
-

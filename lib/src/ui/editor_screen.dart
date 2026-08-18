@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
 import '../engine/executor/interpreter.dart';
 import '../engine/executor/value.dart';
 import 'result_grid.dart';
@@ -14,10 +13,11 @@ class EditorScreen extends StatefulWidget {
   State<EditorScreen> createState() => _EditorScreenState();
 }
 
-class _EditorScreenState extends State<EditorScreen> with SingleTickerProviderStateMixin {
+class _EditorScreenState extends State<EditorScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _codeController = TextEditingController();
   late TabController _tabController;
-  
+
   Database? _db;
   Interpreter? _interpreter;
   bool _isLoading = false;
@@ -31,13 +31,18 @@ class _EditorScreenState extends State<EditorScreen> with SingleTickerProviderSt
   String _execTimeStr = '';
   Duration _execDuration = Duration.zero;
 
-  static final RegExp _plSqlTxRegExp = RegExp(r'\bbegin\s*(transaction|work)?;');
-  static final RegExp _nosqlDotRegExp = RegExp(r'[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+');
+  static final RegExp _plSqlTxRegExp = RegExp(
+    r'\bbegin\s*(transaction|work)?;',
+  );
+  static final RegExp _nosqlDotRegExp = RegExp(
+    r'[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+',
+  );
 
   String _detectedCategory = 'Relational';
 
   final Map<String, String> _templates = {
-    'Relational SQL (JOIN & Aggregate)': '''-- 1. Create tables with foreign key & primary key constraints
+    'Relational SQL (JOIN & Aggregate)':
+        '''-- 1. Create tables with foreign key & primary key constraints
 CREATE TABLE depts (id INT PRIMARY KEY, name TEXT);
 CREATE TABLE employees (id INT PRIMARY KEY, name TEXT, salary DOUBLE, dept_id INT);
 
@@ -58,7 +63,8 @@ JOIN depts ON employees.dept_id = depts.id
 WHERE employees.salary > 90000.0
 ORDER BY employees.salary DESC;''',
 
-    'AI Vector Similarity Search (HNSW)': '''-- 1. Create Columnar Table with VECTOR type
+    'AI Vector Similarity Search (HNSW)':
+        '''-- 1. Create Columnar Table with VECTOR type
 CREATE TABLE products (id INT PRIMARY KEY, name TEXT, embedding VECTOR);
 
 -- 2. Insert items with high-dimensional float embeddings
@@ -91,10 +97,8 @@ CREATE TABLE users_secure (
 
 INSERT INTO users_secure VALUES (1, 'om@ultsql.io', '4532-1122-3344-9876');
 
-SELECT * FROM users_secure;'''
+SELECT * FROM users_secure;''',
   };
-
-  final FocusNode _editorFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -109,10 +113,10 @@ SELECT * FROM users_secure;'''
   Future<void> _initDatabase() async {
     try {
       final dbPath = ':memory:';
-      
+
       _db = Database(dbPath);
       await _db!.init();
-      
+
       _interpreter = Interpreter(_db!);
       setState(() {
         _isLoading = false;
@@ -170,36 +174,38 @@ SELECT * FROM users_secure;'''
 
   String _detectQueryType(String code) {
     final textLower = code.toLowerCase();
-    
+
     // 1. PL/SQL: contains 'declare' or contains 'begin' and 'end' (excluding transactions)
-    if (textLower.contains('declare') || 
-        (textLower.contains('begin') && textLower.contains('end') && 
-         !_plSqlTxRegExp.hasMatch(textLower))) {
+    if (textLower.contains('declare') ||
+        (textLower.contains('begin') &&
+            textLower.contains('end') &&
+            !_plSqlTxRegExp.hasMatch(textLower))) {
       return 'PL/SQL';
     }
-    
+
     // 2. Vector-Graph Hybrid: contains 'create relationship' or 'with relationship'
-    if (textLower.contains('create relationship') || textLower.contains('with relationship')) {
+    if (textLower.contains('create relationship') ||
+        textLower.contains('with relationship')) {
       return 'Vector-Graph Hybrid';
     }
-    
+
     // 3. AI Vector Search: contains 'vector_distance' or 'vector'
     if (textLower.contains('vector_distance') || textLower.contains('vector')) {
       return 'AI Vector Search';
     }
-    
+
     // 4. NoSQL Dotted JSON: contains 'info.' or 'json' (excluding standard table column dot patterns if possible) or multi-dot paths
-    if (textLower.contains('info.') || 
-        textLower.contains('json') || 
+    if (textLower.contains('info.') ||
+        textLower.contains('json') ||
         _nosqlDotRegExp.hasMatch(code)) {
       return 'NoSQL Dotted JSON';
     }
-    
+
     // 5. Relational JOIN: contains 'join'
     if (textLower.contains('join')) {
       return 'Relational JOIN';
     }
-    
+
     return 'Standard SQL';
   }
 
@@ -280,7 +286,10 @@ SELECT * FROM users_secure;'''
       appBar: AppBar(
         title: const Text(
           'Antigravity Hybrid SQL Engine',
-          style: TextStyle(color: Color(0xFFCDD6F4), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFFCDD6F4),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: const Color(0xFF11111B),
         elevation: 0,
@@ -290,16 +299,21 @@ SELECT * FROM users_secure;'''
               padding: const EdgeInsets.only(right: 16.0),
               child: Text(
                 _execTimeStr.isNotEmpty ? 'Time: $_execTimeStr' : '',
-                style: const TextStyle(color: Color(0xFFFAB387), fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Color(0xFFFAB387),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          )
+          ),
         ],
       ),
       body: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.keyR, control: true): _runScript,
-          const SingleActivator(LogicalKeyboardKey.enter, control: true): _runScript,
+          const SingleActivator(LogicalKeyboardKey.keyR, control: true):
+              _runScript,
+          const SingleActivator(LogicalKeyboardKey.enter, control: true):
+              _runScript,
           const SingleActivator(LogicalKeyboardKey.f5): _runScript,
           const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
             setState(() {
@@ -309,7 +323,11 @@ SELECT * FROM users_secure;'''
               _message = 'Console cleared.';
             });
           },
-          const SingleActivator(LogicalKeyboardKey.keyR, control: true, shift: true): _resetDatabase,
+          const SingleActivator(
+            LogicalKeyboardKey.keyR,
+            control: true,
+            shift: true,
+          ): _resetDatabase,
         },
         child: _isLoading && _db == null
             ? Center(
@@ -318,218 +336,279 @@ SELECT * FROM users_secure;'''
                   children: [
                     const CircularProgressIndicator(color: Color(0xFFCBA6F7)),
                     const SizedBox(height: 16),
-                    Text(_statusMessage, style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      _statusMessage,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               )
             : SafeArea(
                 child: Column(
                   children: [
-                  // Toolbar / Template Selector
-                  Container(
-                    color: const Color(0xFF1E1E2E),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      children: [
-                        const Text('Preset:', style: TextStyle(color: Colors.white70)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF313244),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                dropdownColor: const Color(0xFF313244),
-                                value: _getCurrentDropdownValue(),
-                                style: const TextStyle(color: Colors.white),
-                                items: [
-                                  ..._templates.keys,
-                                  'Other / Custom Query',
-                                ].map((name) {
-                                  return DropdownMenuItem<String>(
-                                    value: name,
-                                    child: Text(name),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      if (val != 'Other / Custom Query') {
-                                        _codeController.text = _templates[val]!;
-                                      }
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        OutlinedButton.icon(
-                          onPressed: _isLoading ? null : _resetDatabase,
-                          icon: const Icon(Icons.refresh, color: Color(0xFFF38BA8), size: 18),
-                          label: const Text('RESET DB', style: TextStyle(color: Color(0xFFF38BA8), fontWeight: FontWeight.bold)),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFF38BA8)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _runScript,
-                          icon: const Icon(Icons.play_arrow, color: Colors.black),
-                          label: const Text('RUN', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFA6E3A1),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-
-                  if (_execTimeStr.isNotEmpty)
+                    // Toolbar / Template Selector
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF11111B),
-                        border: Border(bottom: BorderSide(color: Color(0xFF313244))),
+                      color: const Color(0xFF1E1E2E),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _buildMetricItem('DURATION', _execTimeStr, const Color(0xFFFAB387)),
-                          _buildMetricItem(
-                            'THROUGHPUT', 
-                            _calculateQps(_execDuration, _getOperationsCount()), 
-                            const Color(0xFFCBA6F7)
+                          const Text(
+                            'Preset:',
+                            style: TextStyle(color: Colors.white70),
                           ),
-                          _buildSpeedTierBadge(_execDuration),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF313244),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  dropdownColor: const Color(0xFF313244),
+                                  value: _getCurrentDropdownValue(),
+                                  style: const TextStyle(color: Colors.white),
+                                  items:
+                                      [
+                                        ..._templates.keys,
+                                        'Other / Custom Query',
+                                      ].map((name) {
+                                        return DropdownMenuItem<String>(
+                                          value: name,
+                                          child: Text(name),
+                                        );
+                                      }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setState(() {
+                                        if (val != 'Other / Custom Query') {
+                                          _codeController.text =
+                                              _templates[val]!;
+                                        }
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _resetDatabase,
+                            icon: const Icon(
+                              Icons.refresh,
+                              color: Color(0xFFF38BA8),
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'RESET DB',
+                              style: TextStyle(
+                                color: Color(0xFFF38BA8),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFF38BA8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: _isLoading ? null : _runScript,
+                            icon: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.black,
+                            ),
+                            label: const Text(
+                              'RUN',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFA6E3A1),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
 
-                  // Code Editor Panel
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E2E),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF313244)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF11111B),
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                topRight: Radius.circular(8),
-                              ),
+                    if (_execTimeStr.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF11111B),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFF313244)),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildMetricItem(
+                              'DURATION',
+                              _execTimeStr,
+                              const Color(0xFFFAB387),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(Icons.code, size: 16, color: Color(0xFFCBA6F7)),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'QUERY EDITOR',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.1,
+                            _buildMetricItem(
+                              'THROUGHPUT',
+                              _calculateQps(
+                                _execDuration,
+                                _getOperationsCount(),
+                              ),
+                              const Color(0xFFCBA6F7),
+                            ),
+                            _buildSpeedTierBadge(_execDuration),
+                          ],
+                        ),
+                      ),
+
+                    // Code Editor Panel
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1E2E),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF313244)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF11111B),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(8),
+                                  topRight: Radius.circular(8),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.code,
+                                        size: 16,
+                                        color: Color(0xFFCBA6F7),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'QUERY EDITOR',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF313244),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFFCBA6F7,
+                                        ).withAlpha(76),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF313244),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: const Color(0xFFCBA6F7).withAlpha(76),
+                                    child: Text(
+                                      _detectedCategory.toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Color(0xFFCBA6F7),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
                                   ),
-                                  child: Text(
-                                    _detectedCategory.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Color(0xFFCBA6F7),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(height: 1, color: Color(0xFF313244)),
+                            Expanded(
+                              child: TextField(
+                                controller: _codeController,
+                                maxLines: null,
+                                expands: true,
+                                style: const TextStyle(
+                                  color: Color(0xFFCDD6F4),
+                                  fontFamily: 'Courier',
+                                  fontSize: 14,
                                 ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFF313244)),
-                          Expanded(
-                            child: TextField(
-                              controller: _codeController,
-                              maxLines: null,
-                              expands: true,
-                              style: const TextStyle(
-                                color: Color(0xFFCDD6F4),
-                                fontFamily: 'Courier',
-                                fontSize: 14,
-                              ),
-                              decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.all(12),
-                                border: InputBorder.none,
-                                hintText: 'Write SQL or PL/SQL here...',
-                                hintStyle: TextStyle(color: Colors.grey),
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.all(12),
+                                  border: InputBorder.none,
+                                  hintText: 'Write SQL or PL/SQL here...',
+                                  hintStyle: TextStyle(color: Colors.grey),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  // Results / Output Tabs
-                  TabBar(
-                    controller: _tabController,
-                    indicatorColor: const Color(0xFFCBA6F7),
-                    labelColor: const Color(0xFFCBA6F7),
-                    unselectedLabelColor: Colors.white60,
-                    tabs: const [
-                      Tab(text: 'QUERY RESULTS'),
-                      Tab(text: 'CONSOLE LOGS (DBMS)'),
-                    ],
-                  ),
+                    // Results / Output Tabs
+                    TabBar(
+                      controller: _tabController,
+                      indicatorColor: const Color(0xFFCBA6F7),
+                      labelColor: const Color(0xFFCBA6F7),
+                      unselectedLabelColor: Colors.white60,
+                      tabs: const [
+                        Tab(text: 'QUERY RESULTS'),
+                        Tab(text: 'CONSOLE LOGS (DBMS)'),
+                      ],
+                    ),
 
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          ResultGrid(
-                            columns: _columns,
-                            rows: _rows,
-                            message: _message,
-                          ),
-                          ConsoleOutput(logs: _consoleLogs),
-                        ],
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            ResultGrid(
+                              columns: _columns,
+                              rows: _rows,
+                              message: _message,
+                            ),
+                            ConsoleOutput(logs: _consoleLogs),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
       ),
     );
   }

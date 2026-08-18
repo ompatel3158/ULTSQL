@@ -25,13 +25,15 @@ class QueryPlanner {
 
   String _normalizeExprString(String sql, String tableName) {
     String s = sql.trim();
-    
+
     bool hasOuterParens(String str) {
       if (!str.startsWith('(') || !str.endsWith(')')) return false;
       int depth = 0;
       for (int i = 0; i < str.length - 1; i++) {
-        if (str[i] == '(') depth++;
-        else if (str[i] == ')') depth--;
+        if (str[i] == '(')
+          depth++;
+        else if (str[i] == ')')
+          depth--;
         if (depth == 0) return false;
       }
       return depth == 1;
@@ -40,9 +42,9 @@ class QueryPlanner {
     while (hasOuterParens(s)) {
       s = s.substring(1, s.length - 1).trim();
     }
-    
+
     s = s.replaceAll(RegExp(r'\s+'), '');
-    
+
     final lowerSql = s.toLowerCase();
     final lowerTable = tableName.toLowerCase();
     final prefix = '$lowerTable.';
@@ -55,7 +57,11 @@ class QueryPlanner {
   int _getKeyColumnsCount(IndexSchema idxSchema) {
     final schema = catalog.getTableSchema(idxSchema.tableName.toLowerCase());
     if (schema == null) return 1;
-    final bool isSimple = idxSchema.columnName.split(',').every((col) => schema.columnNamesLower.contains(col.trim().toLowerCase()));
+    final bool isSimple = idxSchema.columnName
+        .split(',')
+        .every(
+          (col) => schema.columnNamesLower.contains(col.trim().toLowerCase()),
+        );
     return isSimple ? idxSchema.columnName.split(',').length : 1;
   }
 
@@ -64,7 +70,9 @@ class QueryPlanner {
     if (stmt is IntersectStmt) return planIntersect(stmt);
     if (stmt is ExceptStmt) return planExcept(stmt);
     if (stmt is SelectStmt) return planSelect(stmt);
-    throw Exception("Unsupported statement type for query planner: ${stmt.runtimeType}");
+    throw Exception(
+      "Unsupported statement type for query planner: ${stmt.runtimeType}",
+    );
   }
 
   PlanNode planUnion(UnionStmt stmt) {
@@ -138,7 +146,11 @@ class QueryPlanner {
         columnNames: colNames,
         columnTypes: colTypes,
       );
-      scanNode = SubqueryScanNode(subPlan, alias: stmt.tableAlias, selectColumns: colNames);
+      scanNode = SubqueryScanNode(
+        subPlan,
+        alias: stmt.tableAlias,
+        selectColumns: colNames,
+      );
       projections = stmt.projections;
       if (projections.length == 1 &&
           projections[0].expr is VariableExpr &&
@@ -243,7 +255,9 @@ class QueryPlanner {
     } else {
       final tableName = stmt.tableName.toLowerCase();
       final loadedSchema = catalog.getTableSchema(tableName);
-      print('Planner loaded schema for $tableName: isForeign=${loadedSchema?.isForeign}');
+      print(
+        'Planner loaded schema for $tableName: isForeign=${loadedSchema?.isForeign}',
+      );
       if (loadedSchema == null) {
         if (tableName.isEmpty) {
           final colNames = <String>[];
@@ -262,7 +276,11 @@ class QueryPlanner {
             colNames.add('dual');
             colTypes.add(DataType.text);
           }
-          schema = TableSchema(name: 'dual', columnNames: colNames, columnTypes: colTypes);
+          schema = TableSchema(
+            name: 'dual',
+            columnNames: colNames,
+            columnTypes: colTypes,
+          );
           scanNode = MemoryScanNode([<String, DbValue>{}]);
         } else {
           throw Exception("Table '$tableName' does not exist in catalog.");
@@ -295,12 +313,18 @@ class QueryPlanner {
         final childrenNodes = <PlanNode>[];
         for (final child in schema.partitionChildren) {
           final childStmt = SelectStmt(
-            projections: [Projection(VariableExpr(['*']), null)],
+            projections: [
+              Projection(VariableExpr(['*']), null),
+            ],
             tableName: child,
           );
           PlanNode childNode = planSelect(childStmt);
           final parentAlias = stmt.tableAlias ?? stmt.tableName;
-          childNode = SubqueryScanNode(childNode, alias: parentAlias, selectColumns: schema.columnNames);
+          childNode = SubqueryScanNode(
+            childNode,
+            alias: parentAlias,
+            selectColumns: schema.columnNames,
+          );
           childrenNodes.add(childNode);
         }
         if (childrenNodes.isEmpty) {
@@ -308,313 +332,409 @@ class QueryPlanner {
         } else if (childrenNodes.length == 1) {
           scanNode = childrenNodes.first;
         } else {
-          scanNode = UnionNode(childrenNodes, List.filled(childrenNodes.length - 1, true));
+          scanNode = UnionNode(
+            childrenNodes,
+            List.filled(childrenNodes.length - 1, true),
+          );
         }
       } else {
-    // Check if we can use HNSW index scan for ORDER BY vector_distance
-    if (stmt.orderBy != null) {
-      final orderExpr = stmt.orderBy!.expr;
-      FunctionCallExpr? vectorDistExpr;
-      if (orderExpr is FunctionCallExpr && orderExpr.name.toLowerCase() == 'vector_distance') {
-        vectorDistExpr = orderExpr;
-      } else if (orderExpr is VariableExpr) {
-        final alias = orderExpr.path.last.toLowerCase();
-        for (final proj in stmt.projections) {
-          if (proj.alias?.toLowerCase() == alias && proj.expr is FunctionCallExpr) {
-            final func = proj.expr as FunctionCallExpr;
-            if (func.name.toLowerCase() == 'vector_distance') {
-              vectorDistExpr = func;
-              break;
+        // Check if we can use HNSW index scan for ORDER BY vector_distance
+        if (stmt.orderBy != null) {
+          final orderExpr = stmt.orderBy!.expr;
+          FunctionCallExpr? vectorDistExpr;
+          if (orderExpr is FunctionCallExpr &&
+              orderExpr.name.toLowerCase() == 'vector_distance') {
+            vectorDistExpr = orderExpr;
+          } else if (orderExpr is VariableExpr) {
+            final alias = orderExpr.path.last.toLowerCase();
+            for (final proj in stmt.projections) {
+              if (proj.alias?.toLowerCase() == alias &&
+                  proj.expr is FunctionCallExpr) {
+                final func = proj.expr as FunctionCallExpr;
+                if (func.name.toLowerCase() == 'vector_distance') {
+                  vectorDistExpr = func;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (vectorDistExpr != null &&
+              (vectorDistExpr.arguments.length == 2 ||
+                  vectorDistExpr.arguments.length == 3)) {
+            final firstArg = vectorDistExpr.arguments[0];
+            if (firstArg is VariableExpr) {
+              final colName = firstArg.path.last.toLowerCase();
+              final idx = catalog.getIndexForColumn(tableName, colName);
+              if (idx != null &&
+                  (idx.usingMethod == 'hnsw' ||
+                      idx.usingMethod == 'ivf_flat')) {
+                var queryVecVal = evaluateExpression(
+                  vectorDistExpr.arguments[1],
+                  {},
+                );
+                if (queryVecVal is DbText) {
+                  final text = queryVecVal.value.trim();
+                  if (text.startsWith('[') && text.endsWith(']')) {
+                    try {
+                      final elements = text
+                          .substring(1, text.length - 1)
+                          .split(',')
+                          .map((e) => double.parse(e.trim()))
+                          .toList();
+                      queryVecVal = DbVector(elements);
+                    } catch (_) {}
+                  }
+                }
+                if (queryVecVal is DbVector) {
+                  String metric = 'euclidean';
+                  if (vectorDistExpr.arguments.length == 3) {
+                    final metricVal = evaluateExpression(
+                      vectorDistExpr.arguments[2],
+                      {},
+                    );
+                    if (metricVal is DbText) {
+                      metric = metricVal.value.toLowerCase();
+                    }
+                  }
+                  final limit = stmt.limit ?? 10;
+                  final rowTableFile = RowTableFile(
+                    cache: cache,
+                    tableName: schema.name,
+                    dbDirectory: dbDirectory,
+                  );
+                  final isIvf = idx.usingMethod == 'ivf_flat';
+                  final indexFile =
+                      '$dbDirectory/${idx.name.toLowerCase()}.${isIvf ? 'ivf_flat' : 'hnsw'}';
+
+                  PlanNode plan;
+                  if (isIvf) {
+                    final ivfIndex = IvfFlatIndex(
+                      indexPath: indexFile,
+                      autoSave: false,
+                      metric: metric,
+                    );
+                    plan = IvfFlatScanNode(
+                      tableFile: rowTableFile,
+                      schema: schema,
+                      index: ivfIndex,
+                      queryVector: queryVecVal,
+                      limit: limit,
+                      filterCondition: stmt.whereCondition,
+                    );
+                  } else {
+                    final hnswIndex = HnswIndex(
+                      indexPath: indexFile,
+                      autoSave: false,
+                      metric: metric,
+                    );
+                    plan = HnswScanNode(
+                      tableFile: rowTableFile,
+                      schema: schema,
+                      index: hnswIndex,
+                      queryVector: queryVecVal,
+                      limit: limit,
+                      filterCondition: stmt.whereCondition,
+                    );
+                  }
+
+                  if (schema.policies.isNotEmpty) {
+                    Expression combinedPolicy = schema.policies.first.condition;
+                    for (int i = 1; i < schema.policies.length; i++) {
+                      combinedPolicy = BinaryExpr(
+                        'OR',
+                        combinedPolicy,
+                        schema.policies[i].condition,
+                      );
+                    }
+                    plan = FilterNode(plan, combinedPolicy);
+                  }
+
+                  var projections = stmt.projections;
+                  if (projections.length == 1 &&
+                      projections[0].expr is VariableExpr &&
+                      (projections[0].expr as VariableExpr).path.first == '*') {
+                    final list = <Projection>[];
+                    for (final col in schema.columnNames) {
+                      list.add(Projection(VariableExpr([col]), null));
+                    }
+                    projections = list;
+                  }
+
+                  plan = ProjectNode(plan, projections);
+                  return plan;
+                }
+              }
             }
           }
         }
-      }
 
-      if (vectorDistExpr != null && (vectorDistExpr.arguments.length == 2 || vectorDistExpr.arguments.length == 3)) {
-        final firstArg = vectorDistExpr.arguments[0];
-        if (firstArg is VariableExpr) {
-          final colName = firstArg.path.last.toLowerCase();
-          final idx = catalog.getIndexForColumn(tableName, colName);
-          if (idx != null && (idx.usingMethod == 'hnsw' || idx.usingMethod == 'ivf_flat')) {
-            var queryVecVal = evaluateExpression(vectorDistExpr.arguments[1], {});
-            if (queryVecVal is DbText) {
-              final text = queryVecVal.value.trim();
-              if (text.startsWith('[') && text.endsWith(']')) {
-                try {
-                  final elements = text.substring(1, text.length - 1).split(',').map((e) => double.parse(e.trim())).toList();
-                  queryVecVal = DbVector(elements);
-                } catch (_) {}
-              }
-            }
-            if (queryVecVal is DbVector) {
-              String metric = 'euclidean';
-              if (vectorDistExpr.arguments.length == 3) {
-                final metricVal = evaluateExpression(vectorDistExpr.arguments[2], {});
-                if (metricVal is DbText) {
-                  metric = metricVal.value.toLowerCase();
+        isParallelScan = false;
+
+        targetIndexSchema = null;
+        lowKeys = null;
+        highKeys = null;
+        useIndexScan = false;
+        needFilterNode = false;
+
+        if (!schema.isColumnar && stmt.whereCondition != null) {
+          final matchExpr = _findMatchExpr(stmt.whereCondition!);
+          if (matchExpr != null) {
+            scanNode = FtsScanNode(
+              tableName: tableName,
+              columnName: matchExpr.columnName,
+              searchQuery: matchExpr.searchQuery,
+              dbDirectory: dbDirectory,
+              cache: cache,
+              catalog: catalog,
+            );
+            useIndexScan = true;
+          } else {
+            final indexes = catalog.getIndexesForTable(tableName);
+            IndexSchema? bestIndex;
+            List<double>? bestLowKeys;
+            List<double>? bestHighKeys;
+            int bestMatchCount = -1;
+
+            for (final idx in indexes) {
+              final idxCols = idx.columnName
+                  .split(',')
+                  .map((c) => c.trim().toLowerCase())
+                  .toList();
+              if (idxCols.isEmpty) continue;
+
+              final keys = _extractCompositeKeys(
+                stmt.whereCondition!,
+                tableName,
+                idxCols,
+              );
+              if (keys != null) {
+                final matchCount = keys[0].length;
+                if (matchCount > bestMatchCount) {
+                  bestIndex = idx;
+                  bestLowKeys = keys[0];
+                  bestHighKeys = keys[1];
+                  bestMatchCount = matchCount;
                 }
               }
-              final limit = stmt.limit ?? 10;
-              final rowTableFile = RowTableFile(cache: cache, tableName: schema.name, dbDirectory: dbDirectory);
-              final isIvf = idx.usingMethod == 'ivf_flat';
-              final indexFile = '$dbDirectory/${idx.name.toLowerCase()}.${isIvf ? 'ivf_flat' : 'hnsw'}';
-              
-              PlanNode plan;
-              if (isIvf) {
-                final ivfIndex = IvfFlatIndex(indexPath: indexFile, autoSave: false, metric: metric);
-                plan = IvfFlatScanNode(
-                  tableFile: rowTableFile,
-                  schema: schema,
-                  index: ivfIndex,
-                  queryVector: queryVecVal,
-                  limit: limit,
-                  filterCondition: stmt.whereCondition,
-                );
+            }
+
+            if (bestIndex != null) {
+              targetIndexSchema = bestIndex;
+              lowKeys = bestLowKeys;
+              highKeys = bestHighKeys;
+
+              final stats = catalog.getTableStats(tableName);
+              final rowCount = stats?.rowCount ?? 1000;
+
+              bool isPoint = true;
+              if (lowKeys == null ||
+                  highKeys == null ||
+                  lowKeys.isEmpty ||
+                  lowKeys.length != highKeys.length) {
+                isPoint = false;
               } else {
-                final hnswIndex = HnswIndex(indexPath: indexFile, autoSave: false, metric: metric);
-                plan = HnswScanNode(
-                  tableFile: rowTableFile,
-                  schema: schema,
-                  index: hnswIndex,
-                  queryVector: queryVecVal,
-                  limit: limit,
-                  filterCondition: stmt.whereCondition,
-                );
-              }
-              
-              if (schema.policies.isNotEmpty) {
-                Expression combinedPolicy = schema.policies.first.condition;
-                for (int i = 1; i < schema.policies.length; i++) {
-                  combinedPolicy = BinaryExpr('OR', combinedPolicy, schema.policies[i].condition);
+                for (int i = 0; i < lowKeys.length; i++) {
+                  if (lowKeys[i] != highKeys[i]) {
+                    isPoint = false;
+                    break;
+                  }
                 }
-                plan = FilterNode(plan, combinedPolicy);
               }
-              
-              var projections = stmt.projections;
-              if (projections.length == 1 &&
-                  projections[0].expr is VariableExpr &&
-                  (projections[0].expr as VariableExpr).path.first == '*') {
-                final list = <Projection>[];
-                for (final col in schema.columnNames) {
-                  list.add(Projection(VariableExpr([col]), null));
+
+              double selectivity = 0.05;
+              if (isPoint) {
+                final colStats =
+                    stats?.columnStats[bestIndex.columnName
+                        .split(',')
+                        .first
+                        .trim()
+                        .toLowerCase()];
+                final distinctCount = colStats?.distinctCount ?? 10;
+                selectivity = distinctCount > 0 ? 1.0 / distinctCount : 0.01;
+              } else {
+                final firstCol = bestIndex.columnName
+                    .split(',')
+                    .first
+                    .trim()
+                    .toLowerCase();
+                final colStats = stats?.columnStats[firstCol];
+                final minVal = colStats?.min;
+                final maxVal = colStats?.max;
+                final rangeLow = (lowKeys != null && lowKeys.isNotEmpty)
+                    ? lowKeys[0]
+                    : null;
+                final rangeHigh = (highKeys != null && highKeys.isNotEmpty)
+                    ? highKeys[0]
+                    : null;
+                if (minVal is num && maxVal is num && maxVal > minVal) {
+                  final low = rangeLow ?? minVal.toDouble();
+                  final high = rangeHigh ?? maxVal.toDouble();
+                  selectivity = (high - low) / (maxVal - minVal);
+                } else {
+                  selectivity = 0.1;
                 }
-                projections = list;
               }
-              
-              plan = ProjectNode(plan, projections);
-              return plan;
-            }
-          }
-        }
-      }
-    }
+              selectivity = selectivity.clamp(0.0, 1.0);
+              final indexScanCost = selectivity * rowCount;
+              final tableScanCost = rowCount.toDouble();
 
-    isParallelScan = false;
+              if (isPoint || indexScanCost < 0.4 * tableScanCost) {
+                useIndexScan = true;
 
-    targetIndexSchema = null;
-    lowKeys = null;
-    highKeys = null;
-    useIndexScan = false;
-    needFilterNode = false;
-
-    if (!schema.isColumnar && stmt.whereCondition != null) {
-      final matchExpr = _findMatchExpr(stmt.whereCondition!);
-      if (matchExpr != null) {
-        scanNode = FtsScanNode(
-          tableName: tableName,
-          columnName: matchExpr.columnName,
-          searchQuery: matchExpr.searchQuery,
-          dbDirectory: dbDirectory,
-          cache: cache,
-          catalog: catalog,
-        );
-        useIndexScan = true;
-      } else {
-        final indexes = catalog.getIndexesForTable(tableName);
-      IndexSchema? bestIndex;
-      List<double>? bestLowKeys;
-      List<double>? bestHighKeys;
-      int bestMatchCount = -1;
-
-      for (final idx in indexes) {
-        final idxCols = idx.columnName.split(',').map((c) => c.trim().toLowerCase()).toList();
-        if (idxCols.isEmpty) continue;
-        
-        final keys = _extractCompositeKeys(stmt.whereCondition!, tableName, idxCols);
-        if (keys != null) {
-          final matchCount = keys[0].length;
-          if (matchCount > bestMatchCount) {
-            bestIndex = idx;
-            bestLowKeys = keys[0];
-            bestHighKeys = keys[1];
-            bestMatchCount = matchCount;
-          }
-        }
-      }
-
-      if (bestIndex != null) {
-        targetIndexSchema = bestIndex;
-        lowKeys = bestLowKeys;
-        highKeys = bestHighKeys;
-        
-        final stats = catalog.getTableStats(tableName);
-        final rowCount = stats?.rowCount ?? 1000;
-        
-        bool isPoint = true;
-        if (lowKeys == null || highKeys == null || lowKeys.isEmpty || lowKeys.length != highKeys.length) {
-          isPoint = false;
-        } else {
-          for (int i = 0; i < lowKeys.length; i++) {
-            if (lowKeys[i] != highKeys[i]) {
-              isPoint = false;
-              break;
-            }
-          }
-        }
-        
-        double selectivity = 0.05;
-        if (isPoint) {
-          final colStats = stats?.columnStats[bestIndex.columnName.split(',').first.trim().toLowerCase()];
-          final distinctCount = colStats?.distinctCount ?? 10;
-          selectivity = distinctCount > 0 ? 1.0 / distinctCount : 0.01;
-        } else {
-          final firstCol = bestIndex.columnName.split(',').first.trim().toLowerCase();
-          final colStats = stats?.columnStats[firstCol];
-          final minVal = colStats?.min;
-          final maxVal = colStats?.max;
-          final rangeLow = (lowKeys != null && lowKeys.isNotEmpty) ? lowKeys[0] : null;
-          final rangeHigh = (highKeys != null && highKeys.isNotEmpty) ? highKeys[0] : null;
-          if (minVal is num && maxVal is num && maxVal > minVal) {
-            final low = rangeLow ?? minVal.toDouble();
-            final high = rangeHigh ?? maxVal.toDouble();
-            selectivity = (high - low) / (maxVal - minVal);
-          } else {
-            selectivity = 0.1;
-          }
-        }
-        selectivity = selectivity.clamp(0.0, 1.0);
-        final indexScanCost = selectivity * rowCount;
-        final tableScanCost = rowCount.toDouble();
-
-        if (isPoint || indexScanCost < 0.4 * tableScanCost) {
-          useIndexScan = true;
-          
-          final condVars = <String>{};
-          _collectVariables(stmt.whereCondition!, condVars);
-          final indexColsSet = targetIndexSchema.columnName.split(',').map((c) => c.trim().toLowerCase()).toSet();
-          bool isPureEquality = false;
-          if (stmt.whereCondition is BinaryExpr) {
-            final bin = stmt.whereCondition as BinaryExpr;
-            if (bin.operator == '=' && bin.left is VariableExpr) {
-              final varCol = (bin.left as VariableExpr).path.last.toLowerCase().trim();
-              if (indexColsSet.contains(varCol)) {
-                isPureEquality = true;
-              }
-            }
-          }
-          if (!isPureEquality) {
-            needFilterNode = true;
-          } else {
-            for (final v in condVars) {
-              final vClean = v.toLowerCase().trim();
-              final vParts = vClean.split('.');
-              final colName = vParts.last;
-              if (!indexColsSet.contains(colName)) {
-                needFilterNode = true;
-                break;
+                final condVars = <String>{};
+                _collectVariables(stmt.whereCondition!, condVars);
+                final indexColsSet = targetIndexSchema.columnName
+                    .split(',')
+                    .map((c) => c.trim().toLowerCase())
+                    .toSet();
+                bool isPureEquality = false;
+                if (stmt.whereCondition is BinaryExpr) {
+                  final bin = stmt.whereCondition as BinaryExpr;
+                  if (bin.operator == '=' && bin.left is VariableExpr) {
+                    final varCol = (bin.left as VariableExpr).path.last
+                        .toLowerCase()
+                        .trim();
+                    if (indexColsSet.contains(varCol)) {
+                      isPureEquality = true;
+                    }
+                  }
+                }
+                if (!isPureEquality) {
+                  needFilterNode = true;
+                } else {
+                  for (final v in condVars) {
+                    final vClean = v.toLowerCase().trim();
+                    final vParts = vClean.split('.');
+                    final colName = vParts.last;
+                    if (!indexColsSet.contains(colName)) {
+                      needFilterNode = true;
+                      break;
+                    }
+                  }
+                }
               }
             }
           }
         }
-      }
-    }
-  }
 
-    if (schema.isColumnar) {
-      // Columnar Projection Push-down Optimization
-      final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
-      final colTableFile = ColumnTableFile(
-        cache: cache,
-        tableName: schema.name,
-        dbDirectory: dbDirectory,
-        schema: schema,
-      );
-      scanNode = ColumnScanNode(colTableFile, schema, neededColIndexes);
-    } else if (useIndexScan && targetIndexSchema != null) {
-      final indexName = targetIndexSchema.name.toLowerCase();
-      final indexFile = '$dbDirectory/$indexName.idx';
-      final btreeIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: _getKeyColumnsCount(targetIndexSchema));
-      final rowTableFile = RowTableFile(
-        cache: cache,
-        tableName: schema.name,
-        dbDirectory: dbDirectory,
-      );
-      final skipWhere = useIndexScan && !needFilterNode;
-      final neededColIndexes = _getReferencedColumnIndexes(stmt, schema, skipWhere);
-      scanNode = IndexScanNode(
-        tableFile: rowTableFile,
-        schema: schema,
-        index: btreeIndex,
-        low: lowKeys,
-        high: highKeys,
-        projectedColIndexes: neededColIndexes,
-      );
-    } else if (!useIndexScan && stmt.fromSubquery == null && stmt.fromFunction == null && stmt.tableName.isNotEmpty) {
-      final rowTableFile = RowTableFile(
-        cache: cache,
-        tableName: schema.name,
-        dbDirectory: dbDirectory,
-      );
-      if (schema.isForeign) {
-        final dummyStmt = CreateForeignTableStmt(
-          schema.name,
-          List.generate(schema.columnNames.length, (i) => ColumnDef(schema.columnNames[i], schema.columnTypes[i])),
-          schema.foreignServer!,
-          schema.foreignOptions!
-        );
-        scanNode = ForeignScanNode(dummyStmt);
-      } else {
-        final pager = cache.getOrCreatePager(rowTableFile.filePath);
-      final pageCount = pager.getPageCountSync();
-      final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
-      
-      // If table is large and not inside an active transaction, run in parallel using workers
-      if (pageCount > 50 && !cache.isTransactionActive && stmt.join == null && stmt.withRelationship == null) {
-        scanNode = ParallelScanNode(
-          filePath: rowTableFile.filePath,
-          schema: schema,
-          encryptionKey: cache.encryptionKey,
-          condition: stmt.whereCondition,
-          projections: stmt.groupBy == null && !_hasAggregate(stmt.projections) ? projections : null,
-          pageCount: pageCount,
-          numWorkers: Platform.numberOfProcessors,
-          groupByExpr: stmt.groupBy,
-          aggProjections: stmt.groupBy != null || _hasAggregate(stmt.projections) ? projections : null,
-        );
-        isParallelScan = true;
-      } else {
-        int? asOfTxId;
-        if (stmt.asOfClause != null) {
-          final val = evaluateExpression(stmt.asOfClause!.expr, {});
-          if (val is DbInt) {
-            asOfTxId = val.value;
-          } else if (val is DbDouble) {
-            asOfTxId = val.value.toInt();
+        if (schema.isColumnar) {
+          // Columnar Projection Push-down Optimization
+          final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
+          final colTableFile = ColumnTableFile(
+            cache: cache,
+            tableName: schema.name,
+            dbDirectory: dbDirectory,
+            schema: schema,
+          );
+          scanNode = ColumnScanNode(colTableFile, schema, neededColIndexes);
+        } else if (useIndexScan && targetIndexSchema != null) {
+          final indexName = targetIndexSchema.name.toLowerCase();
+          final indexFile = '$dbDirectory/$indexName.idx';
+          final btreeIndex = BTreeIndex(
+            cache: cache,
+            indexPath: indexFile,
+            keyColumns: _getKeyColumnsCount(targetIndexSchema),
+          );
+          final rowTableFile = RowTableFile(
+            cache: cache,
+            tableName: schema.name,
+            dbDirectory: dbDirectory,
+          );
+          final skipWhere = useIndexScan && !needFilterNode;
+          final neededColIndexes = _getReferencedColumnIndexes(
+            stmt,
+            schema,
+            skipWhere,
+          );
+          scanNode = IndexScanNode(
+            tableFile: rowTableFile,
+            schema: schema,
+            index: btreeIndex,
+            low: lowKeys,
+            high: highKeys,
+            projectedColIndexes: neededColIndexes,
+          );
+        } else if (!useIndexScan &&
+            stmt.fromSubquery == null &&
+            stmt.fromFunction == null &&
+            stmt.tableName.isNotEmpty) {
+          final rowTableFile = RowTableFile(
+            cache: cache,
+            tableName: schema.name,
+            dbDirectory: dbDirectory,
+          );
+          if (schema.isForeign) {
+            final dummyStmt = CreateForeignTableStmt(
+              schema.name,
+              List.generate(
+                schema.columnNames.length,
+                (i) => ColumnDef(schema.columnNames[i], schema.columnTypes[i]),
+              ),
+              schema.foreignServer!,
+              schema.foreignOptions!,
+            );
+            scanNode = ForeignScanNode(dummyStmt);
           } else {
-            asOfTxId = int.tryParse(val.toString());
+            final pager = cache.getOrCreatePager(rowTableFile.filePath);
+            final pageCount = pager.getPageCountSync();
+            final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
+
+            // If table is large and not inside an active transaction, run in parallel using workers
+            if (pageCount > 50 &&
+                !cache.isTransactionActive &&
+                stmt.join == null &&
+                stmt.withRelationship == null) {
+              scanNode = ParallelScanNode(
+                filePath: rowTableFile.filePath,
+                schema: schema,
+                encryptionKey: cache.encryptionKey,
+                condition: stmt.whereCondition,
+                projections:
+                    stmt.groupBy == null && !_hasAggregate(stmt.projections)
+                    ? projections
+                    : null,
+                pageCount: pageCount,
+                numWorkers: Platform.numberOfProcessors,
+                groupByExpr: stmt.groupBy,
+                aggProjections:
+                    stmt.groupBy != null || _hasAggregate(stmt.projections)
+                    ? projections
+                    : null,
+              );
+              isParallelScan = true;
+            } else {
+              int? asOfTxId;
+              if (stmt.asOfClause != null) {
+                final val = evaluateExpression(stmt.asOfClause!.expr, {});
+                if (val is DbInt) {
+                  asOfTxId = val.value;
+                } else if (val is DbDouble) {
+                  asOfTxId = val.value.toInt();
+                } else {
+                  asOfTxId = int.tryParse(val.toString());
+                }
+              }
+              scanNode = RowScanNode(
+                rowTableFile,
+                schema,
+                neededColIndexes,
+                asOfTxId,
+              );
+            }
           }
         }
-        scanNode = RowScanNode(rowTableFile, schema, neededColIndexes, asOfTxId);
       }
     }
-    }
-    }
-  }
 
     if (schema.policies.isNotEmpty) {
       Expression combinedPolicy = schema.policies.first.condition;
       for (int i = 1; i < schema.policies.length; i++) {
-        combinedPolicy = BinaryExpr('OR', combinedPolicy, schema.policies[i].condition);
+        combinedPolicy = BinaryExpr(
+          'OR',
+          combinedPolicy,
+          schema.policies[i].condition,
+        );
       }
       scanNode = FilterNode(scanNode, combinedPolicy);
     }
@@ -633,25 +753,30 @@ class QueryPlanner {
           final table = j.tableName.toLowerCase();
           final stats = catalog.getTableStats(table);
           if (stats == null) return 10000.0;
-          
+
           double selectivity = 0.1;
           String joinCol = '';
-          if (j.onCondition is BinaryExpr && (j.onCondition as BinaryExpr).operator == '=') {
+          if (j.onCondition is BinaryExpr &&
+              (j.onCondition as BinaryExpr).operator == '=') {
             final bin = j.onCondition as BinaryExpr;
-            if (bin.left is VariableExpr && (bin.left as VariableExpr).path.first.toLowerCase() == table) {
+            if (bin.left is VariableExpr &&
+                (bin.left as VariableExpr).path.first.toLowerCase() == table) {
               joinCol = (bin.left as VariableExpr).path.last.toLowerCase();
-            } else if (bin.right is VariableExpr && (bin.right as VariableExpr).path.first.toLowerCase() == table) {
+            } else if (bin.right is VariableExpr &&
+                (bin.right as VariableExpr).path.first.toLowerCase() == table) {
               joinCol = (bin.right as VariableExpr).path.last.toLowerCase();
             }
           }
           if (joinCol.isNotEmpty && stats.histograms.containsKey(joinCol)) {
             selectivity = stats.histograms[joinCol]!.calculateSelectivity(0.0);
-          } else if (joinCol.isNotEmpty && stats.columnStats.containsKey(joinCol)) {
+          } else if (joinCol.isNotEmpty &&
+              stats.columnStats.containsKey(joinCol)) {
             final dist = stats.columnStats[joinCol]!.distinctCount;
             if (dist > 0) selectivity = 1.0 / dist;
           }
           return stats.rowCount * selectivity;
         }
+
         return getCost(a).compareTo(getCost(b));
       });
     }
@@ -681,7 +806,11 @@ class QueryPlanner {
           columnNames: colNames,
           columnTypes: colTypes,
         );
-        joinScan = SubqueryScanNode(subPlan, alias: join.alias, selectColumns: colNames);
+        joinScan = SubqueryScanNode(
+          subPlan,
+          alias: join.alias,
+          selectColumns: colNames,
+        );
         joinTable = joinAlias;
       } else {
         joinTable = join.tableName.toLowerCase();
@@ -692,29 +821,49 @@ class QueryPlanner {
         joinSchema = loadedJoinSchema;
         if (joinSchema.isColumnar) {
           // Collect all column indexes needed for join table
-          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(stmt, join, joinSchema);
+          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(
+            stmt,
+            join,
+            joinSchema,
+          );
           final colTableFile = ColumnTableFile(
             cache: cache,
             tableName: joinSchema.name,
             dbDirectory: dbDirectory,
             schema: joinSchema,
           );
-          joinScan = ColumnScanNode(colTableFile, joinSchema, neededJoinColIndexes);
+          joinScan = ColumnScanNode(
+            colTableFile,
+            joinSchema,
+            neededJoinColIndexes,
+          );
         } else {
           final rowTableFile = RowTableFile(
             cache: cache,
             tableName: joinSchema.name,
             dbDirectory: dbDirectory,
           );
-          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(stmt, join, joinSchema);
-          joinScan = RowScanNode(rowTableFile, joinSchema, neededJoinColIndexes);
+          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(
+            stmt,
+            join,
+            joinSchema,
+          );
+          joinScan = RowScanNode(
+            rowTableFile,
+            joinSchema,
+            neededJoinColIndexes,
+          );
         }
       }
 
       if (joinSchema.policies.isNotEmpty) {
         Expression combinedJoinPolicy = joinSchema.policies.first.condition;
         for (int i = 1; i < joinSchema.policies.length; i++) {
-          combinedJoinPolicy = BinaryExpr('OR', combinedJoinPolicy, joinSchema.policies[i].condition);
+          combinedJoinPolicy = BinaryExpr(
+            'OR',
+            combinedJoinPolicy,
+            joinSchema.policies[i].condition,
+          );
         }
         joinScan = FilterNode(joinScan, combinedJoinPolicy);
       }
@@ -738,7 +887,8 @@ class QueryPlanner {
           if (rightTable == tName || (tAlias != null && rightTable == tAlias)) {
             leftJoinCol = leftVar.path.sublist(1).join('.');
             rightJoinCol = rightVar.path.sublist(1).join('.');
-          } else if (leftTable == tName || (tAlias != null && leftTable == tAlias)) {
+          } else if (leftTable == tName ||
+              (tAlias != null && leftTable == tAlias)) {
             leftJoinCol = rightVar.path.sublist(1).join('.');
             rightJoinCol = leftVar.path.sublist(1).join('.');
           }
@@ -757,43 +907,48 @@ class QueryPlanner {
           rightSchema: joinSchema,
         );
       } else {
+        final idx = catalog.getIndexForColumn(joinTable, rightJoinCol);
+        final indexName = idx?.name.toLowerCase();
+        final indexFile = indexName != null
+            ? '$dbDirectory/$indexName.idx'
+            : null;
+        final hasIndex = !joinSchema.isColumnar && indexFile != null;
 
-      final idx = catalog.getIndexForColumn(joinTable, rightJoinCol);
-      final indexName = idx?.name.toLowerCase();
-      final indexFile = indexName != null ? '$dbDirectory/$indexName.idx' : null;
-      final hasIndex = !joinSchema.isColumnar && indexFile != null;
-
-      if (hasIndex) {
-        final rightTableFile = RowTableFile(
-          cache: cache,
-          tableName: joinSchema.name,
-          dbDirectory: dbDirectory,
-        );
-        final rightIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: _getKeyColumnsCount(idx!));
-        currentPlan = IndexJoinNode(
-          left: currentPlan,
-          rightTable: rightTableFile,
-          rightIndex: rightIndex,
-          leftJoinCol: leftJoinCol,
-          rightSchema: joinSchema,
-          isLeftJoin: join.isLeftJoin,
-          isRightJoin: join.isRightJoin,
-          isFullJoin: join.isFullJoin,
-          leftColumns: List<String>.from(leftColumns),
-        );
-      } else {
-        currentPlan = HashJoinNode(
-          left: currentPlan,
-          right: joinScan,
-          leftJoinCol: leftJoinCol,
-          rightJoinCol: rightJoinCol,
-          isLeftJoin: join.isLeftJoin,
-          isRightJoin: join.isRightJoin,
-          isFullJoin: join.isFullJoin,
-          leftColumns: List<String>.from(leftColumns),
-          rightSchema: joinSchema,
-        );
-      }
+        if (hasIndex) {
+          final rightTableFile = RowTableFile(
+            cache: cache,
+            tableName: joinSchema.name,
+            dbDirectory: dbDirectory,
+          );
+          final rightIndex = BTreeIndex(
+            cache: cache,
+            indexPath: indexFile,
+            keyColumns: _getKeyColumnsCount(idx!),
+          );
+          currentPlan = IndexJoinNode(
+            left: currentPlan,
+            rightTable: rightTableFile,
+            rightIndex: rightIndex,
+            leftJoinCol: leftJoinCol,
+            rightSchema: joinSchema,
+            isLeftJoin: join.isLeftJoin,
+            isRightJoin: join.isRightJoin,
+            isFullJoin: join.isFullJoin,
+            leftColumns: List<String>.from(leftColumns),
+          );
+        } else {
+          currentPlan = HashJoinNode(
+            left: currentPlan,
+            right: joinScan,
+            leftJoinCol: leftJoinCol,
+            rightJoinCol: rightJoinCol,
+            isLeftJoin: join.isLeftJoin,
+            isRightJoin: join.isRightJoin,
+            isFullJoin: join.isFullJoin,
+            leftColumns: List<String>.from(leftColumns),
+            rightSchema: joinSchema,
+          );
+        }
       }
 
       for (final col in joinSchema.columnNames) {
@@ -813,7 +968,9 @@ class QueryPlanner {
       final targetTable = rel.toTable.toLowerCase();
       final targetSchema = catalog.getTableSchema(targetTable);
       if (targetSchema == null) {
-        throw Exception("Target table '$targetTable' of relationship '$relName' does not exist.");
+        throw Exception(
+          "Target table '$targetTable' of relationship '$relName' does not exist.",
+        );
       }
 
       RowTableFile? targetRowTable;
@@ -836,12 +993,18 @@ class QueryPlanner {
 
       final idx = catalog.getIndexForColumn(targetTable, rel.toKey);
       final indexName = idx?.name.toLowerCase();
-      final indexFile = indexName != null ? '$dbDirectory/$indexName.idx' : null;
+      final indexFile = indexName != null
+          ? '$dbDirectory/$indexName.idx'
+          : null;
       final hasIndex = !targetSchema.isColumnar && indexFile != null;
 
       BTreeIndex? targetIndex;
       if (hasIndex) {
-        targetIndex = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: _getKeyColumnsCount(idx!));
+        targetIndex = BTreeIndex(
+          cache: cache,
+          indexPath: indexFile,
+          keyColumns: _getKeyColumnsCount(idx!),
+        );
       }
 
       currentPlan = GraphJoinNode(
@@ -856,7 +1019,9 @@ class QueryPlanner {
     }
 
     // 2. Handle WHERE Clause
-    if (stmt.whereCondition != null && (!useIndexScan || needFilterNode) && !isParallelScan) {
+    if (stmt.whereCondition != null &&
+        (!useIndexScan || needFilterNode) &&
+        !isParallelScan) {
       currentPlan = FilterNode(currentPlan, stmt.whereCondition!);
     }
 
@@ -864,23 +1029,45 @@ class QueryPlanner {
     final windowExprs = _findWindowExpressions(projections);
     if (windowExprs.isNotEmpty) {
       if (stmt.groupBy != null && !isParallelScan) {
-        currentPlan = GroupByNode(currentPlan, stmt.groupBy!, projections, havingCondition: stmt.havingCondition);
+        currentPlan = GroupByNode(
+          currentPlan,
+          stmt.groupBy!,
+          projections,
+          havingCondition: stmt.havingCondition,
+        );
       } else if (_hasAggregate(projections) && !isParallelScan) {
-        currentPlan = GroupByNode(currentPlan, LiteralExpr(1), projections, havingCondition: stmt.havingCondition);
+        currentPlan = GroupByNode(
+          currentPlan,
+          LiteralExpr(1),
+          projections,
+          havingCondition: stmt.havingCondition,
+        );
       }
-      
+
       for (final windowExpr in windowExprs) {
         currentPlan = WindowNode(currentPlan, windowExpr);
       }
-      
-      if (stmt.groupBy == null && !_hasAggregate(projections) && !isParallelScan) {
+
+      if (stmt.groupBy == null &&
+          !_hasAggregate(projections) &&
+          !isParallelScan) {
         currentPlan = ProjectNode(currentPlan, projections);
       }
     } else {
       if (stmt.groupBy != null && !isParallelScan) {
-        currentPlan = GroupByNode(currentPlan, stmt.groupBy!, projections, havingCondition: stmt.havingCondition);
+        currentPlan = GroupByNode(
+          currentPlan,
+          stmt.groupBy!,
+          projections,
+          havingCondition: stmt.havingCondition,
+        );
       } else if (_hasAggregate(projections) && !isParallelScan) {
-        currentPlan = GroupByNode(currentPlan, LiteralExpr(1), projections, havingCondition: stmt.havingCondition);
+        currentPlan = GroupByNode(
+          currentPlan,
+          LiteralExpr(1),
+          projections,
+          havingCondition: stmt.havingCondition,
+        );
       } else if (!isParallelScan) {
         // 4. Handle Projection (if not grouped)
         currentPlan = ProjectNode(currentPlan, projections);
@@ -898,7 +1085,11 @@ class QueryPlanner {
 
     // 3. Handle ORDER BY Clause
     if (stmt.orderBy != null) {
-      currentPlan = SortNode(currentPlan, stmt.orderBy!.expr, stmt.orderBy!.ascending);
+      currentPlan = SortNode(
+        currentPlan,
+        stmt.orderBy!.expr,
+        stmt.orderBy!.ascending,
+      );
     }
 
     // 5. Handle LIMIT Clause
@@ -909,7 +1100,11 @@ class QueryPlanner {
     return currentPlan;
   }
 
-  List<int> _getReferencedColumnIndexes(SelectStmt stmt, TableSchema schema, [bool useIndexScan = false]) {
+  List<int> _getReferencedColumnIndexes(
+    SelectStmt stmt,
+    TableSchema schema, [
+    bool useIndexScan = false,
+  ]) {
     // If selecting *, we need all columns
     if (stmt.projections.length == 1 &&
         stmt.projections[0].expr is VariableExpr &&
@@ -918,7 +1113,7 @@ class QueryPlanner {
     }
 
     final referencedNames = <String>{};
-    
+
     // Projections
     for (final proj in stmt.projections) {
       _collectVariables(proj.expr, referencedNames);
@@ -942,7 +1137,8 @@ class QueryPlanner {
     // Relationship key
     if (stmt.withRelationship != null) {
       final rel = catalog.getRelationship(stmt.withRelationship!.toLowerCase());
-      if (rel != null && rel.fromTable.toLowerCase() == schema.name.toLowerCase()) {
+      if (rel != null &&
+          rel.fromTable.toLowerCase() == schema.name.toLowerCase()) {
         referencedNames.add(rel.fromKey);
       }
     }
@@ -953,7 +1149,8 @@ class QueryPlanner {
       // Match column with or without table prefix
       for (int i = 0; i < schema.columnNames.length; i++) {
         final colName = schema.columnNames[i].toLowerCase();
-        if (nameLower == colName || nameLower == '${schema.name.toLowerCase()}.$colName') {
+        if (nameLower == colName ||
+            nameLower == '${schema.name.toLowerCase()}.$colName') {
           indexes.add(i);
         } else if (nameLower.startsWith('$colName.')) {
           // JSON path nested extraction
@@ -974,7 +1171,11 @@ class QueryPlanner {
     return sorted;
   }
 
-  List<int> _getReferencedColumnIndexesForJoin(SelectStmt stmt, Join join, TableSchema joinSchema) {
+  List<int> _getReferencedColumnIndexesForJoin(
+    SelectStmt stmt,
+    Join join,
+    TableSchema joinSchema,
+  ) {
     final referencedNames = <String>{};
     _collectVariables(join.onCondition, referencedNames);
     for (final proj in stmt.projections) {
@@ -989,7 +1190,8 @@ class QueryPlanner {
       final nameLower = name.toLowerCase();
       for (int i = 0; i < joinSchema.columnNames.length; i++) {
         final colName = joinSchema.columnNames[i].toLowerCase();
-        if (nameLower == colName || nameLower == '${joinSchema.name.toLowerCase()}.$colName') {
+        if (nameLower == colName ||
+            nameLower == '${joinSchema.name.toLowerCase()}.$colName') {
           indexes.add(i);
         }
       }
@@ -1038,7 +1240,11 @@ class QueryPlanner {
   bool _hasAggregateExpr(Expression expr) {
     if (expr is FunctionCallExpr) {
       final name = expr.name.toLowerCase();
-      if (name == 'count' || name == 'sum' || name == 'avg' || name == 'min' || name == 'max') {
+      if (name == 'count' ||
+          name == 'sum' ||
+          name == 'avg' ||
+          name == 'min' ||
+          name == 'max') {
         return true;
       }
     }
@@ -1057,7 +1263,9 @@ class QueryPlanner {
       if (op == 'AND') {
         final leftRange = _tryExtractSimpleRange(cond.left, tableName);
         final rightRange = _tryExtractSimpleRange(cond.right, tableName);
-        if (leftRange != null && rightRange != null && leftRange.colName == rightRange.colName) {
+        if (leftRange != null &&
+            rightRange != null &&
+            leftRange.colName == rightRange.colName) {
           return RangeCondition(
             colName: leftRange.colName,
             low: leftRange.low ?? rightRange.low,
@@ -1098,11 +1306,24 @@ class QueryPlanner {
         final val = _resolveValue(right);
         if (val is num) {
           final valD = val.toDouble();
-          if (op == '=') return RangeCondition(colName: colName, low: valD, high: valD);
-          if (op == '>=') return RangeCondition(colName: colName, low: valD, high: null);
-          if (op == '>') return RangeCondition(colName: colName, low: valD + 0.000001, high: null);
-          if (op == '<=') return RangeCondition(colName: colName, low: null, high: valD);
-          if (op == '<') return RangeCondition(colName: colName, low: null, high: valD - 0.000001);
+          if (op == '=')
+            return RangeCondition(colName: colName, low: valD, high: valD);
+          if (op == '>=')
+            return RangeCondition(colName: colName, low: valD, high: null);
+          if (op == '>')
+            return RangeCondition(
+              colName: colName,
+              low: valD + 0.000001,
+              high: null,
+            );
+          if (op == '<=')
+            return RangeCondition(colName: colName, low: null, high: valD);
+          if (op == '<')
+            return RangeCondition(
+              colName: colName,
+              low: null,
+              high: valD - 0.000001,
+            );
         }
       } else if (left is LiteralExpr || left is PlaceholderExpr) {
         final rightSql = exprToSqlString(right);
@@ -1110,11 +1331,24 @@ class QueryPlanner {
         final val = _resolveValue(left);
         if (val is num) {
           final valD = val.toDouble();
-          if (op == '=') return RangeCondition(colName: colName, low: valD, high: valD);
-          if (op == '<=') return RangeCondition(colName: colName, low: valD, high: null);
-          if (op == '<') return RangeCondition(colName: colName, low: valD + 0.000001, high: null);
-          if (op == '>=') return RangeCondition(colName: colName, low: null, high: valD);
-          if (op == '>') return RangeCondition(colName: colName, low: null, high: valD - 0.000001);
+          if (op == '=')
+            return RangeCondition(colName: colName, low: valD, high: valD);
+          if (op == '<=')
+            return RangeCondition(colName: colName, low: valD, high: null);
+          if (op == '<')
+            return RangeCondition(
+              colName: colName,
+              low: valD + 0.000001,
+              high: null,
+            );
+          if (op == '>=')
+            return RangeCondition(colName: colName, low: null, high: valD);
+          if (op == '>')
+            return RangeCondition(
+              colName: colName,
+              low: null,
+              high: valD - 0.000001,
+            );
         }
       }
     }
@@ -1122,9 +1356,7 @@ class QueryPlanner {
   }
 
   SelectStmt _rewriteSelectStmt(SelectStmt stmt) {
-    final mainTable = stmt.tableName.toLowerCase();
     final mainAlias = stmt.tableAlias?.toLowerCase();
-    final joinTable = stmt.join?.tableName.toLowerCase();
     final joinAlias = stmt.join?.alias?.toLowerCase();
 
     if (mainAlias == null && joinAlias == null) {
@@ -1139,17 +1371,16 @@ class QueryPlanner {
             return VariableExpr([stmt.tableName, ...expr.path.sublist(1)]);
           }
           if (joinAlias != null && first == joinAlias) {
-            return VariableExpr([stmt.join!.tableName, ...expr.path.sublist(1)]);
+            return VariableExpr([
+              stmt.join!.tableName,
+              ...expr.path.sublist(1),
+            ]);
           }
         }
         return expr;
       }
       if (expr is JsonExtractExpr) {
-        return JsonExtractExpr(
-          rewriteExpr(expr.expr),
-          expr.path,
-          expr.asText,
-        );
+        return JsonExtractExpr(rewriteExpr(expr.expr), expr.path, expr.asText);
       }
       if (expr is BinaryExpr) {
         return BinaryExpr(
@@ -1169,22 +1400,35 @@ class QueryPlanner {
           functionName: expr.functionName,
           partitionBy: expr.partitionBy.map(rewriteExpr).toList(),
           orderBy: expr.orderBy != null
-              ? OrderBy(rewriteExpr(expr.orderBy!.expr), expr.orderBy!.ascending)
+              ? OrderBy(
+                  rewriteExpr(expr.orderBy!.expr),
+                  expr.orderBy!.ascending,
+                )
               : null,
         );
       }
       return expr;
     }
 
-    final newProjections = stmt.projections.map((p) => Projection(rewriteExpr(p.expr), p.alias)).toList();
-    final newJoin = stmt.join != null 
-        ? Join(stmt.join!.tableName, rewriteExpr(stmt.join!.onCondition), alias: stmt.join!.alias) 
+    final newProjections = stmt.projections
+        .map((p) => Projection(rewriteExpr(p.expr), p.alias))
+        .toList();
+    final newJoin = stmt.join != null
+        ? Join(
+            stmt.join!.tableName,
+            rewriteExpr(stmt.join!.onCondition),
+            alias: stmt.join!.alias,
+          )
         : null;
-    final newWhere = stmt.whereCondition != null ? rewriteExpr(stmt.whereCondition!) : null;
+    final newWhere = stmt.whereCondition != null
+        ? rewriteExpr(stmt.whereCondition!)
+        : null;
     final newGroupBy = stmt.groupBy != null ? rewriteExpr(stmt.groupBy!) : null;
-    final newHaving = stmt.havingCondition != null ? rewriteExpr(stmt.havingCondition!) : null;
-    final newOrderBy = stmt.orderBy != null 
-        ? OrderBy(rewriteExpr(stmt.orderBy!.expr), stmt.orderBy!.ascending) 
+    final newHaving = stmt.havingCondition != null
+        ? rewriteExpr(stmt.havingCondition!)
+        : null;
+    final newOrderBy = stmt.orderBy != null
+        ? OrderBy(rewriteExpr(stmt.orderBy!.expr), stmt.orderBy!.ascending)
         : null;
 
     return SelectStmt(
@@ -1213,12 +1457,19 @@ class QueryPlanner {
     int bestMatchCount = -1;
 
     for (final idx in indexes) {
-      final bool isSimple = idx.columnName.split(',').every((col) => schema.columnNamesLower.contains(col.trim().toLowerCase()));
-      final List<String> idxCols = isSimple 
-          ? idx.columnName.split(',').map((c) => c.trim().toLowerCase()).toList()
+      final bool isSimple = idx.columnName
+          .split(',')
+          .every(
+            (col) => schema.columnNamesLower.contains(col.trim().toLowerCase()),
+          );
+      final List<String> idxCols = isSimple
+          ? idx.columnName
+                .split(',')
+                .map((c) => c.trim().toLowerCase())
+                .toList()
           : [idx.columnName.toLowerCase()];
       if (idxCols.isEmpty) continue;
-      
+
       final keys = _extractCompositeKeys(condition, tableName, idxCols);
       if (keys != null) {
         final matchCount = keys[0].length;
@@ -1236,10 +1487,14 @@ class QueryPlanner {
     return null;
   }
 
-  List<List<double>>? _extractCompositeKeys(Expression cond, String tableName, List<String> indexCols) {
+  List<List<double>>? _extractCompositeKeys(
+    Expression cond,
+    String tableName,
+    List<String> indexCols,
+  ) {
     final lowKeys = <double>[];
     final highKeys = <double>[];
-    
+
     for (int i = 0; i < indexCols.length; i++) {
       final colName = indexCols[i].trim().toLowerCase();
       final eqVal = _findEqualityValue(cond, tableName, colName);
@@ -1259,11 +1514,15 @@ class QueryPlanner {
         break;
       }
     }
-    
+
     return [lowKeys, highKeys];
   }
 
-  double? _findEqualityValue(Expression cond, String tableName, String colName) {
+  double? _findEqualityValue(
+    Expression cond,
+    String tableName,
+    String colName,
+  ) {
     if (cond is BinaryExpr) {
       final op = cond.operator.toUpperCase();
       if (op == 'AND') {
@@ -1307,7 +1566,9 @@ class QueryPlanner {
     return null;
   }
 
-  List<WindowFunctionExpr> _findWindowExpressions(List<Projection> projections) {
+  List<WindowFunctionExpr> _findWindowExpressions(
+    List<Projection> projections,
+  ) {
     final list = <WindowFunctionExpr>[];
     for (final proj in projections) {
       _collectWindowExpressions(proj.expr, list);
@@ -1315,7 +1576,10 @@ class QueryPlanner {
     return list;
   }
 
-  void _collectWindowExpressions(Expression expr, List<WindowFunctionExpr> list) {
+  void _collectWindowExpressions(
+    Expression expr,
+    List<WindowFunctionExpr> list,
+  ) {
     if (expr is WindowFunctionExpr) {
       list.add(expr);
     } else if (expr is BinaryExpr) {
@@ -1332,42 +1596,44 @@ class QueryPlanner {
     final lowerTableName = stmt.tableName.toLowerCase();
     SelectStmt? fromSubquery = stmt.fromSubquery;
     String tableName = stmt.tableName;
-    
+
     if (ctes.containsKey(lowerTableName)) {
       fromSubquery = ctes[lowerTableName];
       tableName = stmt.tableAlias ?? stmt.tableName;
     }
-    
+
     if (fromSubquery != null) {
       fromSubquery = _substituteCtes(fromSubquery, ctes);
     }
-    
+
     final newJoins = <Join>[];
     for (final join in stmt.joins) {
       final lowerJoinTable = join.tableName.toLowerCase();
       SelectStmt? joinSubquery = join.fromSubquery;
       String joinTable = join.tableName;
-      
+
       if (ctes.containsKey(lowerJoinTable)) {
         joinSubquery = ctes[lowerJoinTable];
         joinTable = join.alias ?? join.tableName;
       }
-      
+
       if (joinSubquery != null) {
         joinSubquery = _substituteCtes(joinSubquery, ctes);
       }
-      
-      newJoins.add(Join(
-        joinTable,
-        join.onCondition,
-        fromSubquery: joinSubquery,
-        alias: join.alias,
-        isLeftJoin: join.isLeftJoin,
-        isRightJoin: join.isRightJoin,
-        isFullJoin: join.isFullJoin,
-      ));
+
+      newJoins.add(
+        Join(
+          joinTable,
+          join.onCondition,
+          fromSubquery: joinSubquery,
+          alias: join.alias,
+          isLeftJoin: join.isLeftJoin,
+          isRightJoin: join.isRightJoin,
+          isFullJoin: join.isFullJoin,
+        ),
+      );
     }
-    
+
     return SelectStmt(
       projections: stmt.projections,
       tableName: tableName,
@@ -1386,7 +1652,12 @@ class QueryPlanner {
     );
   }
 
-  PlanNode _planWithRecursiveCte(CteSelectStmt stmt, SelectStmt anchorStmt, SelectStmt recursiveStmt, String cteName) {
+  PlanNode _planWithRecursiveCte(
+    CteSelectStmt stmt,
+    SelectStmt anchorStmt,
+    SelectStmt recursiveStmt,
+    String cteName,
+  ) {
     final anchorPlan = planSelect(anchorStmt);
     final recursiveNode = RecursiveCteNode(anchorPlan, (workingChild) {
       return _planRecursiveQuery(recursiveStmt, cteName, workingChild);
@@ -1402,10 +1673,18 @@ class QueryPlanner {
       currentPlan = ProjectNode(currentPlan, mainSelect.projections);
     }
     if (mainSelect.orderBy != null) {
-      currentPlan = SortNode(currentPlan, mainSelect.orderBy!.expr, mainSelect.orderBy!.ascending);
+      currentPlan = SortNode(
+        currentPlan,
+        mainSelect.orderBy!.expr,
+        mainSelect.orderBy!.ascending,
+      );
     }
     if (mainSelect.limit != null || mainSelect.offset != null) {
-      currentPlan = LimitNode(currentPlan, mainSelect.limit ?? -1, mainSelect.offset ?? 0);
+      currentPlan = LimitNode(
+        currentPlan,
+        mainSelect.limit ?? -1,
+        mainSelect.offset ?? 0,
+      );
     }
     return currentPlan;
   }
@@ -1433,7 +1712,11 @@ MatchExpr? _findMatchExpr(Expression expr) {
   return null;
 }
 
-PlanNode _planRecursiveQuery(SelectStmt stmt, String cteName, PlanNode workingChild) {
+PlanNode _planRecursiveQuery(
+  SelectStmt stmt,
+  String cteName,
+  PlanNode workingChild,
+) {
   PlanNode current = workingChild;
   if (stmt.whereCondition != null) {
     current = FilterNode(current, stmt.whereCondition!);
@@ -1442,21 +1725,4 @@ PlanNode _planRecursiveQuery(SelectStmt stmt, String cteName, PlanNode workingCh
     current = ProjectNode(current, stmt.projections);
   }
   return current;
-}
-
-PlanNode _replaceScanWithNode(PlanNode plan, String tableName, PlanNode replacement) {
-  final nameLower = tableName.toLowerCase();
-  if (plan is SubqueryScanNode) {
-    return replacement;
-  }
-  if (plan is RowScanNode && plan.schema.name.toLowerCase() == nameLower) {
-    return replacement;
-  }
-  if (plan is ProjectNode) {
-    return ProjectNode(_replaceScanWithNode(plan.child, tableName, replacement), plan.projections);
-  }
-  if (plan is FilterNode) {
-    return FilterNode(_replaceScanWithNode(plan.child, tableName, replacement), plan.condition);
-  }
-  return plan;
 }

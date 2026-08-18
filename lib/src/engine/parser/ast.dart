@@ -8,7 +8,7 @@ enum DataType {
   uuid,
   datetime,
   blob,
-  decimal
+  decimal,
 }
 
 abstract class ASTNode {}
@@ -29,9 +29,10 @@ class PlaceholderExpr extends Expression {
 }
 
 class VariableExpr extends Expression {
-  final List<String> path; // e.g. ["users", "info", "age"] representing users.info.age
+  final List<String>
+  path; // e.g. ["users", "info", "age"] representing users.info.age
   VariableExpr(this.path);
-  
+
   String get fullName => path.join('.');
 }
 
@@ -140,7 +141,9 @@ class Join {
   final bool isLeftJoin;
   final bool isRightJoin;
   final bool isFullJoin;
-  Join(this.tableName, this.onCondition, {
+  Join(
+    this.tableName,
+    this.onCondition, {
     this.fromSubquery,
     this.alias,
     this.isLeftJoin = false,
@@ -184,7 +187,13 @@ class CreateTableStmt extends Stmt {
   final PartitionByClause? partitionBy;
   final PartitionOfClause? partitionOf;
   final bool ifNotExists;
-  CreateTableStmt(this.tableName, this.columns, {this.partitionBy, this.partitionOf, this.ifNotExists = false});
+  CreateTableStmt(
+    this.tableName,
+    this.columns, {
+    this.partitionBy,
+    this.partitionOf,
+    this.ifNotExists = false,
+  });
 }
 
 class CreateForeignTableStmt extends Stmt {
@@ -192,7 +201,12 @@ class CreateForeignTableStmt extends Stmt {
   final List<ColumnDef> columns;
   final String serverName;
   final Map<String, String> options;
-  CreateForeignTableStmt(this.tableName, this.columns, this.serverName, this.options);
+  CreateForeignTableStmt(
+    this.tableName,
+    this.columns,
+    this.serverName,
+    this.options,
+  );
 }
 
 class MatchExpr extends Expression {
@@ -201,52 +215,53 @@ class MatchExpr extends Expression {
   MatchExpr(this.columnName, this.searchQuery);
 }
 
-enum AlterAction {
-  add,
-  drop,
-  renameColumn,
-  alterColumnType
-}
+enum AlterAction { add, drop, renameColumn, alterColumnType }
 
 class AlterTableStmt extends Stmt {
   final String tableName;
   final AlterAction action;
   final ColumnDef? columnToAdd; // For ADD
-  final String? columnToDrop;  // For DROP
+  final String? columnToDrop; // For DROP
   final String? oldColumnName; // For RENAME COLUMN
   final String? newColumnName; // For RENAME COLUMN
   final String? targetColumnName; // For ALTER COLUMN TYPE
   final DataType? newDataType; // For ALTER COLUMN TYPE
 
   AlterTableStmt.add(this.tableName, this.columnToAdd)
-      : action = AlterAction.add,
-        columnToDrop = null,
-        oldColumnName = null,
-        newColumnName = null,
-        targetColumnName = null,
-        newDataType = null;
+    : action = AlterAction.add,
+      columnToDrop = null,
+      oldColumnName = null,
+      newColumnName = null,
+      targetColumnName = null,
+      newDataType = null;
 
   AlterTableStmt.drop(this.tableName, this.columnToDrop)
-      : action = AlterAction.drop,
-        columnToAdd = null,
-        oldColumnName = null,
-        newColumnName = null,
-        targetColumnName = null,
-        newDataType = null;
+    : action = AlterAction.drop,
+      columnToAdd = null,
+      oldColumnName = null,
+      newColumnName = null,
+      targetColumnName = null,
+      newDataType = null;
 
-  AlterTableStmt.renameColumn(this.tableName, this.oldColumnName, this.newColumnName)
-      : action = AlterAction.renameColumn,
-        columnToAdd = null,
-        columnToDrop = null,
-        targetColumnName = null,
-        newDataType = null;
+  AlterTableStmt.renameColumn(
+    this.tableName,
+    this.oldColumnName,
+    this.newColumnName,
+  ) : action = AlterAction.renameColumn,
+      columnToAdd = null,
+      columnToDrop = null,
+      targetColumnName = null,
+      newDataType = null;
 
-  AlterTableStmt.alterColumnType(this.tableName, this.targetColumnName, this.newDataType)
-      : action = AlterAction.alterColumnType,
-        columnToAdd = null,
-        columnToDrop = null,
-        oldColumnName = null,
-        newColumnName = null;
+  AlterTableStmt.alterColumnType(
+    this.tableName,
+    this.targetColumnName,
+    this.newDataType,
+  ) : action = AlterAction.alterColumnType,
+      columnToAdd = null,
+      columnToDrop = null,
+      oldColumnName = null,
+      newColumnName = null;
 }
 
 class InsertStmt extends Stmt {
@@ -282,7 +297,12 @@ class UpdateStmt extends Stmt {
   final String columnName;
   final Expression valueExpr;
   final Expression? whereCondition;
-  UpdateStmt(this.tableName, this.columnName, this.valueExpr, this.whereCondition);
+  UpdateStmt(
+    this.tableName,
+    this.columnName,
+    this.valueExpr,
+    this.whereCondition,
+  );
 }
 
 class SelectStmt extends Stmt {
@@ -393,7 +413,12 @@ class PlSqlBlock extends Stmt {
   final List<CursorDeclare> cursors;
   final List<Stmt> body;
   final List<ExceptionHandler>? exceptionHandlers;
-  PlSqlBlock(this.declarations, this.body, {this.cursors = const [], this.exceptionHandlers});
+  PlSqlBlock(
+    this.declarations,
+    this.body, {
+    this.cursors = const [],
+    this.exceptionHandlers,
+  });
 }
 
 class AssignStmt extends Stmt {
@@ -429,7 +454,9 @@ class DbmsOutputStmt extends Stmt {
 
 // Transaction Statements
 class BeginTxStmt extends Stmt {}
+
 class CommitTxStmt extends Stmt {}
+
 class RollbackTxStmt extends Stmt {}
 
 // DCL Statements
@@ -491,7 +518,13 @@ class CreateIndexStmt extends Stmt {
   final String? usingMethod;
   final bool ifNotExists;
 
-  CreateIndexStmt(this.name, this.tableName, this.columnName, {this.usingMethod, this.ifNotExists = false});
+  CreateIndexStmt(
+    this.name,
+    this.tableName,
+    this.columnName, {
+    this.usingMethod,
+    this.ifNotExists = false,
+  });
 }
 
 class GenerateStmt extends Stmt {}
@@ -540,7 +573,13 @@ class CreateFunctionStmt extends Stmt {
   final DataType returnType;
   final List<Stmt> body;
   final String sql;
-  CreateFunctionStmt(this.name, this.params, this.returnType, this.body, this.sql);
+  CreateFunctionStmt(
+    this.name,
+    this.params,
+    this.returnType,
+    this.body,
+    this.sql,
+  );
 }
 
 class CallStmt extends Stmt {
@@ -677,7 +716,11 @@ class CreateMacroStmt extends Stmt {
   final String name;
   final List<String> params;
   final Expression bodyExpr;
-  CreateMacroStmt({required this.name, required this.params, required this.bodyExpr});
+  CreateMacroStmt({
+    required this.name,
+    required this.params,
+    required this.bodyExpr,
+  });
 }
 
 class CreateStreamStmt extends Stmt {
@@ -693,7 +736,7 @@ class EmitStreamStmt extends Stmt {
 
 String exprToSqlString(Expression expr) {
   if (expr._cachedSqlString != null) return expr._cachedSqlString!;
-  
+
   String res;
   if (expr is PlaceholderExpr) {
     res = expr.placeholder;
@@ -702,7 +745,8 @@ String exprToSqlString(Expression expr) {
   } else if (expr is VariableExpr) {
     res = expr.fullName;
   } else if (expr is BinaryExpr) {
-    res = '${exprToSqlString(expr.left)} ${expr.operator} ${exprToSqlString(expr.right)}';
+    res =
+        '${exprToSqlString(expr.left)} ${expr.operator} ${exprToSqlString(expr.right)}';
   } else if (expr is FunctionCallExpr) {
     final args = expr.arguments.map(exprToSqlString).join(', ');
     res = '${expr.name.toLowerCase()}($args)';
@@ -713,7 +757,10 @@ String exprToSqlString(Expression expr) {
     final order = expr.orderBy != null
         ? 'ORDER BY ${exprToSqlString(expr.orderBy!.expr)} ${expr.orderBy!.ascending ? 'ASC' : 'DESC'}'
         : '';
-    final overInner = [if (partition.isNotEmpty) partition, if (order.isNotEmpty) order].join(' ');
+    final overInner = [
+      if (partition.isNotEmpty) partition,
+      if (order.isNotEmpty) order,
+    ].join(' ');
     res = '${expr.functionName.toUpperCase()}() OVER ($overInner)';
   } else if (expr is VectorLiteralExpr) {
     res = '[${expr.elements.join(', ')}]';
@@ -727,15 +774,17 @@ String exprToSqlString(Expression expr) {
   } else if (expr is CubeExpr) {
     res = 'CUBE(${expr.expressions.map(exprToSqlString).join(', ')})';
   } else if (expr is GroupingSetsExpr) {
-    final setsStrings = expr.sets.map((s) => '(${s.map(exprToSqlString).join(', ')})').join(', ');
+    final setsStrings = expr.sets
+        .map((s) => '(${s.map(exprToSqlString).join(', ')})')
+        .join(', ');
     res = 'GROUPING SETS($setsStrings)';
   } else if (expr is CastExpr) {
-    res = 'CAST(${exprToSqlString(expr.expr)} AS ${expr.targetType.name.toUpperCase()})';
+    res =
+        'CAST(${exprToSqlString(expr.expr)} AS ${expr.targetType.name.toUpperCase()})';
   } else {
     res = expr.toString();
   }
-  
+
   expr._cachedSqlString = res;
   return res;
 }
-

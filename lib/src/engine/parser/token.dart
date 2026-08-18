@@ -49,7 +49,6 @@ enum TokenType {
   defaultKeyword,
   checkpointKeyword,
 
-
   // Keywords - PL/SQL
   declare,
   begin,
@@ -97,7 +96,6 @@ enum TokenType {
   arrow, // ->
   arrowText, // ->>
   doubleColon, // ::
-
   // Punctuation
   lParen,
   rParen,
@@ -181,7 +179,7 @@ enum TokenType {
   tilde,
   macroKeyword,
   streamKeyword,
-  emitKeyword
+  emitKeyword,
 }
 
 class Token {

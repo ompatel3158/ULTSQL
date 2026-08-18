@@ -21,20 +21,25 @@ class WalReplicationRecord {
   });
 
   Map<String, dynamic> toJson() => {
-        'type': type,
-        'filePath': filePath,
-        'pageId': pageId,
-        'beforeData': beforeData != null ? base64.encode(beforeData!) : null,
-        'afterData': afterData != null ? base64.encode(afterData!) : null,
-        'catalogJson': catalogJson,
-      };
+    'type': type,
+    'filePath': filePath,
+    'pageId': pageId,
+    'beforeData': beforeData != null ? base64.encode(beforeData!) : null,
+    'afterData': afterData != null ? base64.encode(afterData!) : null,
+    'catalogJson': catalogJson,
+  };
 
-  factory WalReplicationRecord.fromJson(Map<String, dynamic> json) => WalReplicationRecord(
+  factory WalReplicationRecord.fromJson(Map<String, dynamic> json) =>
+      WalReplicationRecord(
         type: json['type'],
         filePath: json['filePath'] ?? '',
         pageId: json['pageId'] ?? 0,
-        beforeData: json['beforeData'] != null ? base64.decode(json['beforeData']) : null,
-        afterData: json['afterData'] != null ? base64.decode(json['afterData']) : null,
+        beforeData: json['beforeData'] != null
+            ? base64.decode(json['beforeData'])
+            : null,
+        afterData: json['afterData'] != null
+            ? base64.decode(json['afterData'])
+            : null,
         catalogJson: json['catalogJson'],
       );
 }

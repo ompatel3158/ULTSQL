@@ -6,12 +6,22 @@ import '../executor/value.dart';
 import 'catalog.dart';
 import 'btree_index.dart';
 import 'toast_manager.dart';
+
 final Uint8List _sharedTempBuffer = Uint8List(65536);
 final ByteData _sharedTempByteData = ByteData.sublistView(_sharedTempBuffer);
 
 class RecordSerializer {
-  static int serializeMvccRowDirect(Uint8List dest, List<DbValue> values, int xmin, int xmax, int rollPtr, [ToastManager? toastManager]) {
-    final bd = identical(dest, _sharedTempBuffer) ? _sharedTempByteData : ByteData.sublistView(dest);
+  static int serializeMvccRowDirect(
+    Uint8List dest,
+    List<DbValue> values,
+    int xmin,
+    int xmax,
+    int rollPtr, [
+    ToastManager? toastManager,
+  ]) {
+    final bd = identical(dest, _sharedTempBuffer)
+        ? _sharedTempByteData
+        : ByteData.sublistView(dest);
     // Write MVCC header
     bd.setUint32(0, xmin);
     bd.setUint32(4, xmax);
@@ -55,7 +65,11 @@ class RecordSerializer {
         final str = val.value;
         final strLen = str.length;
         if (strLen <= 1024) {
-          dest.setRange(currentOffset + 1, currentOffset + 1 + strLen, str.codeUnits);
+          dest.setRange(
+            currentOffset + 1,
+            currentOffset + 1 + strLen,
+            str.codeUnits,
+          );
           currentOffset += 1 + strLen;
         } else {
           final bytes = utf8.encoder.convert(str);
@@ -66,7 +80,11 @@ class RecordSerializer {
             bd.setUint32(currentOffset + 5, bytes.length);
             currentOffset += 9;
           } else {
-            dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
+            dest.setRange(
+              currentOffset + 1,
+              currentOffset + 1 + bytes.length,
+              bytes,
+            );
             currentOffset += 1 + bytes.length;
           }
         }
@@ -97,7 +115,11 @@ class RecordSerializer {
             bd.setUint32(currentOffset + 5, bytes.length);
             currentOffset += 9;
           } else {
-            dest.setRange(currentOffset + 1, currentOffset + 1 + strLen, jsonStr.codeUnits);
+            dest.setRange(
+              currentOffset + 1,
+              currentOffset + 1 + strLen,
+              jsonStr.codeUnits,
+            );
             currentOffset += 1 + strLen;
           }
         } else {
@@ -109,7 +131,11 @@ class RecordSerializer {
             bd.setUint32(currentOffset + 5, bytes.length);
             currentOffset += 9;
           } else {
-            dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
+            dest.setRange(
+              currentOffset + 1,
+              currentOffset + 1 + bytes.length,
+              bytes,
+            );
             currentOffset += 1 + bytes.length;
           }
         }
@@ -120,7 +146,11 @@ class RecordSerializer {
       } else if (val is DbUuid) {
         dest[currentOffset] = 9;
         final bytes = utf8.encode(val.value);
-        dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
+        dest.setRange(
+          currentOffset + 1,
+          currentOffset + 1 + bytes.length,
+          bytes,
+        );
         currentOffset += 1 + bytes.length;
       } else if (val is DbDateTime) {
         dest[currentOffset] = 10;
@@ -128,7 +158,11 @@ class RecordSerializer {
         currentOffset += 9;
       } else if (val is DbBlob) {
         dest[currentOffset] = 11;
-        dest.setRange(currentOffset + 1, currentOffset + 1 + val.value.length, val.value);
+        dest.setRange(
+          currentOffset + 1,
+          currentOffset + 1 + val.value.length,
+          val.value,
+        );
         currentOffset += 1 + val.value.length;
       } else if (val is DbDecimal) {
         dest[currentOffset] = 12;
@@ -148,7 +182,10 @@ class RecordSerializer {
     final headerSize = 2 + count * 2;
 
     final valueBytesList = values.map((v) => v.toBytes()).toList();
-    final valuesSize = valueBytesList.fold<int>(0, (sum, bytes) => sum + bytes.length);
+    final valuesSize = valueBytesList.fold<int>(
+      0,
+      (sum, bytes) => sum + bytes.length,
+    );
 
     final buffer = Uint8List(headerSize + valuesSize);
     final data = ByteData.sublistView(buffer);
@@ -163,7 +200,11 @@ class RecordSerializer {
     return buffer;
   }
 
-  static List<DbValue> deserializeRow(Uint8List recordBytes, [int? expectedColumnCount, ToastManager? toastManager]) {
+  static List<DbValue> deserializeRow(
+    Uint8List recordBytes, [
+    int? expectedColumnCount,
+    ToastManager? toastManager,
+  ]) {
     final data = ByteData.sublistView(recordBytes);
     final count = data.getUint16(0);
     final list = <DbValue>[];
@@ -222,7 +263,12 @@ class RecordSerializer {
     return DbValue.fromBytes(data, startOffset, len);
   }
 
-  static DbValue deserializeCellFromView(ByteData data, int startOffsetInBytes, int recordLengthInBytes, int colIndex) {
+  static DbValue deserializeCellFromView(
+    ByteData data,
+    int startOffsetInBytes,
+    int recordLengthInBytes,
+    int colIndex,
+  ) {
     final count = data.getUint16(startOffsetInBytes);
     if (colIndex >= count) return DbNull();
 
@@ -242,7 +288,7 @@ class SlottedPageHelper {
   // Offset 1: rowCount (2 bytes)
   // Offset 3: freeSpaceOffset (2 bytes, starts at 4096)
   // Slot array starts at 5: list of 4-byte slots (2 bytes offset, 2 bytes length)
-  
+
   static const int headerSize = 5;
 
   static void initPage(Page page) {
@@ -306,7 +352,12 @@ class SlottedPageHelper {
     }
 
     final newFreeSpaceOffset = freeSpaceOffset - recordLen;
-    page.data.setRange(newFreeSpaceOffset, newFreeSpaceOffset + recordLen, src, 0);
+    page.data.setRange(
+      newFreeSpaceOffset,
+      newFreeSpaceOffset + recordLen,
+      src,
+      0,
+    );
 
     // Write slot info
     data.setUint16(currentSlotEnd, newFreeSpaceOffset);
@@ -332,7 +383,11 @@ class SlottedPageHelper {
     final len = data.getUint16(slotOffset + 2);
 
     if (len == 0 || offset >= page.data.length) return null;
-    return Uint8List.view(page.data.buffer, page.data.offsetInBytes + offset, len);
+    return Uint8List.view(
+      page.data.buffer,
+      page.data.offsetInBytes + offset,
+      len,
+    );
   }
 }
 
@@ -347,7 +402,11 @@ class RowTableFile {
     required this.tableName,
     required this.dbDirectory,
   }) {
-    toastManager = ToastManager(cache: cache, dbDirectory: dbDirectory, tableName: tableName);
+    toastManager = ToastManager(
+      cache: cache,
+      dbDirectory: dbDirectory,
+      tableName: tableName,
+    );
   }
 
   String get filePath => '$dbDirectory/$tableName.db';
@@ -391,7 +450,11 @@ class RowTableFile {
   void insertRawRecordSync(Uint8List recordBytes) {
     if (_activeInsertPage != null) {
       cache.logPageBeforeModifySync(filePath, _activeInsertPageId);
-      final success = SlottedPageHelper.insertRecordDirect(_activeInsertPage!, recordBytes, recordBytes.length);
+      final success = SlottedPageHelper.insertRecordDirect(
+        _activeInsertPage!,
+        recordBytes,
+        recordBytes.length,
+      );
       if (success) {
         _activeInsertPage!.isDirty = true;
         return;
@@ -399,14 +462,17 @@ class RowTableFile {
       flushActivePageSync();
     }
 
-    final pgr = pager;
     int pageCount = getPageCount();
 
     if (pageCount == 0) {
       final page = cache.pinPageSync(filePath, 0);
       cache.logPageBeforeModifySync(filePath, 0);
       SlottedPageHelper.initPage(page);
-      SlottedPageHelper.insertRecordDirect(page, recordBytes, recordBytes.length);
+      SlottedPageHelper.insertRecordDirect(
+        page,
+        recordBytes,
+        recordBytes.length,
+      );
       page.isDirty = true;
       _activeInsertPage = page;
       _activeInsertPageId = 0;
@@ -417,8 +483,12 @@ class RowTableFile {
     final lastPageId = pageCount - 1;
     final lastPage = cache.pinPageSync(filePath, lastPageId);
     cache.logPageBeforeModifySync(filePath, lastPageId);
-    final success = SlottedPageHelper.insertRecordDirect(lastPage, recordBytes, recordBytes.length);
-    
+    final success = SlottedPageHelper.insertRecordDirect(
+      lastPage,
+      recordBytes,
+      recordBytes.length,
+    );
+
     if (success) {
       lastPage.isDirty = true;
       _activeInsertPage = lastPage;
@@ -429,7 +499,11 @@ class RowTableFile {
       final newPage = cache.pinPageSync(filePath, newPageId);
       cache.logPageBeforeModifySync(filePath, newPageId);
       SlottedPageHelper.initPage(newPage);
-      SlottedPageHelper.insertRecordDirect(newPage, recordBytes, recordBytes.length);
+      SlottedPageHelper.insertRecordDirect(
+        newPage,
+        recordBytes,
+        recordBytes.length,
+      );
       newPage.isDirty = true;
       _activeInsertPage = newPage;
       _activeInsertPageId = newPageId;
@@ -438,11 +512,22 @@ class RowTableFile {
   }
 
   BTreePointer insertSync(List<DbValue> row, {int xmin = 0, int rollPtr = 0}) {
-    final recordLen = RecordSerializer.serializeMvccRowDirect(_sharedTempBuffer, row, xmin, 0, rollPtr, toastManager);
-    
+    final recordLen = RecordSerializer.serializeMvccRowDirect(
+      _sharedTempBuffer,
+      row,
+      xmin,
+      0,
+      rollPtr,
+      toastManager,
+    );
+
     if (_activeInsertPage != null) {
       cache.logPageBeforeModifySync(filePath, _activeInsertPageId);
-      final success = SlottedPageHelper.insertRecordDirect(_activeInsertPage!, _sharedTempBuffer, recordLen);
+      final success = SlottedPageHelper.insertRecordDirect(
+        _activeInsertPage!,
+        _sharedTempBuffer,
+        recordLen,
+      );
       if (success) {
         _activeInsertPage!.isDirty = true;
         final slotId = SlottedPageHelper.getRowCount(_activeInsertPage!) - 1;
@@ -451,7 +536,6 @@ class RowTableFile {
       flushActivePageSync();
     }
 
-    final pgr = pager;
     int pageCount = getPageCount();
 
     if (pageCount == 0) {
@@ -469,8 +553,12 @@ class RowTableFile {
     final lastPageId = pageCount - 1;
     final page = cache.pinPageSync(filePath, lastPageId);
     cache.logPageBeforeModifySync(filePath, lastPageId);
-    final success = SlottedPageHelper.insertRecordDirect(page, _sharedTempBuffer, recordLen);
-    
+    final success = SlottedPageHelper.insertRecordDirect(
+      page,
+      _sharedTempBuffer,
+      recordLen,
+    );
+
     if (success) {
       page.isDirty = true;
       final slotId = SlottedPageHelper.getRowCount(page) - 1;
@@ -482,7 +570,11 @@ class RowTableFile {
       final newPageId = pageCount;
       final newPage = cache.pinPageSync(filePath, newPageId);
       SlottedPageHelper.initPage(newPage);
-      SlottedPageHelper.insertRecordDirect(newPage, _sharedTempBuffer, recordLen);
+      SlottedPageHelper.insertRecordDirect(
+        newPage,
+        _sharedTempBuffer,
+        recordLen,
+      );
       newPage.isDirty = true;
       final newSlotId = SlottedPageHelper.getRowCount(newPage) - 1;
       _activeInsertPage = newPage;
@@ -492,7 +584,12 @@ class RowTableFile {
     }
   }
 
-  List<BTreePointer>? insertBatchSync(List<List<DbValue>> rows, {int xmin = 0, int rollPtr = 0, bool generatePointers = true}) {
+  List<BTreePointer>? insertBatchSync(
+    List<List<DbValue>> rows, {
+    int xmin = 0,
+    int rollPtr = 0,
+    bool generatePointers = true,
+  }) {
     flushActivePageSync();
     final pager = cache.getOrCreatePager(filePath);
     int pageCount = pager.getPageCountSync();
@@ -513,7 +610,14 @@ class RowTableFile {
 
     for (int r = 0; r < rows.length; r++) {
       final row = rows[r];
-      final recordLen = RecordSerializer.serializeMvccRowDirect(_sharedTempBuffer, row, xmin, 0, rollPtr, toastManager);
+      final recordLen = RecordSerializer.serializeMvccRowDirect(
+        _sharedTempBuffer,
+        row,
+        xmin,
+        0,
+        rollPtr,
+        toastManager,
+      );
 
       final requiredSpace = recordLen + 4;
       final currentSlotEnd = 5 + rowCount * 4;
@@ -534,7 +638,12 @@ class RowTableFile {
 
       final newFreeSpaceOffset = freeSpaceOffset - recordLen;
       final pageBytes = page.data;
-      pageBytes.setRange(newFreeSpaceOffset, newFreeSpaceOffset + recordLen, _sharedTempBuffer, 0);
+      pageBytes.setRange(
+        newFreeSpaceOffset,
+        newFreeSpaceOffset + recordLen,
+        _sharedTempBuffer,
+        0,
+      );
 
       final slotOffset = 5 + rowCount * 4;
       data.setUint16(slotOffset, newFreeSpaceOffset);
@@ -555,7 +664,6 @@ class RowTableFile {
     cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
     return pointers;
   }
-
 
   void deleteRecordSync(int pageId, int slotId, int currentTxId) {
     final page = cache.pinPageSync(filePath, pageId);
@@ -607,7 +715,12 @@ class RowTableFile {
     );
   }
 
-  List<DbValue> _deserializePartialRow(Uint8List recordBytes, List<int> colIndexes, List<DbValue>? reuseList, [int? expectedColumnCount]) {
+  List<DbValue> _deserializePartialRow(
+    Uint8List recordBytes,
+    List<int> colIndexes,
+    List<DbValue>? reuseList, [
+    int? expectedColumnCount,
+  ]) {
     if (colIndexes.isEmpty) return const <DbValue>[];
     final data = ByteData.sublistView(recordBytes);
     final count = data.getUint16(0);
@@ -650,7 +763,8 @@ class RowTableFile {
   }
 }
 
-class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue>> {
+class RowCursor extends Iterable<List<DbValue>>
+    implements Iterator<List<DbValue>> {
   final PageCache cache;
   final String filePath;
   final int pageCount;
@@ -699,7 +813,10 @@ class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue
       }
 
       while (_currentSlot < _currentRowCount) {
-        final recBytes = SlottedPageHelper.getRecord(_currentPage!, _currentSlot++);
+        final recBytes = SlottedPageHelper.getRecord(
+          _currentPage!,
+          _currentSlot++,
+        );
         if (recBytes != null) {
           if (recBytes.length >= 12) {
             final bd = ByteData.sublistView(recBytes);
@@ -713,21 +830,43 @@ class RowCursor extends Iterable<List<DbValue>> implements Iterator<List<DbValue
             }
             // Clean production scan (no debug print per row)
             if (isVisible) {
-              final rowData = Uint8List.view(recBytes.buffer, recBytes.offsetInBytes + 12, recBytes.length - 12);
+              final rowData = Uint8List.view(
+                recBytes.buffer,
+                recBytes.offsetInBytes + 12,
+                recBytes.length - 12,
+              );
               if (projectedColIndexes != null) {
-                _reusedRowList = tableFile._deserializePartialRow(rowData, projectedColIndexes!, _reusedRowList, expectedColumnCount);
+                _reusedRowList = tableFile._deserializePartialRow(
+                  rowData,
+                  projectedColIndexes!,
+                  _reusedRowList,
+                  expectedColumnCount,
+                );
                 _current = _reusedRowList;
               } else {
-                _current = RecordSerializer.deserializeRow(rowData, expectedColumnCount, tableFile.toastManager);
+                _current = RecordSerializer.deserializeRow(
+                  rowData,
+                  expectedColumnCount,
+                  tableFile.toastManager,
+                );
               }
               return true;
             }
           } else {
             if (projectedColIndexes != null) {
-              _reusedRowList = tableFile._deserializePartialRow(recBytes, projectedColIndexes!, _reusedRowList, expectedColumnCount);
+              _reusedRowList = tableFile._deserializePartialRow(
+                recBytes,
+                projectedColIndexes!,
+                _reusedRowList,
+                expectedColumnCount,
+              );
               _current = _reusedRowList;
             } else {
-              _current = RecordSerializer.deserializeRow(recBytes, expectedColumnCount, tableFile.toastManager);
+              _current = RecordSerializer.deserializeRow(
+                recBytes,
+                expectedColumnCount,
+                tableFile.toastManager,
+              );
             }
             return true;
           }
@@ -764,7 +903,7 @@ class ColumnTableFile {
       final val = row[i];
       final colFilePath = getColumnFilePath(i);
       final valBytes = val.toBytes();
-      
+
       final pager = cache.getOrCreatePager(colFilePath);
       final pageCount = pager.getPageCountSync();
 

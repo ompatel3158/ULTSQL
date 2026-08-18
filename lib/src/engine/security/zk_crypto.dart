@@ -15,7 +15,11 @@ class ZkCryptoEnclave {
   }
 
   /// Queries encrypted ciphertext without exposing plaintext or secret key to server
-  static bool queryEncryptedField(Uint8List ciphertext, String searchPrompt, String secretKey) {
+  static bool queryEncryptedField(
+    Uint8List ciphertext,
+    String searchPrompt,
+    String secretKey,
+  ) {
     final expectedCipher = encryptField(searchPrompt, secretKey);
     if (ciphertext.length != expectedCipher.length) return false;
     for (int i = 0; i < ciphertext.length; i++) {

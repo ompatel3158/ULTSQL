@@ -25,7 +25,9 @@ class DirectIoBuffer {
   /// Read byte slice from aligned buffer
   Uint8List read(int offset, int length) {
     if (offset + length > capacity) {
-      throw Exception('Buffer overflow: read range exceeds DirectIoBuffer capacity.');
+      throw Exception(
+        'Buffer overflow: read range exceeds DirectIoBuffer capacity.',
+      );
     }
     return Uint8List.sublistView(buffer, offset, offset + length);
   }

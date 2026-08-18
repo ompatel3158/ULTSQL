@@ -212,10 +212,12 @@ class LocalDatabaseService {
         final foreignKeys = <Map<String, String>>[];
 
         for (int i = 0; i < schema.columnNames.length; i++) {
-          if (i < schema.columnPrimaryKey.length && schema.columnPrimaryKey[i]) {
+          if (i < schema.columnPrimaryKey.length &&
+              schema.columnPrimaryKey[i]) {
             primaryKeys.add(schema.columnNames[i]);
           }
-          if (i < schema.columnReferencesTable.length && schema.columnReferencesTable[i] != null) {
+          if (i < schema.columnReferencesTable.length &&
+              schema.columnReferencesTable[i] != null) {
             foreignKeys.add({
               'column': schema.columnNames[i],
               'foreign_table': schema.columnReferencesTable[i]!,

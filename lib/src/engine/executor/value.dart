@@ -88,24 +88,41 @@ abstract class DbValue implements Comparable<DbValue> {
       case 2:
         return DbDouble(data.getFloat64(valOffset));
       case 3:
-        final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes + valOffset,
+          valLen,
+        );
         return DbText(utf8.decode(bytes));
       case 4:
         final count = valLen ~/ 8;
-        final list = List<double>.generate(count, (i) => data.getFloat64(valOffset + i * 8));
+        final list = List<double>.generate(
+          count,
+          (i) => data.getFloat64(valOffset + i * 8),
+        );
         return DbVector(list);
       case 5:
-        final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes + valOffset,
+          valLen,
+        );
         return DbJson.fromBytes(bytes);
       case 8:
         return DbBool(data.getUint8(valOffset) != 0);
       case 9:
-        final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes + valOffset,
+          valLen,
+        );
         return DbUuid(utf8.decode(bytes));
       case 10:
-        return DbDateTime(DateTime.fromMillisecondsSinceEpoch(data.getInt64(valOffset)));
+        return DbDateTime(
+          DateTime.fromMillisecondsSinceEpoch(data.getInt64(valOffset)),
+        );
       case 11:
-        final bytes = data.buffer.asUint8List(data.offsetInBytes + valOffset, valLen);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes + valOffset,
+          valLen,
+        );
         return DbBlob(Uint8List.fromList(bytes));
       case 12:
         return DbDecimal(data.getFloat64(valOffset));
@@ -194,7 +211,10 @@ class DbInt extends DbValue {
 
   static final DbInt zero = DbInt._(0);
   static final DbInt one = DbInt._(1);
-  static final List<DbInt> _smallIntCache = List.generate(1101, (i) => DbInt._(i - 100));
+  static final List<DbInt> _smallIntCache = List.generate(
+    1101,
+    (i) => DbInt._(i - 100),
+  );
 
   factory DbInt(int value) {
     if (value == 0) return zero;
@@ -477,7 +497,8 @@ class DbVector extends DbValue {
     int i = 0;
     final limit = len - 3;
     for (; i < limit; i += 4) {
-      dotProd += v1[i] * v2[i] +
+      dotProd +=
+          v1[i] * v2[i] +
           v1[i + 1] * v2[i + 1] +
           v1[i + 2] * v2[i + 2] +
           v1[i + 3] * v2[i + 3];
@@ -486,13 +507,6 @@ class DbVector extends DbValue {
       dotProd += v1[i] * v2[i];
     }
     return -dotProd;
-  }
-}
-
-// Math extension for sqrt
-extension on double {
-  double sqrt() {
-    return math.sqrt(this);
   }
 }
 
@@ -520,12 +534,14 @@ DbValue extractJsonPathRaw(String jsonStr, List<String> path) {
         pos++;
         continue;
       }
-      if (c == 92) { // \
+      if (c == 92) {
+        // \
         escaped = true;
         pos++;
         continue;
       }
-      if (c == 34) { // "
+      if (c == 34) {
+        // "
         inString = !inString;
         if (inString) {
           keyStart = pos + 1;
@@ -537,15 +553,20 @@ DbValue extractJsonPathRaw(String jsonStr, List<String> path) {
       }
 
       if (!inString) {
-        if (c == 123) { // {
+        if (c == 123) {
+          // {
           braceDepth++;
-        } else if (c == 125) { // }
+        } else if (c == 125) {
+          // }
           braceDepth--;
-        } else if (c == 91) { // [
+        } else if (c == 91) {
+          // [
           bracketDepth++;
-        } else if (c == 93) { // ]
+        } else if (c == 93) {
+          // ]
           bracketDepth--;
-        } else if (c == 58 && braceDepth == 1 && bracketDepth == 0) { // :
+        } else if (c == 58 && braceDepth == 1 && bracketDepth == 0) {
+          // :
           if (keyStart != -1 && keyEnd != -1) {
             final key = jsonStr.substring(keyStart, keyEnd);
             if (key == targetKey) {
@@ -562,11 +583,17 @@ DbValue extractJsonPathRaw(String jsonStr, List<String> path) {
               if (segmentIdx == path.length - 1) {
                 if (pos < len) {
                   final vc = jsonStr.codeUnitAt(pos);
-                  if ((vc >= 48 && vc <= 57) || vc == 45) { // number
+                  if ((vc >= 48 && vc <= 57) || vc == 45) {
+                    // number
                     int end = pos + 1;
                     while (end < len) {
                       final ec = jsonStr.codeUnitAt(end);
-                      if ((ec >= 48 && ec <= 57) || ec == 46 || ec == 101 || ec == 69 || ec == 45 || ec == 43) {
+                      if ((ec >= 48 && ec <= 57) ||
+                          ec == 46 ||
+                          ec == 101 ||
+                          ec == 69 ||
+                          ec == 45 ||
+                          ec == 43) {
                         end++;
                       } else {
                         break;
@@ -575,7 +602,8 @@ DbValue extractJsonPathRaw(String jsonStr, List<String> path) {
                     final numStr = jsonStr.substring(pos, end);
                     final val = num.tryParse(numStr);
                     if (val != null) return DbValue.parseLiteral(val);
-                  } else if (vc == 34) { // string
+                  } else if (vc == 34) {
+                    // string
                     int end = pos + 1;
                     bool valEscaped = false;
                     while (end < len) {
@@ -773,7 +801,11 @@ dynamic deepCopyJson(dynamic val) {
   return val;
 }
 
-dynamic setJsonValue(dynamic current, List<String> segments, dynamic valueToSet) {
+dynamic setJsonValue(
+  dynamic current,
+  List<String> segments,
+  dynamic valueToSet,
+) {
   if (segments.isEmpty) {
     return valueToSet;
   }
@@ -1168,7 +1200,8 @@ class DbBlob extends DbValue {
   }
 
   @override
-  String toString() => 'X\'${value.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}\'';
+  String toString() =>
+      'X\'${value.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}\'';
 }
 
 class DbDecimal extends DbValue {
@@ -1202,6 +1235,7 @@ class DbDecimal extends DbValue {
     if (other is DbDouble) return DbDecimal(value + other.value);
     return DbNull();
   }
+
   @override
   DbValue operator -(DbValue other) {
     if (other is DbDecimal) return DbDecimal(value - other.value);
@@ -1209,6 +1243,7 @@ class DbDecimal extends DbValue {
     if (other is DbDouble) return DbDecimal(value - other.value);
     return DbNull();
   }
+
   @override
   DbValue operator *(DbValue other) {
     if (other is DbDecimal) return DbDecimal(value * other.value);
@@ -1216,6 +1251,7 @@ class DbDecimal extends DbValue {
     if (other is DbDouble) return DbDecimal(value * other.value);
     return DbNull();
   }
+
   @override
   DbValue operator /(DbValue other) {
     if (other is DbDecimal) return DbDecimal(value / other.value);
@@ -1223,6 +1259,7 @@ class DbDecimal extends DbValue {
     if (other is DbDouble) return DbDecimal(value / other.value);
     return DbNull();
   }
+
   @override
   DbValue concat(DbValue other) => DbText(toString() + other.toString());
 
@@ -1264,4 +1301,3 @@ class SubqueryContext {
     return null;
   }
 }
-

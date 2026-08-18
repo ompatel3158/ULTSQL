@@ -29,11 +29,15 @@ void main(List<String> args) async {
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (boundPort != port) {
-        print('🌐 REST & OpenAPI API  : http://localhost:$boundPort (Port $port was occupied, auto-selected $boundPort)');
+        print(
+          '🌐 REST & OpenAPI API  : http://localhost:$boundPort (Port $port was occupied, auto-selected $boundPort)',
+        );
       } else {
         print('🌐 REST & OpenAPI API  : http://localhost:$boundPort');
       }
-      print('📖 OpenAPI Specs       : http://localhost:$boundPort/openapi.json');
+      print(
+        '📖 OpenAPI Specs       : http://localhost:$boundPort/openapi.json',
+      );
       print('===============================================================');
       print('Press Ctrl+C to stop the server daemon.\n');
       return;
@@ -50,7 +54,9 @@ void main(List<String> args) async {
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
   print('Type ".help" for meta commands or ".exit" to quit.');
-  print('Type SQL, NoSQL JSON, or PL/SQL scripts and press Enter to execute.\n');
+  print(
+    'Type SQL, NoSQL JSON, or PL/SQL scripts and press Enter to execute.\n',
+  );
 
   final db = Database(dbTarget);
   await db.init();
@@ -87,13 +93,17 @@ void main(List<String> args) async {
         final server = PgWireServer(db, port: port);
         await server.start();
         print('🚀 PostgreSQL Wire Protocol daemon listening on port $port');
-        print('Connect with any Postgres client (psycopg2, node-postgres, JDBC, psql)!');
+        print(
+          'Connect with any Postgres client (psycopg2, node-postgres, JDBC, psql)!',
+        );
         continue;
       } else if (trimmed == '.databases') {
         print('Main database: $dbTarget\n');
         continue;
       } else {
-        print('Unrecognized meta command: $trimmed. Type .help for available commands.\n');
+        print(
+          'Unrecognized meta command: $trimmed. Type .help for available commands.\n',
+        );
         continue;
       }
     }
@@ -108,7 +118,8 @@ void main(List<String> args) async {
 
     // Multi-line script execution trigger (ends with semicolon or END;)
     final accumulated = scriptBuffer.toString().trim();
-    if (accumulated.endsWith(';') || accumulated.toUpperCase().endsWith('END;')) {
+    if (accumulated.endsWith(';') ||
+        accumulated.toUpperCase().endsWith('END;')) {
       final scriptToRun = accumulated;
       scriptBuffer.clear();
 
@@ -163,7 +174,10 @@ void _showSchema(Database db, String cmd) {
   for (int i = 0; i < schema.columnNames.length; i++) {
     final col = schema.columnNames[i];
     final type = schema.columnTypes[i];
-    final isPk = (i < schema.columnPrimaryKey.length && schema.columnPrimaryKey[i]) ? ' [PRIMARY KEY]' : '';
+    final isPk =
+        (i < schema.columnPrimaryKey.length && schema.columnPrimaryKey[i])
+        ? ' [PRIMARY KEY]'
+        : '';
     print('  - $col : $type$isPk');
   }
   print('');
@@ -172,7 +186,10 @@ void _showSchema(Database db, String cmd) {
 void _printResultTable(List<String> columns, List<List<DbValue>> rows) {
   if (rows.isEmpty) return;
 
-  final colWidths = List<int>.generate(columns.length, (i) => columns[i].length);
+  final colWidths = List<int>.generate(
+    columns.length,
+    (i) => columns[i].length,
+  );
   for (final row in rows) {
     for (int i = 0; i < row.length; i++) {
       final s = row[i].value.toString();
@@ -183,14 +200,33 @@ void _printResultTable(List<String> columns, List<List<DbValue>> rows) {
   }
 
   String border = '+' + colWidths.map((w) => '-' * (w + 2)).join('+') + '+';
-  String header = '|' + columns.asMap().entries.map((e) => ' ' + e.value.padRight(colWidths[e.key]) + ' ').join('|') + '|';
+  String header =
+      '|' +
+      columns
+          .asMap()
+          .entries
+          .map((e) => ' ' + e.value.padRight(colWidths[e.key]) + ' ')
+          .join('|') +
+      '|';
 
   print(border);
   print(header);
   print(border);
 
   for (final row in rows) {
-    String line = '|' + row.asMap().entries.map((e) => ' ' + e.value.value.toString().padRight(colWidths[e.key]) + ' ').join('|') + '|';
+    String line =
+        '|' +
+        row
+            .asMap()
+            .entries
+            .map(
+              (e) =>
+                  ' ' +
+                  e.value.value.toString().padRight(colWidths[e.key]) +
+                  ' ',
+            )
+            .join('|') +
+        '|';
     print(line);
   }
 

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import '../cache/crc32.dart';
 
 /// Database Point-in-Time Backup and Disaster Recovery Manager.
@@ -89,9 +88,12 @@ class DatabaseBackupManager {
         final bytes = entity.readAsBytesSync();
         final checksum = Crc32.compute(bytes);
 
-        if (expectedChecksums != null && expectedChecksums.containsKey(relPath)) {
+        if (expectedChecksums != null &&
+            expectedChecksums.containsKey(relPath)) {
           if (expectedChecksums[relPath] != checksum) {
-            throw Exception('Corrupted backup file detected: $relPath (checksum mismatch)');
+            throw Exception(
+              'Corrupted backup file detected: $relPath (checksum mismatch)',
+            );
           }
           verifiedFiles++;
         }

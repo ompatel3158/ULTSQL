@@ -39,11 +39,7 @@ void main(List<String> args) async {
   final db = Database(dbPath);
   await db.init();
 
-  final pgServer = PgWireServer(
-    db,
-    port: port,
-    address: host,
-  );
+  final pgServer = PgWireServer(db, port: port, address: host);
 
   await pgServer.start();
   print('✅ UltSQL Server Daemon is RUNNING & ready for connections!');

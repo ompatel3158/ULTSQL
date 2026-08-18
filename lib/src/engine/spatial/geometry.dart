@@ -34,7 +34,10 @@ class BoundingBox2D {
   const BoundingBox2D(this.minX, this.minY, this.maxX, this.maxY);
 
   bool contains(Point2D point) {
-    return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+    return point.x >= minX &&
+        point.x <= maxX &&
+        point.y >= minY &&
+        point.y <= maxY;
   }
 
   bool intersects(BoundingBox2D other) {

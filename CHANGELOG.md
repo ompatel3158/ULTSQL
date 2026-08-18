@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.19
+
+- **100% Pana & Pub.dev Static Analysis Compliance**: Resolved all analyzer warnings, unused variables, and unused imports across engine and storage packages.
+- **Enhanced Dartdoc Coverage**: Cleaned public API exports in `lib/ultsql.dart` with 100% comprehensive documentation comments and zero doc warnings.
+- **Codebase Auto-Formatting**: Applied standard `dart format` to all library and binary sources.
+
 ## 1.0.18
 
 - **Multi-Row Tuple `INSERT` Grammar**: Full SQL parser & query planner support for comma-separated multi-tuple inserts (`INSERT INTO tbl VALUES (r1), (r2), (r3);`).

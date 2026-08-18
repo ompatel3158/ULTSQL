@@ -61,7 +61,8 @@ class Database {
   late EngineConfig config;
   final Map<String, BTreeIndex> _indexCache = {};
 
-  final Map<String, Set<StreamController<String>>> _tableMutationControllers = {};
+  final Map<String, Set<StreamController<String>>> _tableMutationControllers =
+      {};
 
   void notifyTableMutated(String tableName) {
     final tName = tableName.toLowerCase();
@@ -94,7 +95,9 @@ class Database {
     late StreamController<QueryResult> outController;
     final inController = StreamController<String>();
     final lowerSql = sql.toLowerCase();
-    final referencedTables = catalog.tables.keys.where((t) => lowerSql.contains(t.toLowerCase())).toList();
+    final referencedTables = catalog.tables.keys
+        .where((t) => lowerSql.contains(t.toLowerCase()))
+        .toList();
 
     outController = StreamController<QueryResult>(
       onListen: () async {
@@ -125,7 +128,8 @@ class Database {
 
   // --- SQL MACROS REGISTRY ---
   final Map<String, CreateMacroStmt> _macros = {};
-  void registerMacro(CreateMacroStmt stmt) => _macros[stmt.name.toLowerCase()] = stmt;
+  void registerMacro(CreateMacroStmt stmt) =>
+      _macros[stmt.name.toLowerCase()] = stmt;
   CreateMacroStmt? getMacro(String name) => _macros[name.toLowerCase()];
 
   // --- EVENT STREAMS ENGINE ---
@@ -133,13 +137,19 @@ class Database {
 
   Stream<List<DbValue>> getStream(String streamName) {
     final sName = streamName.toLowerCase();
-    final controller = _eventStreams.putIfAbsent(sName, () => StreamController<List<DbValue>>.broadcast());
+    final controller = _eventStreams.putIfAbsent(
+      sName,
+      () => StreamController<List<DbValue>>.broadcast(),
+    );
     return controller.stream;
   }
 
   void createStream(String streamName) {
     final sName = streamName.toLowerCase();
-    _eventStreams.putIfAbsent(sName, () => StreamController<List<DbValue>>.broadcast());
+    _eventStreams.putIfAbsent(
+      sName,
+      () => StreamController<List<DbValue>>.broadcast(),
+    );
   }
 
   void emitStream(String streamName, List<DbValue> values) {
@@ -193,14 +203,27 @@ class Database {
     _branches.remove(bName);
   }
 
-  Database(this.directory, {String? passphrase, bool useWal = true, int maxCapacity = 1000}) {
+  Database(
+    this.directory, {
+    String? passphrase,
+    bool useWal = true,
+    int maxCapacity = 1000,
+  }) {
     config = EngineConfig.defaultConfig();
     catalog = Catalog(directory);
-    cache = PageCache(maxCapacity: maxCapacity, dbDirectory: directory, useWal: useWal); // Configurable cache limit
+    cache = PageCache(
+      maxCapacity: maxCapacity,
+      dbDirectory: directory,
+      useWal: useWal,
+    ); // Configurable cache limit
     if (passphrase != null) {
       cache.encryptionKey = Uint8List.fromList(utf8.encode(passphrase));
     }
-    planner = QueryPlanner(catalog: catalog, cache: cache, dbDirectory: directory);
+    planner = QueryPlanner(
+      catalog: catalog,
+      cache: cache,
+      dbDirectory: directory,
+    );
     auditLogger = AuditLogger(directory);
   }
 
@@ -231,7 +254,11 @@ class Database {
     }
 
     final indexFile = '$directory/$finalIndexName.idx';
-    final btree = BTreeIndex(cache: cache, indexPath: indexFile, keyColumns: columnsCount);
+    final btree = BTreeIndex(
+      cache: cache,
+      indexPath: indexFile,
+      keyColumns: columnsCount,
+    );
     btree.initSync();
     _indexCache[name] = btree;
     _indexCache[finalIndexName] = btree;
@@ -248,7 +275,9 @@ class Database {
     final tokens = lexer.tokenize();
     final errors = tokens.where((t) => t.type == TokenType.invalid).toList();
     if (errors.isNotEmpty) {
-      throw Exception("Lexer error: ${errors.first.lexeme} at Line ${errors.first.line}:${errors.first.column}");
+      throw Exception(
+        "Lexer error: ${errors.first.lexeme} at Line ${errors.first.line}:${errors.first.column}",
+      );
     }
     final parser = Parser(tokens);
     final statements = parser.parseScript();
@@ -306,7 +335,9 @@ class PreparedStatement {
 
   QueryResult executeBatchSync(List<List<DbValue>> batchParams) {
     if (statement is! InsertStmt) {
-      throw Exception("Batch execution is only supported for INSERT statements.");
+      throw Exception(
+        "Batch execution is only supported for INSERT statements.",
+      );
     }
     final insertStmt = statement as InsertStmt;
     final tableName = insertStmt.tableName.toLowerCase();
@@ -329,14 +360,17 @@ class PreparedStatement {
       }
     }
 
-    final rowTable = _interpreter._rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-      cache: db.cache,
-      tableName: schema.name,
-      dbDirectory: db.directory,
-    ));
+    final rowTable = _interpreter._rowTableCache.putIfAbsent(
+      tableName,
+      () => RowTableFile(
+        cache: db.cache,
+        tableName: schema.name,
+        dbDirectory: db.directory,
+      ),
+    );
 
     final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
-    
+
     // Evaluate row values for all parameter rows
     final List<List<DbValue>> rowsValues;
     if (isSimplePlaceholders) {
@@ -377,11 +411,13 @@ class PreparedStatement {
     } else {
       rowsValues = <List<DbValue>>[];
       // Pre-compile JIT value expressions
-      final valueJits = insertStmt.values.map((expr) => JitCompiler.compile(expr)).toList();
+      final valueJits = insertStmt.values
+          .map((expr) => JitCompiler.compile(expr))
+          .toList();
       for (int r = 0; r < batchParams.length; r++) {
         final params = batchParams[r];
         JitCompiler.currentParams = params;
-        
+
         final rowValues = <DbValue>[];
         for (int i = 0; i < valueJits.length; i++) {
           final val = valueJits[i](_interpreter._env);
@@ -394,7 +430,8 @@ class PreparedStatement {
               try {
                 coercedVal = DbJson(json.decode(coercedVal.value));
               } catch (_) {}
-            } else if (expectedType == DataType.vector && coercedVal is DbText) {
+            } else if (expectedType == DataType.vector &&
+                coercedVal is DbText) {
               final vec = _parseVectorFromString(coercedVal.value);
               if (vec != null) coercedVal = vec;
             }
@@ -411,7 +448,11 @@ class PreparedStatement {
     final needsPointers = tableIndexes.isNotEmpty;
 
     // Insert all rows in batch
-    final pointers = rowTable.insertBatchSync(rowsValues, xmin: currentTxId, generatePointers: needsPointers);
+    final pointers = rowTable.insertBatchSync(
+      rowsValues,
+      xmin: currentTxId,
+      generatePointers: needsPointers,
+    );
 
     // Update stats
     final stats = db.catalog.getOrCreateStats(tableName);
@@ -420,13 +461,20 @@ class PreparedStatement {
     if (needsPointers) {
       // Pre-compute index metadata outside the loop to optimize performance
       final preparedIndexes = tableIndexes.map((idx) {
-        final indexName = _interpreter._indexFileNameCache.putIfAbsent(idx, () => idx.name.toLowerCase());
+        final indexName = _interpreter._indexFileNameCache.putIfAbsent(
+          idx,
+          () => idx.name.toLowerCase(),
+        );
         final cols = idx.columnName.split(',');
         final cIndexes = cols.map((col) {
           final colClean = col.trim().toLowerCase();
           return schema.columnNamesLower.indexOf(colClean);
         }).toList();
-        return (indexName: indexName, columnName: idx.columnName, colIndexes: cIndexes);
+        return (
+          indexName: indexName,
+          columnName: idx.columnName,
+          colIndexes: cIndexes,
+        );
       }).toList();
 
       for (int r = 0; r < rowsValues.length; r++) {
@@ -437,7 +485,10 @@ class PreparedStatement {
           bool hasAllKeys = true;
           for (int i = 0; i < pIdx.colIndexes.length; i++) {
             final cIdx = pIdx.colIndexes[i];
-            if (cIdx == -1) { hasAllKeys = false; break; }
+            if (cIdx == -1) {
+              hasAllKeys = false;
+              break;
+            }
             final keyVal = rowValues[cIdx];
             double? dKey;
             if (keyVal is DbInt) {
@@ -451,23 +502,30 @@ class PreparedStatement {
               } else {
                 double hash = 0.0;
                 for (int j = 0; j < keyVal.value.length; j++) {
-                  hash = (hash * 31.0 + keyVal.value.codeUnitAt(j)) % 9007199254740991;
+                  hash =
+                      (hash * 31.0 + keyVal.value.codeUnitAt(j)) %
+                      9007199254740991;
                 }
                 dKey = hash;
               }
             }
-            if (dKey == null) { hasAllKeys = false; break; }
+            if (dKey == null) {
+              hasAllKeys = false;
+              break;
+            }
             compositeKey[i] = dKey;
           }
           if (hasAllKeys) {
-            _interpreter._delayedIndexUpdates.add(_IndexUpdate(
-              indexName: pIdx.indexName,
-              tableName: tableName,
-              columnName: pIdx.columnName.toLowerCase(),
-              key: compositeKey,
-              pageId: pointer.pageId,
-              slotId: pointer.slotId,
-            ));
+            _interpreter._delayedIndexUpdates.add(
+              _IndexUpdate(
+                indexName: pIdx.indexName,
+                tableName: tableName,
+                columnName: pIdx.columnName.toLowerCase(),
+                key: compositeKey,
+                pageId: pointer.pageId,
+                slotId: pointer.slotId,
+              ),
+            );
           }
         }
       }
@@ -483,23 +541,17 @@ class PreparedStatement {
   }
 }
 
-
 /// High-performance SQL and PL/SQL script executor for UltSQL.
 class Interpreter {
   static final Map<String, List<ASTNode>> _astCache = {};
 
-  Database _db;
-  Database get db => _db;
-  set db(Database val) => _db = val;
-  String _currentUser = 'admin';
+  Database db;
+  String currentUser = 'admin';
 
-  String get currentUser => _currentUser;
-  set currentUser(String val) => _currentUser = val;
-  
   // Local environment for PL/SQL variables
   final Map<String, DbValue> _env = {};
   Map<String, DbValue> get env => _env;
-  
+
   // Console print log (DBMS_OUTPUT)
   final List<String> dbmsOutputLog = [];
 
@@ -512,7 +564,7 @@ class Interpreter {
   final Map<String, bool> _indexExistsCache = {};
   final Map<IndexSchema, int> _indexColIdxCache = {};
   final Map<IndexSchema, String> _indexFileNameCache = {};
-  
+
   final Map<InsertStmt, TableSchema> _insertSchemaCache = {};
   final Map<InsertStmt, List<JitClosure>> _insertClosuresCache = {};
   final Map<InsertStmt, List<int>?> _insertPlaceholderIndicesCache = {};
@@ -546,8 +598,8 @@ class Interpreter {
 
   late SessionTxContext _sessionContext;
 
-  Interpreter(Database initialDb) : _db = initialDb {
-    _sessionContext = _db.cache.createSessionContext();
+  Interpreter(this.db) {
+    _sessionContext = db.cache.createSessionContext();
   }
 
   FlightRecorderReport? lastTelemetryReport;
@@ -560,10 +612,15 @@ class Interpreter {
       _env.clear();
 
       bool catalogModified = false;
-      
+
       final lowerSql = sqlScript.toLowerCase();
-      if (lowerSql.contains('insert') || lowerSql.contains('update') || lowerSql.contains('delete') || lowerSql.contains('create') || lowerSql.contains('alter') || lowerSql.contains('drop')) {
-        db.auditLogger.logQuery(_currentUser, sqlScript);
+      if (lowerSql.contains('insert') ||
+          lowerSql.contains('update') ||
+          lowerSql.contains('delete') ||
+          lowerSql.contains('create') ||
+          lowerSql.contains('alter') ||
+          lowerSql.contains('drop')) {
+        db.auditLogger.logQuery(currentUser, sqlScript);
       }
 
       try {
@@ -573,15 +630,19 @@ class Interpreter {
         } else {
           final lexer = Lexer(sqlScript);
           final tokens = lexer.tokenize();
-          
-          final errors = tokens.where((t) => t.type == TokenType.invalid).toList();
+
+          final errors = tokens
+              .where((t) => t.type == TokenType.invalid)
+              .toList();
           if (errors.isNotEmpty) {
-            throw Exception("Lexer error: ${errors.first.lexeme} at Line ${errors.first.line}:${errors.first.column}");
+            throw Exception(
+              "Lexer error: ${errors.first.lexeme} at Line ${errors.first.line}:${errors.first.column}",
+            );
           }
 
           final parser = Parser(tokens);
           statements = parser.parseScript();
-          
+
           if (!sqlScript.toLowerCase().contains('set engine_option')) {
             _astCache[sqlScript] = statements;
           }
@@ -596,7 +657,13 @@ class Interpreter {
 
         for (final stmt in statements) {
           try {
-            if (stmt is CreateTableStmt || stmt is CreateRelationshipStmt || stmt is CreateIndexStmt || stmt is CreatePolicyStmt || stmt is CreateProcedureStmt || stmt is CreateFunctionStmt || stmt is AlterTableStmt) {
+            if (stmt is CreateTableStmt ||
+                stmt is CreateRelationshipStmt ||
+                stmt is CreateIndexStmt ||
+                stmt is CreatePolicyStmt ||
+                stmt is CreateProcedureStmt ||
+                stmt is CreateFunctionStmt ||
+                stmt is AlterTableStmt) {
               catalogModified = true;
             }
             var res = _executeNodeSync(stmt);
@@ -619,7 +686,7 @@ class Interpreter {
 
         _flushDelayedIndexUpdates();
         _flushActiveTablePages();
-        
+
         if (catalogModified) {
           db.catalog.save();
           _referencingTablesCache.clear();
@@ -629,14 +696,16 @@ class Interpreter {
           _jitCache.clear();
           _schemaKeyToIndexCache.clear();
         }
-        
+
         if (!db.cache.isTransactionActive) {
           db.cache.flushAllSync();
         }
-        
+
         stopwatch.stop();
 
-        lastTelemetryReport = FlightRecorder.stop(rowsReturned: lastResult?.rows.length ?? 0);
+        lastTelemetryReport = FlightRecorder.stop(
+          rowsReturned: lastResult?.rows.length ?? 0,
+        );
 
         final combinedMessage = messages.join('\n');
 
@@ -644,7 +713,9 @@ class Interpreter {
           return QueryResult(
             columns: lastResult.columns,
             rows: lastResult.rows,
-            message: combinedMessage.isEmpty ? 'Script executed successfully.' : combinedMessage,
+            message: combinedMessage.isEmpty
+                ? 'Script executed successfully.'
+                : combinedMessage,
             executionTime: stopwatch.elapsed,
             dbmsOutputLog: List<String>.from(dbmsOutputLog),
           );
@@ -653,7 +724,9 @@ class Interpreter {
         return QueryResult(
           columns: [],
           rows: [],
-          message: combinedMessage.isEmpty ? 'Statement executed successfully.' : combinedMessage,
+          message: combinedMessage.isEmpty
+              ? 'Statement executed successfully.'
+              : combinedMessage,
           executionTime: stopwatch.elapsed,
           dbmsOutputLog: List<String>.from(dbmsOutputLog),
         );
@@ -667,9 +740,7 @@ class Interpreter {
           dbmsOutputLog: List<String>.from(dbmsOutputLog),
         );
       }
-    }, zoneValues: {
-      #sessionTxContext: _sessionContext,
-    });
+    }, zoneValues: {#sessionTxContext: _sessionContext});
   }
 
   dynamic executeNodeSync(ASTNode node) => _executeNodeSync(node);
@@ -677,17 +748,28 @@ class Interpreter {
   dynamic _executeNodeSync(ASTNode node) {
     JitCompiler.activeInterpreter = this;
     if (node is ReturnStmt) {
-      final valFn = _jitCache.putIfAbsent(node.expr, () => JitCompiler.compile(node.expr));
+      final valFn = _jitCache.putIfAbsent(
+        node.expr,
+        () => JitCompiler.compile(node.expr),
+      );
       final val = valFn(_env);
       throw ReturnException(val);
     }
     if (node is CreateMacroStmt) {
       db.registerMacro(node);
-      return QueryResult(columns: [], rows: [], message: "Macro '${node.name}' created successfully.");
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Macro '${node.name}' created successfully.",
+      );
     }
     if (node is CreateStreamStmt) {
       db.createStream(node.streamName);
-      return QueryResult(columns: [], rows: [], message: "Event stream '${node.streamName}' created successfully.");
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Event stream '${node.streamName}' created successfully.",
+      );
     }
     if (node is EmitStreamStmt) {
       final evaluatedValues = node.values.map((e) {
@@ -695,7 +777,11 @@ class Interpreter {
         return valFn(_env);
       }).toList();
       db.emitStream(node.streamName, evaluatedValues);
-      return QueryResult(columns: [], rows: [], message: "Event emitted to stream '${node.streamName}' successfully.");
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "Event emitted to stream '${node.streamName}' successfully.",
+      );
     }
     if (node is CreateProcedureStmt) {
       return _executeCreateProcedure(node);
@@ -742,7 +828,10 @@ class Interpreter {
     if (node is SelectStmt) {
       return _executeSelect(node);
     }
-    if (node is UnionStmt || node is IntersectStmt || node is ExceptStmt || node is CteSelectStmt) {
+    if (node is UnionStmt ||
+        node is IntersectStmt ||
+        node is ExceptStmt ||
+        node is CteSelectStmt) {
       return _executeUnionOrSetOperation(node as Stmt);
     }
     if (node is PlSqlBlock) {
@@ -786,37 +875,61 @@ class Interpreter {
     }
     if (node is BeginTxStmt) {
       db.cache.startTransaction(db.catalog);
-      return QueryResult(columns: [], rows: [], message: 'Transaction started.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'Transaction started.',
+      );
     }
     if (node is CommitTxStmt) {
       _flushActiveTablePages();
       _flushDelayedIndexUpdates();
       db.cache.commitTransaction();
       db.cache.flushAllSync();
-      return QueryResult(columns: [], rows: [], message: 'Transaction committed.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'Transaction committed.',
+      );
     }
     if (node is RollbackTxStmt) {
       _delayedIndexUpdates.clear();
       _resetActiveTablePages();
       db.cache.rollbackTransactionSync(db.catalog);
       _rowTableCache.clear();
-      return QueryResult(columns: [], rows: [], message: 'Transaction rolled back.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'Transaction rolled back.',
+      );
     }
     if (node is SavepointStmt) {
       _flushActiveTablePages();
       db.cache.createSavepoint(node.name, db.catalog);
-      return QueryResult(columns: [], rows: [], message: 'Savepoint ${node.name} created.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'Savepoint ${node.name} created.',
+      );
     }
     if (node is RollbackToSavepointStmt) {
       _delayedIndexUpdates.clear();
       _resetActiveTablePages();
       db.cache.rollbackToSavepoint(node.name, db.catalog);
       _rowTableCache.clear();
-      return QueryResult(columns: [], rows: [], message: 'Rolled back to savepoint ${node.name}.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'Rolled back to savepoint ${node.name}.',
+      );
     }
     if (node is ReleaseSavepointStmt) {
       db.cache.releaseSavepoint(node.name);
-      return QueryResult(columns: [], rows: [], message: 'Savepoint ${node.name} released.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'Savepoint ${node.name} released.',
+      );
     }
     if (node is CreateRelationshipStmt) {
       return _executeCreateRelationship(node);
@@ -849,18 +962,42 @@ class Interpreter {
     }
     if (node is SetUserStmt) {
       currentUser = node.username;
-      return QueryResult(columns: [], rows: [], message: 'User changed to $currentUser.');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'User changed to $currentUser.',
+      );
     }
     if (node is SetEngineOptionStmt) {
-      final name = node.optionName.toLowerCase().replaceAll("'", "").replaceAll('"', '').trim();
-      if (name == 'enableblockcompression' || name == 'blockcompression') db.config.enableBlockCompression = node.optionValue;
-      else if (name == 'enableautovacuum' || name == 'autovacuum') db.config.enableAutovacuum = node.optionValue;
-      else if (name == 'enableauditlogging' || name == 'auditlogging') db.config.enableAuditLogging = node.optionValue;
-      else if (name == 'enabledatamasking' || name == 'datamasking') db.config.enableDataMasking = node.optionValue;
-      else if (name == 'enablecostbasedoptimizer' || name == 'costbasedoptimizer' || name == 'cbo') db.config.enableCostBasedOptimizer = node.optionValue;
-      else if (name == 'enabletlsencryption' || name == 'tlsencryption' || name == 'tls') db.config.enableTlsEncryption = node.optionValue;
-      else throw Exception('Unknown engine option: ${node.optionName}');
-      return QueryResult(columns: [], rows: [], message: 'Engine option ${node.optionName} set to ${node.optionValue ? "ON" : "OFF"}.');
+      final name = node.optionName
+          .toLowerCase()
+          .replaceAll("'", "")
+          .replaceAll('"', '')
+          .trim();
+      if (name == 'enableblockcompression' || name == 'blockcompression')
+        db.config.enableBlockCompression = node.optionValue;
+      else if (name == 'enableautovacuum' || name == 'autovacuum')
+        db.config.enableAutovacuum = node.optionValue;
+      else if (name == 'enableauditlogging' || name == 'auditlogging')
+        db.config.enableAuditLogging = node.optionValue;
+      else if (name == 'enabledatamasking' || name == 'datamasking')
+        db.config.enableDataMasking = node.optionValue;
+      else if (name == 'enablecostbasedoptimizer' ||
+          name == 'costbasedoptimizer' ||
+          name == 'cbo')
+        db.config.enableCostBasedOptimizer = node.optionValue;
+      else if (name == 'enabletlsencryption' ||
+          name == 'tlsencryption' ||
+          name == 'tls')
+        db.config.enableTlsEncryption = node.optionValue;
+      else
+        throw Exception('Unknown engine option: ${node.optionName}');
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message:
+            'Engine option ${node.optionName} set to ${node.optionValue ? "ON" : "OFF"}.',
+      );
     }
     if (node is CreateDatabaseStmt) {
       return _executeCreateDatabase(node);
@@ -874,7 +1011,7 @@ class Interpreter {
   Future<QueryResult> _executeGenerate() async {
     // 1. Close active connections and wipe directory
     await db.close();
-    
+
     final dir = Directory(db.directory);
     if (dir.existsSync()) {
       for (final file in dir.listSync()) {
@@ -883,11 +1020,11 @@ class Interpreter {
         } catch (_) {}
       }
     }
-    
+
     // 2. Re-initialize
     db.catalog.restoreBackupState({'tables': {}, 'relationships': {}});
     await db.init();
-    
+
     // 3. Execute the generator script
     final script = '''
 CREATE TABLE depts (id INT, name TEXT);
@@ -949,13 +1086,15 @@ END;
         buffer.writeln('  $line');
       }
     }
-    
+
     // Restore and append
     dbmsOutputLog.insertAll(0, savedOutputs);
 
     return QueryResult(
       columns: ['status'],
-      rows: [[DbText('SUCCESS')]],
+      rows: [
+        [DbText('SUCCESS')],
+      ],
       message: buffer.toString(),
       executionTime: res.executionTime,
     );
@@ -994,27 +1133,29 @@ END;
     if (procSchema == null) {
       throw Exception("Procedure '${stmt.name}' does not exist.");
     }
-    
+
     final args = stmt.args.map((a) {
       final fn = _jitCache.putIfAbsent(a, () => JitCompiler.compile(a));
       return fn(_env);
     }).toList();
-    
+
     final savedEnv = Map<String, DbValue>.from(_env);
     _env.clear();
-    
+
     for (int i = 0; i < procSchema.params.length; i++) {
       final param = procSchema.params[i];
       final argVal = i < args.length ? args[i] : DbNull();
       _env[param.name] = argVal;
     }
-    
+
     QueryResult? lastResult;
     try {
       for (final s in procSchema.body) {
         final res = _executeNodeSync(s);
         if (res is Future) {
-          throw Exception("Asynchronous operations are not supported inside procedures.");
+          throw Exception(
+            "Asynchronous operations are not supported inside procedures.",
+          );
         }
         if (res is QueryResult) {
           lastResult = res;
@@ -1026,7 +1167,7 @@ END;
       _env.clear();
       _env.addAll(savedEnv);
     }
-    
+
     return QueryResult(
       columns: lastResult?.columns ?? [],
       rows: lastResult?.rows ?? [],
@@ -1038,16 +1179,24 @@ END;
     final tableName = stmt.tableName.toLowerCase();
     if (db.catalog.hasTable(tableName)) {
       if (stmt.ifNotExists) {
-        return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' already exists.");
+        return QueryResult(
+          columns: [],
+          rows: [],
+          message: "Table '${stmt.tableName}' already exists.",
+        );
       }
       throw Exception("Table '$tableName' already exists.");
     }
 
     if (stmt.partitionOf?.parentTableName != null && stmt.columns.isEmpty) {
-      final parentSchema = db.catalog.getTableSchema(stmt.partitionOf!.parentTableName.toLowerCase());
+      final parentSchema = db.catalog.getTableSchema(
+        stmt.partitionOf!.parentTableName.toLowerCase(),
+      );
       if (parentSchema != null) {
         for (int i = 0; i < parentSchema.columnNames.length; i++) {
-          stmt.columns.add(ColumnDef(parentSchema.columnNames[i], parentSchema.columnTypes[i]));
+          stmt.columns.add(
+            ColumnDef(parentSchema.columnNames[i], parentSchema.columnTypes[i]),
+          );
         }
       }
     }
@@ -1061,9 +1210,15 @@ END;
       isColumnar: isColumnar,
       columnPrimaryKey: stmt.columns.map((c) => c.isPrimaryKey).toList(),
       columnUnique: stmt.columns.map((c) => c.isUnique).toList(),
-      columnReferencesTable: stmt.columns.map((c) => c.referencesTable).toList(),
-      columnReferencesColumn: stmt.columns.map((c) => c.referencesColumn).toList(),
-      columnOnDeleteCascade: stmt.columns.map((c) => c.onDeleteCascade).toList(),
+      columnReferencesTable: stmt.columns
+          .map((c) => c.referencesTable)
+          .toList(),
+      columnReferencesColumn: stmt.columns
+          .map((c) => c.referencesColumn)
+          .toList(),
+      columnOnDeleteCascade: stmt.columns
+          .map((c) => c.onDeleteCascade)
+          .toList(),
       columnMaskedWith: stmt.columns.map((c) => c.maskedWith).toList(),
       partitionByColumn: stmt.partitionBy?.columnName,
       partitionOfParent: stmt.partitionOf?.parentTableName,
@@ -1072,9 +1227,13 @@ END;
     );
 
     if (schema.partitionOfParent != null) {
-      final parentSchema = db.catalog.getTableSchema(schema.partitionOfParent!.toLowerCase());
+      final parentSchema = db.catalog.getTableSchema(
+        schema.partitionOfParent!.toLowerCase(),
+      );
       if (parentSchema == null) {
-        throw Exception("Parent table '${schema.partitionOfParent}' does not exist.");
+        throw Exception(
+          "Parent table '${schema.partitionOfParent}' does not exist.",
+        );
       }
       parentSchema.partitionChildren.add(stmt.tableName);
       db.catalog.addTable(parentSchema, saveToFile: false);
@@ -1086,7 +1245,14 @@ END;
       if (col.isPrimaryKey) {
         final idxName = "idx_${tableName}_${col.name.toLowerCase()}";
         if (!db.catalog.hasIndex(idxName)) {
-          db.catalog.addIndex(IndexSchema(name: idxName, tableName: stmt.tableName, columnName: col.name), saveToFile: true);
+          db.catalog.addIndex(
+            IndexSchema(
+              name: idxName,
+              tableName: stmt.tableName,
+              columnName: col.name,
+            ),
+            saveToFile: true,
+          );
         }
       }
     }
@@ -1096,7 +1262,14 @@ END;
       if (col.isPrimaryKey || col.isUnique) {
         final idxName = 'idx_${tableName}_${col.name.toLowerCase()}';
         if (!db.catalog.hasIndex(idxName)) {
-          db.catalog.addIndex(IndexSchema(name: idxName, tableName: stmt.tableName, columnName: col.name), saveToFile: false);
+          db.catalog.addIndex(
+            IndexSchema(
+              name: idxName,
+              tableName: stmt.tableName,
+              columnName: col.name,
+            ),
+            saveToFile: false,
+          );
           db.getOrInitIndexSync(idxName);
         }
       }
@@ -1106,7 +1279,14 @@ END;
     if (stmt.columns.isNotEmpty && stmt.columns[0].name.toLowerCase() == 'id') {
       final idxName = 'idx_${tableName}_id';
       if (!db.catalog.hasIndex(idxName)) {
-        db.catalog.addIndex(IndexSchema(name: idxName, tableName: stmt.tableName, columnName: stmt.columns[0].name), saveToFile: false);
+        db.catalog.addIndex(
+          IndexSchema(
+            name: idxName,
+            tableName: stmt.tableName,
+            columnName: stmt.columns[0].name,
+          ),
+          saveToFile: false,
+        );
         db.getOrInitIndexSync(idxName);
       }
     }
@@ -1114,7 +1294,8 @@ END;
     return QueryResult(
       columns: [],
       rows: [],
-      message: "Table '${stmt.tableName}' created successfully${isColumnar ? ' (optimized Columnar store)' : ' (Row store)'}.",
+      message:
+          "Table '${stmt.tableName}' created successfully${isColumnar ? ' (optimized Columnar store)' : ' (Row store)'}.",
     );
   }
 
@@ -1149,13 +1330,15 @@ END;
     if (stmt.action == AlterAction.add) {
       final colToAdd = stmt.columnToAdd!;
       if (schema.columnNamesLower.contains(colToAdd.name.toLowerCase())) {
-        throw Exception("Column '${colToAdd.name}' already exists in table '$tableName'.");
+        throw Exception(
+          "Column '${colToAdd.name}' already exists in table '$tableName'.",
+        );
       }
-      
+
       // Update catalog schema
       final newSchema = schema.addColumn(colToAdd);
       db.catalog.addTable(newSchema, saveToFile: false);
-      
+
       // Clear caches
       _referencingTablesCache.clear();
       _insertSchemaCache.clear();
@@ -1166,7 +1349,8 @@ END;
       return QueryResult(
         columns: [],
         rows: [],
-        message: "Column '${colToAdd.name}' added to table '$tableName' successfully.",
+        message:
+            "Column '${colToAdd.name}' added to table '$tableName' successfully.",
       );
     } else if (stmt.action == AlterAction.drop) {
       final colName = stmt.columnToDrop!;
@@ -1183,7 +1367,9 @@ END;
       final idxSchema = db.catalog.getIndexForColumn(tableName, colName);
       if (idxSchema != null) {
         db.catalog.removeIndex(idxSchema.name, saveToFile: false);
-        final idxFile = File('${db.directory}/${idxSchema.name.toLowerCase()}.idx');
+        final idxFile = File(
+          '${db.directory}/${idxSchema.name.toLowerCase()}.idx',
+        );
         if (idxFile.existsSync()) {
           try {
             idxFile.deleteSync();
@@ -1221,7 +1407,7 @@ END;
         );
         final pager = db.cache.getOrCreatePager(rowTable.filePath);
         final pageCount = pager.getPageCountSync();
-        
+
         final records = <MvccRecord>[];
         for (int p = 0; p < pageCount; p++) {
           final page = db.cache.pinPageSync(rowTable.filePath, p);
@@ -1231,24 +1417,30 @@ END;
             if (recBytes != null) {
               try {
                 final mvccRec = MvccRecord.fromBytes(recBytes);
-                final rowValues = RecordSerializer.deserializeRow(mvccRec.rowData);
+                final rowValues = RecordSerializer.deserializeRow(
+                  mvccRec.rowData,
+                );
                 if (colIdx < rowValues.length) {
                   rowValues.removeAt(colIdx);
                 }
                 final newRowData = RecordSerializer.serializeRow(rowValues);
-                records.add(MvccRecord(
-                  xmin: mvccRec.xmin,
-                  xmax: mvccRec.xmax,
-                  rollPtr: mvccRec.rollPtr,
-                  rowData: newRowData,
-                ));
+                records.add(
+                  MvccRecord(
+                    xmin: mvccRec.xmin,
+                    xmax: mvccRec.xmax,
+                    rollPtr: mvccRec.rollPtr,
+                    rowData: newRowData,
+                  ),
+                );
               } catch (_) {
                 final rowValues = RecordSerializer.deserializeRow(recBytes);
                 if (colIdx < rowValues.length) {
                   rowValues.removeAt(colIdx);
                 }
                 final newRowData = RecordSerializer.serializeRow(rowValues);
-                records.add(MvccRecord(xmin: 0, xmax: 0, rollPtr: 0, rowData: newRowData));
+                records.add(
+                  MvccRecord(xmin: 0, xmax: 0, rollPtr: 0, rowData: newRowData),
+                );
               }
             }
           }
@@ -1290,7 +1482,8 @@ END;
       return QueryResult(
         columns: [],
         rows: [],
-        message: "Column '$colName' dropped from table '$tableName' successfully.",
+        message:
+            "Column '$colName' dropped from table '$tableName' successfully.",
       );
     } else if (stmt.action == AlterAction.renameColumn) {
       final oldCol = stmt.oldColumnName!;
@@ -1305,7 +1498,8 @@ END;
       return QueryResult(
         columns: [],
         rows: [],
-        message: "Column '$oldCol' renamed to '$newCol' successfully in table '$tableName'.",
+        message:
+            "Column '$oldCol' renamed to '$newCol' successfully in table '$tableName'.",
       );
     } else if (stmt.action == AlterAction.alterColumnType) {
       final colName = stmt.targetColumnName!;
@@ -1320,13 +1514,13 @@ END;
       return QueryResult(
         columns: [],
         rows: [],
-        message: "Column '$colName' type altered successfully in table '$tableName'.",
+        message:
+            "Column '$colName' type altered successfully in table '$tableName'.",
       );
     } else {
       throw Exception("Unsupported ALTER TABLE action.");
     }
   }
-
 
   QueryResult _executeCreateRelationship(CreateRelationshipStmt stmt) {
     final relName = stmt.name.toLowerCase();
@@ -1343,11 +1537,15 @@ END;
     // Verify key columns exist
     final fromSchema = db.catalog.getTableSchema(stmt.fromTable)!;
     if (!fromSchema.columnNamesLower.contains(stmt.fromKey.toLowerCase())) {
-      throw Exception("Key column '${stmt.fromKey}' does not exist in table '${stmt.fromTable}'.");
+      throw Exception(
+        "Key column '${stmt.fromKey}' does not exist in table '${stmt.fromTable}'.",
+      );
     }
     final toSchema = db.catalog.getTableSchema(stmt.toTable)!;
     if (!toSchema.columnNamesLower.contains(stmt.toKey.toLowerCase())) {
-      throw Exception("Key column '${stmt.toKey}' does not exist in table '${stmt.toTable}'.");
+      throw Exception(
+        "Key column '${stmt.toKey}' does not exist in table '${stmt.toTable}'.",
+      );
     }
 
     final rel = RelationshipSchema(
@@ -1373,14 +1571,21 @@ END;
     if (schema == null) {
       throw Exception("Table '$tableName' does not exist.");
     }
-    if (schema.policies.any((p) => p.name.toLowerCase() == stmt.name.toLowerCase())) {
-      throw Exception("Policy '${stmt.name}' already exists on table '${stmt.tableName}'.");
+    if (schema.policies.any(
+      (p) => p.name.toLowerCase() == stmt.name.toLowerCase(),
+    )) {
+      throw Exception(
+        "Policy '${stmt.name}' already exists on table '${stmt.tableName}'.",
+      );
     }
-    schema.policies.add(PolicySchema(name: stmt.name, condition: stmt.condition));
+    schema.policies.add(
+      PolicySchema(name: stmt.name, condition: stmt.condition),
+    );
     return QueryResult(
       columns: [],
       rows: [],
-      message: "Policy '${stmt.name}' created successfully on table '${stmt.tableName}'.",
+      message:
+          "Policy '${stmt.name}' created successfully on table '${stmt.tableName}'.",
     );
   }
 
@@ -1397,11 +1602,16 @@ END;
     return QueryResult(
       columns: [],
       rows: [],
-      message: "Trigger '${stmt.name}' created successfully on table '${stmt.tableName}'.",
+      message:
+          "Trigger '${stmt.name}' created successfully on table '${stmt.tableName}'.",
     );
   }
 
-  void _executeTriggerSync(TriggerSchema trig, TableSchema schema, List<DbValue> rowValues) {
+  void _executeTriggerSync(
+    TriggerSchema trig,
+    TableSchema schema,
+    List<DbValue> rowValues,
+  ) {
     final savedEnv = Map<String, DbValue>.from(_env);
     for (int i = 0; i < schema.columnNames.length; i++) {
       final colName = schema.columnNames[i];
@@ -1413,7 +1623,10 @@ END;
       for (final decl in trig.declarations) {
         DbValue initialVal = DbNull();
         if (decl.initialValue != null) {
-          final fn = _jitCache.putIfAbsent(decl.initialValue!, () => JitCompiler.compile(decl.initialValue!));
+          final fn = _jitCache.putIfAbsent(
+            decl.initialValue!,
+            () => JitCompiler.compile(decl.initialValue!),
+          );
           initialVal = fn(_env);
         }
         _env[decl.name] = initialVal;
@@ -1447,7 +1660,11 @@ END;
     cur.found = cur.result!.rows.isNotEmpty;
     _env['$cName%found'] = DbInt(cur.found ? 1 : 0);
     _env['$cName%notfound'] = DbInt(cur.found ? 0 : 1);
-    return QueryResult(columns: [], rows: [], message: "Cursor '$cName' opened.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Cursor '$cName' opened.",
+    );
   }
 
   QueryResult _executeFetchCursor(FetchCursorStmt stmt) {
@@ -1470,7 +1687,11 @@ END;
       _env['$cName%found'] = DbInt(0);
       _env['$cName%notfound'] = DbInt(1);
     }
-    return QueryResult(columns: [], rows: [], message: "Fetched from cursor '$cName'.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Fetched from cursor '$cName'.",
+    );
   }
 
   QueryResult _executeCloseCursor(CloseCursorStmt stmt) {
@@ -1483,7 +1704,11 @@ END;
       _env.remove('$cName%found');
       _env.remove('$cName%notfound');
     }
-    return QueryResult(columns: [], rows: [], message: "Cursor '$cName' closed.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Cursor '$cName' closed.",
+    );
   }
 
   Future<QueryResult> _executeCreateDatabase(CreateDatabaseStmt stmt) async {
@@ -1495,7 +1720,11 @@ END;
     final newDb = Database(dbDir);
     await newDb.init();
     await newDb.close(); // Release file locks
-    return QueryResult(columns: [], rows: [], message: "Database '${stmt.name}' created successfully.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Database '${stmt.name}' created successfully.",
+    );
   }
 
   Future<QueryResult> _executeUseDatabase(UseDatabaseStmt stmt) async {
@@ -1505,12 +1734,12 @@ END;
       throw Exception("Database '${stmt.name}' does not exist.");
     }
     // 1. Close current database
-    await _db.close();
+    await db.close();
 
     // 2. Instantiate and initialize target database
     final newDb = Database(dbDir);
     await newDb.init();
-    _db = newDb;
+    db = newDb;
 
     // 3. Clear interpreter caches
     _rowTableCache.clear();
@@ -1527,9 +1756,13 @@ END;
     _jitCache.clear();
 
     // 4. Update session transaction context
-    _sessionContext = _db.cache.createSessionContext();
+    _sessionContext = db.cache.createSessionContext();
 
-    return QueryResult(columns: [], rows: [], message: "Switched to database '${stmt.name}'.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Switched to database '${stmt.name}'.",
+    );
   }
 
   DbValue _coerceDbValue(DbValue val, DataType expectedType, String colName) {
@@ -1542,17 +1775,22 @@ END;
       try {
         return DbJson(json.decode(val.value));
       } catch (_) {
-        throw Exception("Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.");
+        throw Exception(
+          "Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.",
+        );
       }
     }
     if (expectedType == DataType.vector && val is DbText) {
       final vec = _parseVectorFromString(val.value);
       if (vec != null) return vec;
-      throw Exception("Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.");
+      throw Exception(
+        "Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.",
+      );
     }
     if (expectedType == DataType.boolean) {
       if (val is DbInt) return DbBool(val.value != 0);
-      if (val is DbText) return DbBool(val.value.toLowerCase() == 'true' || val.value == '1');
+      if (val is DbText)
+        return DbBool(val.value.toLowerCase() == 'true' || val.value == '1');
     }
     if (expectedType == DataType.uuid && val is DbText) {
       return DbUuid(val.value);
@@ -1562,7 +1800,8 @@ END;
       if (dt != null) return DbDateTime(dt);
     }
     if (expectedType == DataType.blob) {
-      if (val is DbText) return DbBlob(Uint8List.fromList(utf8.encode(val.value)));
+      if (val is DbText)
+        return DbBlob(Uint8List.fromList(utf8.encode(val.value)));
     }
     if (expectedType == DataType.decimal) {
       if (val is DbInt) return DbDecimal(val.value.toDouble());
@@ -1572,7 +1811,9 @@ END;
         if (d != null) return DbDecimal(d);
       }
     }
-    throw Exception("Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.");
+    throw Exception(
+      "Type mismatch for column '$colName'. Expected $expectedType, found ${val.type}.",
+    );
   }
 
   QueryResult _executeInsert(InsertStmt stmt) {
@@ -1591,11 +1832,17 @@ END;
         _executeInsert(singleInsert);
         insertedCount++;
       }
-      return QueryResult(columns: [], rows: [], message: "$insertedCount rows inserted into table '${stmt.tableName}'.");
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "$insertedCount rows inserted into table '${stmt.tableName}'.",
+      );
     }
 
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'insert')) {
-      throw Exception("Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+      throw Exception(
+        "Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.",
+      );
     }
     var schema = _insertSchemaCache.putIfAbsent(stmt, () {
       final tName = stmt.tableName.toLowerCase();
@@ -1609,11 +1856,14 @@ END;
     var tableName = schema.name.toLowerCase();
 
     if (stmt.values.length != schema.columnNames.length) {
-      throw Exception("Column count mismatch. Expected ${schema.columnNames.length} values, found ${stmt.values.length}.");
+      throw Exception(
+        "Column count mismatch. Expected ${schema.columnNames.length} values, found ${stmt.values.length}.",
+      );
     }
 
     final len = stmt.values.length;
-    if (_reusedInsertRowValues == null || _reusedInsertRowValues!.length != len) {
+    if (_reusedInsertRowValues == null ||
+        _reusedInsertRowValues!.length != len) {
       _reusedInsertRowValues = List<DbValue>.filled(len, DbNull());
     }
     final rowValues = _reusedInsertRowValues!;
@@ -1642,7 +1892,11 @@ END;
           final paramIdx = placeholderIndices[i];
           final val = paramIdx < params.length ? params[paramIdx] : DbNull();
           final expectedType = schema.columnTypes[i];
-          rowValues[i] = _coerceDbValue(val, expectedType, schema.columnNames[i]);
+          rowValues[i] = _coerceDbValue(
+            val,
+            expectedType,
+            schema.columnNames[i],
+          );
         }
       }
     } else {
@@ -1657,9 +1911,15 @@ END;
     }
 
     // Handle Partition Routing
-    if (schema.partitionChildren.isNotEmpty && schema.partitionByColumn != null) {
-      final partColIdx = schema.columnNamesLower.indexOf(schema.partitionByColumn!.toLowerCase());
-      if (partColIdx == -1) throw Exception("Partition column ${schema.partitionByColumn} not found in table $tableName.");
+    if (schema.partitionChildren.isNotEmpty &&
+        schema.partitionByColumn != null) {
+      final partColIdx = schema.columnNamesLower.indexOf(
+        schema.partitionByColumn!.toLowerCase(),
+      );
+      if (partColIdx == -1)
+        throw Exception(
+          "Partition column ${schema.partitionByColumn} not found in table $tableName.",
+        );
       final val = rowValues[partColIdx];
       String valStr = val.toString();
       if (val is DbText) valStr = val.value;
@@ -1667,22 +1927,31 @@ END;
       bool found = false;
       for (final child in schema.partitionChildren) {
         final childSchema = db.catalog.getTableSchema(child.toLowerCase());
-        if (childSchema != null && childSchema.partitionFromValue != null && childSchema.partitionToValue != null) {
-           if (valStr.compareTo(childSchema.partitionFromValue!) >= 0 && valStr.compareTo(childSchema.partitionToValue!) <= 0) {
-             schema = childSchema;
-             tableName = childSchema.name.toLowerCase();
-             found = true;
-             break;
-           }
+        if (childSchema != null &&
+            childSchema.partitionFromValue != null &&
+            childSchema.partitionToValue != null) {
+          if (valStr.compareTo(childSchema.partitionFromValue!) >= 0 &&
+              valStr.compareTo(childSchema.partitionToValue!) <= 0) {
+            schema = childSchema;
+            tableName = childSchema.name.toLowerCase();
+            found = true;
+            break;
+          }
         }
       }
       if (!found) {
-        throw Exception("No matching partition found for row in partitioned table '$tableName'. Partition value: '$valStr'");
+        throw Exception(
+          "No matching partition found for row in partitioned table '$tableName'. Partition value: '$valStr'",
+        );
       }
     }
 
     // Execute BEFORE INSERT triggers
-    final beforeTriggers = db.catalog.getTriggersForTable(tableName, 'BEFORE', 'INSERT');
+    final beforeTriggers = db.catalog.getTriggersForTable(
+      tableName,
+      'BEFORE',
+      'INSERT',
+    );
     for (final trig in beforeTriggers) {
       _executeTriggerSync(trig, schema, rowValues);
     }
@@ -1695,26 +1964,39 @@ END;
           final val = rowValues[i];
           if (val is DbNull) {
             if (schema.columnPrimaryKey[i]) {
-              throw Exception("Primary key column '${schema.columnNames[i]}' cannot be NULL.");
+              throw Exception(
+                "Primary key column '${schema.columnNames[i]}' cannot be NULL.",
+              );
             }
             continue; // Null values are allowed in UNIQUE columns (unless primary key)
           }
-          
-          final idx = db.catalog.getIndexForColumn(tableName, schema.columnNames[i]);
+
+          final idx = db.catalog.getIndexForColumn(
+            tableName,
+            schema.columnNames[i],
+          );
           bool checkedWithIndex = false;
           if (idx != null && (val is DbInt || val is DbDouble)) {
-            final double? dKey = val is DbInt ? val.value.toDouble() : (val is DbDouble ? val.value : null);
+            final double? dKey = val is DbInt
+                ? val.value.toDouble()
+                : (val is DbDouble ? val.value : null);
             if (dKey != null) {
-              final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-                cache: db.cache,
-                tableName: schema.name,
-                dbDirectory: db.directory,
-              ));
+              final rowTable = _rowTableCache.putIfAbsent(
+                tableName,
+                () => RowTableFile(
+                  cache: db.cache,
+                  tableName: schema.name,
+                  dbDirectory: db.directory,
+                ),
+              );
               final btree = db.getOrInitIndexSync(idx.name);
               final ptrs = btree.searchRangeSync([dKey], [dKey]);
               bool hasVisible = false;
               for (final ptr in ptrs) {
-                final page = db.cache.pinPageSync(rowTable.filePath, ptr.pageId);
+                final page = db.cache.pinPageSync(
+                  rowTable.filePath,
+                  ptr.pageId,
+                );
                 final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
                 if (recBytes != null) {
                   try {
@@ -1723,33 +2005,55 @@ END;
                     final txManager = db.cache.mvccTxManager;
                     final currentTxId = currentTx?.txId ?? 0;
                     final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                    if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+                    if (txManager.isVisible(
+                      mvccRecord.xmin,
+                      mvccRecord.xmax,
+                      currentTxId,
+                      activeTxIds,
+                    )) {
                       hasVisible = true;
-                      db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                      db.cache.unpinPageSync(
+                        rowTable.filePath,
+                        ptr.pageId,
+                        isDirty: false,
+                      );
                       break;
                     }
                   } catch (_) {
                     hasVisible = true; // Non-MVCC
-                    db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                    db.cache.unpinPageSync(
+                      rowTable.filePath,
+                      ptr.pageId,
+                      isDirty: false,
+                    );
                     break;
                   }
                 }
-                db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                db.cache.unpinPageSync(
+                  rowTable.filePath,
+                  ptr.pageId,
+                  isDirty: false,
+                );
               }
               if (hasVisible) {
-                throw Exception("Unique constraint violation: value '${val.toString()}' already exists in unique column '${schema.columnNames[i]}'.");
+                throw Exception(
+                  "Unique constraint violation: value '${val.toString()}' already exists in unique column '${schema.columnNames[i]}'.",
+                );
               }
               checkedWithIndex = true;
             }
           }
-          
+
           if (!checkedWithIndex) {
             // Fallback: sequential scan check
-            final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-              cache: db.cache,
-              tableName: schema.name,
-              dbDirectory: db.directory,
-            ));
+            final rowTable = _rowTableCache.putIfAbsent(
+              tableName,
+              () => RowTableFile(
+                cache: db.cache,
+                tableName: schema.name,
+                dbDirectory: db.directory,
+              ),
+            );
             final pager = db.cache.getOrCreatePager(rowTable.filePath);
             final pageCount = pager.getPageCountSync();
             for (int pageId = 0; pageId < pageCount; pageId++) {
@@ -1765,8 +2069,15 @@ END;
                     final txManager = db.cache.mvccTxManager;
                     final currentTxId = currentTx?.txId ?? 0;
                     final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                    if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-                      existingRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+                    if (txManager.isVisible(
+                      mvccRecord.xmin,
+                      mvccRecord.xmax,
+                      currentTxId,
+                      activeTxIds,
+                    )) {
+                      existingRow = RecordSerializer.deserializeRow(
+                        mvccRecord.rowData,
+                      );
                     }
                   } catch (_) {
                     existingRow = RecordSerializer.deserializeRow(recBytes);
@@ -1775,8 +2086,14 @@ END;
                   if (i < existingRow.length) {
                     final existingVal = existingRow[i];
                     if (existingVal.compareTo(val) == 0) {
-                      db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
-                      throw Exception("Unique constraint violation: value '${val.toString()}' already exists in unique column '${schema.columnNames[i]}'.");
+                      db.cache.unpinPageSync(
+                        rowTable.filePath,
+                        pageId,
+                        isDirty: false,
+                      );
+                      throw Exception(
+                        "Unique constraint violation: value '${val.toString()}' already exists in unique column '${schema.columnNames[i]}'.",
+                      );
                     }
                   }
                 }
@@ -1795,21 +2112,30 @@ END;
         final refCol = schema.columnReferencesColumn[i];
         if (refTable != null && refCol != null) {
           final val = rowValues[i];
-          if (val is DbNull) continue; // Null foreign keys are allowed (unless also primary key/not null)
+          if (val is DbNull)
+            continue; // Null foreign keys are allowed (unless also primary key/not null)
 
           final refSchema = db.catalog.getTableSchema(refTable);
           if (refSchema == null) {
-            throw Exception("Foreign key constraint error: referenced table '$refTable' does not exist.");
+            throw Exception(
+              "Foreign key constraint error: referenced table '$refTable' does not exist.",
+            );
           }
-          final refColIdx = refSchema.columnNamesLower.indexOf(refCol.toLowerCase());
+          final refColIdx = refSchema.columnNamesLower.indexOf(
+            refCol.toLowerCase(),
+          );
           if (refColIdx == -1) {
-            throw Exception("Foreign key constraint error: referenced column '$refCol' does not exist in table '$refTable'.");
+            throw Exception(
+              "Foreign key constraint error: referenced column '$refCol' does not exist in table '$refTable'.",
+            );
           }
 
           final idx = db.catalog.getIndexForColumn(refTable, refCol);
           bool verifiedWithIndex = false;
           if (idx != null && (val is DbInt || val is DbDouble)) {
-            final double? dKey = val is DbInt ? val.value.toDouble() : (val is DbDouble ? val.value : null);
+            final double? dKey = val is DbInt
+                ? val.value.toDouble()
+                : (val is DbDouble ? val.value : null);
             if (dKey != null) {
               final btree = db.getOrInitIndexSync(idx.name);
               final ptr = btree.searchSync([dKey]);
@@ -1821,11 +2147,14 @@ END;
 
           if (!verifiedWithIndex) {
             // Sequential scan verification
-            final refRowTable = _rowTableCache.putIfAbsent(refTable.toLowerCase(), () => RowTableFile(
-              cache: db.cache,
-              tableName: refSchema.name,
-              dbDirectory: db.directory,
-            ));
+            final refRowTable = _rowTableCache.putIfAbsent(
+              refTable.toLowerCase(),
+              () => RowTableFile(
+                cache: db.cache,
+                tableName: refSchema.name,
+                dbDirectory: db.directory,
+              ),
+            );
             final pager = db.cache.getOrCreatePager(refRowTable.filePath);
             final pageCount = pager.getPageCountSync();
             bool found = false;
@@ -1842,8 +2171,15 @@ END;
                     final txManager = db.cache.mvccTxManager;
                     final currentTxId = currentTx?.txId ?? 0;
                     final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                    if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-                      refRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+                    if (txManager.isVisible(
+                      mvccRecord.xmin,
+                      mvccRecord.xmax,
+                      currentTxId,
+                      activeTxIds,
+                    )) {
+                      refRow = RecordSerializer.deserializeRow(
+                        mvccRecord.rowData,
+                      );
                     }
                   } catch (_) {
                     refRow = RecordSerializer.deserializeRow(recBytes);
@@ -1858,11 +2194,17 @@ END;
                   }
                 }
               }
-              db.cache.unpinPageSync(refRowTable.filePath, pageId, isDirty: false);
+              db.cache.unpinPageSync(
+                refRowTable.filePath,
+                pageId,
+                isDirty: false,
+              );
               if (found) break;
             }
             if (!found) {
-              throw Exception("Foreign key constraint violation: value '${val.toString()}' in column '${schema.columnNames[i]}' does not exist in referenced column '$refTable($refCol)'.");
+              throw Exception(
+                "Foreign key constraint violation: value '${val.toString()}' in column '${schema.columnNames[i]}' does not exist in referenced column '$refTable($refCol)'.",
+              );
             }
           }
         }
@@ -1873,20 +2215,26 @@ END;
     int recordSlotId = 0;
 
     if (schema.isColumnar) {
-      final colTable = _colTableCache.putIfAbsent(tableName, () => ColumnTableFile(
-        cache: db.cache,
-        tableName: schema.name,
-        dbDirectory: db.directory,
-        schema: schema,
-      ));
+      final colTable = _colTableCache.putIfAbsent(
+        tableName,
+        () => ColumnTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+          schema: schema,
+        ),
+      );
       colTable.insertSync(rowValues);
     } else {
-      final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-        cache: db.cache,
-        tableName: schema.name,
-        dbDirectory: db.directory,
-      ));
-      
+      final rowTable = _rowTableCache.putIfAbsent(
+        tableName,
+        () => RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        ),
+      );
+
       final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
       final pointer = rowTable.insertSync(rowValues, xmin: currentTxId);
       recordPageId = pointer.pageId;
@@ -1900,7 +2248,10 @@ END;
     // Update B+ Tree indexes if present (Delayed WAL-style index updates)
     final tableIndexes = db.catalog.getIndexesForTable(tableName);
     for (final idx in tableIndexes) {
-      final indexName = _indexFileNameCache.putIfAbsent(idx, () => idx.name.toLowerCase());
+      final indexName = _indexFileNameCache.putIfAbsent(
+        idx,
+        () => idx.name.toLowerCase(),
+      );
       final indexCols = idx.columnName.split(',');
       final List<double> compositeKey = [];
       bool hasAllKeys = true;
@@ -1924,7 +2275,8 @@ END;
           } else {
             double hash = 0.0;
             for (int j = 0; j < keyVal.value.length; j++) {
-              hash = (hash * 31.0 + keyVal.value.codeUnitAt(j)) % 9007199254740991;
+              hash =
+                  (hash * 31.0 + keyVal.value.codeUnitAt(j)) % 9007199254740991;
             }
             dKey = hash;
           }
@@ -1936,7 +2288,9 @@ END;
         compositeKey.add(dKey);
       }
       if (idx.usingMethod == 'fts') {
-        final cIdx = schema.columnNamesLower.indexOf(idx.columnName.toLowerCase());
+        final cIdx = schema.columnNamesLower.indexOf(
+          idx.columnName.toLowerCase(),
+        );
         if (cIdx != -1 && cIdx < rowValues.length) {
           final val = rowValues[cIdx];
           if (val is DbText) {
@@ -1946,12 +2300,18 @@ END;
             fts.addDocumentSync(val.value, recordPageId, recordSlotId);
           }
         }
-      } else if ((idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivf' || (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivfflat') {
-        final cIdx = schema.columnNamesLower.indexOf(idx.columnName.toLowerCase());
+      } else if ((idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') ==
+              'ivf' ||
+          (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') ==
+              'ivfflat') {
+        final cIdx = schema.columnNamesLower.indexOf(
+          idx.columnName.toLowerCase(),
+        );
         if (cIdx != -1 && cIdx < rowValues.length) {
           final val = rowValues[cIdx];
           if (val is DbVector) {
-            final indexFile = '${db.directory}/${idx.name.toLowerCase()}.ivf_flat';
+            final indexFile =
+                '${db.directory}/${idx.name.toLowerCase()}.ivf_flat';
             final ivf = IvfFlatIndex(indexPath: indexFile, autoSave: false);
             ivf.initSync();
             ivf.insertSync(val, recordPageId, recordSlotId);
@@ -1959,7 +2319,9 @@ END;
           }
         }
       } else if (idx.usingMethod == 'hnsw') {
-        final cIdx = schema.columnNamesLower.indexOf(idx.columnName.toLowerCase());
+        final cIdx = schema.columnNamesLower.indexOf(
+          idx.columnName.toLowerCase(),
+        );
         if (cIdx != -1 && cIdx < rowValues.length) {
           final val = rowValues[cIdx];
           if (val is DbVector) {
@@ -1971,19 +2333,25 @@ END;
           }
         }
       } else if (hasAllKeys && compositeKey.length == indexCols.length) {
-        _delayedIndexUpdates.add(_IndexUpdate(
-          indexName: indexName,
-          tableName: tableName,
-          columnName: idx.columnName.toLowerCase(),
-          key: compositeKey,
-          pageId: recordPageId,
-          slotId: recordSlotId,
-        ));
+        _delayedIndexUpdates.add(
+          _IndexUpdate(
+            indexName: indexName,
+            tableName: tableName,
+            columnName: idx.columnName.toLowerCase(),
+            key: compositeKey,
+            pageId: recordPageId,
+            slotId: recordSlotId,
+          ),
+        );
       }
     }
 
     // Execute AFTER INSERT triggers
-    final afterTriggers = db.catalog.getTriggersForTable(tableName, 'AFTER', 'INSERT');
+    final afterTriggers = db.catalog.getTriggersForTable(
+      tableName,
+      'AFTER',
+      'INSERT',
+    );
     for (final trig in afterTriggers) {
       _executeTriggerSync(trig, schema, rowValues);
     }
@@ -1998,7 +2366,9 @@ END;
 
   QueryResult _executeDelete(DeleteStmt stmt) {
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'delete')) {
-      throw Exception("Permission denied: DELETE privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+      throw Exception(
+        "Permission denied: DELETE privilege required on table '${stmt.tableName}' for user '$currentUser'.",
+      );
     }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
@@ -2019,11 +2389,14 @@ END;
     int deletedCount = 0;
 
     try {
-      final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-        cache: db.cache,
-        tableName: schema.name,
-        dbDirectory: db.directory,
-      ));
+      final rowTable = _rowTableCache.putIfAbsent(
+        tableName,
+        () => RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        ),
+      );
 
       final pager = db.cache.getOrCreatePager(rowTable.filePath);
       final pageCount = pager.getPageCountSync();
@@ -2034,13 +2407,19 @@ END;
       // Try index scan first if simple equality filter on indexed column
       final cond = stmt.whereCondition;
       bool usedIndex = false;
-      if (cond is BinaryExpr && cond.operator == '=' && cond.left is VariableExpr) {
+      if (cond is BinaryExpr &&
+          cond.operator == '=' &&
+          cond.left is VariableExpr) {
         final varExpr = cond.left as VariableExpr;
-        if (varExpr.path.length == 1 || varExpr.path.first.toLowerCase() == tableName) {
+        if (varExpr.path.length == 1 ||
+            varExpr.path.first.toLowerCase() == tableName) {
           final colName = varExpr.path.last.toLowerCase();
           final idx = db.catalog.getIndexForColumn(tableName, colName);
           if (idx != null) {
-            final rightValFn = _jitCache.putIfAbsent(cond.right, () => JitCompiler.compile(cond.right));
+            final rightValFn = _jitCache.putIfAbsent(
+              cond.right,
+              () => JitCompiler.compile(cond.right),
+            );
             final rightVal = rightValFn({}); // Evaluate with empty context
             final double? searchKey = rightVal is DbInt
                 ? rightVal.value.toDouble()
@@ -2050,7 +2429,10 @@ END;
               final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
               final ptr = btree.searchSync([searchKey]);
               if (ptr != null) {
-                final page = db.cache.pinPageSync(rowTable.filePath, ptr.pageId);
+                final page = db.cache.pinPageSync(
+                  rowTable.filePath,
+                  ptr.pageId,
+                );
                 final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
                 if (recBytes != null) {
                   List<DbValue>? rowValues;
@@ -2059,17 +2441,30 @@ END;
                     final currentTx = db.cache.currentMvccTx;
                     final txManager = db.cache.mvccTxManager;
                     final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                    if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-                      rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+                    if (txManager.isVisible(
+                      mvccRecord.xmin,
+                      mvccRecord.xmax,
+                      currentTxId,
+                      activeTxIds,
+                    )) {
+                      rowValues = RecordSerializer.deserializeRow(
+                        mvccRecord.rowData,
+                      );
                     }
                   } catch (_) {
                     rowValues = RecordSerializer.deserializeRow(recBytes);
                   }
                   if (rowValues != null) {
-                    toDelete.add(_DeleteTarget(ptr.pageId, ptr.slotId, rowValues));
+                    toDelete.add(
+                      _DeleteTarget(ptr.pageId, ptr.slotId, rowValues),
+                    );
                   }
                 }
-                db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                db.cache.unpinPageSync(
+                  rowTable.filePath,
+                  ptr.pageId,
+                  isDirty: false,
+                );
               }
               usedIndex = true;
             }
@@ -2090,8 +2485,15 @@ END;
                 final currentTx = db.cache.currentMvccTx;
                 final txManager = db.cache.mvccTxManager;
                 final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-                  rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+                if (txManager.isVisible(
+                  mvccRecord.xmin,
+                  mvccRecord.xmax,
+                  currentTxId,
+                  activeTxIds,
+                )) {
+                  rowValues = RecordSerializer.deserializeRow(
+                    mvccRecord.rowData,
+                  );
                 }
               } catch (_) {
                 rowValues = RecordSerializer.deserializeRow(recBytes);
@@ -2100,18 +2502,26 @@ END;
               if (rowValues != null) {
                 bool matches = true;
                 if (stmt.whereCondition != null) {
-                  final keyToIndex = _schemaKeyToIndexCache.putIfAbsent(schema.name.toLowerCase(), () {
-                    final map = <String, int>{};
-                    for (int i = 0; i < schema.columnNames.length; i++) {
-                      map['${schema.name}.${schema.columnNames[i]}'] = i;
-                      map[schema.columnNames[i]] = i;
-                    }
-                    return map;
-                  });
+                  final keyToIndex = _schemaKeyToIndexCache.putIfAbsent(
+                    schema.name.toLowerCase(),
+                    () {
+                      final map = <String, int>{};
+                      for (int i = 0; i < schema.columnNames.length; i++) {
+                        map['${schema.name}.${schema.columnNames[i]}'] = i;
+                        map[schema.columnNames[i]] = i;
+                      }
+                      return map;
+                    },
+                  );
                   final rowMap = RowMap(rowValues, keyToIndex);
-                  final condFn = _jitCache.putIfAbsent(stmt.whereCondition!, () => JitCompiler.compile(stmt.whereCondition!));
+                  final condFn = _jitCache.putIfAbsent(
+                    stmt.whereCondition!,
+                    () => JitCompiler.compile(stmt.whereCondition!),
+                  );
                   final condVal = condFn(rowMap);
-                  matches = (condVal is DbInt && condVal.value == 1) || (condVal is DbDouble && condVal.value > 0.0);
+                  matches =
+                      (condVal is DbInt && condVal.value == 1) ||
+                      (condVal is DbDouble && condVal.value > 0.0);
                 }
 
                 if (matches) {
@@ -2137,7 +2547,13 @@ END;
         if (hasReferencing) {
           // Cascade delete for each column of the deleted row
           for (int k = 0; k < schema.columnNames.length; k++) {
-            _cascadeDeleteSync(schema.name, schema.columnNames[k], target.rowValues[k], currentTxId, visitedTables);
+            _cascadeDeleteSync(
+              schema.name,
+              schema.columnNames[k],
+              target.rowValues[k],
+              currentTxId,
+              visitedTables,
+            );
           }
         }
       }
@@ -2162,7 +2578,9 @@ END;
 
   QueryResult _executeUpdate(UpdateStmt stmt) {
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'update')) {
-      throw Exception("Permission denied: UPDATE privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+      throw Exception(
+        "Permission denied: UPDATE privilege required on table '${stmt.tableName}' for user '$currentUser'.",
+      );
     }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
@@ -2174,9 +2592,13 @@ END;
       throw Exception("Updates are not supported on columnar tables.");
     }
 
-    final colIndex = schema.columnNames.indexWhere((c) => c.toLowerCase() == stmt.columnName.toLowerCase());
+    final colIndex = schema.columnNames.indexWhere(
+      (c) => c.toLowerCase() == stmt.columnName.toLowerCase(),
+    );
     if (colIndex == -1) {
-      throw Exception("Column '${stmt.columnName}' does not exist on table '$tableName'.");
+      throw Exception(
+        "Column '${stmt.columnName}' does not exist on table '$tableName'.",
+      );
     }
 
     final wasTxActive = db.cache.isTransactionActive;
@@ -2188,11 +2610,14 @@ END;
     int updatedCount = 0;
 
     try {
-      final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-        cache: db.cache,
-        tableName: schema.name,
-        dbDirectory: db.directory,
-      ));
+      final rowTable = _rowTableCache.putIfAbsent(
+        tableName,
+        () => RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        ),
+      );
 
       // 1. Locate targets (pageId, slotId) to update
       final toUpdate = <_DeleteTarget>[];
@@ -2207,9 +2632,11 @@ END;
       }
 
       if (range != null) {
-        final btree = db.getOrInitIndexSync(range.indexSchema.name.toLowerCase());
+        final btree = db.getOrInitIndexSync(
+          range.indexSchema.name.toLowerCase(),
+        );
         final ptrs = btree.searchRangeSync(range.low, range.high);
-        
+
         // Sort physically by pageId & slotId to maximize sequential cache hits
         ptrs.sort((a, b) {
           final cmp = a.pageId.compareTo(b.pageId);
@@ -2227,7 +2654,12 @@ END;
               final currentTx = db.cache.currentMvccTx;
               final txManager = db.cache.mvccTxManager;
               final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-              if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+              if (txManager.isVisible(
+                mvccRecord.xmin,
+                mvccRecord.xmax,
+                currentTxId,
+                activeTxIds,
+              )) {
                 rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
               }
             } catch (_) {
@@ -2253,8 +2685,15 @@ END;
                 final currentTx = db.cache.currentMvccTx;
                 final txManager = db.cache.mvccTxManager;
                 final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-                  rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+                if (txManager.isVisible(
+                  mvccRecord.xmin,
+                  mvccRecord.xmax,
+                  currentTxId,
+                  activeTxIds,
+                )) {
+                  rowValues = RecordSerializer.deserializeRow(
+                    mvccRecord.rowData,
+                  );
                 }
               } catch (_) {
                 rowValues = RecordSerializer.deserializeRow(recBytes);
@@ -2263,18 +2702,26 @@ END;
               if (rowValues != null) {
                 bool matches = true;
                 if (stmt.whereCondition != null) {
-                  final keyToIndex = _schemaKeyToIndexCache.putIfAbsent(schema.name.toLowerCase(), () {
-                    final map = <String, int>{};
-                    for (int i = 0; i < schema.columnNames.length; i++) {
-                      map['${schema.name}.${schema.columnNames[i]}'] = i;
-                      map[schema.columnNames[i]] = i;
-                    }
-                    return map;
-                  });
+                  final keyToIndex = _schemaKeyToIndexCache.putIfAbsent(
+                    schema.name.toLowerCase(),
+                    () {
+                      final map = <String, int>{};
+                      for (int i = 0; i < schema.columnNames.length; i++) {
+                        map['${schema.name}.${schema.columnNames[i]}'] = i;
+                        map[schema.columnNames[i]] = i;
+                      }
+                      return map;
+                    },
+                  );
                   final rowMap = RowMap(rowValues, keyToIndex);
-                  final condFn = _jitCache.putIfAbsent(stmt.whereCondition!, () => JitCompiler.compile(stmt.whereCondition!));
+                  final condFn = _jitCache.putIfAbsent(
+                    stmt.whereCondition!,
+                    () => JitCompiler.compile(stmt.whereCondition!),
+                  );
                   final condVal = condFn(rowMap);
-                  matches = (condVal is DbInt && condVal.value == 1) || (condVal is DbDouble && condVal.value > 0.0);
+                  matches =
+                      (condVal is DbInt && condVal.value == 1) ||
+                      (condVal is DbDouble && condVal.value > 0.0);
                 }
 
                 if (matches) {
@@ -2288,17 +2735,23 @@ END;
       }
 
       // Compile set expression
-      final valFn = _jitCache.putIfAbsent(stmt.valueExpr, () => JitCompiler.compile(stmt.valueExpr));
+      final valFn = _jitCache.putIfAbsent(
+        stmt.valueExpr,
+        () => JitCompiler.compile(stmt.valueExpr),
+      );
 
       // 2. Perform updates using ISURA (In-Place Slotted Update & Relocation Algorithm)
-      final keyToIndex = _schemaKeyToIndexCache.putIfAbsent(schema.name.toLowerCase(), () {
-        final map = <String, int>{};
-        for (int i = 0; i < schema.columnNames.length; i++) {
-          map['${schema.name}.${schema.columnNames[i]}'] = i;
-          map[schema.columnNames[i]] = i;
-        }
-        return map;
-      });
+      final keyToIndex = _schemaKeyToIndexCache.putIfAbsent(
+        schema.name.toLowerCase(),
+        () {
+          final map = <String, int>{};
+          for (int i = 0; i < schema.columnNames.length; i++) {
+            map['${schema.name}.${schema.columnNames[i]}'] = i;
+            map[schema.columnNames[i]] = i;
+          }
+          return map;
+        },
+      );
 
       for (final target in toUpdate) {
         final rowMap = RowMap(target.rowValues, keyToIndex);
@@ -2309,7 +2762,9 @@ END;
           if (expectedType == DataType.double && coercedVal is DbInt) {
             coercedVal = DbDouble(coercedVal.value.toDouble());
           } else if (expectedType == DataType.json && coercedVal is DbText) {
-            try { coercedVal = DbJson(json.decode(coercedVal.value)); } catch (_) {}
+            try {
+              coercedVal = DbJson(json.decode(coercedVal.value));
+            } catch (_) {}
           }
         }
 
@@ -2318,14 +2773,23 @@ END;
         newRowValues[colIndex] = coercedVal;
 
         // Execute BEFORE UPDATE triggers
-        final beforeUpdTriggers = db.catalog.getTriggersForTable(tableName, 'BEFORE', 'UPDATE');
+        final beforeUpdTriggers = db.catalog.getTriggersForTable(
+          tableName,
+          'BEFORE',
+          'UPDATE',
+        );
         for (final trig in beforeUpdTriggers) {
           _executeTriggerSync(trig, schema, newRowValues);
         }
 
         // Serialize new record
         final newRowData = RecordSerializer.serializeRow(newRowValues);
-        final mvccRecord = MvccRecord(xmin: currentTxId, xmax: 0, rollPtr: 0, rowData: newRowData);
+        final mvccRecord = MvccRecord(
+          xmin: currentTxId,
+          xmax: 0,
+          rollPtr: 0,
+          rowData: newRowData,
+        );
         final newBytes = mvccRecord.toBytes();
 
         // Pin the data page to perform Slotted Page manipulation
@@ -2339,7 +2803,11 @@ END;
           // ISURA Case 1: In-Place Overwrite (reuses same slot bytes, no index changes)
           page.data.setAll(oldOffset, newBytes);
           data.setUint16(slotOffset + 2, newBytes.length);
-          db.cache.unpinPageSync(rowTable.filePath, target.pageId, isDirty: true);
+          db.cache.unpinPageSync(
+            rowTable.filePath,
+            target.pageId,
+            isDirty: true,
+          );
           updatedCount++;
         } else {
           // ISURA Case 2: In-Page Relocation (same pageId/slotId, no index changes)
@@ -2353,14 +2821,26 @@ END;
             data.setUint16(slotOffset, newOffset);
             data.setUint16(slotOffset + 2, newBytes.length);
             data.setUint16(3, newOffset);
-            db.cache.unpinPageSync(rowTable.filePath, target.pageId, isDirty: true);
+            db.cache.unpinPageSync(
+              rowTable.filePath,
+              target.pageId,
+              isDirty: true,
+            );
             updatedCount++;
           } else {
             // ISURA Case 3: Out-of-Page Relocation (reverts to Delete + Insert)
-            db.cache.unpinPageSync(rowTable.filePath, target.pageId, isDirty: false);
-            
+            db.cache.unpinPageSync(
+              rowTable.filePath,
+              target.pageId,
+              isDirty: false,
+            );
+
             // Delete old record
-            rowTable.deleteRecordSync(target.pageId, target.slotId, currentTxId);
+            rowTable.deleteRecordSync(
+              target.pageId,
+              target.slotId,
+              currentTxId,
+            );
 
             // Insert new record
             final newPtr = rowTable.insertSync(newRowValues, xmin: currentTxId);
@@ -2368,26 +2848,38 @@ END;
             // Queue new index pointer mapping (since physical location changed)
             final tableIndexes = db.catalog.getIndexesForTable(tableName);
             for (final idx in tableIndexes) {
-              final indexName = _indexFileNameCache.putIfAbsent(idx, () => idx.name.toLowerCase());
-              final cols = idx.columnName.split(',').map((c) => c.trim().toLowerCase()).toList();
+              final indexName = _indexFileNameCache.putIfAbsent(
+                idx,
+                () => idx.name.toLowerCase(),
+              );
+              final cols = idx.columnName
+                  .split(',')
+                  .map((c) => c.trim().toLowerCase())
+                  .toList();
               final keyList = <double>[];
               for (final col in cols) {
-                final cIdx = schema.columnNames.indexWhere((n) => n.toLowerCase() == col);
+                final cIdx = schema.columnNames.indexWhere(
+                  (n) => n.toLowerCase() == col,
+                );
                 if (cIdx != -1) {
                   final v = newRowValues[cIdx];
-                  final dKey = v is DbInt ? v.value.toDouble() : (v is DbDouble ? v.value : 0.0);
+                  final dKey = v is DbInt
+                      ? v.value.toDouble()
+                      : (v is DbDouble ? v.value : 0.0);
                   keyList.add(dKey);
                 }
               }
               if (keyList.isNotEmpty) {
-                _delayedIndexUpdates.add(_IndexUpdate(
-                  indexName: indexName,
-                  tableName: tableName,
-                  columnName: idx.columnName,
-                  key: keyList,
-                  pageId: newPtr.pageId,
-                  slotId: newPtr.slotId,
-                ));
+                _delayedIndexUpdates.add(
+                  _IndexUpdate(
+                    indexName: indexName,
+                    tableName: tableName,
+                    columnName: idx.columnName,
+                    key: keyList,
+                    pageId: newPtr.pageId,
+                    slotId: newPtr.slotId,
+                  ),
+                );
               }
             }
             updatedCount++;
@@ -2413,7 +2905,13 @@ END;
     }
   }
 
-  void _cascadeDeleteSync(String parentTableName, String parentColName, DbValue parentVal, int currentTxId, Set<String> visitedTables) {
+  void _cascadeDeleteSync(
+    String parentTableName,
+    String parentColName,
+    DbValue parentVal,
+    int currentTxId,
+    Set<String> visitedTables,
+  ) {
     if (visitedTables.contains(parentTableName.toLowerCase())) return;
     visitedTables.add(parentTableName.toLowerCase());
 
@@ -2426,7 +2924,13 @@ END;
           if (refTable.toLowerCase() == parentTableName.toLowerCase() &&
               refCol.toLowerCase() == parentColName.toLowerCase()) {
             // Found a referencing column!
-            _deleteRowsSync(schema.name, schema.columnNames[i], parentVal, currentTxId, visitedTables);
+            _deleteRowsSync(
+              schema.name,
+              schema.columnNames[i],
+              parentVal,
+              currentTxId,
+              visitedTables,
+            );
           }
         }
       }
@@ -2434,19 +2938,28 @@ END;
     visitedTables.remove(parentTableName.toLowerCase());
   }
 
-  void _deleteRowsSync(String tableName, String colName, DbValue targetVal, int currentTxId, Set<String> visitedTables) {
+  void _deleteRowsSync(
+    String tableName,
+    String colName,
+    DbValue targetVal,
+    int currentTxId,
+    Set<String> visitedTables,
+  ) {
     final schema = db.catalog.getTableSchema(tableName.toLowerCase());
     if (schema == null) return;
 
-    final rowTable = _rowTableCache.putIfAbsent(tableName.toLowerCase(), () => RowTableFile(
-      cache: db.cache,
-      tableName: schema.name,
-      dbDirectory: db.directory,
-    ));
+    final rowTable = _rowTableCache.putIfAbsent(
+      tableName.toLowerCase(),
+      () => RowTableFile(
+        cache: db.cache,
+        tableName: schema.name,
+        dbDirectory: db.directory,
+      ),
+    );
 
     final pager = db.cache.getOrCreatePager(rowTable.filePath);
     final pageCount = pager.getPageCountSync();
-    
+
     final colIdx = schema.columnNamesLower.indexOf(colName.toLowerCase());
     if (colIdx == -1) return;
 
@@ -2464,7 +2977,12 @@ END;
             final currentTx = db.cache.currentMvccTx;
             final txManager = db.cache.mvccTxManager;
             final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-            if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+            if (txManager.isVisible(
+              mvccRecord.xmin,
+              mvccRecord.xmax,
+              currentTxId,
+              activeTxIds,
+            )) {
               rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
             }
           } catch (_) {
@@ -2491,26 +3009,46 @@ END;
 
       // Cascade delete recursively for each column of the deleted row
       for (int k = 0; k < schema.columnNames.length; k++) {
-        _cascadeDeleteSync(schema.name, schema.columnNames[k], target.rowValues[k], currentTxId, visitedTables);
+        _cascadeDeleteSync(
+          schema.name,
+          schema.columnNames[k],
+          target.rowValues[k],
+          currentTxId,
+          visitedTables,
+        );
       }
     }
   }
 
-
   dynamic _executeSelect(SelectStmt stmt) {
     if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'select')) {
-      throw Exception("Permission denied: SELECT privilege required on table '${stmt.tableName}' for user '$currentUser'.");
+      throw Exception(
+        "Permission denied: SELECT privilege required on table '${stmt.tableName}' for user '$currentUser'.",
+      );
     }
     if (stmt.join != null) {
-      if (!db.catalog.hasPrivilege(currentUser, stmt.join!.tableName, 'select')) {
-        throw Exception("Permission denied: SELECT privilege required on table '${stmt.join!.tableName}' for user '$currentUser'.");
+      if (!db.catalog.hasPrivilege(
+        currentUser,
+        stmt.join!.tableName,
+        'select',
+      )) {
+        throw Exception(
+          "Permission denied: SELECT privilege required on table '${stmt.join!.tableName}' for user '$currentUser'.",
+        );
       }
     }
     _flushDelayedIndexUpdates();
     final tableName = stmt.tableName.toLowerCase();
 
-    if (tableName == 'information_schema.tables' || tableName == 'information.tables') {
-      final cols = ['table_catalog', 'table_schema', 'table_name', 'table_type', 'is_columnar'];
+    if (tableName == 'information_schema.tables' ||
+        tableName == 'information.tables') {
+      final cols = [
+        'table_catalog',
+        'table_schema',
+        'table_name',
+        'table_type',
+        'is_columnar',
+      ];
       final rows = <List<DbValue>>[];
       db.catalog.getTablesInternal().forEach((name, s) {
         rows.add([
@@ -2521,10 +3059,23 @@ END;
           DbBool(s.isColumnar),
         ]);
       });
-      return QueryResult(columns: cols, rows: rows, message: "${rows.length} tables found.");
+      return QueryResult(
+        columns: cols,
+        rows: rows,
+        message: "${rows.length} tables found.",
+      );
     }
-    if (tableName == 'information_schema.columns' || tableName == 'information.columns') {
-      final cols = ['table_catalog', 'table_schema', 'table_name', 'column_name', 'ordinal_position', 'data_type', 'is_nullable'];
+    if (tableName == 'information_schema.columns' ||
+        tableName == 'information.columns') {
+      final cols = [
+        'table_catalog',
+        'table_schema',
+        'table_name',
+        'column_name',
+        'ordinal_position',
+        'data_type',
+        'is_nullable',
+      ];
       final rows = <List<DbValue>>[];
       db.catalog.getTablesInternal().forEach((tblName, s) {
         for (int i = 0; i < s.columnNames.length; i++) {
@@ -2539,18 +3090,24 @@ END;
           ]);
         }
       });
-      return QueryResult(columns: cols, rows: rows, message: "${rows.length} columns found.");
+      return QueryResult(
+        columns: cols,
+        rows: rows,
+        message: "${rows.length} columns found.",
+      );
     }
-    if (tableName == 'information_schema.schemata' || tableName == 'information.schemata') {
+    if (tableName == 'information_schema.schemata' ||
+        tableName == 'information.schemata') {
       return QueryResult(
         columns: ['catalog_name', 'schema_name', 'schema_owner'],
         rows: [
-          [DbText('ultsql'), DbText('public'), DbText(currentUser)]
+          [DbText('ultsql'), DbText('public'), DbText(currentUser)],
         ],
         message: "1 schema found.",
       );
     }
-    if (stmt.fromFunction?.name.toLowerCase() == 'generate_series' || tableName == 'generate_series') {
+    if (stmt.fromFunction?.name.toLowerCase() == 'generate_series' ||
+        tableName == 'generate_series') {
       final func = stmt.fromFunction;
       final args = func?.arguments ?? [];
       int start = 1;
@@ -2558,18 +3115,24 @@ END;
       int step = 1;
       if (args.isNotEmpty) {
         final v0 = JitCompiler.compile(args[0])({});
-        if (v0 is DbInt) start = v0.value;
-        else start = int.tryParse(v0.toString()) ?? 1;
+        if (v0 is DbInt)
+          start = v0.value;
+        else
+          start = int.tryParse(v0.toString()) ?? 1;
       }
       if (args.length > 1) {
         final v1 = JitCompiler.compile(args[1])({});
-        if (v1 is DbInt) stop = v1.value;
-        else stop = int.tryParse(v1.toString()) ?? 10;
+        if (v1 is DbInt)
+          stop = v1.value;
+        else
+          stop = int.tryParse(v1.toString()) ?? 10;
       }
       if (args.length > 2) {
         final v2 = JitCompiler.compile(args[2])({});
-        if (v2 is DbInt) step = v2.value;
-        else step = int.tryParse(v2.toString()) ?? 1;
+        if (v2 is DbInt)
+          step = v2.value;
+        else
+          step = int.tryParse(v2.toString()) ?? 1;
       }
       final rows = <List<DbValue>>[];
       if (step > 0) {
@@ -2582,11 +3145,15 @@ END;
         }
       }
       final colName = stmt.tableAlias ?? 'generate_series';
-      return QueryResult(columns: [colName], rows: rows, message: "${rows.length} rows generated.");
+      return QueryResult(
+        columns: [colName],
+        rows: rows,
+        message: "${rows.length} rows generated.",
+      );
     }
 
     final schema = db.catalog.getTableSchema(tableName);
-    
+
     if (schema != null &&
         !schema.isColumnar &&
         stmt.whereCondition != null &&
@@ -2595,11 +3162,14 @@ END;
         stmt.groupBy == null &&
         !_hasAggregate(stmt.projections)) {
       final cond = stmt.whereCondition;
-      if (cond is BinaryExpr && cond.operator == '=' && cond.left is VariableExpr) {
+      if (cond is BinaryExpr &&
+          cond.operator == '=' &&
+          cond.left is VariableExpr) {
         final varExpr = cond.left as VariableExpr;
-        if (varExpr.path.length == 1 || varExpr.path.first.toLowerCase() == tableName) {
+        if (varExpr.path.length == 1 ||
+            varExpr.path.first.toLowerCase() == tableName) {
           final colName = varExpr.path.last.toLowerCase();
-        
+
           final idx = db.catalog.getIndexForColumn(tableName, colName);
           if (idx != null) {
             if (cond.right is LiteralExpr) {
@@ -2609,12 +3179,22 @@ END;
                 final indexName = idx.name.toLowerCase();
                 final btree = db.getOrInitIndexSync(indexName);
                 final ptr = btree.searchSync([searchKey]);
-                
+
                 if (ptr != null) {
-                  final rowTable = RowTableFile(cache: db.cache, tableName: schema.name, dbDirectory: db.directory);
-                  final page = db.cache.pinPageSync(rowTable.filePath, ptr.pageId);
-                  final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
-                  
+                  final rowTable = RowTableFile(
+                    cache: db.cache,
+                    tableName: schema.name,
+                    dbDirectory: db.directory,
+                  );
+                  final page = db.cache.pinPageSync(
+                    rowTable.filePath,
+                    ptr.pageId,
+                  );
+                  final recBytes = SlottedPageHelper.getRecord(
+                    page,
+                    ptr.slotId,
+                  );
+
                   final rows = <List<DbValue>>[];
                   if (recBytes != null) {
                     List<DbValue>? fullRow;
@@ -2623,9 +3203,17 @@ END;
                       final currentTx = db.cache.currentMvccTx;
                       final txManager = db.cache.mvccTxManager;
                       final currentTxId = currentTx?.txId ?? 0;
-                      final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-                      if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
-                        fullRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+                      final activeTxIds =
+                          currentTx?.activeTxIds ?? const <int>{};
+                      if (txManager.isVisible(
+                        mvccRecord.xmin,
+                        mvccRecord.xmax,
+                        currentTxId,
+                        activeTxIds,
+                      )) {
+                        fullRow = RecordSerializer.deserializeRow(
+                          mvccRecord.rowData,
+                        );
                       }
                     } catch (_) {
                       fullRow = RecordSerializer.deserializeRow(recBytes);
@@ -2633,7 +3221,8 @@ END;
                     if (fullRow != null) {
                       final rowContext = <String, DbValue>{};
                       for (int i = 0; i < schema.columnNames.length; i++) {
-                        rowContext['${schema.name}.${schema.columnNames[i]}'] = fullRow[i];
+                        rowContext['${schema.name}.${schema.columnNames[i]}'] =
+                            fullRow[i];
                         rowContext[schema.columnNames[i]] = fullRow[i];
                       }
 
@@ -2642,7 +3231,10 @@ END;
                       var localProjections = stmt.projections;
                       if (localProjections.length == 1 &&
                           localProjections[0].expr is VariableExpr &&
-                          (localProjections[0].expr as VariableExpr).path.first == '*') {
+                          (localProjections[0].expr as VariableExpr)
+                                  .path
+                                  .first ==
+                              '*') {
                         localProjections = schema.columnNames.map((colName) {
                           return Projection(VariableExpr([colName]), null);
                         }).toList();
@@ -2650,15 +3242,32 @@ END;
                       for (final proj in localProjections) {
                         final pVal = evaluateExpression(proj.expr, rowContext);
                         projectedRow.add(pVal);
-                        columns.add(proj.alias ?? (proj.expr is VariableExpr ? (proj.expr as VariableExpr).fullName : pVal.toString()));
+                        columns.add(
+                          proj.alias ??
+                              (proj.expr is VariableExpr
+                                  ? (proj.expr as VariableExpr).fullName
+                                  : pVal.toString()),
+                        );
                       }
                       rows.add(projectedRow);
-                      db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                      db.cache.unpinPageSync(
+                        rowTable.filePath,
+                        ptr.pageId,
+                        isDirty: false,
+                      );
                       _applyDataMasking(stmt, columns, rows);
-                      return QueryResult(columns: columns, rows: rows, message: "Index scan completed successfully.");
+                      return QueryResult(
+                        columns: columns,
+                        rows: rows,
+                        message: "Index scan completed successfully.",
+                      );
                     }
                   }
-                  db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                  db.cache.unpinPageSync(
+                    rowTable.filePath,
+                    ptr.pageId,
+                    isDirty: false,
+                  );
                 }
               }
             }
@@ -2677,7 +3286,8 @@ END;
       if (node is GroupByNode) return hasParallel(node.child);
       if (node is SortNode) return hasParallel(node.child);
       if (node is LimitNode) return hasParallel(node.child);
-      if (node is HashJoinNode) return hasParallel(node.left) || hasParallel(node.right);
+      if (node is HashJoinNode)
+        return hasParallel(node.left) || hasParallel(node.right);
       if (node is IndexJoinNode) return hasParallel(node.left);
       if (node is GraphJoinNode) return hasParallel(node.left);
       return false;
@@ -2803,18 +3413,22 @@ END;
     );
   }
 
-
   void _executeAssign(AssignStmt stmt) {
     if (!_env.containsKey(stmt.varName)) {
       throw Exception("Variable '${stmt.varName}' is not declared.");
     }
-    final fn = _jitCache.putIfAbsent(stmt.expr, () => JitCompiler.compile(stmt.expr));
+    final fn = _jitCache.putIfAbsent(
+      stmt.expr,
+      () => JitCompiler.compile(stmt.expr),
+    );
     _env[stmt.varName] = fn(_env);
   }
 
-
   void _executeDbmsOutput(DbmsOutputStmt stmt) {
-    final fn = _jitCache.putIfAbsent(stmt.expr, () => JitCompiler.compile(stmt.expr));
+    final fn = _jitCache.putIfAbsent(
+      stmt.expr,
+      () => JitCompiler.compile(stmt.expr),
+    );
     final val = fn(_env);
     dbmsOutputLog.add(val.toString());
   }
@@ -2822,7 +3436,7 @@ END;
   QueryResult _executeShowTables() {
     final cols = ['table_name', 'columns', 'type'];
     final rows = <List<DbValue>>[];
-    
+
     db.catalog.getTablesInternal().forEach((name, schema) {
       rows.add([
         DbText(schema.name),
@@ -2830,7 +3444,7 @@ END;
         DbText(schema.isColumnar ? 'Columnar' : 'Row'),
       ]);
     });
-    
+
     return QueryResult(
       columns: cols,
       rows: rows,
@@ -2841,11 +3455,11 @@ END;
   QueryResult _executeShowIndexes(ShowIndexesStmt stmt) {
     final cols = ['index_name', 'table_name', 'column_name', 'type'];
     final rows = <List<DbValue>>[];
-    
+
     final indexes = stmt.tableName != null
         ? db.catalog.getIndexesForTable(stmt.tableName!)
         : db.catalog.getAllIndexes();
-        
+
     for (final idx in indexes) {
       rows.add([
         DbText(idx.name),
@@ -2854,7 +3468,7 @@ END;
         DbText('B+ Tree'),
       ]);
     }
-    
+
     return QueryResult(
       columns: cols,
       rows: rows,
@@ -2869,7 +3483,11 @@ END;
 
     if (db.catalog.hasIndex(indexName)) {
       if (stmt.ifNotExists) {
-        return QueryResult(columns: [], rows: [], message: "Index '$indexName' already exists.");
+        return QueryResult(
+          columns: [],
+          rows: [],
+          message: "Index '$indexName' already exists.",
+        );
       }
       throw Exception("Index '$indexName' already exists.");
     }
@@ -2886,13 +3504,16 @@ END;
       final colClean = col.trim();
       final cIdx = schema.columnNamesLower.indexOf(colClean);
       if (cIdx == -1 && !colClean.contains('->') && !colClean.contains('(')) {
-        throw Exception("Column '$colClean' does not exist in table '$tableName'.");
+        throw Exception(
+          "Column '$colClean' does not exist in table '$tableName'.",
+        );
       }
       if (cIdx != -1) colIndexes.add(cIdx);
     }
 
     final method = stmt.usingMethod?.replaceAll('_', '').toLowerCase() ?? '';
-    final isVectorIndex = method == 'hnsw' || method == 'ivf' || method == 'ivfflat';
+    final isVectorIndex =
+        method == 'hnsw' || method == 'ivf' || method == 'ivfflat';
     if (schema.isColumnar && !isVectorIndex) {
       throw Exception("B+ Tree indexes are not supported on columnar tables.");
     }
@@ -2911,7 +3532,12 @@ END;
       final ivf = IvfFlatIndex(indexPath: indexFile, autoSave: false);
       final colIdx = colIndexes.isNotEmpty ? colIndexes[0] : 0;
       if (schema.isColumnar) {
-        final colTable = ColumnTableFile(cache: db.cache, tableName: schema.name, dbDirectory: db.directory, schema: schema);
+        final colTable = ColumnTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+          schema: schema,
+        );
         final colFilePath = colTable.getColumnFilePath(colIdx);
         final pager = db.cache.getOrCreatePager(colFilePath);
         final pageCount = pager.getPageCountSync();
@@ -2931,14 +3557,18 @@ END;
         }
       }
       ivf.saveSync();
-      return QueryResult(columns: [], rows: [], message: "IVF-FLAT Vector Index '$indexName' created successfully.");
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "IVF-FLAT Vector Index '$indexName' created successfully.",
+      );
     }
 
     if (stmt.usingMethod == 'hnsw') {
       final indexFile = '${db.directory}/$indexName.hnsw';
       final hnsw = HnswIndex(indexPath: indexFile, autoSave: false);
       final colIdx = colIndexes[0];
-      
+
       if (schema.isColumnar) {
         final colTable = ColumnTableFile(
           cache: db.cache,
@@ -2970,7 +3600,11 @@ END;
           db.cache.unpinPageSync(colFilePath, pageId, isDirty: false);
         }
       } else {
-        final rowTable = RowTableFile(cache: db.cache, tableName: schema.name, dbDirectory: db.directory);
+        final rowTable = RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        );
         final pager = db.cache.getOrCreatePager(rowTable.filePath);
         final pageCount = pager.getPageCountSync();
         for (int pageId = 0; pageId < pageCount; pageId++) {
@@ -2997,17 +3631,29 @@ END;
         }
       }
       hnsw.saveSync();
-      return QueryResult(columns: [], rows: [], message: "HNSW Vector Index '$indexName' created successfully.");
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "HNSW Vector Index '$indexName' created successfully.",
+      );
     }
 
     // Initialize index file
     final indexFile = '${db.directory}/$indexName.idx';
-    final btree = BTreeIndex(cache: db.cache, indexPath: indexFile, keyColumns: indexCols.length);
+    final btree = BTreeIndex(
+      cache: db.cache,
+      indexPath: indexFile,
+      keyColumns: indexCols.length,
+    );
     btree.initSync();
-    
+
     // Scan table and populate index for existing rows
     final swTotal = Stopwatch()..start();
-    final rowTable = RowTableFile(cache: db.cache, tableName: schema.name, dbDirectory: db.directory);
+    final rowTable = RowTableFile(
+      cache: db.cache,
+      tableName: schema.name,
+      dbDirectory: db.directory,
+    );
     final pager = db.cache.getOrCreatePager(rowTable.filePath);
     final pageCount = pager.getPageCountSync();
 
@@ -3050,7 +3696,12 @@ END;
                 final exprParts = colName.split("->>");
                 if (exprParts.length == 2) {
                   final jsonCol = exprParts[0].replaceAll('(', '').trim();
-                  final propName = exprParts[1].replaceAll("'", "").replaceAll('"', '').replaceAll(')', '').replaceAll('(', '').trim();
+                  final propName = exprParts[1]
+                      .replaceAll("'", "")
+                      .replaceAll('"', '')
+                      .replaceAll(')', '')
+                      .replaceAll('(', '')
+                      .trim();
                   final jsonVal = rowContext[jsonCol];
                   if (jsonVal is DbJson) {
                     final extracted = jsonVal.extractPath([propName]);
@@ -3067,7 +3718,9 @@ END;
                       } else {
                         double hash = 0.0;
                         for (int j = 0; j < str.length; j++) {
-                          hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
+                          hash =
+                              (hash * 31.0 + str.codeUnitAt(j)) %
+                              9007199254740991;
                         }
                         dKey = hash;
                       }
@@ -3104,92 +3757,97 @@ END;
           final byteData = page.byteData;
           final rowCount = byteData.getUint16(1);
 
-        for (int slotId = 0; slotId < rowCount; slotId++) {
-          final slotOffset = 5 + slotId * 4;
-          final recordOffset = byteData.getUint16(slotOffset);
-          final recordLen = byteData.getUint16(slotOffset + 2);
+          for (int slotId = 0; slotId < rowCount; slotId++) {
+            final slotOffset = 5 + slotId * 4;
+            final recordOffset = byteData.getUint16(slotOffset);
+            final recordLen = byteData.getUint16(slotOffset + 2);
 
-          if (recordLen == 0 || recordOffset >= 4096) continue;
+            if (recordLen == 0 || recordOffset >= 4096) continue;
 
-          int rowStartOffset = recordOffset;
-          int rowLength = recordLen;
+            int rowStartOffset = recordOffset;
+            int rowLength = recordLen;
 
-          if (recordLen >= 12) {
-            final countAt12 = byteData.getUint16(recordOffset + 12);
-            if (countAt12 == schemaLen) {
-              rowStartOffset = recordOffset + 12;
-              rowLength = recordLen - 12;
-            }
-          }
-
-          final count = byteData.getUint16(rowStartOffset);
-          if (colIndex >= count) continue;
-
-          final startOffset = byteData.getUint16(rowStartOffset + 2 + colIndex * 2);
-          final endOffset = (colIndex + 1 < count)
-              ? byteData.getUint16(rowStartOffset + 2 + (colIndex + 1) * 2)
-              : rowLength;
-
-          final len = endOffset - startOffset;
-          if (len <= 0) continue;
-
-          final cellPageOffset = rowStartOffset + startOffset;
-          final typeCode = byteData.getUint8(cellPageOffset);
-          double? dKey;
-          if (typeCode == 1) {
-            final valLen = len - 1;
-            if (valLen == 1) {
-              dKey = byteData.getInt8(cellPageOffset + 1).toDouble();
-            } else if (valLen == 2) {
-              dKey = byteData.getInt16(cellPageOffset + 1).toDouble();
-            } else if (valLen == 4) {
-              dKey = byteData.getInt32(cellPageOffset + 1).toDouble();
-            } else if (valLen == 8) {
-              dKey = byteData.getInt64(cellPageOffset + 1).toDouble();
-            }
-          } else if (typeCode == 2) {
-            dKey = byteData.getFloat64(cellPageOffset + 1);
-          } else if (typeCode == 3) {
-            final valOffset = cellPageOffset + 1;
-            final valLen = len - 1;
-            final bytes = byteData.buffer.asUint8List(byteData.offsetInBytes + valOffset, valLen);
-            final str = utf8.decode(bytes);
-            final parsed = double.tryParse(str);
-            if (parsed != null) {
-              dKey = parsed;
-            } else {
-              double hash = 0.0;
-              for (int j = 0; j < str.length; j++) {
-                hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
+            if (recordLen >= 12) {
+              final countAt12 = byteData.getUint16(recordOffset + 12);
+              if (countAt12 == schemaLen) {
+                rowStartOffset = recordOffset + 12;
+                rowLength = recordLen - 12;
               }
-              dKey = hash;
             }
-          }
 
-          if (dKey != null) {
-            if (destIdx >= totalRowCount) {
-              final newSize = (totalRowCount * 1.5).toInt() + 100;
-              final newKeys = Float64List(newSize);
-              newKeys.setRange(0, destIdx, keys);
-              final newPageIds = Int32List(newSize);
-              newPageIds.setRange(0, destIdx, pageIds);
-              final newSlotIds = Int32List(newSize);
-              newSlotIds.setRange(0, destIdx, slotIds);
-              keys = newKeys;
-              pageIds = newPageIds;
-              slotIds = newSlotIds;
-              totalRowCount = newSize;
+            final count = byteData.getUint16(rowStartOffset);
+            if (colIndex >= count) continue;
+
+            final startOffset = byteData.getUint16(
+              rowStartOffset + 2 + colIndex * 2,
+            );
+            final endOffset = (colIndex + 1 < count)
+                ? byteData.getUint16(rowStartOffset + 2 + (colIndex + 1) * 2)
+                : rowLength;
+
+            final len = endOffset - startOffset;
+            if (len <= 0) continue;
+
+            final cellPageOffset = rowStartOffset + startOffset;
+            final typeCode = byteData.getUint8(cellPageOffset);
+            double? dKey;
+            if (typeCode == 1) {
+              final valLen = len - 1;
+              if (valLen == 1) {
+                dKey = byteData.getInt8(cellPageOffset + 1).toDouble();
+              } else if (valLen == 2) {
+                dKey = byteData.getInt16(cellPageOffset + 1).toDouble();
+              } else if (valLen == 4) {
+                dKey = byteData.getInt32(cellPageOffset + 1).toDouble();
+              } else if (valLen == 8) {
+                dKey = byteData.getInt64(cellPageOffset + 1).toDouble();
+              }
+            } else if (typeCode == 2) {
+              dKey = byteData.getFloat64(cellPageOffset + 1);
+            } else if (typeCode == 3) {
+              final valOffset = cellPageOffset + 1;
+              final valLen = len - 1;
+              final bytes = byteData.buffer.asUint8List(
+                byteData.offsetInBytes + valOffset,
+                valLen,
+              );
+              final str = utf8.decode(bytes);
+              final parsed = double.tryParse(str);
+              if (parsed != null) {
+                dKey = parsed;
+              } else {
+                double hash = 0.0;
+                for (int j = 0; j < str.length; j++) {
+                  hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
+                }
+                dKey = hash;
+              }
             }
-            keys[destIdx] = dKey;
-            pageIds[destIdx] = pageId;
-            slotIds[destIdx] = slotId;
-            destIdx++;
+
+            if (dKey != null) {
+              if (destIdx >= totalRowCount) {
+                final newSize = (totalRowCount * 1.5).toInt() + 100;
+                final newKeys = Float64List(newSize);
+                newKeys.setRange(0, destIdx, keys);
+                final newPageIds = Int32List(newSize);
+                newPageIds.setRange(0, destIdx, pageIds);
+                final newSlotIds = Int32List(newSize);
+                newSlotIds.setRange(0, destIdx, slotIds);
+                keys = newKeys;
+                pageIds = newPageIds;
+                slotIds = newSlotIds;
+                totalRowCount = newSize;
+              }
+              keys[destIdx] = dKey;
+              pageIds[destIdx] = pageId;
+              slotIds[destIdx] = slotId;
+              destIdx++;
+            }
           }
+          db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
         }
-        db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
       }
-    }
-  } else {
+    } else {
       final compositeKey = List<double>.filled(K, 0.0);
       for (int pageId = 0; pageId < pageCount; pageId++) {
         final page = db.cache.pinPageSync(rowTable.filePath, pageId);
@@ -3223,7 +3881,9 @@ END;
               break;
             }
 
-            final startOffset = byteData.getUint16(rowStartOffset + 2 + cIdx * 2);
+            final startOffset = byteData.getUint16(
+              rowStartOffset + 2 + cIdx * 2,
+            );
             final endOffset = (cIdx + 1 < count)
                 ? byteData.getUint16(rowStartOffset + 2 + (cIdx + 1) * 2)
                 : rowLength;
@@ -3253,7 +3913,10 @@ END;
             } else if (typeCode == 3) {
               final valOffset = cellPageOffset + 1;
               final valLen = len - 1;
-              final bytes = byteData.buffer.asUint8List(byteData.offsetInBytes + valOffset, valLen);
+              final bytes = byteData.buffer.asUint8List(
+                byteData.offsetInBytes + valOffset,
+                valLen,
+              );
               final str = utf8.decode(bytes);
               final parsed = double.tryParse(str);
               if (parsed != null) {
@@ -3304,9 +3967,17 @@ END;
 
     final swSort = Stopwatch()..start();
     final actualRowCount = destIdx;
-    final finalKeys = actualRowCount == totalRowCount ? keys : (K == 1 ? Float64List.sublistView(keys, 0, actualRowCount) : Float64List.sublistView(keys, 0, actualRowCount * K));
-    final finalPageIds = actualRowCount == totalRowCount ? pageIds : Int32List.sublistView(pageIds, 0, actualRowCount);
-    final finalSlotIds = actualRowCount == totalRowCount ? slotIds : Int32List.sublistView(slotIds, 0, actualRowCount);
+    final finalKeys = actualRowCount == totalRowCount
+        ? keys
+        : (K == 1
+              ? Float64List.sublistView(keys, 0, actualRowCount)
+              : Float64List.sublistView(keys, 0, actualRowCount * K));
+    final finalPageIds = actualRowCount == totalRowCount
+        ? pageIds
+        : Int32List.sublistView(pageIds, 0, actualRowCount);
+    final finalSlotIds = actualRowCount == totalRowCount
+        ? slotIds
+        : Int32List.sublistView(slotIds, 0, actualRowCount);
 
     final indices = Int32List(actualRowCount);
     for (int i = 0; i < actualRowCount; i++) {
@@ -3314,24 +3985,50 @@ END;
     }
 
     if (K == 1) {
-      _quickSort1(indices, finalKeys, finalPageIds, finalSlotIds, 0, actualRowCount - 1);
+      _quickSort1(
+        indices,
+        finalKeys,
+        finalPageIds,
+        finalSlotIds,
+        0,
+        actualRowCount - 1,
+      );
     } else {
-      _quickSortK(indices, finalKeys, finalPageIds, finalSlotIds, K, 0, actualRowCount - 1);
+      _quickSortK(
+        indices,
+        finalKeys,
+        finalPageIds,
+        finalSlotIds,
+        K,
+        0,
+        actualRowCount - 1,
+      );
     }
     swSort.stop();
     print('--> TIME: Sorting indices took: ${swSort.elapsedMilliseconds}ms');
 
     totalRowCount = actualRowCount;
     stats.rowCount = actualRowCount;
-    print('Calling btree.insertSortedBatchSync with actualRowCount = $actualRowCount');
+    print(
+      'Calling btree.insertSortedBatchSync with actualRowCount = $actualRowCount',
+    );
 
     final swBtree = Stopwatch()..start();
-    btree.insertSortedBatchSync(finalKeys, finalPageIds, finalSlotIds, K, indices: indices);
+    btree.insertSortedBatchSync(
+      finalKeys,
+      finalPageIds,
+      finalSlotIds,
+      K,
+      indices: indices,
+    );
     swBtree.stop();
-    print('--> TIME: B-Tree insertSortedBatchSync took: ${swBtree.elapsedMilliseconds}ms');
+    print(
+      '--> TIME: B-Tree insertSortedBatchSync took: ${swBtree.elapsedMilliseconds}ms',
+    );
     swTotal.stop();
-    print('--> TIME: TOTAL CREATE INDEX took: ${swTotal.elapsedMilliseconds}ms');
-
+    print(
+      '--> TIME: TOTAL CREATE INDEX took: ${swTotal.elapsedMilliseconds}ms',
+    );
 
     final cStats = stats.columnStats.putIfAbsent(colName, () => MinMaxStats());
 
@@ -3376,7 +4073,8 @@ END;
     return QueryResult(
       columns: [],
       rows: [],
-      message: "Index '${stmt.name}' created successfully on '$tableName($colName)' ($indexedCount rows indexed).",
+      message:
+          "Index '${stmt.name}' created successfully on '$tableName($colName)' ($indexedCount rows indexed).",
     );
   }
 
@@ -3384,19 +4082,27 @@ END;
 
   QueryResult _executePlSqlBlockSync(PlSqlBlock block) {
     for (final cursor in block.cursors) {
-      _cursorMap[cursor.name.toLowerCase()] = _CursorState(name: cursor.name, selectStmt: cursor.selectStmt);
+      _cursorMap[cursor.name.toLowerCase()] = _CursorState(
+        name: cursor.name,
+        selectStmt: cursor.selectStmt,
+      );
     }
 
     for (final decl in block.declarations) {
       DbValue initialVal = DbNull();
       if (decl.initialValue != null) {
-        final fn = _jitCache.putIfAbsent(decl.initialValue!, () => JitCompiler.compile(decl.initialValue!));
+        final fn = _jitCache.putIfAbsent(
+          decl.initialValue!,
+          () => JitCompiler.compile(decl.initialValue!),
+        );
         initialVal = fn(_env);
         if (initialVal is! DbNull && initialVal.type != decl.type) {
           if (decl.type == DataType.double && initialVal is DbInt) {
             initialVal = DbDouble(initialVal.value.toDouble());
           } else {
-            throw Exception("Type mismatch in declaration of '${decl.name}'. Expected ${decl.type}, found ${initialVal.type}.");
+            throw Exception(
+              "Type mismatch in declaration of '${decl.name}'. Expected ${decl.type}, found ${initialVal.type}.",
+            );
           }
         }
       }
@@ -3409,7 +4115,9 @@ END;
     }
 
     String? autoSp;
-    if (wasTxActive && block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
+    if (wasTxActive &&
+        block.exceptionHandlers != null &&
+        block.exceptionHandlers!.isNotEmpty) {
       autoSp = '_auto_sp_${_autoSavepointSeq++}';
       db.cache.createSavepoint(autoSp, db.catalog);
     }
@@ -3419,7 +4127,9 @@ END;
       for (final stmt in block.body) {
         final res = _executeNodeSync(stmt);
         if (res is Future) {
-          throw Exception("Asynchronous operations are not supported inside PL/SQL blocks.");
+          throw Exception(
+            "Asynchronous operations are not supported inside PL/SQL blocks.",
+          );
         }
         if (res is QueryResult) {
           lastResult = res;
@@ -3440,15 +4150,22 @@ END;
       }
       _rowTableCache.clear();
 
-      if (block.exceptionHandlers != null && block.exceptionHandlers!.isNotEmpty) {
+      if (block.exceptionHandlers != null &&
+          block.exceptionHandlers!.isNotEmpty) {
         final handler = block.exceptionHandlers!.firstWhere(
-          (h) => h.exceptionName.toLowerCase() == 'others' || e.toString().toLowerCase().contains(h.exceptionName.toLowerCase()),
+          (h) =>
+              h.exceptionName.toLowerCase() == 'others' ||
+              e.toString().toLowerCase().contains(
+                h.exceptionName.toLowerCase(),
+              ),
           orElse: () => block.exceptionHandlers!.first,
         );
         for (final stmt in handler.body) {
           final res = _executeNodeSync(stmt);
           if (res is Future) {
-            throw Exception("Asynchronous operations are not supported inside exception handlers.");
+            throw Exception(
+              "Asynchronous operations are not supported inside exception handlers.",
+            );
           }
           if (res is QueryResult) {
             lastResult = res;
@@ -3459,34 +4176,45 @@ END;
       }
     }
 
-    return lastResult ?? QueryResult(
-      columns: [],
-      rows: [],
-      message: "PL/SQL block executed successfully.",
-    );
+    return lastResult ??
+        QueryResult(
+          columns: [],
+          rows: [],
+          message: "PL/SQL block executed successfully.",
+        );
   }
 
   void _executeIfSync(IfStmt stmt) {
-    final condFn = _jitCache.putIfAbsent(stmt.condition, () => JitCompiler.compile(stmt.condition));
+    final condFn = _jitCache.putIfAbsent(
+      stmt.condition,
+      () => JitCompiler.compile(stmt.condition),
+    );
     final cond = condFn(_env);
     if (cond is DbInt && cond.value == 1) {
       for (final s in stmt.thenBranch) {
         final res = _executeNodeSync(s);
         if (res is Future) {
-          throw Exception("Asynchronous operations are not supported inside IF branches.");
+          throw Exception(
+            "Asynchronous operations are not supported inside IF branches.",
+          );
         }
       }
       return;
     }
 
     for (final branch in stmt.elsifBranches) {
-      final elsifCondFn = _jitCache.putIfAbsent(branch.condition, () => JitCompiler.compile(branch.condition));
+      final elsifCondFn = _jitCache.putIfAbsent(
+        branch.condition,
+        () => JitCompiler.compile(branch.condition),
+      );
       final elsifCond = elsifCondFn(_env);
       if (elsifCond is DbInt && elsifCond.value == 1) {
         for (final s in branch.body) {
           final res = _executeNodeSync(s);
           if (res is Future) {
-            throw Exception("Asynchronous operations are not supported inside ELSIF branches.");
+            throw Exception(
+              "Asynchronous operations are not supported inside ELSIF branches.",
+            );
           }
         }
         return;
@@ -3497,21 +4225,28 @@ END;
       for (final s in stmt.elseBranch!) {
         final res = _executeNodeSync(s);
         if (res is Future) {
-          throw Exception("Asynchronous operations are not supported inside ELSE branches.");
+          throw Exception(
+            "Asynchronous operations are not supported inside ELSE branches.",
+          );
         }
       }
     }
   }
 
   void _executeWhileSync(WhileStmt stmt) {
-    final condFn = _jitCache.putIfAbsent(stmt.condition, () => JitCompiler.compile(stmt.condition));
+    final condFn = _jitCache.putIfAbsent(
+      stmt.condition,
+      () => JitCompiler.compile(stmt.condition),
+    );
     while (true) {
       final cond = condFn(_env);
       if (cond is DbInt && cond.value == 1) {
         for (final s in stmt.body) {
           final res = _executeNodeSync(s);
           if (res is Future) {
-            throw Exception("Asynchronous operations are not supported inside WHILE loops.");
+            throw Exception(
+              "Asynchronous operations are not supported inside WHILE loops.",
+            );
           }
         }
       } else {
@@ -3530,7 +4265,7 @@ END;
       final indexName = entry.key;
       final btree = db.getOrInitIndexSync(indexName);
       final updates = entry.value;
-      
+
       // Check if updates are already sorted (common for sequential auto-increment keys)
       bool isSorted = true;
       for (int i = 0; i < updates.length - 1; i++) {
@@ -3573,7 +4308,10 @@ END;
 
       if (canUseBatch) {
         final stats = db.catalog.getOrCreateStats(updates[0].tableName);
-        final cStats = stats.columnStats.putIfAbsent(updates[0].columnName, () => MinMaxStats());
+        final cStats = stats.columnStats.putIfAbsent(
+          updates[0].columnName,
+          () => MinMaxStats(),
+        );
 
         final K = updates[0].key.length;
         final keys = Float64List(updates.length * K);
@@ -3611,12 +4349,17 @@ END;
           final isNewKey = btree.insertSync(u.key, u.pageId, u.slotId);
           if (isNewKey) {
             final stats = db.catalog.getOrCreateStats(u.tableName);
-            final cStats = stats.columnStats.putIfAbsent(u.columnName, () => MinMaxStats());
+            final cStats = stats.columnStats.putIfAbsent(
+              u.columnName,
+              () => MinMaxStats(),
+            );
             cStats.distinctCount++;
             if (u.key.isNotEmpty) {
               final keyVal = u.key[0];
-              if (cStats.min == null || keyVal < cStats.min!) cStats.min = keyVal;
-              if (cStats.max == null || keyVal > cStats.max!) cStats.max = keyVal;
+              if (cStats.min == null || keyVal < cStats.min!)
+                cStats.min = keyVal;
+              if (cStats.max == null || keyVal > cStats.max!)
+                cStats.max = keyVal;
             }
           }
         }
@@ -3639,15 +4382,15 @@ END;
     }
   }
 
-
-
   QueryResult _executeExplain(ExplainStmt stmt) {
     _flushDelayedIndexUpdates();
     final plan = db.planner.planSelect(stmt.selectStmt);
     final planStr = plan.getPlanString();
     return QueryResult(
       columns: ['QUERY PLAN'],
-      rows: [[DbText(planStr)]],
+      rows: [
+        [DbText(planStr)],
+      ],
       message: 'Explain plan generated successfully.',
     );
   }
@@ -3666,11 +4409,14 @@ END;
     stats.rowCount = 0;
     stats.columnStats.clear();
 
-    final rowTable = _rowTableCache.putIfAbsent(tableName, () => RowTableFile(
-      cache: db.cache,
-      tableName: schema.name,
-      dbDirectory: db.directory,
-    ));
+    final rowTable = _rowTableCache.putIfAbsent(
+      tableName,
+      () => RowTableFile(
+        cache: db.cache,
+        tableName: schema.name,
+        dbDirectory: db.directory,
+      ),
+    );
 
     final pager = db.cache.getOrCreatePager(rowTable.filePath);
     final pageCount = pager.getPageCountSync();
@@ -3694,7 +4440,12 @@ END;
           List<DbValue>? rowValues;
           try {
             final mvccRecord = MvccRecord.fromBytes(recBytes);
-            if (txManager.isVisible(mvccRecord.xmin, mvccRecord.xmax, currentTxId, activeTxIds)) {
+            if (txManager.isVisible(
+              mvccRecord.xmin,
+              mvccRecord.xmax,
+              currentTxId,
+              activeTxIds,
+            )) {
               rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
             }
           } catch (_) {
@@ -3724,7 +4475,7 @@ END;
       if (vals.isNotEmpty) {
         final cStats = MinMaxStats();
         cStats.distinctCount = vals.length;
-        
+
         double? minVal;
         double? maxVal;
         for (final val in vals) {
@@ -3745,65 +4496,81 @@ END;
 
     return QueryResult(
       columns: ['status'],
-      rows: [[DbText('SUCCESS')]],
+      rows: [
+        [DbText('SUCCESS')],
+      ],
       message: "Analyzed table '$tableName'. Row count: ${stats.rowCount}.",
     );
   }
 
-  void _applyDataMasking(SelectStmt stmt, List<String> resultColumns, List<List<DbValue>> rows) {
-    if (_currentUser == 'admin' || _currentUser == 'system') return;
+  void _applyDataMasking(
+    SelectStmt stmt,
+    List<String> resultColumns,
+    List<List<DbValue>> rows,
+  ) {
+    if (currentUser == 'admin' || currentUser == 'system') return;
 
     List<String?> maskTypes = List.filled(resultColumns.length, null);
-    
+
     var localProjections = stmt.projections;
     if (localProjections.length == 1 &&
         localProjections[0].expr is VariableExpr &&
         (localProjections[0].expr as VariableExpr).path.first == '*') {
       final schema = db.catalog.getTableSchema(stmt.tableName);
       if (schema != null) {
-        for (int i = 0; i < resultColumns.length && i < schema.columnNames.length; i++) {
-           final colName = resultColumns[i];
-           final idx = schema.columnNamesLower.indexOf(colName.toLowerCase());
-           if (idx != -1) {
-             maskTypes[i] = schema.columnMaskedWith[idx];
-           } else {
-             maskTypes[i] = schema.columnMaskedWith[i];
-           }
+        for (
+          int i = 0;
+          i < resultColumns.length && i < schema.columnNames.length;
+          i++
+        ) {
+          final colName = resultColumns[i];
+          final idx = schema.columnNamesLower.indexOf(colName.toLowerCase());
+          if (idx != -1) {
+            maskTypes[i] = schema.columnMaskedWith[idx];
+          } else {
+            maskTypes[i] = schema.columnMaskedWith[i];
+          }
         }
       }
     } else {
-      for (int i = 0; i < resultColumns.length && i < localProjections.length; i++) {
+      for (
+        int i = 0;
+        i < resultColumns.length && i < localProjections.length;
+        i++
+      ) {
         final expr = localProjections[i].expr;
         if (expr is VariableExpr) {
-           String? tName;
-           String cName = '';
-           if (expr.path.length == 1) {
-             cName = expr.path.first;
-             var schema = db.catalog.getTableSchema(stmt.tableName);
-             if (schema != null && schema.columnNamesLower.contains(cName.toLowerCase())) {
-               tName = stmt.tableName;
-             } else if (stmt.joins.isNotEmpty) {
-               for (final join in stmt.joins) {
-                 schema = db.catalog.getTableSchema(join.tableName);
-                 if (schema != null && schema.columnNamesLower.contains(cName.toLowerCase())) {
-                   tName = join.tableName;
-                   break;
-                 }
-               }
-             }
-           } else if (expr.path.length >= 2) {
-             tName = expr.path[expr.path.length - 2];
-             cName = expr.path.last;
-           }
-           if (tName != null) {
-             final schema = db.catalog.getTableSchema(tName);
-             if (schema != null) {
-               final idx = schema.columnNamesLower.indexOf(cName.toLowerCase());
-               if (idx != -1) {
-                 maskTypes[i] = schema.columnMaskedWith[idx];
-               }
-             }
-           }
+          String? tName;
+          String cName = '';
+          if (expr.path.length == 1) {
+            cName = expr.path.first;
+            var schema = db.catalog.getTableSchema(stmt.tableName);
+            if (schema != null &&
+                schema.columnNamesLower.contains(cName.toLowerCase())) {
+              tName = stmt.tableName;
+            } else if (stmt.joins.isNotEmpty) {
+              for (final join in stmt.joins) {
+                schema = db.catalog.getTableSchema(join.tableName);
+                if (schema != null &&
+                    schema.columnNamesLower.contains(cName.toLowerCase())) {
+                  tName = join.tableName;
+                  break;
+                }
+              }
+            }
+          } else if (expr.path.length >= 2) {
+            tName = expr.path[expr.path.length - 2];
+            cName = expr.path.last;
+          }
+          if (tName != null) {
+            final schema = db.catalog.getTableSchema(tName);
+            if (schema != null) {
+              final idx = schema.columnNamesLower.indexOf(cName.toLowerCase());
+              if (idx != -1) {
+                maskTypes[i] = schema.columnMaskedWith[idx];
+              }
+            }
+          }
         }
       }
     }
@@ -3817,7 +4584,9 @@ END;
             final str = val.value;
             if (mask == 'credit_card') {
               if (str.length >= 4) {
-                row[i] = DbText('XXXX-XXXX-XXXX-${str.substring(str.length - 4)}');
+                row[i] = DbText(
+                  'XXXX-XXXX-XXXX-${str.substring(str.length - 4)}',
+                );
               } else {
                 row[i] = DbText('XXXX');
               }
@@ -3838,11 +4607,19 @@ END;
   }
 
   QueryResult _executeForSync(ForLoopStmt stmt) {
-    final startFn = _jitCache.putIfAbsent(stmt.startExpr, () => JitCompiler.compile(stmt.startExpr));
-    final endFn = _jitCache.putIfAbsent(stmt.endExpr, () => JitCompiler.compile(stmt.endExpr));
+    final startFn = _jitCache.putIfAbsent(
+      stmt.startExpr,
+      () => JitCompiler.compile(stmt.startExpr),
+    );
+    final endFn = _jitCache.putIfAbsent(
+      stmt.endExpr,
+      () => JitCompiler.compile(stmt.endExpr),
+    );
     final startVal = startFn(_env);
     final endVal = endFn(_env);
-    int start = (startVal is DbInt) ? startVal.value : int.parse(startVal.toString());
+    int start = (startVal is DbInt)
+        ? startVal.value
+        : int.parse(startVal.toString());
     int end = (endVal is DbInt) ? endVal.value : int.parse(endVal.toString());
     for (int i = start; i <= end; i++) {
       _env[stmt.varName] = DbInt(i);
@@ -3857,7 +4634,11 @@ END;
     final cleanName = _cleanTableName(stmt.tableName);
     if (!db.catalog.hasTable(cleanName)) {
       if (stmt.ifExists) {
-        return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' does not exist.");
+        return QueryResult(
+          columns: [],
+          rows: [],
+          message: "Table '${stmt.tableName}' does not exist.",
+        );
       }
       throw Exception("Table '${stmt.tableName}' does not exist.");
     }
@@ -3873,7 +4654,11 @@ END;
         tableFile.deleteSync();
       } catch (_) {}
     }
-    return QueryResult(columns: [], rows: [], message: "Table '${stmt.tableName}' dropped successfully.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Table '${stmt.tableName}' dropped successfully.",
+    );
   }
 
   QueryResult _executeDropIndex(DropIndexStmt stmt) {
@@ -3883,12 +4668,18 @@ END;
         idxFile.deleteSync();
       } catch (_) {}
     }
-    return QueryResult(columns: [], rows: [], message: "Index '${stmt.indexName}' dropped successfully.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Index '${stmt.indexName}' dropped successfully.",
+    );
   }
 
   String _cleanTableName(String raw) {
     var name = raw.trim();
-    if (name.length >= 2 && ((name.startsWith("'") && name.endsWith("'")) || (name.startsWith('"') && name.endsWith('"')))) {
+    if (name.length >= 2 &&
+        ((name.startsWith("'") && name.endsWith("'")) ||
+            (name.startsWith('"') && name.endsWith('"')))) {
       name = name.substring(1, name.length - 1);
     }
     return name.toLowerCase();
@@ -3909,11 +4700,17 @@ END;
         DbText('YES'),
       ]);
     }
-    return QueryResult(columns: cols, rows: rows, message: "${rows.length} columns described.");
+    return QueryResult(
+      columns: cols,
+      rows: rows,
+      message: "${rows.length} columns described.",
+    );
   }
 
   QueryResult _executeShowColumns(ShowColumnsStmt stmt) {
-    return _executeDescribeTable(DescribeTableStmt(_cleanTableName(stmt.tableName)));
+    return _executeDescribeTable(
+      DescribeTableStmt(_cleanTableName(stmt.tableName)),
+    );
   }
 
   QueryResult _executeShowSchemas() {
@@ -3945,7 +4742,11 @@ END;
         DbInt(0),
       ]);
     }
-    return QueryResult(columns: cols, rows: rows, message: "${rows.length} columns found.");
+    return QueryResult(
+      columns: cols,
+      rows: rows,
+      message: "${rows.length} columns found.",
+    );
   }
 
   QueryResult _executeTruncateTable(TruncateTableStmt stmt) {
@@ -3965,7 +4766,11 @@ END;
       } catch (_) {}
     }
     db.notifyTableMutated(cleanName);
-    return QueryResult(columns: [], rows: [], message: "Table '$cleanName' truncated successfully.");
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "Table '$cleanName' truncated successfully.",
+    );
   }
 }
 
@@ -3987,25 +4792,29 @@ class _IndexUpdate {
   });
 }
 
-  bool _hasAggregate(List<Projection> projections) {
-    for (final proj in projections) {
-      if (_hasAggregateExpr(proj.expr)) return true;
-    }
-    return false;
+bool _hasAggregate(List<Projection> projections) {
+  for (final proj in projections) {
+    if (_hasAggregateExpr(proj.expr)) return true;
   }
+  return false;
+}
 
-  bool _hasAggregateExpr(Expression expr) {
-    if (expr is FunctionCallExpr) {
-      final name = expr.name.toLowerCase();
-      if (name == 'count' || name == 'sum' || name == 'avg' || name == 'min' || name == 'max') {
-        return true;
-      }
+bool _hasAggregateExpr(Expression expr) {
+  if (expr is FunctionCallExpr) {
+    final name = expr.name.toLowerCase();
+    if (name == 'count' ||
+        name == 'sum' ||
+        name == 'avg' ||
+        name == 'min' ||
+        name == 'max') {
+      return true;
     }
-    if (expr is BinaryExpr) {
-      return _hasAggregateExpr(expr.left) || _hasAggregateExpr(expr.right);
-    }
-    return false;
   }
+  if (expr is BinaryExpr) {
+    return _hasAggregateExpr(expr.left) || _hasAggregateExpr(expr.right);
+  }
+  return false;
+}
 
 DbVector? _parseVectorFromString(String s) {
   final trimmed = s.trim();
@@ -4013,7 +4822,10 @@ DbVector? _parseVectorFromString(String s) {
     final body = trimmed.substring(1, trimmed.length - 1).trim();
     if (body.isEmpty) return DbVector([]);
     try {
-      final elements = body.split(',').map((e) => double.parse(e.trim())).toList();
+      final elements = body
+          .split(',')
+          .map((e) => double.parse(e.trim()))
+          .toList();
       return DbVector(elements);
     } catch (_) {
       return null;
@@ -4029,18 +4841,25 @@ class _DeleteTarget {
   _DeleteTarget(this.pageId, this.slotId, this.rowValues);
 }
 
-void _insertionSort1(Int32List indices, Float64List keys, Int32List pageIds, Int32List slotIds, int left, int right) {
+void _insertionSort1(
+  Int32List indices,
+  Float64List keys,
+  Int32List pageIds,
+  Int32List slotIds,
+  int left,
+  int right,
+) {
   for (int i = left + 1; i <= right; i++) {
     final tempIdx = indices[i];
     final tempKey = keys[tempIdx];
     final tempPage = pageIds[tempIdx];
     final tempSlot = slotIds[tempIdx];
-    
+
     int j = i - 1;
     while (j >= left) {
       final idxJ = indices[j];
       final kJ = keys[idxJ];
-      
+
       bool isJGreaterThanTemp = false;
       if (kJ > tempKey) {
         isJGreaterThanTemp = true;
@@ -4054,7 +4873,7 @@ void _insertionSort1(Int32List indices, Float64List keys, Int32List pageIds, Int
           }
         }
       }
-      
+
       if (!isJGreaterThanTemp) break;
       indices[j + 1] = indices[j];
       j--;
@@ -4063,7 +4882,14 @@ void _insertionSort1(Int32List indices, Float64List keys, Int32List pageIds, Int
   }
 }
 
-void _quickSort1(Int32List indices, Float64List keys, Int32List pageIds, Int32List slotIds, int left, int right) {
+void _quickSort1(
+  Int32List indices,
+  Float64List keys,
+  Int32List pageIds,
+  Int32List slotIds,
+  int left,
+  int right,
+) {
   if (left >= right) return;
   if (right - left <= 15) {
     _insertionSort1(indices, keys, pageIds, slotIds, left, right);
@@ -4092,23 +4918,41 @@ void _quickSort1(Int32List indices, Float64List keys, Int32List pageIds, Int32Li
     while (true) {
       final idx = indices[i];
       final k = keys[idx];
-      if (k < pivotKey) { i++; continue; }
+      if (k < pivotKey) {
+        i++;
+        continue;
+      }
       if (k > pivotKey) break;
       final p = pageIds[idx];
-      if (p < pivotPage) { i++; continue; }
+      if (p < pivotPage) {
+        i++;
+        continue;
+      }
       if (p > pivotPage) break;
-      if (slotIds[idx] < pivotSlot) { i++; continue; }
+      if (slotIds[idx] < pivotSlot) {
+        i++;
+        continue;
+      }
       break;
     }
     while (true) {
       final idx = indices[j];
       final k = keys[idx];
-      if (k > pivotKey) { j--; continue; }
+      if (k > pivotKey) {
+        j--;
+        continue;
+      }
       if (k < pivotKey) break;
       final p = pageIds[idx];
-      if (p > pivotPage) { j--; continue; }
+      if (p > pivotPage) {
+        j--;
+        continue;
+      }
       if (p < pivotPage) break;
-      if (slotIds[idx] > pivotSlot) { j--; continue; }
+      if (slotIds[idx] > pivotSlot) {
+        j--;
+        continue;
+      }
       break;
     }
     if (i <= j) {
@@ -4123,17 +4967,27 @@ void _quickSort1(Int32List indices, Float64List keys, Int32List pageIds, Int32Li
   if (i < right) _quickSort1(indices, keys, pageIds, slotIds, i, right);
 }
 
-void _quickSortK(Int32List indices, Float64List keys, Int32List pageIds, Int32List slotIds, int K, int left, int right) {
+void _quickSortK(
+  Int32List indices,
+  Float64List keys,
+  Int32List pageIds,
+  Int32List slotIds,
+  int K,
+  int left,
+  int right,
+) {
   if (left >= right) return;
 
   final center = (left + right) >> 1;
-  if (_compareK(indices[left], indices[center], keys, pageIds, slotIds, K) > 0) {
+  if (_compareK(indices[left], indices[center], keys, pageIds, slotIds, K) >
+      0) {
     _swap(indices, left, center);
   }
   if (_compareK(indices[left], indices[right], keys, pageIds, slotIds, K) > 0) {
     _swap(indices, left, right);
   }
-  if (_compareK(indices[center], indices[right], keys, pageIds, slotIds, K) > 0) {
+  if (_compareK(indices[center], indices[right], keys, pageIds, slotIds, K) >
+      0) {
     _swap(indices, center, right);
   }
 
@@ -4159,7 +5013,14 @@ void _quickSortK(Int32List indices, Float64List keys, Int32List pageIds, Int32Li
   if (i < right) _quickSortK(indices, keys, pageIds, slotIds, K, i, right);
 }
 
-int _compareK(int idxA, int idxB, Float64List keys, Int32List pageIds, Int32List slotIds, int K) {
+int _compareK(
+  int idxA,
+  int idxB,
+  Float64List keys,
+  Int32List pageIds,
+  Int32List slotIds,
+  int K,
+) {
   for (int k = 0; k < K; k++) {
     final cmp = keys[idxA * K + k].compareTo(keys[idxB * K + k]);
     if (cmp != 0) return cmp;
@@ -4185,4 +5046,3 @@ class _CursorState {
 
   _CursorState({required this.name, required this.selectStmt});
 }
-

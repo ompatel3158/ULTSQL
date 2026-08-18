@@ -31,7 +31,9 @@ class RestServer {
         attempts++;
       }
     }
-    throw SocketException("Failed to bind REST server on $host starting at port $port after 50 attempts.");
+    throw SocketException(
+      "Failed to bind REST server on $host starting at port $port after 50 attempts.",
+    );
   }
 
   Future<void> stop() async {
@@ -45,8 +47,14 @@ class RestServer {
 
     // CORS headers
     request.response.headers.add('Access-Control-Allow-Origin', '*');
-    request.response.headers.add('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    request.response.headers.add('Access-Control-Allow-Headers', 'Content-Type');
+    request.response.headers.add(
+      'Access-Control-Allow-Methods',
+      'GET, POST, DELETE, OPTIONS',
+    );
+    request.response.headers.add(
+      'Access-Control-Allow-Headers',
+      'Content-Type',
+    );
 
     if (method == 'OPTIONS') {
       request.response.statusCode = HttpStatus.ok;
@@ -66,34 +74,45 @@ class RestServer {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
       if (segments.isEmpty) {
         request.response.headers.contentType = ContentType.json;
-        request.response.write(jsonEncode({
-          'engine': 'UltSQL REST Daemon',
-          'status': 'online',
-          'openapi': 'http://${request.headers.host ?? "localhost:$port"}/openapi.json',
-          'tables': db.catalog.tables.keys.toList(),
-        }));
+        request.response.write(
+          jsonEncode({
+            'engine': 'UltSQL REST Daemon',
+            'status': 'online',
+            'openapi':
+                'http://${request.headers.host ?? "localhost:$port"}/openapi.json',
+            'tables': db.catalog.tables.keys.toList(),
+          }),
+        );
         await request.response.close();
         return;
       }
 
       final tableName = segments[0].toLowerCase();
-      
+
       if (method == 'POST' && !db.catalog.tables.containsKey(tableName)) {
         final content = await utf8.decoder.bind(request).join();
         final body = jsonDecode(content);
         if (body is Map<String, dynamic>) {
-          final colDefs = body.entries.map((e) {
-            final val = e.value;
-            if (val is int) return '${e.key} INT';
-            if (val is double) return '${e.key} DOUBLE';
-            if (val is bool) return '${e.key} BOOLEAN';
-            return '${e.key} TEXT';
-          }).join(', ');
-          await _interpreter.executeScript("CREATE TABLE IF NOT EXISTS $tableName ($colDefs)");
-          
+          final colDefs = body.entries
+              .map((e) {
+                final val = e.value;
+                if (val is int) return '${e.key} INT';
+                if (val is double) return '${e.key} DOUBLE';
+                if (val is bool) return '${e.key} BOOLEAN';
+                return '${e.key} TEXT';
+              })
+              .join(', ');
+          await _interpreter.executeScript(
+            "CREATE TABLE IF NOT EXISTS $tableName ($colDefs)",
+          );
+
           final cols = body.keys.join(', ');
-          final vals = body.values.map((v) => v is String ? "'$v'" : v.toString()).join(', ');
-          final res = await _interpreter.executeScript("INSERT INTO $tableName ($cols) VALUES ($vals)");
+          final vals = body.values
+              .map((v) => v is String ? "'$v'" : v.toString())
+              .join(', ');
+          final res = await _interpreter.executeScript(
+            "INSERT INTO $tableName ($cols) VALUES ($vals)",
+          );
           request.response.statusCode = HttpStatus.created;
           request.response.headers.contentType = ContentType.json;
           request.response.write(jsonEncode({'message': res.message}));
@@ -105,37 +124,53 @@ class RestServer {
       if (!db.catalog.tables.containsKey(tableName)) {
         request.response.statusCode = HttpStatus.notFound;
         request.response.headers.contentType = ContentType.json;
-        request.response.write(jsonEncode({'error': "Table '$tableName' not found."}));
+        request.response.write(
+          jsonEncode({'error': "Table '$tableName' not found."}),
+        );
         await request.response.close();
         return;
       }
 
       if (method == 'GET') {
-        final res = await _interpreter.executeScript("SELECT * FROM $tableName");
-        final jsonRows = res.rows.map((r) => r.map((v) => v.value).toList()).toList();
+        final res = await _interpreter.executeScript(
+          "SELECT * FROM $tableName",
+        );
+        final jsonRows = res.rows
+            .map((r) => r.map((v) => v.value).toList())
+            .toList();
         request.response.headers.contentType = ContentType.json;
-        request.response.write(jsonEncode({
-          'table': tableName,
-          'columns': res.columns,
-          'count': jsonRows.length,
-          'rows': jsonRows,
-        }));
+        request.response.write(
+          jsonEncode({
+            'table': tableName,
+            'columns': res.columns,
+            'count': jsonRows.length,
+            'rows': jsonRows,
+          }),
+        );
       } else if (method == 'POST') {
         final content = await utf8.decoder.bind(request).join();
         final body = jsonDecode(content);
         if (body is Map<String, dynamic>) {
           final cols = body.keys.join(', ');
-          final vals = body.values.map((v) => v is String ? "'$v'" : v.toString()).join(', ');
-          final res = await _interpreter.executeScript("INSERT INTO $tableName ($cols) VALUES ($vals)");
+          final vals = body.values
+              .map((v) => v is String ? "'$v'" : v.toString())
+              .join(', ');
+          final res = await _interpreter.executeScript(
+            "INSERT INTO $tableName ($cols) VALUES ($vals)",
+          );
           request.response.statusCode = HttpStatus.created;
           request.response.headers.contentType = ContentType.json;
           request.response.write(jsonEncode({'message': res.message}));
         } else {
           request.response.statusCode = HttpStatus.badRequest;
-          request.response.write(jsonEncode({'error': 'Invalid JSON object payload.'}));
+          request.response.write(
+            jsonEncode({'error': 'Invalid JSON object payload.'}),
+          );
         }
       } else if (method == 'DELETE') {
-        final res = await _interpreter.executeScript("TRUNCATE TABLE $tableName");
+        final res = await _interpreter.executeScript(
+          "TRUNCATE TABLE $tableName",
+        );
         request.response.headers.contentType = ContentType.json;
         request.response.write(jsonEncode({'message': res.message}));
       } else {
@@ -157,8 +192,8 @@ class RestServer {
         'get': {
           'summary': 'Retrieve all records from ${table.name}',
           'responses': {
-            '200': {'description': 'Successful query response'}
-          }
+            '200': {'description': 'Successful query response'},
+          },
         },
         'post': {
           'summary': 'Insert record into ${table.name}',
@@ -169,22 +204,22 @@ class RestServer {
                   'type': 'object',
                   'properties': {
                     for (int i = 0; i < table.columnNames.length; i++)
-                      table.columnNames[i]: {'type': 'string'}
-                  }
-                }
-              }
-            }
+                      table.columnNames[i]: {'type': 'string'},
+                  },
+                },
+              },
+            },
           },
           'responses': {
-            '201': {'description': 'Record inserted successfully'}
-          }
+            '201': {'description': 'Record inserted successfully'},
+          },
         },
         'delete': {
           'summary': 'Truncate ${table.name}',
           'responses': {
-            '200': {'description': 'Table truncated'}
-          }
-        }
+            '200': {'description': 'Table truncated'},
+          },
+        },
       };
     }
 
@@ -193,7 +228,8 @@ class RestServer {
       'info': {
         'title': 'UltSQL REST Daemon API',
         'version': '1.0.13',
-        'description': 'Auto-generated OpenAPI documentation from UltSQL database catalog.'
+        'description':
+            'Auto-generated OpenAPI documentation from UltSQL database catalog.',
       },
       'paths': paths,
     };

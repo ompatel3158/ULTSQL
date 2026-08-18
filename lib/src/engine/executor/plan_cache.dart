@@ -13,7 +13,8 @@ class PlanCache {
   int get hits => _hits;
   int get misses => _misses;
   int get size => _cache.length;
-  double get hitRate => (_hits + _misses) == 0 ? 0.0 : _hits / (_hits + _misses);
+  double get hitRate =>
+      (_hits + _misses) == 0 ? 0.0 : _hits / (_hits + _misses);
 
   /// Retrieves a cached query plan if present.
   PlanNode? get(String sql) {
