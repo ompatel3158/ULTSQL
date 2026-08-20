@@ -78,8 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const presets = {
     join: `-- Relational SQL: JOIN & Aggregate Query
-CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
-CREATE TABLE IF NOT EXISTS orders (id INT PRIMARY KEY, user_id INT, amount DOUBLE);
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
+CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount DOUBLE);
 
 INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true), (2, 'Alice Chen', 'AI Researcher', true);
 INSERT INTO orders VALUES (101, 1, 14280.00), (102, 1, 350.00), (103, 2, 8950.50);
@@ -91,7 +94,9 @@ GROUP BY u.name, u.role
 ORDER BY total_spent DESC;`,
 
     json: `-- NoSQL Dotted JSON Document Querying
-CREATE TABLE IF NOT EXISTS documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), metadata JSON);
+DROP TABLE IF EXISTS documents;
+
+CREATE TABLE documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), metadata JSON);
 INSERT INTO documents VALUES (1, 'Attention Is All You Need', 'AI', '{"tier": "VIP", "profile": {"address": {"city": "San Francisco"}}}');
 
 SELECT title, category,
@@ -100,30 +105,44 @@ SELECT title, category,
 FROM documents;`,
 
     vector: `-- AI Vector RAG Search
-CREATE TABLE IF NOT EXISTS documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50));
-INSERT INTO documents VALUES (1, 'Attention Is All You Need', 'AI');
+DROP TABLE IF EXISTS documents;
 
-SELECT title, category FROM documents WHERE category = 'AI';`,
+CREATE TABLE documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), embedding VECTOR);
+INSERT INTO documents VALUES 
+(1, 'Attention Is All You Need', 'AI', '[0.12, 0.88, -0.45]'),
+(2, 'Converged Database Architecture', 'Database', '[0.05, 0.72, -0.21]');
+
+SELECT title, category, VECTOR_DISTANCE(embedding, '[0.10, 0.85, -0.40]') AS distance
+FROM documents
+ORDER BY distance ASC;`,
 
     plsql: `-- High-Speed PL/SQL Loop Execution
-CREATE TABLE IF NOT EXISTS system_logs (id INT PRIMARY KEY, event_name VARCHAR(100));
+DROP TABLE IF EXISTS system_logs;
+
+CREATE TABLE system_logs (id INT PRIMARY KEY, event_name VARCHAR(100));
 
 DECLARE i INT := 1;
 BEGIN
   FOR i IN 1..10 LOOP
     INSERT INTO system_logs VALUES (i, 'EVENT_PING_' || i);
   END LOOP;
-END;`,
+END;
+
+SELECT * FROM system_logs;`,
 
     macro: `-- SQL Macro Calculation
-CREATE TABLE IF NOT EXISTS orders (id INT PRIMARY KEY, amount DOUBLE);
+DROP TABLE IF EXISTS orders;
+
+CREATE TABLE orders (id INT PRIMARY KEY, amount DOUBLE);
 INSERT INTO orders VALUES (101, 14280.00), (102, 350.00);
 
 CREATE MACRO calculate_tax(amount) AS amount * 0.15;
 SELECT id, amount, calculate_tax(amount) AS tax_amount FROM orders;`,
 
     branch: `-- Table Query
-CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
 INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true);
 
 SELECT * FROM users WHERE active = true;`
