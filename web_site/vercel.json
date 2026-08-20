@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "name": "ultsql-engine-docs",
   "cleanUrls": true,
   "routes": [
     { "src": "/docs", "dest": "/docs.html" },
