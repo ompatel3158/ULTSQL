@@ -2,7 +2,30 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // --- 1. CODE TAB SWITCHER ---
+  // --- 1. DARK / LIGHT THEME TOGGLE WITH LOCALSTORAGE ---
+  const savedTheme = localStorage.getItem('ultsql_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateThemeButton(savedTheme);
+
+  const themeToggleBtn = document.getElementById('themeToggle');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const active = document.documentElement.getAttribute('data-theme') || 'dark';
+      const nextTheme = active === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      localStorage.setItem('ultsql_theme', nextTheme);
+      updateThemeButton(nextTheme);
+    });
+  }
+
+  function updateThemeButton(theme) {
+    const btn = document.getElementById('themeToggle');
+    if (btn) {
+      btn.innerHTML = theme === 'dark' ? '🌙 Dark' : '☀️ Light';
+    }
+  }
+
+  // --- 2. CODE TAB SWITCHER ---
   const tabBtns = document.querySelectorAll('.tab-btn');
   const tabContents = document.querySelectorAll('.tab-content');
 
@@ -21,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // --- 2. COPY TO CLIPBOARD BUTTONS ---
+  // --- 3. COPY TO CLIPBOARD BUTTONS ---
   const copyBtns = document.querySelectorAll('.copy-btn');
   const toast = document.getElementById('toast');
 
@@ -46,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2500);
   }
 
-  // --- 3. REAL IN-BROWSER PURE-DART ENGINE PLAYGROUND ---
+  // --- 4. REAL IN-BROWSER PURE-DART ENGINE PLAYGROUND ---
   const presetSelect = document.getElementById('presetSelect');
   const sqlEditor = document.getElementById('sqlEditor');
   const runBtn = document.getElementById('runBtn');
@@ -174,7 +197,7 @@ SELECT * FROM users WHERE active = true;`
     });
   }
 
-  // --- 4. MOBILE MENU TOGGLE ---
+  // --- 5. MOBILE MENU TOGGLE ---
   const menuToggle = document.getElementById('menuToggle');
   const navLinks = document.getElementById('navLinks');
 

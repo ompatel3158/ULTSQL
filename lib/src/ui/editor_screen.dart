@@ -285,7 +285,7 @@ SELECT * FROM users_secure;''',
       backgroundColor: const Color(0xFF181825),
       appBar: AppBar(
         title: const Text(
-          'Antigravity Hybrid SQL Engine',
+          'UltSQL Studio',
           style: TextStyle(
             color: Color(0xFFCDD6F4),
             fontWeight: FontWeight.bold,

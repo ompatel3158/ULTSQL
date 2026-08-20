@@ -1,11 +1,11 @@
 {
-    "name": "hybrid_sql_engine",
-    "short_name": "hybrid_sql_engine",
+    "name": "UltSQL Studio",
+    "short_name": "UltSQL",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B0F19",
+    "theme_color": "#6366F1",
+    "description": "Converged Multimodal Database Engine (Relational SQL, NoSQL JSON, HNSW Vector RAG, PL/SQL).",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

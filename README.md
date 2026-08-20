@@ -71,7 +71,59 @@ await db.insert('users', { id: 1, name: 'Alice' });
 console.log(await db.query('users'));
 ```
 
-### 3. 🖥️ 1-Line Standalone CLI Installers (Windows, macOS, Linux)
+### 3. 🐹 Go Developers
+```bash
+go get github.com/ompatel3158/ULTSQL/bindings/go
+```
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/ompatel3158/ULTSQL/bindings/go"
+)
+
+func main() {
+	client := ultsql.NewClient("http://localhost:8080")
+	res, _ := client.Query(context.Background(), "SELECT * FROM users;")
+	fmt.Printf("Returned %d rows\n", len(res.Rows))
+}
+```
+
+### 4. 🦀 Rust Developers
+Add to `Cargo.toml`:
+```toml
+[dependencies]
+ultsql = "1.0.19"
+tokio = { version = "1.0", features = ["full"] }
+serde_json = "1.0"
+```
+```rust
+use ultsql::UltSqlClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = UltSqlClient::new("http://localhost:8080");
+    let res = client.query("SELECT * FROM users;").await?;
+    println!("Columns: {:?}", res.columns);
+    Ok(())
+}
+```
+
+### 5. 💻 C & C++ Developers (`CMake FetchContent`)
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  ultsql
+  GIT_REPOSITORY https://github.com/ompatel3158/ULTSQL.git
+  GIT_TAG        v1.0.19
+)
+FetchContent_MakeAvailable(ultsql)
+target_link_libraries(my_app PRIVATE ultsql)
+```
+
+### 6. 🖥️ 1-Line Standalone CLI Installers (Windows, macOS, Linux)
 **Zero Dependencies! Automatically downloads binary and adds `ultsql` to your system PATH:**
 
 - **Windows (PowerShell)**:
@@ -85,12 +137,12 @@ console.log(await db.query('users'));
 
 Once installed, type `ultsql serve` in any terminal!
 
-### 4. 🐳 Docker Container (Cloud & Servers)
+### 7. 🐳 Docker Container (Cloud & Servers)
 ```bash
 docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db
 ```
 
-### 5. 🔌 PostgreSQL Wire Protocol (`psycopg2`, `node-postgres`, `JDBC`, `psql`)
+### 8. 🔌 PostgreSQL Wire Protocol (`psycopg2`, `node-postgres`, `JDBC`, `psql`)
 Connect from any language using standard Postgres drivers:
 ```bash
 # Start Postgres Wire Server on port 5432
