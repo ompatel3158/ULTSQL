@@ -1,18 +1,20 @@
 import 'dart:io';
 
 class AuditLogger {
-  final File _auditFile;
+  final String dbPath;
 
-  AuditLogger(String dbPath) : _auditFile = File('$dbPath/audit.log');
+  AuditLogger(this.dbPath);
 
   void logQuery(String username, String query) {
+    if (dbPath == ':memory:' || identical(0, 0.0)) return;
     try {
-      if (!_auditFile.parent.existsSync()) {
-        _auditFile.parent.createSync(recursive: true);
+      final auditFile = File('$dbPath/audit.log');
+      if (!auditFile.parent.existsSync()) {
+        auditFile.parent.createSync(recursive: true);
       }
       final timestamp = DateTime.now().toIso8601String();
       final logEntry = '[$timestamp] USER: $username | QUERY: $query\n';
-      _auditFile.writeAsStringSync(logEntry, mode: FileMode.append);
+      auditFile.writeAsStringSync(logEntry, mode: FileMode.append);
     } catch (_) {
       // Ignore background log write issues if directory is concurrently being recreated
     }

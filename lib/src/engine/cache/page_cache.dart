@@ -400,7 +400,7 @@ class PageCache {
   }
 
   void recoverSync(Catalog catalog) {
-    if (dbDirectory == null || dbDirectory == ':memory:') return;
+    if (dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0)) return;
     try {
       final walFile = File('$dbDirectory/wal.log');
       if (!walFile.existsSync() || walFile.lengthSync() == 0) return;

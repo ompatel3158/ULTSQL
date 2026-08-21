@@ -794,7 +794,7 @@ class Catalog {
   }
 
   Future<void> load() async {
-    if (basePath == ':memory:') return;
+    if (basePath == ':memory:' || identical(0, 0.0)) return;
     try {
       final file = File(_catalogPath);
       if (!await file.exists()) return;
@@ -874,7 +874,7 @@ class Catalog {
   }
 
   void save() {
-    if (basePath == ':memory:') return;
+    if (basePath == ':memory:' || identical(0, 0.0)) return;
     try {
       final file = File(_catalogPath);
       if (!file.parent.existsSync()) {
