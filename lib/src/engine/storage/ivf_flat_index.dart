@@ -50,6 +50,7 @@ class IvfFlatIndex {
   });
 
   void initSync() {
+    if (indexPath.startsWith(':memory:') || identical(0, 0.0)) return;
     final file = File(indexPath);
     if (file.existsSync()) {
       try {
@@ -168,7 +169,7 @@ class IvfFlatIndex {
     if (_tempNodes.isNotEmpty) {
       trainAndPartition();
     }
-
+    if (indexPath.startsWith(':memory:') || identical(0, 0.0)) return;
     final file = File(indexPath);
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);

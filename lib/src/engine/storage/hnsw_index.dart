@@ -68,6 +68,7 @@ class HnswIndex {
   }) : mL = 1.0 / log(16); // M is 16
 
   void initSync() {
+    if (indexPath.startsWith(':memory:') || identical(0, 0.0)) return;
     final file = File(indexPath);
     if (file.existsSync()) {
       try {
@@ -89,6 +90,7 @@ class HnswIndex {
   }
 
   void saveSync() {
+    if (indexPath.startsWith(':memory:') || identical(0, 0.0)) return;
     final file = File(indexPath);
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);

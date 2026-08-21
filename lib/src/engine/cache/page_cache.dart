@@ -33,11 +33,15 @@ class PageKey {
 class Pager {
   final String filePath;
   RandomAccessFile? _file;
-  final int _pageSize;
+  final int pageSize;
   int _virtualPageCount = -1;
   Uint8List? encryptionKey;
+  late final bool _isMemoryMode;
+  final Map<int, Uint8List> _memoryPages = {};
 
-  Pager(this.filePath, {this._pageSize = 4096});
+  Pager(this.filePath, {this.pageSize = 4096}) {
+    _isMemoryMode = filePath.startsWith(':memory:') || identical(0, 0.0);
+  }
 
   void _cryptPage(int pageId, Uint8List buffer) {
     if (encryptionKey == null) return;
@@ -46,7 +50,7 @@ class Pager {
   }
 
   void openSync() {
-    if (_file != null) return;
+    if (_isMemoryMode || _file != null) return;
     try {
       final file = File(filePath);
       if (!file.existsSync()) {
@@ -59,6 +63,7 @@ class Pager {
   }
 
   void _ensureOpenSync() {
+    if (_isMemoryMode) return;
     if (_file == null) {
       try {
         final file = File(filePath);
@@ -74,23 +79,41 @@ class Pager {
 
   int getPageCountSync() {
     if (_virtualPageCount != -1) return _virtualPageCount;
+    if (_isMemoryMode) {
+      _virtualPageCount = _memoryPages.isEmpty ? 0 : (_memoryPages.keys.reduce((a, b) => a > b ? a : b) + 1);
+      return _virtualPageCount;
+    }
     _ensureOpenSync();
+    if (_file == null) return 0;
     final len = _file!.lengthSync();
-    _virtualPageCount = len ~/ _pageSize;
+    _virtualPageCount = len ~/ pageSize;
     return _virtualPageCount;
   }
 
   void readPageSync(int pageId, Uint8List buffer) {
+    if (_isMemoryMode) {
+      final page = _memoryPages[pageId];
+      if (page != null) {
+        buffer.setAll(0, page);
+      } else {
+        buffer.fillRange(0, buffer.length, 0);
+      }
+      return;
+    }
     _ensureOpenSync();
+    if (_file == null) {
+      buffer.fillRange(0, buffer.length, 0);
+      return;
+    }
     if (_virtualPageCount == -1) {
-      _virtualPageCount = _file!.lengthSync() ~/ _pageSize;
+      _virtualPageCount = _file!.lengthSync() ~/ pageSize;
     }
     if (pageId >= _virtualPageCount) {
       _virtualPageCount = pageId + 1;
       buffer.fillRange(0, buffer.length, 0);
       return;
     }
-    final offset = pageId * _pageSize;
+    final offset = pageId * pageSize;
     _file!.setPositionSync(offset);
     _file!.readIntoSync(buffer);
 
@@ -102,8 +125,13 @@ class Pager {
     if (pageId >= _virtualPageCount) {
       _virtualPageCount = pageId + 1;
     }
+    if (_isMemoryMode) {
+      _memoryPages[pageId] = Uint8List.fromList(buffer);
+      return;
+    }
     _ensureOpenSync();
-    final offset = pageId * _pageSize;
+    if (_file == null) return;
+    final offset = pageId * pageSize;
     _file!.setPositionSync(offset);
 
     // Encrypt a copy of buffer so cache remains clear text
@@ -117,13 +145,21 @@ class Pager {
   }
 
   void writePagesContiguousSync(int startPageId, Uint8List combinedBuffer) {
-    final pageCount = combinedBuffer.length ~/ _pageSize;
+    final pageCount = combinedBuffer.length ~/ pageSize;
     final endPageId = startPageId + pageCount;
     if (endPageId >= _virtualPageCount) {
       _virtualPageCount = endPageId;
     }
+    if (_isMemoryMode) {
+      for (int i = 0; i < pageCount; i++) {
+        final pageData = combinedBuffer.sublist(i * pageSize, (i + 1) * pageSize);
+        _memoryPages[startPageId + i] = pageData;
+      }
+      return;
+    }
     _ensureOpenSync();
-    final offset = startPageId * _pageSize;
+    if (_file == null) return;
+    final offset = startPageId * pageSize;
     _file!.setPositionSync(offset);
 
     if (encryptionKey != null) {
@@ -131,8 +167,8 @@ class Pager {
       for (int i = 0; i < pageCount; i++) {
         final view = Uint8List.view(
           encryptedBuffer.buffer,
-          encryptedBuffer.offsetInBytes + i * _pageSize,
-          _pageSize,
+          encryptedBuffer.offsetInBytes + i * pageSize,
+          pageSize,
         );
         _cryptPage(startPageId + i, view);
       }
@@ -143,10 +179,16 @@ class Pager {
   }
 
   void flushSync() {
+    if (_isMemoryMode) return;
     _file?.flushSync();
   }
 
   void closeSync() {
+    if (_isMemoryMode) {
+      _memoryPages.clear();
+      _virtualPageCount = -1;
+      return;
+    }
     if (_file != null) {
       _file!.closeSync();
       _file = null;
@@ -155,10 +197,15 @@ class Pager {
   }
 
   void truncateToPagesSync(int pageCount) {
-    _ensureOpenSync();
-    final length = pageCount * _pageSize;
-    _file!.truncateSync(length);
     _virtualPageCount = pageCount;
+    if (_isMemoryMode) {
+      _memoryPages.removeWhere((k, _) => k >= pageCount);
+      return;
+    }
+    _ensureOpenSync();
+    if (_file == null) return;
+    final length = pageCount * pageSize;
+    _file!.truncateSync(length);
   }
 }
 
