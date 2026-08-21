@@ -252,6 +252,15 @@ class JitCompiler {
           return row[fullName]!;
         }
 
+        final lowerFullName = fullName.toLowerCase();
+        for (final key in row.keys) {
+          if (key.toLowerCase() == lowerFullName) {
+            resolvedKey = key;
+            jsonPathStartIndex = path.length;
+            return row[key]!;
+          }
+        }
+
         if (path.length >= 2) {
           final possibleColName = '${path[0]}.${path[1]}';
           if (row.containsKey(possibleColName)) {
@@ -262,6 +271,22 @@ class JitCompiler {
               return val.extractPath(path.sublist(2));
             }
             return val;
+          }
+
+          // If path starts with alias (e.g. u.name), check path[1] ('name') against row keys
+          final colName = path[1];
+          final lowerColName = colName.toLowerCase();
+          for (final key in row.keys) {
+            final lowerKey = key.toLowerCase();
+            if (lowerKey == lowerColName || lowerKey.endsWith('.$lowerColName')) {
+              resolvedKey = key;
+              jsonPathStartIndex = 2;
+              final val = row[key]!;
+              if (path.length > 2 && val is DbJson) {
+                return val.extractPath(path.sublist(2));
+              }
+              return val;
+            }
           }
         }
 

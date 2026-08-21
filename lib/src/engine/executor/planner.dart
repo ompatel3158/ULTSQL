@@ -1143,17 +1143,20 @@ class QueryPlanner {
       }
     }
 
+    final tableAlias = stmt.tableAlias?.toLowerCase();
     final indexes = <int>{};
     for (final name in referencedNames) {
       final nameLower = name.toLowerCase();
-      // Match column with or without table prefix
+      // Match column with or without table prefix or alias
       for (int i = 0; i < schema.columnNames.length; i++) {
         final colName = schema.columnNames[i].toLowerCase();
         if (nameLower == colName ||
-            nameLower == '${schema.name.toLowerCase()}.$colName') {
-          indexes.add(i);
-        } else if (nameLower.startsWith('$colName.')) {
-          // JSON path nested extraction
+            nameLower == '${schema.name.toLowerCase()}.$colName' ||
+            (tableAlias != null &&
+                (nameLower == '$tableAlias.$colName' ||
+                    nameLower.startsWith('$tableAlias.$colName.'))) ||
+            nameLower.startsWith('$colName.') ||
+            nameLower.startsWith('${schema.name.toLowerCase()}.$colName.')) {
           indexes.add(i);
         }
       }
@@ -1184,14 +1187,29 @@ class QueryPlanner {
     if (stmt.whereCondition != null) {
       _collectVariables(stmt.whereCondition!, referencedNames);
     }
+    if (stmt.groupBy != null) {
+      _collectVariables(stmt.groupBy!, referencedNames);
+    }
+    if (stmt.orderBy != null) {
+      _collectVariables(stmt.orderBy!.expr, referencedNames);
+    }
+    if (stmt.havingCondition != null) {
+      _collectVariables(stmt.havingCondition!, referencedNames);
+    }
 
+    final joinAlias = join.alias?.toLowerCase();
     final indexes = <int>{};
     for (final name in referencedNames) {
       final nameLower = name.toLowerCase();
       for (int i = 0; i < joinSchema.columnNames.length; i++) {
         final colName = joinSchema.columnNames[i].toLowerCase();
         if (nameLower == colName ||
-            nameLower == '${joinSchema.name.toLowerCase()}.$colName') {
+            nameLower == '${joinSchema.name.toLowerCase()}.$colName' ||
+            (joinAlias != null &&
+                (nameLower == '$joinAlias.$colName' ||
+                    nameLower.startsWith('$joinAlias.$colName.'))) ||
+            nameLower.startsWith('$colName.') ||
+            nameLower.startsWith('${joinSchema.name.toLowerCase()}.$colName.')) {
           indexes.add(i);
         }
       }
