@@ -417,7 +417,7 @@ class RowTableFile {
   int? _cachedPageCount;
   int getPageCount() {
     if (_cachedPageCount == null) {
-      _cachedPageCount = pager.getPageCountSync();
+      _cachedPageCount = cache.getActualPageCountSync(filePath);
     }
     return _cachedPageCount!;
   }
@@ -591,8 +591,7 @@ class RowTableFile {
     bool generatePointers = true,
   }) {
     flushActivePageSync();
-    final pager = cache.getOrCreatePager(filePath);
-    int pageCount = pager.getPageCountSync();
+    int pageCount = cache.getActualPageCountSync(filePath);
 
     final pointers = generatePointers ? <BTreePointer>[] : null;
     if (rows.isEmpty) return pointers;
@@ -697,8 +696,8 @@ class RowTableFile {
     int? expectedColumnCount,
     int? asOfTxId,
   }) {
-    final pager = cache.getOrCreatePager(filePath);
-    final pageCount = pager.getPageCountSync();
+    flushActivePageSync();
+    final pageCount = cache.getActualPageCountSync(filePath);
     final mgr = txManager ?? cache.mvccTxManager;
     final actIds = activeTxIds ?? const <int>{};
     return RowCursor(
@@ -904,8 +903,7 @@ class ColumnTableFile {
       final colFilePath = getColumnFilePath(i);
       final valBytes = val.toBytes();
 
-      final pager = cache.getOrCreatePager(colFilePath);
-      final pageCount = pager.getPageCountSync();
+      final pageCount = cache.getActualPageCountSync(colFilePath);
 
       if (pageCount == 0) {
         final page = cache.pinPageSync(colFilePath, 0);
@@ -933,8 +931,7 @@ class ColumnTableFile {
 
   Iterable<DbValue> scanColumnSync(int colIndex) sync* {
     final colFilePath = getColumnFilePath(colIndex);
-    final pager = cache.getOrCreatePager(colFilePath);
-    final pageCount = pager.getPageCountSync();
+    final pageCount = cache.getActualPageCountSync(colFilePath);
 
     for (int i = 0; i < pageCount; i++) {
       final page = cache.pinPageSync(colFilePath, i);
