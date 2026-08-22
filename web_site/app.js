@@ -179,24 +179,46 @@ SELECT * FROM users WHERE active = true;`
 
             if (resultTable && res.columns && res.rows && res.columns.length > 0) {
               let html = `<thead><tr>`;
-              res.columns.forEach(h => html += `<th>${h}</th>`);
+              res.columns.forEach(h => html += `<th>${escapeHtml(h)}</th>`);
               html += `</tr></thead><tbody>`;
 
               res.rows.forEach(r => {
                 html += `<tr>`;
-                r.forEach(c => html += `<td>${c}</td>`);
+                r.forEach(c => html += `<td>${escapeHtml(c)}</td>`);
                 html += `</tr>`;
               });
               html += `</tbody>`;
               resultTable.innerHTML = html;
             } else if (resultTable && res.message) {
-              resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace;">${res.message}</td></tr></tbody>`;
+              resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace; white-space: pre-wrap;">${escapeHtml(res.message)}</td></tr></tbody>`;
             } else if (resultTable) {
               resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace;">Query executed successfully with 0 rows returned.</td></tr></tbody>`;
             }
           } else {
+            const title = res.errorTitle || 'Query Execution Error';
+            const errorMsg = res.error || res.rawError || 'An unexpected error occurred.';
+            const hint = res.errorHint || 'Please check your SQL syntax, table names, and parameters.';
+
             if (resultStatus) {
-              resultStatus.innerHTML = `❌ Real Engine Error (<strong>${res.elapsedMs} ms</strong>): ${res.error}`;
+              resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">❌ ${escapeHtml(title)}</span> (${res.elapsedMs} ms)`;
+            }
+
+            if (resultTable) {
+              resultTable.innerHTML = `
+                <tbody>
+                  <tr>
+                    <td style="padding: 1.25rem; background: #18181b; border: 1px solid #7f1d1d; border-left: 4px solid #ef4444; border-radius: 6px;">
+                      <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>⚠️</span> <span>${escapeHtml(title)}</span>
+                      </div>
+                      <div style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.75rem; white-space: pre-wrap;">
+                        ${escapeHtml(errorMsg)}
+                      </div>
+                      ${hint ? `<div style="color: #a1a1aa; font-size: 0.82rem; line-height: 1.4; border-top: 1px dashed #3f3f46; padding-top: 0.6rem;">💡 <strong>Suggestion:</strong> ${escapeHtml(hint)}</div>` : ''}
+                    </td>
+                  </tr>
+                </tbody>
+              `;
             }
           }
         } else {
@@ -210,10 +232,32 @@ SELECT * FROM users WHERE active = true;`
         runBtn.innerText = 'Run Query ▶';
         runBtn.disabled = false;
         if (resultStatus) {
-          resultStatus.innerHTML = `❌ Execution Exception: ${err.message}`;
+          resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">❌ Execution Exception</span>`;
+        }
+        if (resultTable) {
+          resultTable.innerHTML = `
+            <tbody>
+              <tr>
+                <td style="padding: 1.25rem; background: #18181b; border: 1px solid #7f1d1d; border-left: 4px solid #ef4444; border-radius: 6px;">
+                  <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">⚠️ Unexpected Exception</div>
+                  <div style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${escapeHtml(err.message)}</div>
+                </td>
+              </tr>
+            </tbody>
+          `;
         }
       }
     });
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   // --- 5. MOBILE MENU TOGGLE ---

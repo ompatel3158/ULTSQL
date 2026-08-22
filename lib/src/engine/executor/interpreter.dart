@@ -731,16 +731,12 @@ class Interpreter {
           executionTime: stopwatch.elapsed,
           dbmsOutputLog: List<String>.from(dbmsOutputLog),
         );
-      } catch (e, st) {
-        print('INTERPRETER EXCEPTION: $e\n$st');
+      } catch (e) {
         stopwatch.stop();
-        return QueryResult(
-          columns: [],
-          rows: [],
-          message: 'Error: ${e.toString()}',
-          executionTime: stopwatch.elapsed,
-          dbmsOutputLog: List<String>.from(dbmsOutputLog),
-        );
+        _delayedIndexUpdates.clear();
+        _flushActiveTablePages();
+        db.cache.rollbackTransactionSync(db.catalog);
+        rethrow;
       }
     }, zoneValues: {#sessionTxContext: _sessionContext});
   }
