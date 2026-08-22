@@ -639,6 +639,7 @@ class ForeignScanNode extends PlanNode {
       filename = filename.substring(1, filename.length - 1);
     }
 
+    if (identical(0, 0.0)) return;
     final file = File(filename);
     if (!file.existsSync()) {
       print(

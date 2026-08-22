@@ -366,7 +366,7 @@ class PageCache {
 
   void _ensureWalOpenSync() {
     if (_walFile != null) return;
-    if (dbDirectory == null) return;
+    if (dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0)) return;
     final file = File('$dbDirectory/wal.log');
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);
@@ -557,7 +557,7 @@ class PageCache {
     final catalogBackup = catalog.getBackupState();
     _txState = TransactionState()..catalogBackup = catalogBackup;
 
-    if (useWal && dbDirectory != null) {
+    if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
       final file = File('$dbDirectory/wal.log');
       if (file.existsSync()) {
         try {
@@ -577,7 +577,7 @@ class PageCache {
       currentMvccTx = null;
     }
     if (_txState != null) {
-      if (useWal) {
+      if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
         // Write remaining dirty pages to WAL
         for (final entry in _cache.entries) {
           final key = entry.key;
@@ -601,7 +601,7 @@ class PageCache {
       _walFile = null;
     }
 
-    if (useWal && dbDirectory != null) {
+    if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
       final walFile = File('$dbDirectory/wal.log');
       if (walFile.existsSync()) {
         try {
@@ -671,7 +671,7 @@ class PageCache {
       _walFile = null;
     }
 
-    if (useWal && dbDirectory != null) {
+    if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
       final walFile = File('$dbDirectory/wal.log');
       if (walFile.existsSync()) {
         try {
@@ -796,6 +796,24 @@ class PageCache {
     if (state == null) return;
     if (!state.originalPageCounts.containsKey(filePath)) {
       state.originalPageCounts[filePath] = getActualPageCountSync(filePath);
+    }
+  }
+
+  void evictFile(String filePath) {
+    final keysToRemove = <PageKey>[];
+    for (final k in _cache.keys) {
+      if (k.filePath == filePath) {
+        keysToRemove.add(k);
+      }
+    }
+    for (final k in keysToRemove) {
+      _cache.remove(k);
+    }
+    final pager = _pagers.remove(filePath);
+    if (pager != null) {
+      try {
+        pager.closeSync();
+      } catch (_) {}
     }
   }
 

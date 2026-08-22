@@ -10,6 +10,7 @@ abstract class FdwManager {
       throw Exception('Foreign table requires filename in options');
     }
 
+    if (identical(0, 0.0)) return;
     final file = File(filename);
     if (!await file.exists()) {
       return;

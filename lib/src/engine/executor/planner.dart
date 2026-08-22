@@ -16,12 +16,43 @@ class QueryPlanner {
   final Catalog catalog;
   final PageCache cache;
   final String dbDirectory;
+  final CreateMacroStmt? Function(String)? getMacro;
 
   QueryPlanner({
     required this.catalog,
     required this.cache,
     required this.dbDirectory,
+    this.getMacro,
   });
+
+  Expression _expandMacro(CreateMacroStmt macro, List<Expression> args) {
+    final paramMap = <String, Expression>{};
+    for (int i = 0; i < macro.params.length && i < args.length; i++) {
+      paramMap[macro.params[i].toLowerCase()] = args[i];
+    }
+    Expression substitute(Expression e) {
+      if (e is VariableExpr) {
+        if (e.path.length == 1) {
+          final pName = e.path.first.toLowerCase();
+          if (paramMap.containsKey(pName)) {
+            return paramMap[pName]!;
+          }
+        }
+        return e;
+      }
+      if (e is BinaryExpr) {
+        return BinaryExpr(e.operator, substitute(e.left), substitute(e.right));
+      }
+      if (e is FunctionCallExpr) {
+        return FunctionCallExpr(e.name, e.arguments.map(substitute).toList());
+      }
+      if (e is JsonExtractExpr) {
+        return JsonExtractExpr(substitute(e.expr), e.path, e.asText);
+      }
+      return e;
+    }
+    return substitute(macro.bodyExpr);
+  }
 
   String _normalizeExprString(String sql, String tableName) {
     String s = sql.trim();
@@ -1377,10 +1408,6 @@ class QueryPlanner {
     final mainAlias = stmt.tableAlias?.toLowerCase();
     final joinAlias = stmt.join?.alias?.toLowerCase();
 
-    if (mainAlias == null && joinAlias == null) {
-      return stmt;
-    }
-
     Expression rewriteExpr(Expression expr) {
       if (expr is VariableExpr) {
         if (expr.path.isNotEmpty) {
@@ -1408,6 +1435,14 @@ class QueryPlanner {
         );
       }
       if (expr is FunctionCallExpr) {
+        final macro = getMacro?.call(expr.name);
+        if (macro != null) {
+          final expanded = _expandMacro(
+            macro,
+            expr.arguments.map(rewriteExpr).toList(),
+          );
+          return rewriteExpr(expanded);
+        }
         return FunctionCallExpr(
           expr.name,
           expr.arguments.map(rewriteExpr).toList(),

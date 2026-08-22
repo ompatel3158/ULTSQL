@@ -223,6 +223,7 @@ class Database {
       catalog: catalog,
       cache: cache,
       dbDirectory: directory,
+      getMacro: getMacro,
     );
     auditLogger = AuditLogger(directory);
   }
@@ -730,7 +731,8 @@ class Interpreter {
           executionTime: stopwatch.elapsed,
           dbmsOutputLog: List<String>.from(dbmsOutputLog),
         );
-      } catch (e) {
+      } catch (e, st) {
+        print('INTERPRETER EXCEPTION: $e\n$st');
         stopwatch.stop();
         return QueryResult(
           columns: [],
@@ -4647,12 +4649,20 @@ END;
     _rowTableCache.remove(cleanName);
     _rowTableCache.remove(stmt.tableName.toLowerCase());
     db.catalog.removeTable(cleanName, saveToFile: true);
+    db.cache.evictFile('${db.directory}/$cleanName.db');
+    _insertSchemaCache.clear();
+    _insertClosuresCache.clear();
+    _astCache.clear();
+    _jitCache.clear();
+    _schemaKeyToIndexCache.clear();
 
-    final tableFile = File('${db.directory}/$cleanName.db');
-    if (tableFile.existsSync()) {
-      try {
-        tableFile.deleteSync();
-      } catch (_) {}
+    if (db.directory != ':memory:' && !identical(0, 0.0)) {
+      final tableFile = File('${db.directory}/$cleanName.db');
+      if (tableFile.existsSync()) {
+        try {
+          tableFile.deleteSync();
+        } catch (_) {}
+      }
     }
     return QueryResult(
       columns: [],
@@ -4662,11 +4672,13 @@ END;
   }
 
   QueryResult _executeDropIndex(DropIndexStmt stmt) {
-    final idxFile = File('${db.directory}/${stmt.indexName}.idx');
-    if (idxFile.existsSync()) {
-      try {
-        idxFile.deleteSync();
-      } catch (_) {}
+    if (db.directory != ':memory:' && !identical(0, 0.0)) {
+      final idxFile = File('${db.directory}/${stmt.indexName}.idx');
+      if (idxFile.existsSync()) {
+        try {
+          idxFile.deleteSync();
+        } catch (_) {}
+      }
     }
     return QueryResult(
       columns: [],
@@ -4759,11 +4771,13 @@ END;
     _resetActiveTablePages();
     _rowTableCache.remove(cleanName);
     _rowTableCache.remove(stmt.tableName.toLowerCase());
-    final tableFile = File('${db.directory}/$cleanName.db');
-    if (tableFile.existsSync()) {
-      try {
-        tableFile.deleteSync();
-      } catch (_) {}
+    if (db.directory != ':memory:' && !identical(0, 0.0)) {
+      final tableFile = File('${db.directory}/$cleanName.db');
+      if (tableFile.existsSync()) {
+        try {
+          tableFile.deleteSync();
+        } catch (_) {}
+      }
     }
     db.notifyTableMutated(cleanName);
     return QueryResult(

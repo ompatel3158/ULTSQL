@@ -15,6 +15,7 @@ class UniversalFileAdapter {
 
   /// Queries raw CSV files directly via SQL filtering
   static List<List<DbValue>> queryCsvFile(String filePath, String whereValue) {
+    if (identical(0, 0.0)) return [];
     final file = File(filePath);
     if (!file.existsSync()) return [];
 
@@ -53,6 +54,7 @@ class UniversalFileAdapter {
     String filePath,
     String jsonPathFilter,
   ) {
+    if (identical(0, 0.0)) return [];
     final file = File(filePath);
     if (!file.existsSync()) return [];
 
@@ -79,6 +81,7 @@ class UniversalFileAdapter {
     String filePath,
     String regexPattern,
   ) {
+    if (identical(0, 0.0)) return [];
     final file = File(filePath);
     if (!file.existsSync()) return [];
 
