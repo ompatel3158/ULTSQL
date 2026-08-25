@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>License & FAQ — ULTSQL Converged Database Engine</title>
+  <meta name="description" content="ULTSQL Source Available License v1.0 and Frequently Asked Questions (FAQ).">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .license-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
+    }
+    .license-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      margin-bottom: 3rem;
+      line-height: 1.7;
+    }
+    .license-box h2 {
+      font-size: 1.35rem;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: #ffffff;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+    .license-box h3 {
+      font-size: 1.1rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent-blue);
+    }
+    .license-box p, .license-box ul, .license-box ol {
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+    .license-box ul {
+      padding-left: 1.5rem;
+    }
+    .license-box li {
+      margin-bottom: 0.4rem;
+    }
+    .license-highlight {
+      background: rgba(37, 99, 235, 0.08);
+      border: 1px solid rgba(37, 99, 235, 0.25);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+    }
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      margin-bottom: 1rem;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .faq-item:hover {
+      border-color: var(--accent-blue);
+    }
+    .faq-question {
+      padding: 1.25rem 1.5rem;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .faq-answer {
+      padding: 0 1.5rem 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+    .tab-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVIGATION -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-brand">
+      <a href="index.html" style="display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: inherit;">
+        <img src="icon.svg" alt="ULTSQL Logo" class="nav-logo-icon">
+        <span class="nav-logo">ULT<span class="nav-logo-accent">SQL</span></span>
+      </a>
+    </div>
+    <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="features.html">Features</a></li>
+      <li><a href="docs.html">Documentation</a></li>
+      <li><a href="benchmarks.html">Benchmarks</a></li>
+      <li><a href="license.html" class="active">License & FAQ</a></li>
+      <li>
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">🌙 Dark</button>
+      </li>
+      <li>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
+          pub.dev / ultsql ↗
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- HEADER -->
+  <header class="hero" style="min-height: 35vh; padding-top: 4rem;">
+    <h1>ULTSQL <span class="hero-title-gradient">License & FAQ</span></h1>
+    <p>Source Available License v1.0 — Free for commercial applications, personal projects, education & SaaS.</p>
+  </header>
+
+  <main class="license-container">
+
+    <!-- SUMMARY CARDS -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
+      <div class="pillar-card" style="padding: 1.5rem;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">✅</div>
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">100% Free & Royalty-Free</h3>
+        <p style="font-size: 0.88rem; margin: 0;">Use in commercial apps, desktop, mobile, embedded, SaaS, internal systems, and education without license fees.</p>
+      </div>
+      <div class="pillar-card" style="padding: 1.5rem;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">🏷️</div>
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Attribution Required</h3>
+        <p style="font-size: 0.88rem; margin: 0;">Include <strong>“Powered by ULTSQL”</strong> in an About, Legal, Credits, or Documentation section.</p>
+      </div>
+      <div class="pillar-card" style="padding: 1.5rem;">
+        <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">☁️</div>
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Managed Cloud Protection</h3>
+        <p style="font-size: 0.88rem; margin: 0;">Selling ULTSQL itself as a commercial hosted DBaaS / PaaS requires a separate commercial license.</p>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabFaqBtn" onclick="showTab('faq')">❓ Frequently Asked Questions</button>
+      <button class="tab-btn" id="tabLicenseBtn" onclick="showTab('license')">📄 Full Legal License Text</button>
+    </div>
+
+    <!-- FAQ SECTION -->
+    <div id="faqSection">
+      
+      <div class="faq-item">
+        <div class="faq-question"><span>What is the ULTSQL license?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          ULTSQL uses a <strong>source-available license</strong>. It allows developers and companies to use, modify, distribute, and commercially use ULTSQL without paying royalties for permitted uses. However, offering ULTSQL itself as a commercial hosted database service requires a separate commercial license.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Can I use ULTSQL for free in my commercial application?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <strong>Yes.</strong> You can build and sell a commercial application that uses ULTSQL without paying any license fee, provided you include the required attribution (<strong>“Powered by ULTSQL”</strong>) and do not offer ULTSQL itself as a commercial hosted database service.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Do I have to open-source my own application?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <strong>No.</strong> This license does not require your application to become open source. You can keep your own application's source code 100% proprietary.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Where should the “Powered by ULTSQL” attribution appear?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          It should appear in an appropriate location such as an About, Legal, Licenses, Credits, or Documentation section of your product, along with a link to the official ULTSQL repository or website. It does <em>not</em> need to be on the primary application interface.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Can I use ULTSQL in a SaaS application?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <strong>Yes.</strong> For example, you can build an accounting SaaS, an analytics SaaS, or an AI application powered by ULTSQL. That is fully permitted because ULTSQL is being used as part of a larger product.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Can I run ULTSQL on AWS, GCP, or Azure for my company?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <strong>Yes.</strong> Internal cloud deployment is permitted. You can run ULTSQL on any cloud provider for your own application, organization, testing, or internal infrastructure. The restriction applies only to offering ULTSQL itself as a hosted database service to external customers.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Can I modify ULTSQL and distribute my changes?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <strong>Yes.</strong> You can modify the source code and create derivative versions. Your modifications remain subject to the applicable requirements of the ULTSQL license when distributed.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>Is ULTSQL free for students, researchers, and startups?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <strong>Yes.</strong> Educational, research, and startup use is royalty-free under the license terms.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question"><span>What is the simplest summary of the license?</span> <span>▾</span></div>
+        <div class="faq-answer">
+          <ul style="margin: 0; padding-left: 1.2rem;">
+            <li><strong>Use ULTSQL</strong> → Free</li>
+            <li><strong>Modify ULTSQL</strong> → Free</li>
+            <li><strong>Build an application with ULTSQL</strong> → Free</li>
+            <li><strong>Sell that application</strong> → Allowed</li>
+            <li><strong>Run ULTSQL internally on the cloud</strong> → Allowed</li>
+            <li><strong>Offer ULTSQL itself as a paid managed database</strong> → Commercial license required</li>
+            <li><strong>Remove required attribution</strong> → Not allowed</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FULL LICENSE TEXT SECTION -->
+    <div id="licenseSection" style="display: none;">
+      <div class="license-box">
+        <h1 style="font-size: 1.5rem; margin-bottom: 0.25rem;">ULTIMATE SQL (ULTSQL) SOURCE AVAILABLE LICENSE</h1>
+        <p style="font-weight: 700; color: var(--accent-blue);">Version 1.0 — August 2026</p>
+        <p>Copyright (c) 2026, The ULTSQL Authors. All rights reserved.</p>
+
+        <h2>1. Definitions</h2>
+        <p><strong>“Licensor”</strong> means the copyright owner or entity authorized by the copyright owner to grant this License.</p>
+        <p><strong>“You”</strong> or <strong>“Your”</strong> means an individual or legal entity exercising rights granted by this License.</p>
+        <p><strong>“Software”</strong> means the ULTSQL source code, binaries, documentation, and other materials distributed by the Licensor under this License.</p>
+        <p><strong>“Derivative Work”</strong> means a modified version of the Software that is based upon or incorporates substantial portions of the Software.</p>
+        <p><strong>“Commercial Cloud Service”</strong> means providing the Software, or a Derivative Work substantially based upon it, to third parties as a hosted, managed, multi-tenant, or single-tenant database service, database-as-a-service (DBaaS), platform-as-a-service (PaaS), or infrastructure service where the primary purpose is to provide database functionality to external customers for a fee or other commercial benefit.</p>
+        <p>A service that merely uses ULTSQL internally as part of its own application is <strong>not</strong>, by itself, a Commercial Cloud Service.</p>
+
+        <h2>2. Grant of License</h2>
+        <p>Subject to the terms of this License, the Licensor grants You a worldwide, royalty-free, non-exclusive, perpetual license to:</p>
+        <ul>
+          <li>use the Software;</li>
+          <li>copy the Software;</li>
+          <li>modify the Software;</li>
+          <li>create Derivative Works;</li>
+          <li>merge the Software with other software;</li>
+          <li>publish the Software;</li>
+          <li>distribute the Software; and</li>
+          <li>use the Software for personal, educational, research, internal, or commercial purposes,</li>
+        </ul>
+        <p>provided that Your use complies with this License. This license does not require You to pay royalties to the Licensor for permitted uses.</p>
+
+        <h2>3. Commercial Application Use</h2>
+        <p>You may use ULTSQL as part of a commercial application, product, desktop application, mobile application, embedded system, or SaaS application without obtaining a separate commercial license, provided that:</p>
+        <ol>
+          <li>the application does not primarily offer ULTSQL itself as a Commercial Cloud Service; and</li>
+          <li>You comply with the attribution requirements in Section 4.</li>
+        </ol>
+        <p>You may charge customers for an application that uses ULTSQL.</p>
+
+        <h2>4. Attribution</h2>
+        <p>If You distribute an application or product that incorporates ULTSQL, You must provide reasonable visible attribution to ULTSQL. The attribution must state:</p>
+        <div class="license-highlight">
+          <strong style="color: #ffffff; font-size: 1.05rem;">“Powered by ULTSQL”</strong>
+          <p style="margin: 0.3rem 0 0; font-size: 0.85rem; color: var(--text-muted);">and must include a link to the official ULTSQL project repository or official ULTSQL website.</p>
+        </div>
+        <p>The attribution may be placed in an appropriate About screen, Legal or Licenses screen, Credits section, Documentation, or equivalent location.</p>
+
+        <h2>5. Commercial Cloud Services</h2>
+        <p>You may not use the Software or a Derivative Work to operate a Commercial Cloud Service for third parties without a separate written commercial license from the Licensor.</p>
+        <h3>5.1 Internal Cloud Use</h3>
+        <p>This restriction does <strong>not</strong> prohibit You from running ULTSQL on cloud infrastructure for Your own application, organization, development environment, testing environment, or internal operations.</p>
+        <h3>5.2 Commercial Cloud License</h3>
+        <p>The Licensor may grant a separate written commercial license permitting Commercial Cloud Services upon request.</p>
+
+        <h2>6. Derivative Works</h2>
+        <p>You may modify ULTSQL and create Derivative Works under this License, provided that original copyright notices and attributions are retained and the modified software does not violate Section 5.</p>
+
+        <h2>7. Trademarks and Branding</h2>
+        <p>This License grants rights to the Software only and does not grant trademark or branding rights beyond required attribution.</p>
+
+        <h2>8. Redistribution</h2>
+        <p>You may redistribute the Software and permitted Derivative Works in source or binary form, retaining copyright notices and this License.</p>
+
+        <h2>9. Disclaimer of Warranty & Liability</h2>
+        <p>THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE LICENSOR OR CONTRIBUTORS BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THE SOFTWARE.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+      </div>
+      <div>
+        <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
+        <a href="features.html" style="color: var(--text-muted); margin-right: 1.25rem;">Features</a>
+        <a href="docs.html" style="color: var(--text-muted); margin-right: 1.25rem;">Docs</a>
+        <a href="license.html" style="color: #ffffff; font-weight: 600;">License & FAQ</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function showTab(tab) {
+      const faqSection = document.getElementById('faqSection');
+      const licenseSection = document.getElementById('licenseSection');
+      const tabFaqBtn = document.getElementById('tabFaqBtn');
+      const tabLicenseBtn = document.getElementById('tabLicenseBtn');
+
+      if (tab === 'faq') {
+        faqSection.style.display = 'block';
+        licenseSection.style.display = 'none';
+        tabFaqBtn.classList.add('active');
+        tabLicenseBtn.classList.remove('active');
+      } else {
+        faqSection.style.display = 'none';
+        licenseSection.style.display = 'block';
+        tabFaqBtn.classList.remove('active');
+        tabLicenseBtn.classList.add('active');
+      }
+    }
+
+    // Mobile menu toggle
+    const menuToggle = document.getElementById('menuToggle');
+    const navLinks = document.getElementById('navLinks');
+    if (menuToggle && navLinks) {
+      menuToggle.addEventListener('click', () => {
+        navLinks.classList.toggle('active');
+      });
+    }
+
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const isDark = document.body.getAttribute('data-theme') !== 'light';
+        if (isDark) {
+          document.body.setAttribute('data-theme', 'light');
+          themeToggle.innerText = '☀️ Light';
+        } else {
+          document.body.removeAttribute('data-theme');
+          themeToggle.innerText = '🌙 Dark';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

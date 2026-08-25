@@ -7,7 +7,8 @@
 [![pub package](https://img.shields.io/pub/v/ultsql.svg)](https://pub.dev/packages/ultsql)
 [![Dart SDK](https://img.shields.io/badge/Dart-3.4+-0175C2.svg?logo=dart)](https://dart.dev)
 [![Flutter](https://img.shields.io/badge/Flutter-3.22+-02569B.svg?logo=flutter)](https://flutter.dev)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/ompatel3158/ULTSQL/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-Source_Available_v1.0-blue.svg)](LICENSE)
+[![License FAQ](https://img.shields.io/badge/License-FAQ-green.svg)](LICENSE-FAQ.md)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ompatel3158/ULTSQL/test.yml?branch=main&label=build)](https://github.com/ompatel3158/ULTSQL/actions)
 
 📦 **Package**: [ultsql | Flutter package](https://pub.dev/packages/ultsql)
@@ -520,6 +521,14 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 
 ---
 
-## <a name="license"></a>📜 License
+## <a name="license"></a>📜 License & Attribution
 
-UltSQL is licensed under the **BSD 3-Clause License** (the official license used by Flutter & Google). Built with ❤️ in pure Dart.
+ULTSQL is licensed under the **ULTSQL Source Available License v1.0**.
+
+- ✅ **Free & Royalty-Free**: Permitted for commercial applications, personal projects, SaaS applications, education, and research.
+- 🏷️ **Attribution Required**: Applications incorporating ULTSQL must include **“Powered by ULTSQL”** in their About, Legal, Credits, or Documentation section.
+- ☁️ **Commercial Cloud Service Restriction**: Offering ULTSQL itself as a commercial managed database service (DBaaS/PaaS) requires a separate commercial license from the Licensor.
+
+For full legal details and answers to common licensing questions:
+- 📄 [View the Full LICENSE](LICENSE)
+- ❓ [Read the License FAQ](LICENSE-FAQ.md)
