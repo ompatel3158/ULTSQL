@@ -254,7 +254,7 @@ await db.init();
 ```
 
 ### 2. 💾 Durable Disk Storage Mode (`360,000+ rows/sec`)
-For persistent local application data with ACID crash safety and auto-healing WAL recovery:
+For persistent local application data with ACID crash safety and automatic WAL crash recovery:
 ```dart
 final db = Database('/path/to/app_data/my_database');
 await db.init();
