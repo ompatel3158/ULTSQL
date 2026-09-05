@@ -87,13 +87,18 @@ class RestServer {
         final jsonRows = res.rows
             .map((r) => r.map((v) => v.value).toList())
             .toList();
+        final combinedMsg = res.dbmsOutputLog.isNotEmpty && res.message.isNotEmpty
+            ? '${res.dbmsOutputLog.join("\n")}\n${res.message}'
+            : (res.dbmsOutputLog.isNotEmpty
+                ? res.dbmsOutputLog.join("\n")
+                : res.message);
         request.response.headers.contentType = ContentType.json;
         request.response.write(
           jsonEncode({
             'columns': res.columns,
             'count': jsonRows.length,
             'rows': jsonRows,
-            'message': res.message,
+            'message': combinedMsg,
             'dbms_output': res.dbmsOutputLog,
           }),
         );
