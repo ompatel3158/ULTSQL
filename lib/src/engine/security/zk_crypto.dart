@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-/// Zero-Knowledge (ZK) Encrypted Query Enclave Engine (Zero External Dependencies)
+/// Searchable Ciphertext (Repeating-Key XOR Equality Search) Engine (Zero External Dependencies)
 class ZkCryptoEnclave {
-  /// Encrypts plaintext field using deterministic zero-knowledge cipher
+  /// Encrypts plaintext field using deterministic repeating-key XOR cipher
   static Uint8List encryptField(String plaintext, String secretKey) {
     final keyBytes = utf8.encode(secretKey);
     final dataBytes = utf8.encode(plaintext);
@@ -14,7 +14,7 @@ class ZkCryptoEnclave {
     return result;
   }
 
-  /// Queries encrypted ciphertext without exposing plaintext or secret key to server
+  /// Queries encrypted ciphertext using deterministic repeating-key XOR equality comparison
   static bool queryEncryptedField(
     Uint8List ciphertext,
     String searchPrompt,

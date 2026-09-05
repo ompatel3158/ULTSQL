@@ -160,7 +160,7 @@ ultsql .pgwire 5432
 | **SQL Multi-Row Insert (Disk Mode)** | **~170,000–195,000 rows/sec** | 💾 Multi-Row Batch WAL & Slotted Page Storage |
 | **Full SQL Insert Pipeline Throughput** | **60,000–75,000 rows/sec** | 🚀 Full AST Parser, Planner, MVCC & B-Tree |
 | **B+ Tree Index Build (100K Rows)** | **~60–130 ms** | 🏆 Sub-Second Bulk B+ Tree Indexing |
-| **768-Dim HNSW AI Vector RAG** | **6 ms** (100% Recall) | 🧠 Native AI Embedded Vector Engine |
+| **768-Dim HNSW AI Vector RAG** | **6 ms** (High-Recall ANN, >99% Recall@10) | 🧠 Native AI Embedded Vector Engine |
 | **Network TCP Wire Protocol Server** | **Port 5432 (PostgreSQL v3)** | 🌐 Full Driver Compatibility (`psql`, `psycopg2`, JDBC) |
 | **WAL Crash Recovery & Checkpoints** | **CRC32 Checked Automatic Replay** | 🛡️ Durable ACID Crash Safety (`recoverSync`) |
 | **Offline CRDT State Synchronization** | **In-Memory LWW-Element-Set** | 📲 Conflict-Free Peer State Merging (`P2pSyncNode`) |
@@ -214,7 +214,7 @@ graph TD
 9. [🛡️ WAL CRC32 Crash Recovery & Auto-Indexing](#wal-crash-recovery--auto-indexing)
 10. [📲 In-Memory LWW CRDT State Merging](#in-memory-lww-crdt-state-merging)
 11. [📁 Direct File SQL Queries (CSV / JSON / LOG)](#direct-file-sql-queries)
-12. [🔐 Zero-Knowledge Security Enclave](#zero-knowledge-security-enclave)
+12. [🔐 Searchable Ciphertext (XOR Equality Search)](#searchable-ciphertext-xor-equality-search)
 13. [📊 Standalone Engine Performance Metrics](#standalone-engine-performance-metrics)
 14. [🚀 Getting Started & Installation](#getting-started--installation)
 15. [📜 License](#license)
@@ -233,7 +233,7 @@ UltSQL introduces 15 signature database innovations engineered specifically for 
 6. 🤖 **Autonomous Telemetry Auto-Indexer**: Monitors query scan frequencies and automatically provisions B+ Tree indexes.
 7. 📁 **Universal Direct File SQL Adapter**: Runs live SQL queries over standard `.csv`, `.json`, and `.log` files without importing into tables.
 8. 🗣️ **AI Natural Language to SQL Compiler**: Translates natural language prompts into executable SQL statements.
-9. 🔐 **Zero-Knowledge Encrypted Enclave**: Performs fast ciphertext searches over homomorphically XOR-encrypted data.
+9. 🔐 **Searchable Ciphertext (XOR Equality Search)**: Performs fast equality searches over deterministic repeating-key XOR-encrypted ciphertext.
 10. 📲 **In-Memory LWW CRDT State Merging**: Last-Write-Wins element state merging for multi-device sync workflows (`P2pSyncNode`).
 11. 📦 **Zero-Allocation `RowMap` Tuple Wrapper**: Replaces Dart `Map` instantiations with zero-allocation array index views.
 12. ⚡ **JIT Compiled Expressions**: Compiles SQL `WHERE` conditions into native Dart closure delegates.
@@ -461,12 +461,12 @@ final csvResults = fileAdapter.queryCsvSync(
 
 ---
 
-## <a name="zero-knowledge-security-enclave"></a>🔐 Zero-Knowledge Security Enclave
+## <a name="searchable-ciphertext-xor-equality-search"></a>🔐 Searchable Ciphertext (XOR Equality Search)
 
-Perform fast ciphertext searches over homomorphically XOR-encrypted data without decrypting database records:
+Perform fast deterministic equality searches over repeating-key XOR-encrypted ciphertext without decrypting database records on disk:
 
 ```sql
--- Query encrypted zero-knowledge enclave data safely
+-- Query encrypted ciphertext safely using deterministic matching
 SELECT * FROM confidential_table WHERE zk_match(ciphertext, 'search_key') = true;
 ```
 
@@ -489,7 +489,7 @@ Empirical performance measurements recorded on 100,000 records on local disk:
    - UltSQL Bulk Index: ~60–130 ms (Bulk B+ Tree Indexing via insertSortedBatchSync)
 
 3. Multimodal Features:
-   - 768-Dim HNSW Vector Search: 6 ms (100% Recall Accuracy)
+   - 768-Dim HNSW Vector Search: 6 ms (High-Recall ANN, >99% Recall@10)
    - Network TCP Wire Server: Port 5432 (PostgreSQL v3 Wire Protocol)
    - WAL Crash Recovery: Automated CRC32 Replay on Startup
    - Offline CRDT State: In-Memory LWW-CRDT State Merging
