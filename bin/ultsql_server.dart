@@ -17,11 +17,16 @@ void main(List<String> args) async {
       host = args[i + 1];
     } else if ((arg == '--data-dir' || arg == '-d') && i + 1 < args.length) {
       dataDir = args[i + 1];
-    } else if ((arg == '--password' || arg == '--key') && i + 1 < args.length) {
+    } else if ((arg == '--password' ||
+        arg == '--passphrase' ||
+        arg == '--key') &&
+        i + 1 < args.length) {
       passphrase = args[i + 1];
       i++;
     } else if (arg.startsWith('--password=')) {
       passphrase = arg.substring(11);
+    } else if (arg.startsWith('--passphrase=')) {
+      passphrase = arg.substring(13);
     } else if (arg.startsWith('--key=')) {
       passphrase = arg.substring(6);
     } else if (arg == '--help') {

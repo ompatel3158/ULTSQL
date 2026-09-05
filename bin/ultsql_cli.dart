@@ -18,12 +18,16 @@ void main(List<String> args) async {
           dbPath = args[i + 1];
         } else if (args[i].startsWith('--db=')) {
           dbPath = args[i].substring(5);
-        } else if ((args[i] == '--password' || args[i] == '--key') &&
+        } else if ((args[i] == '--password' ||
+            args[i] == '--passphrase' ||
+            args[i] == '--key') &&
             i + 1 < args.length) {
           passphrase = args[i + 1];
           i++;
         } else if (args[i].startsWith('--password=')) {
           passphrase = args[i].substring(11);
+        } else if (args[i].startsWith('--passphrase=')) {
+          passphrase = args[i].substring(13);
         } else if (args[i].startsWith('--key=')) {
           passphrase = args[i].substring(6);
         }
@@ -59,12 +63,16 @@ void main(List<String> args) async {
       if (arg == '--help' || arg == '-h') {
         _printHelp();
         exit(0);
-      } else if ((arg == '--password' || arg == '--key') &&
+      } else if ((arg == '--password' ||
+          arg == '--passphrase' ||
+          arg == '--key') &&
           i + 1 < args.length) {
         passphrase = args[i + 1];
         i++;
       } else if (arg.startsWith('--password=')) {
         passphrase = arg.substring(11);
+      } else if (arg.startsWith('--passphrase=')) {
+        passphrase = arg.substring(13);
       } else if (arg.startsWith('--key=')) {
         passphrase = arg.substring(6);
       } else if (!arg.startsWith('-')) {
