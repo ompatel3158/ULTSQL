@@ -144,10 +144,10 @@ psql -h localhost -p 5432 -U admin -d ultsql_db</code></pre>
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-value">1.2M+</div>
-        <div class="stat-label">In-Memory Rows / Sec</div>
+        <div class="stat-label">Raw Buffer Rows / Sec</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">17 ms</div>
+        <div class="stat-value">~60–130 ms</div>
         <div class="stat-label">100K-Row B+ Tree Index</div>
       </div>
       <div class="stat-card">
@@ -166,7 +166,7 @@ psql -h localhost -p 5432 -U admin -d ultsql_db</code></pre>
         <span>ℹ️</span> Benchmark Hardware Note
       </div>
       <div class="disclaimer-body">
-        Tested benchmark speeds reflect direct in-memory table buffer ingestion (<strong>1,200,000+ rows/sec</strong>) and end-to-end SQL insert pipeline with AST parsing and B-Tree indexing (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
+        Tested benchmark speeds reflect direct in-memory table buffer ingestion (<strong>1,200,000+ rows/sec</strong>), disk multi-row batch inserts (<strong>~170,000–195,000 rows/sec</strong>), and end-to-end SQL insert pipeline with AST parsing and B-Tree indexing (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
         <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
         <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
         Actual speeds may vary depending on your device hardware, memory architecture, and storage subsystem.

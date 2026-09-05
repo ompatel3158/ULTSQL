@@ -156,9 +156,10 @@ ultsql .pgwire 5432
 
 | Capability / Benchmark | UltSQL Performance | Feature Status |
 | :--- | :--- | :--- |
-| **Raw Memory Table Batch Ingestion** | **1,200,000+ rows/sec** (Peak 3.48M/s) | ⚡ High-Throughput Memory Table Buffer |
-| **SQL Insert Pipeline Throughput** | **60,000–75,000 rows/sec** | 🚀 Full AST Parser, Planner, MVCC & B-Tree |
-| **B+ Tree Index Build (100K Rows)** | **17 ms** | 🏆 Ultra-Fast Sub-Second Bulk Indexing |
+| **Raw Memory Table Batch Ingestion** | **1,200,000+ rows/sec** (Peak 3.48M/s) | ⚡ Direct Memory Table Buffer (No SQL Parse Overhead) |
+| **SQL Multi-Row Insert (Disk Mode)** | **~170,000–195,000 rows/sec** | 💾 Multi-Row Batch WAL & Slotted Page Storage |
+| **Full SQL Insert Pipeline Throughput** | **60,000–75,000 rows/sec** | 🚀 Full AST Parser, Planner, MVCC & B-Tree |
+| **B+ Tree Index Build (100K Rows)** | **~60–130 ms** | 🏆 Sub-Second Bulk B+ Tree Indexing |
 | **768-Dim HNSW AI Vector RAG** | **6 ms** (100% Recall) | 🧠 Native AI Embedded Vector Engine |
 | **Network TCP Wire Protocol Server** | **Port 5432 (PostgreSQL v3)** | 🌐 Full Driver Compatibility (`psql`, `psycopg2`, JDBC) |
 | **WAL Crash Recovery & Checkpoints** | **CRC32 Checked Automatic Replay** | 🛡️ Durable ACID Crash Safety (`recoverSync`) |
@@ -224,8 +225,8 @@ graph TD
 
 UltSQL introduces 15 signature database innovations engineered specifically for high-throughput client and cloud workloads:
 
-1. ⚡ **1.2M+ Rows/sec Direct Memory Ingestion**: Zero-allocation linear byte array memory ingestion via `MemoryTable`.
-2. 🏆 **Ultra-Fast B+ Tree Bulk Indexing**: `insertSortedBatchSync` constructs 100K-row B+ Trees in 17 ms.
+1. ⚡ **1.2M+ Rows/sec Direct Memory Ingestion**: Zero-allocation linear byte array memory ingestion via `MemoryTable` (direct buffer API).
+2. 🏆 **Fast B+ Tree Bulk Indexing**: `insertSortedBatchSync` constructs 100K-row B+ Trees in ~60–130 ms.
 3. 🧠 **Native HNSW Vector RAG Graph**: Cosine & Euclidean similarity search over 768-dim embeddings in 6 ms.
 4. 🌐 **Network TCP Wire Protocol Server**: Full PostgreSQL v3 wire protocol server with parameter status and backend key negotiation.
 5. 🛡️ **WAL CRC32 Crash Recovery Engine**: Detects torn writes and crashes with CRC32 checksums, replaying committed transactions and restoring catalog state on startup.
@@ -246,14 +247,14 @@ UltSQL introduces 15 signature database innovations engineered specifically for 
 
 Switch between in-memory speed and durable disk storage with a single line of code:
 
-### 1. ⚡ In-Memory Storage Mode (`1,200,000+ rows/sec`)
+### 1. ⚡ In-Memory Storage Mode (`~60K–75K rows/sec` SQL, `1.2M+ rows/sec` direct buffer)
 For high-frequency streaming, real-time AI vector search, and temporary session caches:
 ```dart
 final db = Database(':memory:');
 await db.init();
 ```
 
-### 2. 💾 Durable Disk Storage Mode (`360,000+ rows/sec`)
+### 2. 💾 Durable Disk Storage Mode (`~170K–195K rows/sec` multi-row batch, `~60K–75K` single SQL)
 For persistent local application data with ACID crash safety and automatic WAL crash recovery:
 ```dart
 final db = Database('/path/to/app_data/my_database');
@@ -480,11 +481,12 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 🔥 ULTSQL STANDALONE ENGINE PERFORMANCE (100,000 ROWS) 🔥
 ======================================================
 1. Insert Throughput:
-   - Direct MemoryTable Buffer: 82 ms (1,219,512 rows/sec raw buffer ingestion)
-   - Full SQL Pipeline (Disk): ~65,000–75,000 rows/sec (Lexer, Parser, Cost Planner, MVCC, B-Tree)
+   - Direct MemoryTable Buffer: ~82 ms (1,200,000+ rows/sec raw memory buffer ingestion via direct API)
+   - Multi-Row SQL INSERT (Disk): ~170,000–195,000 rows/sec (Multi-row VALUES batch with WAL flush)
+   - Full SQL Pipeline (Single-row/Parsed): ~60,000–75,000 rows/sec (Hand-written Lexer, Parser, Cost Planner, MVCC, B-Tree)
 
 2. B+ Tree Index Build (100,000 Rows):
-   - UltSQL Bulk Index: 17 ms (Ultra-Fast B+ Tree Indexing)
+   - UltSQL Bulk Index: ~60–130 ms (Bulk B+ Tree Indexing via insertSortedBatchSync)
 
 3. Multimodal Features:
    - 768-Dim HNSW Vector Search: 6 ms (100% Recall Accuracy)
