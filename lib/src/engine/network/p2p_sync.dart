@@ -13,6 +13,21 @@ class CrdtState {
       timestamps[key] = timestamp;
     }
   }
+
+  Map<String, dynamic> toJson() => {
+    'addSet': addSet,
+    'timestamps': timestamps,
+  };
+
+  factory CrdtState.fromJson(Map<String, dynamic> json) {
+    final rawAddSet = json['addSet'] as Map<String, dynamic>? ?? {};
+    final rawTimestamps = (json['timestamps'] as Map<String, dynamic>? ?? {})
+        .map((k, v) => MapEntry(k, (v as num).toInt()));
+    return CrdtState(
+      addSet: Map<String, dynamic>.from(rawAddSet),
+      timestamps: rawTimestamps,
+    );
+  }
 }
 
 /// Peer-to-Peer Offline Multi-Master Sync Node
