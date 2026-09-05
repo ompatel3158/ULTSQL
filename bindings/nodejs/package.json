@@ -1,6 +1,6 @@
 {
   "name": "ultsql",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Universal Node.js client for the UltSQL 100% Pure-Dart multimodal database engine.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -18,7 +18,7 @@
     "sqlite"
   ],
   "author": "Om Patel <ompatel3158@gmail.com>",
-  "license": "BSD-3-Clause",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ompatel3158/ULTSQL.git"

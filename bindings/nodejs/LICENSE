@@ -1,29 +1,186 @@
-BSD 3-Clause License
+# ULTIMATE SQL (ULTSQL) SOURCE AVAILABLE LICENSE
 
-Copyright (c) 2026, Om Patel & UltSQL Engine Authors.
-All rights reserved.
+**Version 1.0 — August 2026**
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+Copyright (c) 2026, The ULTSQL Authors. All rights reserved.
 
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
+## 1. Definitions
 
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
+For purposes of this License:
 
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
+**“Licensor”** means the copyright owner or entity authorized by the copyright owner to grant this License.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**“You”** or **“Your”** means an individual or legal entity exercising rights granted by this License.
+
+**“Software”** means the ULTSQL source code, binaries, documentation, and other materials distributed by the Licensor under this License.
+
+**“Derivative Work”** means a modified version of the Software that is based upon or incorporates substantial portions of the Software.
+
+**“Commercial Cloud Service”** means providing the Software, or a Derivative Work substantially based upon it, to third parties as a hosted, managed, multi-tenant, or single-tenant database service, database-as-a-service (DBaaS), platform-as-a-service (PaaS), or infrastructure service where the primary purpose is to provide database functionality to external customers for a fee or other commercial benefit.
+
+A service that merely uses ULTSQL internally as part of its own application is **not**, by itself, a Commercial Cloud Service.
+
+## 2. Grant of License
+
+Subject to the terms of this License, the Licensor grants You a worldwide, royalty-free, non-exclusive, perpetual license to:
+
+- use the Software;
+- copy the Software;
+- modify the Software;
+- create Derivative Works;
+- merge the Software with other software;
+- publish the Software;
+- distribute the Software; and
+- use the Software for personal, educational, research, internal, or commercial purposes,
+
+provided that Your use complies with this License.
+
+This license does not require You to pay royalties to the Licensor for permitted uses.
+
+## 3. Commercial Application Use
+
+You may use ULTSQL as part of a commercial application, product, desktop application, mobile application, embedded system, or SaaS application without obtaining a separate commercial license, provided that:
+
+1. the application does not primarily offer ULTSQL itself as a Commercial Cloud Service; and
+2. You comply with the attribution requirements in Section 4.
+
+You may charge customers for an application that uses ULTSQL.
+
+## 4. Attribution
+
+If You distribute an application or product that incorporates ULTSQL, You must provide reasonable visible attribution to ULTSQL.
+
+The attribution must state:
+
+**“Powered by ULTSQL”**
+
+and must include a link to the official ULTSQL project repository or official ULTSQL website.
+
+The attribution may be placed in an appropriate:
+
+- About screen;
+- Legal or Licenses screen;
+- Credits section;
+- Documentation; or
+- equivalent location appropriate to the product.
+
+The attribution requirement does not require You to place the ULTSQL name on the primary product interface.
+
+## 5. Commercial Cloud Services
+
+You may not use the Software or a Derivative Work to operate a Commercial Cloud Service for third parties without a separate written commercial license from the Licensor.
+
+This restriction includes, but is not limited to:
+
+- managed ULTSQL database services;
+- hosted database platforms;
+- DBaaS offerings;
+- multi-tenant database infrastructure;
+- single-tenant managed database offerings;
+- paid database hosting services; and
+- substantially similar services where ULTSQL itself is the principal database product being provided to customers.
+
+Examples of companies that may fall within this restriction include cloud providers, hosting companies, platform providers, and database-as-a-service vendors.
+
+### 5.1 Internal Cloud Use
+
+This restriction does **not** prohibit You from running ULTSQL on cloud infrastructure for Your own application, organization, development environment, testing environment, or internal operations.
+
+For example, You may deploy ULTSQL on AWS, Google Cloud, Microsoft Azure, or another cloud provider as part of Your own application.
+
+The restriction applies when ULTSQL is itself being offered to external customers as a hosted database service.
+
+### 5.2 Commercial Cloud License
+
+The Licensor may grant a separate written commercial license permitting Commercial Cloud Services.
+
+The terms, pricing, scope, duration, and other conditions of such a license are determined separately by the Licensor.
+
+## 6. Derivative Works
+
+You may modify ULTSQL and create Derivative Works under this License.
+
+You may distribute modified versions of ULTSQL provided that:
+
+1. the original copyright notices are retained;
+2. the applicable attribution requirements are satisfied;
+3. the modified software does not violate Section 5; and
+4. You do not represent Your modified version as the official ULTSQL release unless authorized by the Licensor.
+
+Nothing in this License transfers ownership of ULTSQL to You.
+
+## 7. Trademarks and Branding
+
+This License grants rights to the Software only.
+
+It does not grant permission to use ULTSQL trademarks, logos, service marks, or other branding except as reasonably necessary to comply with the attribution requirements of this License.
+
+You may state that Your product **uses ULTSQL**.
+
+You may not imply that Your product is officially produced, sponsored, endorsed, or maintained by the ULTSQL Authors unless You have written permission from the Licensor.
+
+## 8. Redistribution
+
+You may redistribute the Software and permitted Derivative Works in source or binary form.
+
+Redistributions must retain:
+
+- applicable copyright notices;
+- this License; and
+- required attribution notices.
+
+You may charge a fee for distributing software that includes ULTSQL, provided that the distribution itself complies with this License.
+
+## 9. No Transfer of Ownership
+
+ULTSQL and its underlying intellectual property remain the property of the Licensor and its contributors, subject to the rights expressly granted by this License.
+
+This License does not transfer copyright ownership or other intellectual property ownership to You.
+
+## 10. Contributions
+
+Unless a separate contribution agreement states otherwise, contributions submitted to the ULTSQL project are provided under the licensing terms applicable to the project at the time of acceptance.
+
+The Licensor may establish additional contribution policies for the official ULTSQL repository.
+
+## 11. Termination
+
+Your rights under this License automatically terminate if You materially violate its terms.
+
+If Your violation is cured within thirty (30) days after receiving written notice of the violation, Your rights may be reinstated, subject to applicable law and any reasonable conditions imposed by the Licensor.
+
+Termination does not affect rights that were lawfully exercised before termination.
+
+## 12. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED **“AS IS”**, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+
+THE LICENSOR AND CONTRIBUTORS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
+
+## 13. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR AND CONTRIBUTORS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES ARISING FROM THE USE OF OR INABILITY TO USE THE SOFTWARE.
+
+## 14. No Additional Restrictions
+
+Except as expressly stated in this License, the Licensor does not impose additional restrictions on Your permitted use of the Software.
+
+## 15. Entire Agreement
+
+This License constitutes the complete agreement governing the rights granted to You concerning the Software, unless the Licensor provides a separate written agreement.
+
+## 16. Governing Law
+
+The governing law and jurisdiction for this License shall be specified by the Licensor in an applicable project or commercial agreement.
+
+If no governing law is specified, applicable law shall determine the interpretation and enforcement of this License.
+
+---
+
+**ULTSQL**
+
+Ultimate SQL Database Engine
+
+Copyright © 2026 The ULTSQL Authors.
+
+For commercial cloud licensing inquiries, contact the ULTSQL project maintainers through the official project repository or website.
