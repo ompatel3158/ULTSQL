@@ -29,6 +29,9 @@ void main(List<String> args) async {
       passphrase = arg.substring(13);
     } else if (arg.startsWith('--key=')) {
       passphrase = arg.substring(6);
+    } else if (arg == '--version' || arg == '-v') {
+      print('UltSQL Server Daemon v1.0.20');
+      exit(0);
     } else if (arg == '--help') {
       _printHelp();
       exit(0);
@@ -41,7 +44,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Server Daemon v1.0.0');
+  print('🚀 UltSQL Server Daemon v1.0.20');
   print('   Converged Database Engine (SQL + NoSQL + Vector RAG + PL/SQL)');
   print('===============================================================');
   print('📁 Data Directory : ${dir.absolute.path}');

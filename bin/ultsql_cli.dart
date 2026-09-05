@@ -38,7 +38,7 @@ void main(List<String> args) async {
       final boundPort = await restServer.start(autoPort: true);
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.18)');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.20)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (passphrase != null) {
@@ -63,6 +63,9 @@ void main(List<String> args) async {
       if (arg == '--help' || arg == '-h') {
         _printHelp();
         exit(0);
+      } else if (arg == '--version' || arg == '-v') {
+        print('UltSQL CLI v1.0.20');
+        exit(0);
       } else if ((arg == '--password' ||
           arg == '--passphrase' ||
           arg == '--key') &&
@@ -82,7 +85,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.18)');
+  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.20)');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
   if (passphrase != null) {
@@ -284,6 +287,7 @@ Options:
   --password, --key <pass>  Passphrase for AES-256-CTR database encryption
   --port <number>           Port for REST server (default: 8080)
   --db <path>               Database storage directory (default: ./ultsql_data)
+  -v, --version             Show CLI engine version
   -h, --help                Show this help message
 
 Examples:

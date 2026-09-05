@@ -18,8 +18,8 @@ Write-Host "Downloading latest ultsql.exe binary..." -ForegroundColor Yellow
 try {
     Invoke-WebRequest -Uri $downloadUrl -OutFile $exePath -UseBasicParsing
 } catch {
-    $fallbackUrl = "https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/bin/ultsql.exe"
-    Invoke-WebRequest -Uri $fallbackUrl -OutFile $exePath -UseBasicParsing
+    Write-Error "Failed to download UltSQL binary from $downloadUrl. Please check https://github.com/ompatel3158/ULTSQL/releases/latest or compile with 'dart compile exe bin/ultsql_cli.dart'."
+    exit 1
 }
 
 Write-Host "Configuring System User PATH environment variable..." -ForegroundColor Yellow
