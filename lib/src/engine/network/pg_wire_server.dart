@@ -40,8 +40,13 @@ class PgWireServer {
 
   void _handleConnection(Socket socket) {
     final sessionCtx = db.cache.createSessionContext();
-    runZoned(() {
+    runZonedGuarded(() {
       _PgConnectionHandler(socket, db).handle();
+    }, (error, stack) {
+      print('PgWire connection unhandled error: $error\n$stack');
+      try {
+        socket.destroy();
+      } catch (_) {}
     }, zoneValues: {#sessionTxContext: sessionCtx});
   }
 }
