@@ -1046,12 +1046,14 @@ class Interpreter {
     // 1. Close active connections and wipe directory
     await db.close();
 
-    final dir = Directory(db.directory);
-    if (dir.existsSync()) {
-      for (final file in dir.listSync()) {
-        try {
-          file.deleteSync(recursive: true);
-        } catch (_) {}
+    if (db.directory != ':memory:' && !identical(0, 0.0)) {
+      final dir = Directory(db.directory);
+      if (dir.existsSync()) {
+        for (final file in dir.listSync()) {
+          try {
+            file.deleteSync(recursive: true);
+          } catch (_) {}
+        }
       }
     }
 
@@ -1401,13 +1403,15 @@ END;
       final idxSchema = db.catalog.getIndexForColumn(tableName, colName);
       if (idxSchema != null) {
         db.catalog.removeIndex(idxSchema.name, saveToFile: false);
-        final idxFile = File(
-          '${db.directory}/${idxSchema.name.toLowerCase()}.idx',
-        );
-        if (idxFile.existsSync()) {
-          try {
-            idxFile.deleteSync();
-          } catch (_) {}
+        if (db.directory != ':memory:' && !identical(0, 0.0)) {
+          final idxFile = File(
+            '${db.directory}/${idxSchema.name.toLowerCase()}.idx',
+          );
+          if (idxFile.existsSync()) {
+            try {
+              idxFile.deleteSync();
+            } catch (_) {}
+          }
         }
       }
 
@@ -1420,17 +1424,19 @@ END;
           db.cache.evictTableSync(filePath);
         }
 
-        // Delete the file for the dropped column
-        final fileToDelete = File('${db.directory}/${schema.name}.col_$colIdx');
-        if (fileToDelete.existsSync()) {
-          fileToDelete.deleteSync();
-        }
+        if (db.directory != ':memory:' && !identical(0, 0.0)) {
+          // Delete the file for the dropped column
+          final fileToDelete = File('${db.directory}/${schema.name}.col_$colIdx');
+          if (fileToDelete.existsSync()) {
+            fileToDelete.deleteSync();
+          }
 
-        // Rename remaining column files
-        for (int i = colIdx + 1; i < colCount; i++) {
-          final oldFile = File('${db.directory}/${schema.name}.col_$i');
-          if (oldFile.existsSync()) {
-            oldFile.renameSync('${db.directory}/${schema.name}.col_${i - 1}');
+          // Rename remaining column files
+          for (int i = colIdx + 1; i < colCount; i++) {
+            final oldFile = File('${db.directory}/${schema.name}.col_$i');
+            if (oldFile.existsSync()) {
+              oldFile.renameSync('${db.directory}/${schema.name}.col_${i - 1}');
+            }
           }
         }
       } else {
@@ -1485,9 +1491,11 @@ END;
         db.cache.evictTableSync(rowTable.filePath);
 
         // Delete original file
-        final file = File(rowTable.filePath);
-        if (file.existsSync()) {
-          file.deleteSync();
+        if (db.directory != ':memory:' && !identical(0, 0.0)) {
+          final file = File(rowTable.filePath);
+          if (file.existsSync()) {
+            file.deleteSync();
+          }
         }
 
         // Write records to a fresh file

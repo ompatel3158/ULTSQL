@@ -8,6 +8,9 @@ class DatabaseBackupManager {
     required String dbDirectory,
     required String backupDirectory,
   }) {
+    if (dbDirectory == ':memory:' || identical(0, 0.0)) {
+      throw Exception('Cannot backup in-memory database.');
+    }
     final srcDir = Directory(dbDirectory);
     if (!srcDir.existsSync()) {
       throw Exception('Database directory $dbDirectory does not exist');

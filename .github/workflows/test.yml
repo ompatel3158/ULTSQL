@@ -27,3 +27,30 @@ jobs:
 
       - name: Run Unit & Integration Tests
         run: flutter test test/developer_features_test.dart test/reactive_streams_test.dart test/telemetry_flight_recorder_test.dart test/phase_3_4_5_all_features_test.dart test/universal_bindings_test.dart
+
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Compile CLI executable
+        run: dart compile exe bin/ultsql_cli.dart -o bin/ultsql.exe
+
+      - name: Run in-memory smoke test against compiled executable with no path
+        shell: powershell
+        run: |
+          @'
+          CREATE TABLE smoke(id INT, name TEXT);
+          INSERT INTO smoke VALUES (1, 'Windows In-Memory OK');
+          SELECT * FROM smoke;
+          .exit
+          '@ | .\bin\ultsql.exe
+

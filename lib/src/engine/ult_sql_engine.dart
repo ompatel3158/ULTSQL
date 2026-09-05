@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/network/pg_wire_server.dart';
 import 'package:ultsql/src/engine/executor/value.dart';
@@ -27,14 +26,7 @@ class UltSqlEngine {
 
   /// Open an in-memory high-speed ephemeral database.
   static Future<UltSqlEngine> openMemory({String? passphrase}) async {
-    String memPath = ':memory:';
-    try {
-      final tempDir = Directory.systemTemp.createTempSync('ultsql_mem_');
-      memPath = tempDir.path;
-    } catch (_) {
-      memPath = ':memory:';
-    }
-    final db = Database(memPath, passphrase: passphrase);
+    final db = Database(':memory:', passphrase: passphrase);
     await db.init();
     return UltSqlEngine._(db);
   }

@@ -45,12 +45,16 @@ class LocalDatabaseService {
       return _interpreter!;
     }
 
-    final dir = Directory(_dataDirectory);
-    if (!dir.existsSync()) {
-      dir.createSync(recursive: true);
+    final String dbPath;
+    if (dbName == ':memory:') {
+      dbPath = ':memory:';
+    } else {
+      final dir = Directory(_dataDirectory);
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      dbPath = '${dir.path}/$dbName';
     }
-
-    final dbPath = dbName == ':memory:' ? ':memory:' : '${dir.path}/$dbName';
 
     final db = Database(dbPath);
     await db.init();
