@@ -106,5 +106,6 @@ void main() {
     socket.destroy();
     
     await server.stop();
+    await db.close();
   });
 }

@@ -80,7 +80,9 @@ class Pager {
   int getPageCountSync() {
     if (_virtualPageCount != -1) return _virtualPageCount;
     if (_isMemoryMode) {
-      _virtualPageCount = _memoryPages.isEmpty ? 0 : (_memoryPages.keys.reduce((a, b) => a > b ? a : b) + 1);
+      _virtualPageCount = _memoryPages.isEmpty
+          ? 0
+          : (_memoryPages.keys.reduce((a, b) => a > b ? a : b) + 1);
       return _virtualPageCount;
     }
     _ensureOpenSync();
@@ -152,7 +154,10 @@ class Pager {
     }
     if (_isMemoryMode) {
       for (int i = 0; i < pageCount; i++) {
-        final pageData = combinedBuffer.sublist(i * pageSize, (i + 1) * pageSize);
+        final pageData = combinedBuffer.sublist(
+          i * pageSize,
+          (i + 1) * pageSize,
+        );
         _memoryPages[startPageId + i] = pageData;
       }
       return;
@@ -366,7 +371,8 @@ class PageCache {
 
   void _ensureWalOpenSync() {
     if (_walFile != null) return;
-    if (dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0)) return;
+    if (dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0))
+      return;
     final file = File('$dbDirectory/wal.log');
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);
@@ -447,7 +453,8 @@ class PageCache {
   }
 
   void recoverSync(Catalog catalog) {
-    if (dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0)) return;
+    if (dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0))
+      return;
     try {
       final walFile = File('$dbDirectory/wal.log');
       if (!walFile.existsSync() || walFile.lengthSync() == 0) return;
@@ -557,7 +564,10 @@ class PageCache {
     final catalogBackup = catalog.getBackupState();
     _txState = TransactionState()..catalogBackup = catalogBackup;
 
-    if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
+    if (useWal &&
+        dbDirectory != null &&
+        dbDirectory != ':memory:' &&
+        !identical(0, 0.0)) {
       final file = File('$dbDirectory/wal.log');
       if (file.existsSync()) {
         try {
@@ -577,7 +587,10 @@ class PageCache {
       currentMvccTx = null;
     }
     if (_txState != null) {
-      if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
+      if (useWal &&
+          dbDirectory != null &&
+          dbDirectory != ':memory:' &&
+          !identical(0, 0.0)) {
         // Write remaining dirty pages to WAL
         for (final entry in _cache.entries) {
           final key = entry.key;
@@ -601,7 +614,10 @@ class PageCache {
       _walFile = null;
     }
 
-    if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
+    if (useWal &&
+        dbDirectory != null &&
+        dbDirectory != ':memory:' &&
+        !identical(0, 0.0)) {
       final walFile = File('$dbDirectory/wal.log');
       if (walFile.existsSync()) {
         try {
@@ -671,7 +687,10 @@ class PageCache {
       _walFile = null;
     }
 
-    if (useWal && dbDirectory != null && dbDirectory != ':memory:' && !identical(0, 0.0)) {
+    if (useWal &&
+        dbDirectory != null &&
+        dbDirectory != ':memory:' &&
+        !identical(0, 0.0)) {
       final walFile = File('$dbDirectory/wal.log');
       if (walFile.existsSync()) {
         try {

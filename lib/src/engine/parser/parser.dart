@@ -43,7 +43,7 @@ class Parser {
   }
 
   bool _matchWord(String word) {
-    if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == word) {
+    if (!_isAtEnd && _peek().lexeme.toLowerCase() == word.toLowerCase()) {
       _advance();
       return true;
     }
@@ -692,9 +692,12 @@ class Parser {
       return _parseCreateStatement();
     }
     if (_match([TokenType.insert])) {
+      if (_matchWord('or') && _matchWord('replace')) {
+        return _parseInsertStatement(isReplace: true);
+      }
       return _parseInsertStatement();
     }
-    if (_match([TokenType.replaceKeyword])) {
+    if (_match([TokenType.replaceKeyword]) || _matchWord('replace')) {
       return _parseInsertStatement(isReplace: true);
     }
     if (_match([TokenType.withKeyword])) {
@@ -1637,8 +1640,10 @@ class Parser {
     String? conflictTargetColumn;
     Map<String, Expression>? updateAssignments;
 
-    if (_match([TokenType.on])) {
-      _consume(TokenType.conflictKeyword, "Expected 'CONFLICT' after ON.");
+    if (_match([TokenType.on]) || _matchWord('on')) {
+      if (!_match([TokenType.conflictKeyword]) && !_matchWord('conflict')) {
+        throw Exception("Expected 'CONFLICT' after ON.");
+      }
       if (_match([TokenType.lParen])) {
         final targetColToken = _consume(
           TokenType.identifier,
@@ -1650,23 +1655,29 @@ class Parser {
           "Expected ')' after conflict target column.",
         );
       }
-      _consume(TokenType.doKeyword, "Expected 'DO' after ON CONFLICT.");
-      if (_match([TokenType.nothingKeyword])) {
+      if (!_match([TokenType.doKeyword]) && !_matchWord('do')) {
+        throw Exception("Expected 'DO' after ON CONFLICT.");
+      }
+      if (_match([TokenType.nothingKeyword]) || _matchWord('nothing')) {
         onConflictDoNothing = true;
-      } else if (_check(TokenType.identifier) &&
-          _peek().lexeme.toLowerCase() == 'update') {
-        _advance();
-        _consume(TokenType.setKeyword, "Expected 'SET' after DO UPDATE.");
+      } else if (_matchWord('update')) {
+        if (!_match([TokenType.setKeyword]) && !_matchWord('set')) {
+          throw Exception("Expected 'SET' after DO UPDATE.");
+        }
         updateAssignments = {};
         do {
           final colToken = _consume(
             TokenType.identifier,
             "Expected column name in SET clause.",
           );
-          _consume(TokenType.assign, "Expected '=' in SET clause.");
+          if (!_match([TokenType.equals, TokenType.assign])) {
+            throw Exception("Expected '=' in SET clause.");
+          }
           final expr = _parseExpression();
           updateAssignments[colToken.lexeme] = expr;
         } while (_match([TokenType.comma]));
+      } else {
+        throw Exception("Expected 'NOTHING' or 'UPDATE' after DO.");
       }
     }
 

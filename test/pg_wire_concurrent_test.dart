@@ -113,5 +113,6 @@ void main() {
 
     await Future.wait(clients);
     await server.stop();
+    await db.close();
   });
 }

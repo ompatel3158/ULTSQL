@@ -6,7 +6,12 @@ library;
 
 export 'src/engine/ult_sql_engine.dart';
 export 'src/engine/executor/interpreter.dart'
-    show Interpreter, QueryResult, PreparedStatement, Database;
+    show
+        Interpreter,
+        QueryResult,
+        PreparedStatement,
+        Database,
+        DatabaseLockException;
 export 'src/engine/executor/value.dart'
     show
         DbValue,

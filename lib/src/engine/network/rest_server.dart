@@ -71,6 +71,36 @@ class RestServer {
         return;
       }
 
+      if ((path == '/query' || path == '/sql') && method == 'POST') {
+        final content = await utf8.decoder.bind(request).join();
+        String sql = content.trim();
+        try {
+          final body = jsonDecode(content);
+          if (body is Map && body.containsKey('sql')) {
+            sql = body['sql'].toString();
+          } else if (body is Map && body.containsKey('query')) {
+            sql = body['query'].toString();
+          }
+        } catch (_) {}
+
+        final res = await _interpreter.executeScript(sql);
+        final jsonRows = res.rows
+            .map((r) => r.map((v) => v.value).toList())
+            .toList();
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode({
+            'columns': res.columns,
+            'count': jsonRows.length,
+            'rows': jsonRows,
+            'message': res.message,
+            'dbms_output': res.dbmsOutputLog,
+          }),
+        );
+        await request.response.close();
+        return;
+      }
+
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
       if (segments.isEmpty) {
         request.response.headers.contentType = ContentType.json;

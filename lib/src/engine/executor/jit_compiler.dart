@@ -263,22 +263,31 @@ class JitCompiler {
 
         if (path.length >= 2) {
           final possibleColName = '${path[0]}.${path[1]}';
-          if (row.containsKey(possibleColName)) {
-            resolvedKey = possibleColName;
-            jsonPathStartIndex = 2;
-            final val = row[possibleColName]!;
-            if (path.length > 2 && val is DbJson) {
-              return val.extractPath(path.sublist(2));
+          final lowerPossibleColName = possibleColName.toLowerCase();
+          for (final key in row.keys) {
+            if (key.toLowerCase() == lowerPossibleColName) {
+              resolvedKey = key;
+              jsonPathStartIndex = 2;
+              final val = row[key]!;
+              if (path.length > 2 && val is DbJson) {
+                return val.extractPath(path.sublist(2));
+              }
+              return val;
             }
-            return val;
           }
 
-          // If path starts with alias (e.g. u.name), check path[1] ('name') against row keys
+          final parentVal = SubqueryContext.lookup(fullName);
+          if (parentVal != null) {
+            return parentVal;
+          }
+
+          // If path starts with alias (e.g. u.name) and not in outer context, check path[1] against row keys
           final colName = path[1];
           final lowerColName = colName.toLowerCase();
           for (final key in row.keys) {
             final lowerKey = key.toLowerCase();
-            if (lowerKey == lowerColName || lowerKey.endsWith('.$lowerColName')) {
+            if (lowerKey == lowerColName ||
+                lowerKey.endsWith('.$lowerColName')) {
               resolvedKey = key;
               jsonPathStartIndex = 2;
               final val = row[key]!;
@@ -1080,19 +1089,10 @@ class JitCompiler {
           return DbInt(0);
         }
         if (name == 'json_array') {
-          final items = argFns.map((fn) => fn(row).toString()).toList();
-          return DbJson(items);
+          return evalJsonArray(argFns.map((fn) => fn(row)).toList());
         }
         if (name == 'json_object') {
-          final map = <String, dynamic>{};
-          for (int i = 0; i < argFns.length - 1; i += 2) {
-            final k = argFns[i](row).toString();
-            final v = argFns[i + 1](row);
-            map[k] = v is DbInt
-                ? v.value
-                : (v is DbDouble ? v.value : v.toString());
-          }
-          return DbJson(map);
+          return evalJsonObject(argFns.map((fn) => fn(row)).toList());
         }
         if (name == 'version') {
           return DbText('ULTSQL v1.0.12 (Pure-Dart Converged Database Engine)');

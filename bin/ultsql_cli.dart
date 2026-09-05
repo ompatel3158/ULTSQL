@@ -3,6 +3,7 @@ import 'package:ultsql/ultsql.dart';
 
 void main(List<String> args) async {
   String dbTarget = ':memory:';
+  String? passphrase;
 
   if (args.isNotEmpty) {
     if (args[0] == 'serve') {
@@ -17,9 +18,17 @@ void main(List<String> args) async {
           dbPath = args[i + 1];
         } else if (args[i].startsWith('--db=')) {
           dbPath = args[i].substring(5);
+        } else if ((args[i] == '--password' || args[i] == '--key') &&
+            i + 1 < args.length) {
+          passphrase = args[i + 1];
+          i++;
+        } else if (args[i].startsWith('--password=')) {
+          passphrase = args[i].substring(11);
+        } else if (args[i].startsWith('--key=')) {
+          passphrase = args[i].substring(6);
         }
       }
-      final db = Database(dbPath);
+      final db = Database(dbPath, passphrase: passphrase);
       await db.init();
       final restServer = RestServer(db, port: port);
       final boundPort = await restServer.start(autoPort: true);
@@ -28,6 +37,9 @@ void main(List<String> args) async {
       print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.18)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
+      if (passphrase != null) {
+        print('🔒 Encryption          : AES-256-CTR Enabled');
+      }
       if (boundPort != port) {
         print(
           '🌐 REST & OpenAPI API  : http://localhost:$boundPort (Port $port was occupied, auto-selected $boundPort)',
@@ -42,23 +54,38 @@ void main(List<String> args) async {
       print('Press Ctrl+C to stop the server daemon.\n');
       return;
     }
-    if (args[0] == '--help' || args[0] == '-h') {
-      _printHelp();
-      exit(0);
+    for (int i = 0; i < args.length; i++) {
+      final arg = args[i];
+      if (arg == '--help' || arg == '-h') {
+        _printHelp();
+        exit(0);
+      } else if ((arg == '--password' || arg == '--key') &&
+          i + 1 < args.length) {
+        passphrase = args[i + 1];
+        i++;
+      } else if (arg.startsWith('--password=')) {
+        passphrase = arg.substring(11);
+      } else if (arg.startsWith('--key=')) {
+        passphrase = arg.substring(6);
+      } else if (!arg.startsWith('-')) {
+        dbTarget = arg;
+      }
     }
-    dbTarget = args[0];
   }
 
   print('===============================================================');
   print('🚀 UltSQL Interactive Command Line Terminal (v1.0.18)');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
+  if (passphrase != null) {
+    print('🔒 Encryption      : AES-256-CTR Enabled');
+  }
   print('Type ".help" for meta commands or ".exit" to quit.');
   print(
     'Type SQL, NoSQL JSON, or PL/SQL scripts and press Enter to execute.\n',
   );
 
-  final db = Database(dbTarget);
+  final db = Database(dbTarget, passphrase: passphrase);
   await db.init();
   final interpreter = Interpreter(db);
 
@@ -128,6 +155,12 @@ void main(List<String> args) async {
         final result = await interpreter.executeScript(scriptToRun);
         sw.stop();
         final elapsedMs = (sw.elapsedMicroseconds / 1000.0).toStringAsFixed(3);
+
+        if (result.dbmsOutputLog.isNotEmpty) {
+          for (final msg in result.dbmsOutputLog) {
+            print(msg);
+          }
+        }
 
         if (result.rows.isNotEmpty) {
           _printResultTable(result.columns, result.rows);
@@ -236,13 +269,20 @@ void _printResultTable(List<String> columns, List<List<DbValue>> rows) {
 void _printHelp() {
   print('''
 UltSQL CLI Usage:
-  ultsql [database_file]
-  ultsql serve [--port=8080] [--db=./ultsql_data]
+  ultsql [database_file] [--password <passphrase>]
+  ultsql serve [--port=8080] [--db=./ultsql_data] [--password <passphrase>]
+
+Options:
+  --password, --key <pass>  Passphrase for AES-256-CTR database encryption
+  --port <number>           Port for REST server (default: 8080)
+  --db <path>               Database storage directory (default: ./ultsql_data)
+  -h, --help                Show this help message
 
 Examples:
-  ultsql                    # Launch in-memory SQL & NoSQL terminal
-  ultsql my_data.db         # Open disk database file
-  ultsql serve --port=8081  # Start REST & OpenAPI server daemon on port 8081
+  ultsql                                # Launch in-memory SQL terminal
+  ultsql my_data.db                     # Open disk database
+  ultsql my_data.db --password secret   # Open encrypted database
+  ultsql serve --port=8081              # Start REST daemon
 ''');
 }
 

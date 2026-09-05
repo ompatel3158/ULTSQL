@@ -679,7 +679,6 @@ class ForeignScanNode extends PlanNode {
         }
         _rows!.add(row);
       }
-      print('ForeignScanNode loaded ${_rows!.length} rows');
     } else {
       throw Exception('Unsupported foreign server: $server');
     }
@@ -820,7 +819,6 @@ class IndexScanNode extends PlanNode {
   }
 
   int? getFastCount() {
-    final sw = Stopwatch()..start();
     final currentTx = tableFile.cache.currentMvccTx;
     final txManager = tableFile.cache.mvccTxManager;
     if (currentTx != null && currentTx.txId != 0) {
@@ -836,10 +834,6 @@ class IndexScanNode extends PlanNode {
     if (_pointers != null) return _pointers!.length;
     index.initSync();
     _fastCount = index.countRangeSync(low, high);
-    sw.stop();
-    print(
-      '--> TIME: IndexScanNode.getFastCount took: ${sw.elapsedMicroseconds}us, count=$_fastCount',
-    );
     return _fastCount;
   }
 
@@ -1215,53 +1209,14 @@ class GroupByNode extends PlanNode {
                             .contains('*'))));
         if (isCountAll) {
           int count = 0;
-          bool fastCountSuccess = false;
-          bool hasFilter = false;
-          PlanNode baseNode = child;
-          while (baseNode is FilterNode || baseNode is ProjectNode) {
-            if (baseNode is FilterNode) {
-              hasFilter = true;
-              baseNode = baseNode.child;
-            } else if (baseNode is ProjectNode) {
-              baseNode = baseNode.child;
-            }
-          }
-          if (baseNode is IndexScanNode && !hasFilter) {
-            final scan = baseNode;
-            final fastCount = scan.getFastCount();
-            if (fastCount != null) {
-              count = fastCount;
-              fastCountSuccess = true;
-            }
-          } else if (baseNode is RowScanNode && !hasFilter) {
-            final scan = baseNode;
-            final activeInterpreter = JitCompiler.activeInterpreter;
-            if (activeInterpreter != null) {
-              final stats = activeInterpreter.db.catalog.getOrCreateStats(
-                scan.schema.name,
-              );
-              if (stats.rowCount > 0) {
-                count = stats.rowCount;
-                fastCountSuccess = true;
-              }
-            }
-          }
-          if (!fastCountSuccess) {
-            while (true) {
-              final row = child.next();
-              if (row == null) break;
-              count++;
-            }
+          while (true) {
+            final row = child.next();
+            if (row == null) break;
+            count++;
           }
           final aliasStr = projections[0].alias ?? 'COUNT(*)';
-          final sqlStr = exprToSqlString(projections[0].expr);
           _aggregatedRows = [
-            {
-              aliasStr: DbInt(count),
-              sqlStr: DbInt(count),
-              'COUNT(*)': DbInt(count),
-              'count(*)': DbInt(count),
-            },
+            {aliasStr: DbInt(count)},
           ];
           return;
         }

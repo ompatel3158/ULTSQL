@@ -166,10 +166,10 @@ psql -h localhost -p 5432 -U admin -d ultsql_db</code></pre>
         <span>ℹ️</span> Benchmark Hardware Note
       </div>
       <div class="disclaimer-body">
-        Tested benchmark speeds (e.g. <strong>1,200,000+ rows/sec in-memory throughput</strong>) were measured on an 
+        Tested benchmark speeds reflect direct in-memory table buffer ingestion (<strong>1,200,000+ rows/sec</strong>) and end-to-end SQL insert pipeline with AST parsing and B-Tree indexing (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
         <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
         <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
-        Actual benchmark speeds may vary higher or lower depending on your target device hardware, storage controller, and CPU specifications.
+        Actual speeds may vary depending on your device hardware, memory architecture, and storage subsystem.
       </div>
     </div>
   </header>

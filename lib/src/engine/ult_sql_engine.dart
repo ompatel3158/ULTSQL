@@ -83,10 +83,10 @@ class EngineQueryResult {
 
   /// Creates a new [EngineQueryResult] wrapping a raw [QueryResult].
   EngineQueryResult(QueryResult res)
-      : columns = res.columns,
-        rows = res.rows,
-        message = res.message,
-        executionTime = res.executionTime;
+    : columns = res.columns,
+      rows = res.rows,
+      message = res.message,
+      executionTime = res.executionTime;
 
   /// Converts the result rows into a list of key-value maps.
   List<Map<String, dynamic>> toList() {

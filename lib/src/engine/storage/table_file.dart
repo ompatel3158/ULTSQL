@@ -302,7 +302,11 @@ class SlottedPageHelper {
   }
 
   static int getRowCount(Page page) {
-    return page.rowCount ??= page.byteData.getUint16(1);
+    if (page.data.length < headerSize) return 0;
+    if (page.byteData.getUint8(0) != 1) return 0; // Not a valid row data page
+    final count = page.rowCount ??= page.byteData.getUint16(1);
+    final maxSlots = (page.data.length - headerSize) ~/ 4;
+    return count > maxSlots ? 0 : count;
   }
 
   static int getFreeSpaceOffset(Page page) {
@@ -374,15 +378,17 @@ class SlottedPageHelper {
   }
 
   static Uint8List? getRecord(Page page, int slotIndex) {
+    if (page.data.length < headerSize) return null;
     final data = page.byteData;
     final rowCount = getRowCount(page);
     if (slotIndex >= rowCount) return null;
 
     final slotOffset = headerSize + slotIndex * 4;
+    if (slotOffset + 4 > page.data.length) return null;
     final offset = data.getUint16(slotOffset);
     final len = data.getUint16(slotOffset + 2);
 
-    if (len == 0 || offset >= page.data.length) return null;
+    if (len == 0 || offset >= page.data.length || offset + len > page.data.length) return null;
     return Uint8List.view(
       page.data.buffer,
       page.data.offsetInBytes + offset,
@@ -834,9 +840,32 @@ class RowCursor extends Iterable<List<DbValue>>
                 recBytes.offsetInBytes + 12,
                 recBytes.length - 12,
               );
+              try {
+                if (projectedColIndexes != null) {
+                  _reusedRowList = tableFile._deserializePartialRow(
+                    rowData,
+                    projectedColIndexes!,
+                    _reusedRowList,
+                    expectedColumnCount,
+                  );
+                  _current = _reusedRowList;
+                } else {
+                  _current = RecordSerializer.deserializeRow(
+                    rowData,
+                    expectedColumnCount,
+                    tableFile.toastManager,
+                  );
+                }
+                return true;
+              } catch (_) {
+                continue;
+              }
+            }
+          } else {
+            try {
               if (projectedColIndexes != null) {
                 _reusedRowList = tableFile._deserializePartialRow(
-                  rowData,
+                  recBytes,
                   projectedColIndexes!,
                   _reusedRowList,
                   expectedColumnCount,
@@ -844,30 +873,15 @@ class RowCursor extends Iterable<List<DbValue>>
                 _current = _reusedRowList;
               } else {
                 _current = RecordSerializer.deserializeRow(
-                  rowData,
+                  recBytes,
                   expectedColumnCount,
                   tableFile.toastManager,
                 );
               }
               return true;
+            } catch (_) {
+              continue;
             }
-          } else {
-            if (projectedColIndexes != null) {
-              _reusedRowList = tableFile._deserializePartialRow(
-                recBytes,
-                projectedColIndexes!,
-                _reusedRowList,
-                expectedColumnCount,
-              );
-              _current = _reusedRowList;
-            } else {
-              _current = RecordSerializer.deserializeRow(
-                recBytes,
-                expectedColumnCount,
-                tableFile.toastManager,
-              );
-            }
-            return true;
           }
         }
       }

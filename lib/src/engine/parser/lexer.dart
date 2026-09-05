@@ -179,6 +179,13 @@ class Lexer {
   }
 
   List<Token> tokenize() {
+    if (_position == 0) {
+      if (source.startsWith('\uFEFF')) {
+        _position = 1;
+      } else if (source.startsWith('ï»¿')) {
+        _position = 3;
+      }
+    }
     final tokens = <Token>[];
     while (!_isAtEnd) {
       final token = _nextToken();

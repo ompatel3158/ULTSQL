@@ -23,7 +23,11 @@ fi
 TARGET="$INSTALL_DIR/ultsql"
 
 echo "⬇️ Downloading UltSQL binary..."
-curl -fsSL "$BINARY_URL" -o "$TARGET" || curl -fsSL "https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/bin/ultsql.exe" -o "$TARGET"
+if ! curl -fsSL "$BINARY_URL" -o "$TARGET"; then
+    echo "❌ Failed to download UltSQL binary for $OS."
+    echo "Please check https://github.com/ompatel3158/ULTSQL/releases/latest or compile from source with 'dart compile exe bin/ultsql_cli.dart'."
+    exit 1
+fi
 
 chmod +x "$TARGET"
 

@@ -7,6 +7,7 @@ void main(List<String> args) async {
   String host = '0.0.0.0';
   String dataDir = './ultsql_data';
   String defaultDbName = 'main.db';
+  String? passphrase;
 
   for (int i = 0; i < args.length; i++) {
     final arg = args[i];
@@ -16,6 +17,13 @@ void main(List<String> args) async {
       host = args[i + 1];
     } else if ((arg == '--data-dir' || arg == '-d') && i + 1 < args.length) {
       dataDir = args[i + 1];
+    } else if ((arg == '--password' || arg == '--key') && i + 1 < args.length) {
+      passphrase = args[i + 1];
+      i++;
+    } else if (arg.startsWith('--password=')) {
+      passphrase = arg.substring(11);
+    } else if (arg.startsWith('--key=')) {
+      passphrase = arg.substring(6);
     } else if (arg == '--help') {
       _printHelp();
       exit(0);
@@ -34,9 +42,12 @@ void main(List<String> args) async {
   print('📁 Data Directory : ${dir.absolute.path}');
   print('🌐 Host Address   : $host');
   print('🔌 Protocol Port   : $port (PostgreSQL Wire Protocol v3)');
+  if (passphrase != null) {
+    print('🔒 Encryption      : AES-256-CTR Enabled');
+  }
 
   final dbPath = '$dataDir/$defaultDbName';
-  final db = Database(dbPath);
+  final db = Database(dbPath, passphrase: passphrase);
   await db.init();
 
   final pgServer = PgWireServer(db, port: port, address: host);
@@ -59,9 +70,10 @@ void main(List<String> args) async {
 void _printHelp() {
   print('''
 UltSQL Server Daemon Command Line Options:
-  -p, --port <number>     TCP Port to listen on (Default: 5432)
-  -h, --host <address>    Host interface binding (Default: 0.0.0.0)
-  -d, --data-dir <path>   Directory path to store database files (Default: ./ultsql_data)
-  --help                  Show this help message
+  -p, --port <number>        TCP Port to listen on (Default: 5432)
+  -h, --host <address>       Host interface binding (Default: 0.0.0.0)
+  -d, --data-dir <path>      Directory path to store database files (Default: ./ultsql_data)
+      --password, --key <k>  Passphrase for AES-256-CTR encryption
+      --help                 Show this help message
 ''');
 }

@@ -51,6 +51,7 @@ class QueryPlanner {
       }
       return e;
     }
+
     return substitute(macro.bodyExpr);
   }
 
@@ -206,7 +207,6 @@ class QueryPlanner {
       final colTypes = <DataType>[];
       try {
         final val = evaluateExpression(stmt.fromFunction!, {});
-        print("--- TVF EVAL VAL: $val (${val.runtimeType}) ---");
         List<dynamic> elements = [];
         if (val is DbList) {
           elements = val.elements;
@@ -286,9 +286,6 @@ class QueryPlanner {
     } else {
       final tableName = stmt.tableName.toLowerCase();
       final loadedSchema = catalog.getTableSchema(tableName);
-      print(
-        'Planner loaded schema for $tableName: isForeign=${loadedSchema?.isForeign}',
-      );
       if (loadedSchema == null) {
         if (tableName.isEmpty) {
           final colNames = <String>[];
@@ -1240,7 +1237,9 @@ class QueryPlanner {
                 (nameLower == '$joinAlias.$colName' ||
                     nameLower.startsWith('$joinAlias.$colName.'))) ||
             nameLower.startsWith('$colName.') ||
-            nameLower.startsWith('${joinSchema.name.toLowerCase()}.$colName.')) {
+            nameLower.startsWith(
+              '${joinSchema.name.toLowerCase()}.$colName.',
+            )) {
           indexes.add(i);
         }
       }

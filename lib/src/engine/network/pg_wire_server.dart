@@ -98,6 +98,13 @@ class _PgConnectionHandler {
         _buffer.removeRange(0, length);
 
         _sendAuthenticationOk();
+        _sendParameterStatus('server_version', '15.0');
+        _sendParameterStatus('client_encoding', 'UTF8');
+        _sendParameterStatus('server_encoding', 'UTF8');
+        _sendParameterStatus('DateStyle', 'ISO, MDY');
+        _sendParameterStatus('integer_datetimes', 'on');
+        _sendParameterStatus('TimeZone', 'UTC');
+        _sendBackendKeyData(12345, 67890);
         _sendReadyForQuery();
       } else {
         if (_buffer.length < 5) return;
@@ -241,6 +248,28 @@ class _PgConnectionHandler {
     buf.addByte(82); // 'R'
     buf.add(_encodeInt32(8)); // length
     buf.add(_encodeInt32(0)); // AuthOk
+    _safeAdd(buf.takeBytes());
+  }
+
+  void _sendParameterStatus(String name, String value) {
+    final buf = BytesBuilder();
+    buf.addByte(83); // 'S'
+    final nameBytes = utf8.encode(name);
+    final valBytes = utf8.encode(value);
+    buf.add(_encodeInt32(4 + nameBytes.length + 1 + valBytes.length + 1));
+    buf.add(nameBytes);
+    buf.addByte(0);
+    buf.add(valBytes);
+    buf.addByte(0);
+    _safeAdd(buf.takeBytes());
+  }
+
+  void _sendBackendKeyData(int processId, int secretKey) {
+    final buf = BytesBuilder();
+    buf.addByte(75); // 'K'
+    buf.add(_encodeInt32(12));
+    buf.add(_encodeInt32(processId));
+    buf.add(_encodeInt32(secretKey));
     _safeAdd(buf.takeBytes());
   }
 

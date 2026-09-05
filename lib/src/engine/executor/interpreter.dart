@@ -51,6 +51,14 @@ class QueryResult {
   }
 }
 
+/// Thrown when attempting to open a database that is locked by another process.
+class DatabaseLockException implements Exception {
+  final String message;
+  DatabaseLockException(this.message);
+  @override
+  String toString() => 'DatabaseLockException: $message';
+}
+
 /// Represents a physical or in-memory UltSQL database instance.
 class Database {
   final String directory;
@@ -60,6 +68,7 @@ class Database {
   late final AuditLogger auditLogger;
   late EngineConfig config;
   final Map<String, BTreeIndex> _indexCache = {};
+  RandomAccessFile? _lockFile;
 
   final Map<String, Set<StreamController<String>>> _tableMutationControllers =
       {};
@@ -229,6 +238,26 @@ class Database {
   }
 
   Future<void> init() async {
+    if (directory != ':memory:' && !identical(0, 0.0)) {
+      final lockPath = '$directory/ultsql.lock';
+      try {
+        final lockFile = File(lockPath);
+        if (!lockFile.existsSync()) {
+          lockFile.parent.createSync(recursive: true);
+          lockFile.createSync();
+        }
+        _lockFile = lockFile.openSync(mode: FileMode.write);
+        _lockFile!.lockSync(FileLock.exclusive);
+      } catch (e) {
+        try {
+          _lockFile?.closeSync();
+        } catch (_) {}
+        _lockFile = null;
+        throw DatabaseLockException(
+          "Database at '$directory' is locked by another process.",
+        );
+      }
+    }
     Interpreter._astCache.clear();
     await catalog.load();
     cache.recoverSync(catalog);
@@ -269,6 +298,13 @@ class Database {
   Future<void> close() async {
     _indexCache.clear();
     cache.closeAllSync();
+    if (_lockFile != null) {
+      try {
+        _lockFile!.unlockSync();
+        _lockFile!.closeSync();
+      } catch (_) {}
+      _lockFile = null;
+    }
   }
 
   PreparedStatement prepare(String sql) {
@@ -1957,6 +1993,13 @@ END;
     // Enforce UNIQUE and PRIMARY KEY constraints
     if (schema.hasUniqueOrPrimaryKey) {
       _flushDelayedIndexUpdates();
+      int? conflictPageId;
+      int? conflictSlotId;
+      List<DbValue>? conflictingRowValues;
+      bool conflictFound = false;
+      String? conflictCol;
+      DbValue? conflictVal;
+
       for (int i = 0; i < schema.columnNames.length; i++) {
         if (schema.columnPrimaryKey[i] || schema.columnUnique[i]) {
           final val = rowValues[i];
@@ -1989,7 +2032,6 @@ END;
               );
               final btree = db.getOrInitIndexSync(idx.name);
               final ptrs = btree.searchRangeSync([dKey], [dKey]);
-              bool hasVisible = false;
               for (final ptr in ptrs) {
                 final page = db.cache.pinPageSync(
                   rowTable.filePath,
@@ -2009,7 +2051,14 @@ END;
                       currentTxId,
                       activeTxIds,
                     )) {
-                      hasVisible = true;
+                      conflictFound = true;
+                      conflictPageId = ptr.pageId;
+                      conflictSlotId = ptr.slotId;
+                      conflictingRowValues = RecordSerializer.deserializeRow(
+                        mvccRecord.rowData,
+                      );
+                      conflictCol = schema.columnNames[i];
+                      conflictVal = val;
                       db.cache.unpinPageSync(
                         rowTable.filePath,
                         ptr.pageId,
@@ -2018,7 +2067,14 @@ END;
                       break;
                     }
                   } catch (_) {
-                    hasVisible = true; // Non-MVCC
+                    conflictFound = true;
+                    conflictPageId = ptr.pageId;
+                    conflictSlotId = ptr.slotId;
+                    conflictingRowValues = RecordSerializer.deserializeRow(
+                      recBytes,
+                    );
+                    conflictCol = schema.columnNames[i];
+                    conflictVal = val;
                     db.cache.unpinPageSync(
                       rowTable.filePath,
                       ptr.pageId,
@@ -2033,16 +2089,11 @@ END;
                   isDirty: false,
                 );
               }
-              if (hasVisible) {
-                throw Exception(
-                  "Unique constraint violation: value '${val.toString()}' already exists in unique column '${schema.columnNames[i]}'.",
-                );
-              }
               checkedWithIndex = true;
             }
           }
 
-          if (!checkedWithIndex) {
+          if (!checkedWithIndex && !conflictFound) {
             // Fallback: sequential scan check
             final rowTable = _rowTableCache.putIfAbsent(
               tableName,
@@ -2084,22 +2135,147 @@ END;
                   if (i < existingRow.length) {
                     final existingVal = existingRow[i];
                     if (existingVal.compareTo(val) == 0) {
+                      conflictFound = true;
+                      conflictPageId = pageId;
+                      conflictSlotId = slotId;
+                      conflictingRowValues = existingRow;
+                      conflictCol = schema.columnNames[i];
+                      conflictVal = val;
                       db.cache.unpinPageSync(
                         rowTable.filePath,
                         pageId,
                         isDirty: false,
                       );
-                      throw Exception(
-                        "Unique constraint violation: value '${val.toString()}' already exists in unique column '${schema.columnNames[i]}'.",
-                      );
+                      break;
                     }
                   }
                 }
               }
               db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
+              if (conflictFound) break;
             }
           }
+          if (conflictFound) break;
         }
+      }
+
+      if (conflictFound) {
+        if (stmt.onConflictDoNothing) {
+          return QueryResult(
+            columns: [],
+            rows: [],
+            message: "0 rows inserted (conflict ignored).",
+          );
+        }
+
+        if ((stmt.isReplace || stmt.updateAssignments != null) &&
+            conflictPageId != null &&
+            conflictSlotId != null &&
+            conflictingRowValues != null) {
+          final rowTable = _rowTableCache.putIfAbsent(
+            tableName,
+            () => RowTableFile(
+              cache: db.cache,
+              tableName: schema.name,
+              dbDirectory: db.directory,
+            ),
+          );
+          final currentTx = db.cache.currentMvccTx;
+          final currentTxId = currentTx?.txId ?? 1;
+
+          List<DbValue> targetRowValues = rowValues;
+          if (stmt.updateAssignments != null &&
+              stmt.updateAssignments!.isNotEmpty) {
+            final updated = List<DbValue>.from(conflictingRowValues);
+            final env = <String, DbValue>{};
+            for (int c = 0; c < schema.columnNames.length; c++) {
+              final col = schema.columnNames[c].toLowerCase();
+              env[col] = conflictingRowValues[c];
+              env['$tableName.$col'] = conflictingRowValues[c];
+              env['excluded.$col'] = rowValues[c];
+            }
+            stmt.updateAssignments!.forEach((colName, expr) {
+              final colIdx = schema.columnNamesLower.indexOf(
+                colName.toLowerCase(),
+              );
+              if (colIdx != -1) {
+                final closure = JitCompiler.compile(expr);
+                final newVal = closure(env);
+                updated[colIdx] = _coerceDbValue(
+                  newVal,
+                  schema.columnTypes[colIdx],
+                  schema.columnNames[colIdx],
+                );
+              }
+            });
+            targetRowValues = updated;
+          }
+
+          // Delete old record version
+          rowTable.deleteRecordSync(
+            conflictPageId,
+            conflictSlotId,
+            currentTxId,
+          );
+
+          // Insert updated record version
+          final newPtr = rowTable.insertSync(
+            targetRowValues,
+            xmin: currentTxId,
+          );
+
+          // Queue updated index pointers
+          final tableIndexes = db.catalog.getIndexesForTable(tableName);
+          for (final idx in tableIndexes) {
+            final indexName = _indexFileNameCache.putIfAbsent(
+              idx,
+              () => idx.name.toLowerCase(),
+            );
+            final cols = idx.columnName
+                .split(',')
+                .map((c) => c.trim().toLowerCase())
+                .toList();
+            final keyList = <double>[];
+            for (final col in cols) {
+              final cIdx = schema.columnNames.indexWhere(
+                (n) => n.toLowerCase() == col,
+              );
+              if (cIdx != -1) {
+                final v = targetRowValues[cIdx];
+                final dKey = v is DbInt
+                    ? v.value.toDouble()
+                    : (v is DbDouble ? v.value : 0.0);
+                keyList.add(dKey);
+              }
+            }
+            if (keyList.isNotEmpty) {
+              _delayedIndexUpdates.add(
+                _IndexUpdate(
+                  indexName: indexName,
+                  tableName: tableName,
+                  columnName: idx.columnName,
+                  key: keyList,
+                  pageId: newPtr.pageId,
+                  slotId: newPtr.slotId,
+                ),
+              );
+            }
+          }
+
+          _flushDelayedIndexUpdates();
+          _flushActiveTablePages();
+          return QueryResult(
+            columns: [],
+            rows: [],
+            message: stmt.isReplace
+                ? "1 row replaced into table '${stmt.tableName}'."
+                : "1 row updated (on conflict).",
+          );
+        }
+
+        throw Exception(
+          "Unique constraint violation: value '${conflictVal.toString()}' already exists in unique column '$conflictCol'.",
+        );
       }
     }
 
@@ -3646,7 +3822,6 @@ END;
     btree.initSync();
 
     // Scan table and populate index for existing rows
-    final swTotal = Stopwatch()..start();
     final rowTable = RowTableFile(
       cache: db.cache,
       tableName: schema.name,
@@ -3670,7 +3845,6 @@ END;
     int destIdx = 0;
     final schemaLen = schema.columnNames.length;
 
-    final swExtract = Stopwatch()..start();
     if (K == 1) {
       if (colIndexes.isEmpty) {
         for (int pageId = 0; pageId < pageCount; pageId++) {
@@ -3960,10 +4134,6 @@ END;
         db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
       }
     }
-    swExtract.stop();
-    print('--> TIME: Extracting keys took: ${swExtract.elapsedMilliseconds}ms');
-
-    final swSort = Stopwatch()..start();
     final actualRowCount = destIdx;
     final finalKeys = actualRowCount == totalRowCount
         ? keys
@@ -4002,30 +4172,16 @@ END;
         actualRowCount - 1,
       );
     }
-    swSort.stop();
-    print('--> TIME: Sorting indices took: ${swSort.elapsedMilliseconds}ms');
 
     totalRowCount = actualRowCount;
     stats.rowCount = actualRowCount;
-    print(
-      'Calling btree.insertSortedBatchSync with actualRowCount = $actualRowCount',
-    );
 
-    final swBtree = Stopwatch()..start();
     btree.insertSortedBatchSync(
       finalKeys,
       finalPageIds,
       finalSlotIds,
       K,
       indices: indices,
-    );
-    swBtree.stop();
-    print(
-      '--> TIME: B-Tree insertSortedBatchSync took: ${swBtree.elapsedMilliseconds}ms',
-    );
-    swTotal.stop();
-    print(
-      '--> TIME: TOTAL CREATE INDEX took: ${swTotal.elapsedMilliseconds}ms',
     );
 
     final cStats = stats.columnStats.putIfAbsent(colName, () => MinMaxStats());

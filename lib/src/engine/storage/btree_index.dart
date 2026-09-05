@@ -799,7 +799,6 @@ class BTreeIndex {
   }) {
     if (pageIds.isEmpty) return;
     _cachedLeafPageId = null;
-    print('insertSortedBatchSync total = ${pageIds.length}, K = $K');
 
     // Establish the rightmost path of page IDs from root to rightmost leaf.
     final path = <int>[];
@@ -853,13 +852,9 @@ class BTreeIndex {
         byteData.setUint16(2, count);
         cache.unpinPageSync(indexPath, leafPageId, isDirty: pageDirty);
 
-        final oldLeaf = leafPageId;
         _bulkSplitInsert(path, keyVal, rPageId, rSlotId);
 
         leafPageId = path.last;
-        if (total == 10000) {
-          print('Split old leaf $oldLeaf, path.last is now $leafPageId');
-        }
         page = cache.pinPageSync(indexPath, leafPageId);
         byteData = page.byteData;
         pageDirty = false;

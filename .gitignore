@@ -35,7 +35,10 @@ test_fdw_db/
 test_scale_bench_db/
 test_toast_*/
 test_*_db/
+test_*_dir/
+test_tvf_dir/
 test_mode_file.bin
 \$dbDir/
 scratch/
 test_parser.dart
+*.exe
