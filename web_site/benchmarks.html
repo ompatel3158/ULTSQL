@@ -23,7 +23,7 @@
   <meta name="twitter:image" content="https://ultsql.vercel.app/logo.png">
 
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.22">
+  <link rel="stylesheet" href="style.css?v=1.0.25">
 </head>
 <body>
 
@@ -54,6 +54,7 @@
 
   <!-- HEADER -->
   <header class="hero" style="padding: 4rem 6% 2rem;">
+    <div class="hero-ambient-glow" aria-hidden="true"></div>
     <div class="hero-badge-group">
       <div class="hero-badge">⚡ Empirical Performance Benchmarks (v1.0.22)</div>
     </div>
@@ -76,8 +77,8 @@
 
   <!-- BENCHMARKS TABLE -->
   <section class="section">
-    <div class="bench-table-container">
-      <table class="bench-table">
+    <div class="table-responsive">
+      <table class="benchmark-table">
         <thead>
           <tr>
             <th>Benchmark Workload</th>
@@ -137,5 +138,6 @@
     </div>
   </footer>
 
+  <script src="app.js?v=1.0.25"></script>
 </body>
 </html>

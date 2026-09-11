@@ -26,7 +26,7 @@
   <meta name="twitter:image" content="https://ultsql.vercel.app/logo.png">
 
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.22">
+  <link rel="stylesheet" href="style.css?v=1.0.25">
 
   <!-- SCHEMA.ORG STRUCTURED DATA FOR GOOGLE SEARCH RICH SNIPPETS -->
   <script type="application/ld+json">
@@ -148,6 +148,7 @@
 
   <!-- HERO SECTION -->
   <header class="hero" id="overview">
+    <div class="hero-ambient-glow" aria-hidden="true"></div>
     <img src="logo.svg" alt="ultsql: three models, one core" class="hero-logo-header-img">
 
     <div class="hero-badge-group">
@@ -172,6 +173,15 @@
       <a href="#playground" class="btn-secondary">
         Launch Live Playground ▶
       </a>
+    </div>
+
+    <!-- QUICK INSTALL COMMAND PILL -->
+    <div class="install-pill" id="installPill">
+      <span class="install-prompt">$</span>
+      <span class="install-cmd" id="installCmdText">dart pub global activate ultsql</span>
+      <button class="install-copy-btn" id="installCopyBtn" aria-label="Copy install command" title="Copy to clipboard">
+        <span class="copy-icon">📋</span>
+      </button>
     </div>
 
     <!-- 1-LINE QUICKSTART CODE TABS -->
@@ -439,54 +449,56 @@ ORDER BY total_spent DESC;</textarea>
     <h2 class="section-title">Head-to-Head Performance Benchmarks</h2>
     <p class="section-subtitle">Verified empirical performance metrics of UltSQL (100% Pure Dart) against traditional C/C++ embedded engines.</p>
 
-    <table class="benchmark-table">
-      <thead>
-        <tr>
-          <th>Workload / Metric</th>
-          <th>⚡ UltSQL (v1.0.22)</th>
-          <th>🪶 SQLite 3</th>
-          <th>🦆 DuckDB</th>
-          <th>🧬 ChromaDB (Vector)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Public Batch Ingestion (Indexed)</strong></td>
-          <td><strong style="color: #3b82f6;">~350,000–500,000+ rows/sec</strong></td>
-          <td>820,000 rows/sec</td>
-          <td>650,000 rows/sec</td>
-          <td>N/A</td>
-        </tr>
-        <tr>
-          <td><strong>Multi-Row SQL INSERT</strong></td>
-          <td><strong style="color: #3b82f6;">~140,000–195,000 rows/sec</strong></td>
-          <td>~180,000 rows/sec</td>
-          <td>~160,000 rows/sec</td>
-          <td>N/A</td>
-        </tr>
-        <tr>
-          <td><strong>Relational JOIN + GroupBy (100k)</strong></td>
-          <td><strong style="color: #3b82f6;">4.2 ms</strong></td>
-          <td>12.8 ms</td>
-          <td>3.6 ms</td>
-          <td>N/A</td>
-        </tr>
-        <tr>
-          <td><strong>HNSW Vector Top-10 Search (10k @ 768d)</strong></td>
-          <td><strong style="color: #3b82f6;">5.0 ms (100% Recall)</strong></td>
-          <td>❌ No Vector Support</td>
-          <td>❌ (Requires Extension)</td>
-          <td>7.8 ms</td>
-        </tr>
-        <tr>
-          <td><strong>Zero C/C++ Compiler Dependencies</strong></td>
-          <td>✅ <strong>100% Pure Dart</strong></td>
-          <td>❌ Requires C Compiler</td>
-          <td>❌ Requires C++ Toolchain</td>
-          <td>❌ Requires Python/C++</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="benchmark-table">
+        <thead>
+          <tr>
+            <th>Workload / Metric</th>
+            <th>⚡ UltSQL (v1.0.22)</th>
+            <th>🪶 SQLite 3</th>
+            <th>🦆 DuckDB</th>
+            <th>🧬 ChromaDB (Vector)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Public Batch Ingestion (Indexed)</strong></td>
+            <td><strong style="color: #3b82f6;">~350,000–500,000+ rows/sec</strong></td>
+            <td>820,000 rows/sec</td>
+            <td>650,000 rows/sec</td>
+            <td>N/A</td>
+          </tr>
+          <tr>
+            <td><strong>Multi-Row SQL INSERT</strong></td>
+            <td><strong style="color: #3b82f6;">~140,000–195,000 rows/sec</strong></td>
+            <td>~180,000 rows/sec</td>
+            <td>~160,000 rows/sec</td>
+            <td>N/A</td>
+          </tr>
+          <tr>
+            <td><strong>Relational JOIN + GroupBy (100k)</strong></td>
+            <td><strong style="color: #3b82f6;">4.2 ms</strong></td>
+            <td>12.8 ms</td>
+            <td>3.6 ms</td>
+            <td>N/A</td>
+          </tr>
+          <tr>
+            <td><strong>HNSW Vector Top-10 Search (10k @ 768d)</strong></td>
+            <td><strong style="color: #3b82f6;">5.0 ms (100% Recall)</strong></td>
+            <td>❌ No Vector Support</td>
+            <td>❌ (Requires Extension)</td>
+            <td>7.8 ms</td>
+          </tr>
+          <tr>
+            <td><strong>Zero C/C++ Compiler Dependencies</strong></td>
+            <td>✅ <strong>100% Pure Dart</strong></td>
+            <td>❌ Requires C Compiler</td>
+            <td>❌ Requires C++ Toolchain</td>
+            <td>❌ Requires Python/C++</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <div style="text-align: center; margin-top: 1.5rem;">
       <a href="benchmarks.html" class="btn-secondary">View Complete Benchmark Methodology & Breakdown ➔</a>
     </div>
@@ -632,6 +644,6 @@ ORDER BY total_spent DESC;</textarea>
   <div id="toast" class="toast-notification">✅ Copied to clipboard!</div>
 
   <script src="ultsql_engine.js?v=1.0.24"></script>
-  <script src="app.js?v=1.0.24"></script>
+  <script src="app.js?v=1.0.25"></script>
 </body>
 </html>

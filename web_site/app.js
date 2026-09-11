@@ -260,25 +260,104 @@ SELECT * FROM users WHERE active = true;`
       .replace(/'/g, '&#039;');
   }
 
-  // --- 5. MOBILE MENU TOGGLE ---
+  // --- 5. MOBILE MENU TOGGLE & OVERLAY ---
   const menuToggle = document.getElementById('menuToggle');
   const navLinks = document.getElementById('navLinks');
 
+  function closeMobileMenu() {
+    if (navLinks && navLinks.classList.contains('active')) {
+      navLinks.classList.remove('active');
+      if (menuToggle) {
+        menuToggle.classList.remove('active');
+        menuToggle.setAttribute('aria-expanded', 'false');
+      }
+      document.body.classList.remove('nav-open');
+    }
+  }
+
+  function openMobileMenu() {
+    if (navLinks) {
+      navLinks.classList.add('active');
+      if (menuToggle) {
+        menuToggle.classList.add('active');
+        menuToggle.setAttribute('aria-expanded', 'true');
+      }
+      document.body.classList.add('nav-open');
+    }
+  }
+
   if (menuToggle && navLinks) {
-    menuToggle.addEventListener('click', () => {
-      navLinks.classList.toggle('active');
+    menuToggle.setAttribute('aria-expanded', 'false');
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = navLinks.classList.contains('active');
+      if (isOpen) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
+    });
+
+    // Close when clicking any nav link
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        closeMobileMenu();
+      });
+    });
+
+    // Close when clicking outside of nav
+    document.addEventListener('click', (e) => {
+      if (!navLinks.contains(e.target) && !menuToggle.contains(e.target)) {
+        closeMobileMenu();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeMobileMenu();
+      }
+    });
+
+    // Auto-close on resize to desktop
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) {
+        closeMobileMenu();
+      }
     });
   }
 
-  // --- 6. ACCORDION FAQ TOGGLES ---
+  // --- 6. QUICK INSTALL PILL COPY ---
+  const installPill = document.getElementById('installPill');
+  const installCopyBtn = document.getElementById('installCopyBtn');
+  if (installPill && installCopyBtn) {
+    const copyHandler = () => {
+      const cmdText = document.getElementById('installCmdText')?.innerText || 'dart pub global activate ultsql';
+      navigator.clipboard.writeText(cmdText).then(() => {
+        showToast('✅ Copied: ' + cmdText);
+        installCopyBtn.innerHTML = '<span>✓</span>';
+        setTimeout(() => {
+          installCopyBtn.innerHTML = '<span class="copy-icon">📋</span>';
+        }, 2000);
+      }).catch(() => {
+        showToast('📋 Copied!');
+      });
+    };
+    installCopyBtn.addEventListener('click', copyHandler);
+  }
+
+  // --- 7. ACCORDION FAQ TOGGLES ---
   const faqItems = document.querySelectorAll('.faq-item');
   faqItems.forEach(item => {
     const question = item.querySelector('.faq-question');
     if (question) {
       question.addEventListener('click', () => {
-        item.classList.toggle('active');
+        const isActive = item.classList.contains('active');
+        // Optional: close other open items for cleaner accordion
+        item.classList.toggle('active', !isActive);
       });
     }
   });
 
 });
+
