@@ -270,4 +270,15 @@ SELECT * FROM users WHERE active = true;`
     });
   }
 
+  // --- 6. ACCORDION FAQ TOGGLES ---
+  const faqItems = document.querySelectorAll('.faq-item');
+  faqItems.forEach(item => {
+    const question = item.querySelector('.faq-question');
+    if (question) {
+      question.addEventListener('click', () => {
+        item.classList.toggle('active');
+      });
+    }
+  });
+
 });

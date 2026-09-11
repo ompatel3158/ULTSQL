@@ -3,10 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UltSQL — Engine Performance Benchmarks</title>
-  <meta name="description" content="Engine performance benchmarks of UltSQL compared to SQLite3 on ASUS ROG Strix G16 (2023).">
+  <title>UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks</title>
+  <meta name="description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
+  <meta name="keywords" content="ultsql benchmarks, ultsql vs sqlite, ultsql vs duckdb, pure dart database benchmark, vector database speed, batch insert benchmark">
+  <link rel="canonical" href="https://ultsql.vercel.app/benchmarks">
+
+  <!-- OPEN GRAPH -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://ultsql.vercel.app/benchmarks">
+  <meta property="og:title" content="UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks">
+  <meta property="og:description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
+  <meta property="og:image" content="https://ultsql.vercel.app/logo.png">
+
+  <!-- TWITTER -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://ultsql.vercel.app/benchmarks">
+  <meta name="twitter:title" content="UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks">
+  <meta name="twitter:description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
+  <meta name="twitter:image" content="https://ultsql.vercel.app/logo.png">
+
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.19">
+  <link rel="stylesheet" href="style.css?v=1.0.22">
 </head>
 <body>
 
@@ -15,7 +32,7 @@
     <a href="index.html" class="nav-brand">
       <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
       <span>UltSQL</span>
-      <span class="brand-version">v1.0.19</span>
+      <span class="brand-version">v1.0.22</span>
     </a>
     <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
       <span class="bar"></span>
@@ -38,21 +55,21 @@
   <!-- HEADER -->
   <header class="hero" style="padding: 4rem 6% 2rem;">
     <div class="hero-badge-group">
-      <div class="hero-badge">⚡ Empirical Performance Benchmarks</div>
+      <div class="hero-badge">⚡ Empirical Performance Benchmarks (v1.0.22)</div>
     </div>
     <h1>Performance Benchmarks</h1>
-    <p>Measured throughput and latency benchmarks comparing UltSQL (100% Pure Dart) against standard C embedded databases.</p>
+    <p>Measured throughput and latency benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB.</p>
 
     <!-- HARDWARE DISCLAIMER NOTICE -->
     <div class="disclaimer-card" style="margin-top: 2rem;">
       <div class="disclaimer-header">
-        <span>ℹ️</span> Tested Benchmark Hardware Notice
+        <span>ℹ️</span> Tested Benchmark Hardware & Methodology Notice
       </div>
       <div class="disclaimer-body">
-        Tested benchmark throughput reflects direct memory buffer ingestion (<strong>1,200,000+ rows/sec</strong>), disk multi-row batch inserts (<strong>~170,000–195,000 rows/sec</strong>), and end-to-end parsed SQL inserts (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
+        Tested throughput reflects public batch API ingestion (<strong>~350,000–500,000+ rows/sec</strong> with slotted page serialization and B+ Tree indexing), disk multi-row batch inserts (<strong>~140,000–195,000 rows/sec</strong>), PL/SQL loops (<strong>~170,000–230,000 rows/sec</strong>), and parsed single SQL statements (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
         <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
         <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
-        Actual benchmark speeds may vary higher or lower depending on your target device hardware, storage controller, and CPU specifications.
+        Actual benchmark speeds may vary higher or lower depending on target hardware, storage controller, and CPU specifications.
       </div>
     </div>
   </header>

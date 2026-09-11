@@ -4,9 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UltSQL — Features & Architecture Specification</title>
-  <meta name="description" content="Comprehensive feature overview of UltSQL converged database engine: SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.">
+  <meta name="description" content="Explore UltSQL's unified converged database engine features: ACID transactions, B+ Tree indexing, HNSW vector search, PostgreSQL Wire Protocol, and zero-dependency pure Dart architecture.">
+  <meta name="keywords" content="UltSQL features, embedded database architecture, Dart database features, B+ Tree indexing, vector database, HNSW Dart, PostgreSQL wire protocol, ACID database">
+  <link rel="canonical" href="https://ultsql.vercel.app/features">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.19">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="UltSQL — Features & Architecture Specification">
+  <meta property="og:description" content="Explore UltSQL's unified converged database engine features: ACID transactions, B+ Tree indexing, HNSW vector search, PostgreSQL Wire Protocol, and pure Dart architecture.">
+  <meta property="og:url" content="https://ultsql.vercel.app/features">
+  <meta property="og:site_name" content="UltSQL">
+  <meta property="og:image" content="https://ultsql.vercel.app/icon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="UltSQL — Features & Architecture Specification">
+  <meta name="twitter:description" content="Pure Dart embedded database engine featuring SQL, NoSQL JSON, HNSW Vector RAG, and PostgreSQL Wire Protocol.">
+  <meta name="twitter:image" content="https://ultsql.vercel.app/icon.svg">
+  <link rel="stylesheet" href="style.css?v=1.0.22">
 </head>
 <body>
 
@@ -15,7 +27,7 @@
     <a href="index.html" class="nav-brand">
       <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
       <span>UltSQL</span>
-      <span class="brand-version">v1.0.19</span>
+      <span class="brand-version">v1.0.22</span>
     </a>
     <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
       <span class="bar"></span>
@@ -27,7 +39,8 @@
       <li><a href="features.html" class="active">Features</a></li>
       <li><a href="docs.html">Documentation</a></li>
       <li><a href="benchmarks.html">Benchmarks</a></li>
-      <li><a href="license.html">License & FAQ</a></li>
+      <li><a href="index.html#faq">FAQ</a></li>
+      <li><a href="license.html">License</a></li>
       <li>
         <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">🌙 Dark</button>
       </li>
@@ -50,9 +63,9 @@
       
       <div class="pillar-card">
         <span class="pillar-tag">FEATURE 01</span>
-        <h3>1.2M+ Rows/sec In-Memory Engine</h3>
-        <p>Zero-allocation linear byte array memory ingestion pipeline delivering over 1.2M rows/sec throughput.</p>
-        <div class="pillar-code">final db = UltSQL.open(':memory:');</div>
+        <h3>High-Throughput Batch Ingestion</h3>
+        <p>Pre-allocated linear page serialization delivering 350,000–500,000+ ops/sec batch insertion throughput on standard hardware.</p>
+        <div class="pillar-code">db.insertSortedBatchSync('users', rows);</div>
       </div>
 
       <div class="pillar-card">
@@ -109,6 +122,13 @@
         <h3>Universal Direct File Queries</h3>
         <p>Query external CSV, JSON, and LOG files directly without ETL or table import.</p>
         <div class="pillar-code">SELECT * FROM READ_CSV('logs.csv');</div>
+      </div>
+
+      <div class="pillar-card">
+        <span class="pillar-tag">FEATURE 10</span>
+        <h3>Multi-Process File Locking</h3>
+        <p>Cross-process exclusive file locking prevents WAL corruption when multiple processes access the same database file concurrently.</p>
+        <div class="pillar-code">throw DatabaseLockException('Database locked');</div>
       </div>
 
     </div>
