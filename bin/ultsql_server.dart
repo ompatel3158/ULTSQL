@@ -30,7 +30,7 @@ void main(List<String> args) async {
     } else if (arg.startsWith('--key=')) {
       passphrase = arg.substring(6);
     } else if (arg == '--version' || arg == '-v') {
-      print('UltSQL Server Daemon v1.0.21');
+      print('UltSQL Server Daemon v1.0.22');
       exit(0);
     } else if (arg == '--help') {
       _printHelp();
@@ -44,7 +44,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Server Daemon v1.0.21');
+  print('🚀 UltSQL Server Daemon v1.0.22');
   print('   Converged Database Engine (SQL + NoSQL + Vector RAG + PL/SQL)');
   print('===============================================================');
   print('📁 Data Directory : ${dir.absolute.path}');
@@ -56,7 +56,12 @@ void main(List<String> args) async {
 
   final dbPath = '$dataDir/$defaultDbName';
   final db = Database(dbPath, passphrase: passphrase);
-  await db.init();
+  try {
+    await db.init();
+  } on DatabaseLockException catch (e) {
+    stderr.writeln('❌ Error: ${e.message}');
+    exit(1);
+  }
 
   final pgServer = PgWireServer(db, port: port, address: host);
 

@@ -37,7 +37,12 @@ void main(List<String> args) async {
         }
       }
       final db = Database(dbPath, passphrase: passphrase);
-      await db.init();
+      try {
+        await db.init();
+      } on DatabaseLockException catch (e) {
+        stderr.writeln('❌ Error: ${e.message}');
+        exit(1);
+      }
       await _handleImport(db, filePath, tableName);
       await db.close();
       return;
@@ -69,12 +74,17 @@ void main(List<String> args) async {
         }
       }
       final db = Database(dbPath, passphrase: passphrase);
-      await db.init();
+      try {
+        await db.init();
+      } on DatabaseLockException catch (e) {
+        stderr.writeln('❌ Error: ${e.message}');
+        exit(1);
+      }
       final restServer = RestServer(db, port: port);
       final boundPort = await restServer.start(autoPort: true);
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.21)');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.22)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (passphrase != null) {
@@ -100,7 +110,7 @@ void main(List<String> args) async {
         _printHelp();
         exit(0);
       } else if (arg == '--version' || arg == '-v') {
-        print('UltSQL CLI v1.0.21');
+        print('UltSQL CLI v1.0.22');
         exit(0);
       } else if ((arg == '--password' ||
           arg == '--passphrase' ||
@@ -121,7 +131,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.21)');
+  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.22)');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
   if (passphrase != null) {
@@ -133,18 +143,20 @@ void main(List<String> args) async {
   );
 
   final db = Database(dbTarget, passphrase: passphrase);
-  await db.init();
+  try {
+    await db.init();
+  } on DatabaseLockException catch (e) {
+    stderr.writeln('❌ Error: ${e.message}');
+    exit(1);
+  }
   final interpreter = Interpreter(db);
 
   StringBuffer scriptBuffer = StringBuffer();
 
-  while (true) {
-    final prompt = scriptBuffer.isEmpty ? 'ultsql> ' : '   ...  ';
-    stdout.write(prompt);
-    final line = stdin.readLineSync();
+  final lines = stdin.transform(utf8.decoder).transform(const LineSplitter());
+  stdout.write('ultsql> ');
 
-    if (line == null) break;
-
+  await for (final line in lines) {
     final trimmed = line.trim();
 
     if (scriptBuffer.isEmpty && trimmed.startsWith('.')) {
@@ -154,13 +166,10 @@ void main(List<String> args) async {
         exit(0);
       } else if (trimmed == '.help') {
         _printMetaHelp();
-        continue;
       } else if (trimmed == '.tables') {
         _listTables(db);
-        continue;
       } else if (trimmed.startsWith('.schema')) {
         _showSchema(db, trimmed);
-        continue;
       } else if (trimmed.startsWith('.pgwire')) {
         final parts = trimmed.split(' ');
         final port = parts.length > 1 ? (int.tryParse(parts[1]) ?? 5432) : 5432;
@@ -170,19 +179,17 @@ void main(List<String> args) async {
         print(
           'Connect with any Postgres client (psycopg2, node-postgres, JDBC, psql)!',
         );
-        continue;
       } else if (trimmed == '.databases') {
         print('Main database: $dbTarget\n');
-        continue;
       } else if (trimmed.startsWith('.import')) {
         await _handleCliImportCommand(db, trimmed);
-        continue;
       } else {
         print(
           'Unrecognized meta command: $trimmed. Type .help for available commands.\n',
         );
-        continue;
       }
+      stdout.write(scriptBuffer.isEmpty ? 'ultsql> ' : '   ...  ');
+      continue;
     }
 
     if (scriptBuffer.isEmpty && (trimmed == 'exit' || trimmed == 'quit')) {
@@ -225,7 +232,11 @@ void main(List<String> args) async {
         print('⚡ Error (${sw.elapsedMicroseconds / 1000.0} ms): $e\n');
       }
     }
+
+    final prompt = scriptBuffer.isEmpty ? 'ultsql> ' : '   ...  ';
+    stdout.write(prompt);
   }
+  await db.close();
 }
 
 void _listTables(Database db) {

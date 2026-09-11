@@ -10,7 +10,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ultsql = "1.0.21"
+ultsql = "1.0.22"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```

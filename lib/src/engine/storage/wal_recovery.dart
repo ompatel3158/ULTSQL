@@ -37,6 +37,11 @@ class WalRecoveryEngine {
     required PageCache pageCache,
     required Catalog catalog,
   }) {
+    if (dbDirectory == ':memory:' ||
+        dbDirectory.startsWith(':memory:') ||
+        identical(0, 0.0)) {
+      return {'status': 'no_wal_found', 'recovered_transactions': 0};
+    }
     final walFile = File('$dbDirectory/wal.log');
     if (!walFile.existsSync() || walFile.lengthSync() == 0) {
       return {'status': 'no_wal_found', 'recovered_transactions': 0};
@@ -204,6 +209,11 @@ class WalRecoveryEngine {
     required String dbDirectory,
     required PageCache pageCache,
   }) {
+    if (dbDirectory == ':memory:' ||
+        dbDirectory.startsWith(':memory:') ||
+        identical(0, 0.0)) {
+      return;
+    }
     print('🔄 [CHECKPOINT] Flushing dirty pages and truncating WAL...');
     pageCache.flushAllSync();
 

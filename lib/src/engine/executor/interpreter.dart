@@ -1816,10 +1816,12 @@ END;
   }
 
   Future<QueryResult> _executeUseDatabase(UseDatabaseStmt stmt) async {
-    final dbDir = '${stmt.name}_db';
-    final directory = Directory(dbDir);
-    if (!directory.existsSync()) {
-      throw Exception("Database '${stmt.name}' does not exist.");
+    final dbDir = stmt.name == ':memory:' ? ':memory:' : '${stmt.name}_db';
+    if (dbDir != ':memory:') {
+      final directory = Directory(dbDir);
+      if (!directory.existsSync()) {
+        throw Exception("Database '${stmt.name}' does not exist.");
+      }
     }
     // 1. Close current database
     await db.close();

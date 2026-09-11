@@ -108,4 +108,55 @@ void main() {
     await server.stop();
     await db.close();
   });
+
+  test('CLI .pgwire executes asynchronously without stdin deadlock', () async {
+    final proc = await Process.start(
+      'dart',
+      ['run', 'bin/ultsql_cli.dart', ':memory:'],
+      runInShell: true,
+    );
+
+    final readyCompleter = Completer<void>();
+    final promptCompleter = Completer<void>();
+
+    proc.stdout.transform(utf8.decoder).listen((text) {
+      if (text.contains('ultsql>') && !promptCompleter.isCompleted) {
+        promptCompleter.complete();
+      }
+      if (text.contains('PostgreSQL Wire Protocol daemon listening') && !readyCompleter.isCompleted) {
+        readyCompleter.complete();
+      }
+    });
+
+    await promptCompleter.future.timeout(Duration(seconds: 20));
+    proc.stdin.writeln('.pgwire 5448');
+
+    await readyCompleter.future.timeout(Duration(seconds: 20));
+
+    final socket = await Socket.connect('127.0.0.1', 5448);
+    final startupBuf = BytesBuilder();
+    startupBuf.add([0, 0, 0, 0]);
+    startupBuf.add([0, 3, 0, 0]);
+    startupBuf.add('user\x00test\x00database\x00testdb\x00\x00'.codeUnits);
+    final startupBytes = startupBuf.takeBytes();
+    ByteData.view(startupBytes.buffer).setInt32(0, startupBytes.length, Endian.big);
+    socket.add(startupBytes);
+
+    bool receivedResponse = false;
+    final queryCompleter = Completer<bool>();
+    socket.listen((data) {
+      if (data.isNotEmpty) {
+        receivedResponse = true;
+        if (!queryCompleter.isCompleted) queryCompleter.complete(true);
+      }
+    });
+
+    final success = await queryCompleter.future.timeout(Duration(seconds: 5), onTimeout: () => false);
+    expect(success, isTrue);
+    expect(receivedResponse, isTrue);
+
+    await socket.close();
+    proc.stdin.writeln('.exit');
+    await proc.exitCode;
+  });
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.22
+
+- **CLI Non-Blocking Asynchronous REPL & PGWire Deadlock Resolution**:
+  - Replaced synchronous blocking `stdin.readLineSync()` in `bin/ultsql_cli.dart` with an asynchronous stream pipeline (`stdin.transform(utf8.decoder).transform(LineSplitter())`).
+  - Allows the single-threaded Dart isolate event loop to stay active and responsive while awaiting console input.
+  - Fixes the hang/deadlock when running `.pgwire <port>` inside the interactive CLI terminal, enabling external PostgreSQL wire protocol clients (psql, DBeaver, JDBC, psycopg2) to connect and query concurrently in real time.
+- **Polished Multi-Process Lock Handling**:
+  - Caught `DatabaseLockException` in `bin/ultsql_cli.dart` (import, serve, and interactive REPL) and `bin/ultsql_server.dart`.
+  - Replaced unhandled stack trace with a clean, user-friendly error output (`❌ Error: Database at '<path>' is locked by another process.`) and exit code 1.
+- **Windows In-Memory Path Hardening**:
+  - Hardened `:memory:` checks in `WalRecoveryEngine` (`recoverDatabase` and `checkpoint`), `Catalog` (`load` and `save`), and `USE DATABASE` to strictly bypass Win32 file checks for in-memory databases.
+- **Automated Concurrency & PGWire Regression Tests**:
+  - Added CLI non-blocking PGWire integration test in `test/pg_wire_server_test.dart`.
+  - Added CLI process lock cleanly surfaced error and exit code test in `test/database_locking_test.dart`.
+
 ## 1.0.21
 
 - **First-Class Public Batch Ingestion ("Made Real")**:
