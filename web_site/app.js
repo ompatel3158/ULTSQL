@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateThemeButton(theme) {
     const btn = document.getElementById('themeToggle');
     if (btn) {
-      btn.innerHTML = theme === 'dark' ? '🌙 Dark' : '☀️ Light';
+      btn.innerHTML = theme === 'dark' ? 'Theme: Dark' : 'Theme: Light';
     }
   }
 
@@ -53,9 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const codeText = btn.previousElementSibling ? btn.previousElementSibling.innerText : btn.parentElement.innerText;
       
       navigator.clipboard.writeText(codeText).then(() => {
-        showToast('✅ Copied to clipboard!');
+        showToast('Copied to clipboard');
+        btn.innerText = 'Copied';
+        setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
       }).catch(() => {
-        showToast('📋 Copied!');
+        showToast('Copied to clipboard');
       });
     });
   });
@@ -161,7 +163,7 @@ SELECT * FROM users WHERE active = true;`
     runBtn.addEventListener('click', async () => {
       const sqlText = sqlEditor ? sqlEditor.value : 'SELECT * FROM users;';
 
-      runBtn.innerText = '⚡ Executing (Real Pure-Dart Wasm Engine)...';
+      runBtn.innerText = 'Executing query...';
       runBtn.disabled = true;
 
       try {
@@ -169,12 +171,12 @@ SELECT * FROM users WHERE active = true;`
           const rawResult = await window.executeUltSQL(sqlText);
           const res = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
 
-          runBtn.innerText = 'Run Query ▶';
+          runBtn.innerText = 'Run Query';
           runBtn.disabled = false;
 
           if (res.status === 'success') {
             if (resultStatus) {
-              resultStatus.innerHTML = `✅ Real Engine Executed in <strong>${res.elapsedMs} ms</strong> • Returned <strong>${res.rows ? res.rows.length : 0}</strong> rows • ⚡ 100% Pure Dart In-Browser Wasm Engine`;
+              resultStatus.innerHTML = `Executed in <strong>${res.elapsedMs} ms</strong> • Returned <strong>${res.rows ? res.rows.length : 0}</strong> rows • Pure Dart In-Browser Wasm Engine`;
             }
 
             if (resultTable && res.columns && res.rows && res.columns.length > 0) {
@@ -200,7 +202,7 @@ SELECT * FROM users WHERE active = true;`
             const hint = res.errorHint || 'Please check your SQL syntax, table names, and parameters.';
 
             if (resultStatus) {
-              resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">❌ ${escapeHtml(title)}</span> (${res.elapsedMs} ms)`;
+              resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">[Error] ${escapeHtml(title)}</span> (${res.elapsedMs} ms)`;
             }
 
             if (resultTable) {
@@ -209,12 +211,12 @@ SELECT * FROM users WHERE active = true;`
                   <tr>
                     <td style="padding: 1.25rem; background: #18181b; border: 1px solid #7f1d1d; border-left: 4px solid #ef4444; border-radius: 6px;">
                       <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>⚠️</span> <span>${escapeHtml(title)}</span>
+                        <span>[Error]</span> <span>${escapeHtml(title)}</span>
                       </div>
                       <div style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.75rem; white-space: pre-wrap;">
                         ${escapeHtml(errorMsg)}
                       </div>
-                      ${hint ? `<div style="color: #a1a1aa; font-size: 0.82rem; line-height: 1.4; border-top: 1px dashed #3f3f46; padding-top: 0.6rem;">💡 <strong>Suggestion:</strong> ${escapeHtml(hint)}</div>` : ''}
+                      ${hint ? `<div style="color: #a1a1aa; font-size: 0.82rem; line-height: 1.4; border-top: 1px dashed #3f3f46; padding-top: 0.6rem;"><strong>Suggestion:</strong> ${escapeHtml(hint)}</div>` : ''}
                     </td>
                   </tr>
                 </tbody>
@@ -223,23 +225,23 @@ SELECT * FROM users WHERE active = true;`
           }
         } else {
           if (resultStatus) {
-            resultStatus.innerHTML = `⏳ Loading 100% Pure Dart UltSQL Engine Wasm Bundle...`;
+            resultStatus.innerHTML = `Loading Pure Dart UltSQL Engine Wasm Bundle...`;
           }
-          runBtn.innerText = 'Run Query ▶';
+          runBtn.innerText = 'Run Query';
           runBtn.disabled = false;
         }
       } catch (err) {
-        runBtn.innerText = 'Run Query ▶';
+        runBtn.innerText = 'Run Query';
         runBtn.disabled = false;
         if (resultStatus) {
-          resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">❌ Execution Exception</span>`;
+          resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">[Exception] Execution Error</span>`;
         }
         if (resultTable) {
           resultTable.innerHTML = `
             <tbody>
               <tr>
                 <td style="padding: 1.25rem; background: #18181b; border: 1px solid #7f1d1d; border-left: 4px solid #ef4444; border-radius: 6px;">
-                  <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">⚠️ Unexpected Exception</div>
+                  <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">[Exception] Unexpected Error</div>
                   <div style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${escapeHtml(err.message)}</div>
                 </td>
               </tr>
@@ -334,13 +336,13 @@ SELECT * FROM users WHERE active = true;`
     const copyHandler = () => {
       const cmdText = document.getElementById('installCmdText')?.innerText || 'dart pub global activate ultsql';
       navigator.clipboard.writeText(cmdText).then(() => {
-        showToast('✅ Copied: ' + cmdText);
-        installCopyBtn.innerHTML = '<span>✓</span>';
+        showToast('Copied: ' + cmdText);
+        installCopyBtn.innerText = 'Copied';
         setTimeout(() => {
-          installCopyBtn.innerHTML = '<span class="copy-icon">📋</span>';
+          installCopyBtn.innerText = 'Copy';
         }, 2000);
       }).catch(() => {
-        showToast('📋 Copied!');
+        showToast('Copied');
       });
     };
     installCopyBtn.addEventListener('click', copyHandler);

@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UltSQL â€” 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)</title>
+  <title>UltSQL — 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)</title>
   <meta name="description" content="What is UltSQL? Discover how to install and use UltSQL: a converged multimodal database engine in 100% Pure Dart with Relational SQL, HNSW Vector RAG, and NoSQL JSON.">
   <meta name="keywords" content="what is ultsql, how to install ultsql, ultsql, pure dart database, flutter database, vector database, embedded sql, nosql json, sqlite alternative, hnsw vector search, rag database, ultsql install, ultsql python, ultsql nodejs">
   <meta name="author" content="Om Patel">
@@ -13,7 +13,7 @@
   <!-- OPEN GRAPH / FACEBOOK -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/">
-  <meta property="og:title" content="UltSQL â€” 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)">
+  <meta property="og:title" content="UltSQL — 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)">
   <meta property="og:description" content="What is UltSQL? Discover how to install and use UltSQL: a converged multimodal database engine in 100% Pure Dart with Relational SQL, HNSW Vector RAG, and NoSQL JSON.">
   <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
   <meta property="og:site_name" content="UltSQL">
@@ -21,7 +21,7 @@
   <!-- TWITTER CARDS -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://ultsql-engine-docs.vercel.app/">
-  <meta name="twitter:title" content="UltSQL â€” 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)">
+  <meta name="twitter:title" content="UltSQL — 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)">
   <meta name="twitter:description" content="What is UltSQL? Discover how to install and use UltSQL: a converged multimodal database engine in 100% Pure Dart with Relational SQL, HNSW Vector RAG, and NoSQL JSON.">
   <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
 
@@ -136,11 +136,11 @@
       <li><a href="#faq">FAQ</a></li>
       <li><a href="license.html">License</a></li>
       <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">ðŸŒ™ Dark</button>
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">Theme: Dark</button>
       </li>
       <li>
         <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
-          pub.dev / ultsql â†—
+          pub.dev / ultsql
         </a>
       </li>
     </ul>
@@ -152,10 +152,10 @@
     <img src="logo.svg" alt="ultsql: three models, one core" class="hero-logo-header-img">
 
     <div class="hero-badge-group">
-      <div class="hero-badge">ðŸ“¦ <strong>pub.dev/packages/ultsql</strong></div>
-      <div class="hero-badge">ðŸ <strong>pypi.org/project/ultsql</strong></div>
-      <div class="hero-badge">ðŸŸ¢ <strong>npmjs.com/package/ultsql</strong></div>
-      <div class="hero-badge">âš¡ <strong>100% Pure Dart</strong></div>
+      <div class="hero-badge"><span class="badge-tag">PUB.DEV</span> <strong>packages/ultsql</strong></div>
+      <div class="hero-badge"><span class="badge-tag">PYPI</span> <strong>project/ultsql</strong></div>
+      <div class="hero-badge"><span class="badge-tag">NPM</span> <strong>package/ultsql</strong></div>
+      <div class="hero-badge"><span class="badge-tag">CORE</span> <strong>100% Pure Dart</strong></div>
     </div>
     
     <h1>The Converged Multimodal<br><span class="hero-title-gradient">Database Engine</span></h1>
@@ -168,10 +168,10 @@
     
     <div class="hero-actions">
       <a href="docs.html" class="btn-primary">
-        ðŸ“– Complete Documentation & Install Guide â†—
+        Complete Documentation & Install Guide
       </a>
       <a href="#playground" class="btn-secondary">
-        Launch Live Playground â–¶
+        Launch Live Playground
       </a>
     </div>
 
@@ -179,19 +179,17 @@
     <div class="install-pill" id="installPill">
       <span class="install-prompt">$</span>
       <span class="install-cmd" id="installCmdText">dart pub global activate ultsql</span>
-      <button class="install-copy-btn" id="installCopyBtn" aria-label="Copy install command" title="Copy to clipboard">
-        <span class="copy-icon">ðŸ“‹</span>
-      </button>
+      <button class="install-copy-btn" id="installCopyBtn" aria-label="Copy install command" title="Copy to clipboard">Copy</button>
     </div>
 
     <!-- 1-LINE QUICKSTART CODE TABS -->
     <div class="code-tab-container">
       <div class="tab-header">
-        <button class="tab-btn active" data-tab="tab-win">ðŸªŸ Windows (PowerShell)</button>
-        <button class="tab-btn" data-tab="tab-nix">ðŸ§ ðŸŽ Linux / macOS (Bash)</button>
-        <button class="tab-btn" data-tab="tab-py">ðŸ Python (pip)</button>
-        <button class="tab-btn" data-tab="tab-node">ðŸŸ¢ Node.js (npm)</button>
-        <button class="tab-btn" data-tab="tab-pg">ðŸ˜ PostgreSQL Wire</button>
+        <button class="tab-btn active" data-tab="tab-win">Windows (PowerShell)</button>
+        <button class="tab-btn" data-tab="tab-nix">Linux / macOS (Bash)</button>
+        <button class="tab-btn" data-tab="tab-py">Python (pip)</button>
+        <button class="tab-btn" data-tab="tab-node">Node.js (npm)</button>
+        <button class="tab-btn" data-tab="tab-pg">PostgreSQL Wire</button>
       </div>
 
       <div class="tab-content active" id="tab-win">
@@ -201,7 +199,7 @@ iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 
 
 # Start REST Server Daemon
 ultsql serve --port 8080 --db ./my_db</code></pre>
-          <button class="copy-btn">ðŸ“‹ Copy</button>
+          <button class="copy-btn">Copy</button>
         </div>
       </div>
 
@@ -212,7 +210,7 @@ curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh 
 
 # Start REST Server Daemon
 ultsql serve --port 8080 --db ./my_db</code></pre>
-          <button class="copy-btn">ðŸ“‹ Copy</button>
+          <button class="copy-btn">Copy</button>
         </div>
       </div>
 
@@ -225,7 +223,7 @@ from ultsql import UltSQLClient
 db = UltSQLClient("http://localhost:8080")
 db.insert("users", {"id": 1, "name": "Om Patel"})
 print(db.query("users"))</code></pre>
-          <button class="copy-btn">ðŸ“‹ Copy</button>
+          <button class="copy-btn">Copy</button>
         </div>
       </div>
 
@@ -238,7 +236,7 @@ const { UltSQLClient } = require('ultsql');
 const db = new UltSQLClient({ host: 'localhost', port: 8080 });
 await db.insert('users', { id: 1, name: 'Om Patel' });
 console.log(await db.query('users'));</code></pre>
-          <button class="copy-btn">ðŸ“‹ Copy</button>
+          <button class="copy-btn">Copy</button>
         </div>
       </div>
 
@@ -249,7 +247,7 @@ ultsql .pgwire 5432
 
 # Connect using standard psql or any Postgres driver
 psql -h localhost -p 5432 -U admin -d ultsql_db</code></pre>
-          <button class="copy-btn">ðŸ“‹ Copy</button>
+          <button class="copy-btn">Copy</button>
         </div>
       </div>
     </div>
@@ -261,7 +259,7 @@ psql -h localhost -p 5432 -U admin -d ultsql_db</code></pre>
         <div class="stat-label">Raw Buffer Rows / Sec</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">~60â€“130 ms</div>
+        <div class="stat-value">~60–130 ms</div>
         <div class="stat-label">100K-Row B+ Tree Index</div>
       </div>
       <div class="stat-card">
@@ -277,10 +275,10 @@ psql -h localhost -p 5432 -U admin -d ultsql_db</code></pre>
     <!-- HARDWARE DISCLAIMER NOTICE -->
     <div class="disclaimer-card">
       <div class="disclaimer-header">
-        <span>â„¹ï¸</span> Benchmark Hardware Note
+        <span>[Notice]</span> Benchmark Hardware Note
       </div>
       <div class="disclaimer-body">
-        Tested benchmark speeds reflect direct in-memory table buffer ingestion (<strong>1,200,000+ rows/sec</strong>), disk multi-row batch inserts (<strong>~170,000â€“195,000 rows/sec</strong>), and end-to-end SQL insert pipeline with AST parsing and B-Tree indexing (<strong>~60,000â€“75,000 rows/sec</strong>) measured on an 
+        Tested benchmark speeds reflect direct in-memory table buffer ingestion (<strong>1,200,000+ rows/sec</strong>), disk multi-row batch inserts (<strong>~170,000–195,000 rows/sec</strong>), and end-to-end SQL insert pipeline with AST parsing and B-Tree indexing (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
         <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
         <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
         Actual speeds may vary depending on your device hardware, memory architecture, and storage subsystem.
@@ -347,28 +345,28 @@ END;</div>
 
     <div class="eco-grid">
       <div class="eco-card">
-        <div class="eco-icon">ðŸ</div>
+        <div class="eco-tag">[PYTHON]</div>
         <h3>Python Package</h3>
         <p>PyPA compliant PyPI package with auto-provisioning REST client and `ultsql-server` CLI launcher.</p>
         <div class="eco-cmd">pip install ultsql</div>
       </div>
 
       <div class="eco-card">
-        <div class="eco-icon">ðŸŸ¢</div>
+        <div class="eco-tag">[NODE.JS]</div>
         <h3>Node.js & TypeScript</h3>
         <p>Full TypeScript definitions (`index.d.ts`), default & named imports, and async execution API.</p>
         <div class="eco-cmd">npm install ultsql</div>
       </div>
 
       <div class="eco-card">
-        <div class="eco-icon">ðŸ–¥ï¸</div>
+        <div class="eco-tag">[CLI]</div>
         <h3>Standalone Executables</h3>
         <p>Zero-dependency precompiled native binaries for Windows (`ultsql.exe`), Linux, and macOS.</p>
         <div class="eco-cmd">ultsql serve --port 8080</div>
       </div>
 
       <div class="eco-card">
-        <div class="eco-icon">ðŸ˜</div>
+        <div class="eco-tag">[PGWIRE]</div>
         <h3>Postgres Wire TCP</h3>
         <p>Connect standard `psycopg2`, `pg`, `JDBC`, or `psql` clients directly to UltSQL on port 5432.</p>
         <div class="eco-cmd">ultsql .pgwire 5432</div>
@@ -385,16 +383,16 @@ END;</div>
       <div class="playground-toolbar">
         <label for="presetSelect" style="font-weight: 600; font-size: 0.9rem;">Select Feature Preset:</label>
         <select id="presetSelect" class="preset-select">
-          <option value="join">ðŸ“Š Relational JOIN & Aggregate</option>
-          <option value="json">ðŸ“„ NoSQL Dotted JSON Extract</option>
-          <option value="vector">ðŸ¤– 768-Dim HNSW Vector RAG</option>
-          <option value="plsql">âš¡ High-Speed PL/SQL Loop</option>
-          <option value="macro">ðŸ”„ SQL Macro Calculation</option>
-          <option value="branch">ðŸŒ¿ Copy-on-Write Database Branching</option>
+          <option value="join">Relational JOIN & Aggregate</option>
+          <option value="json">NoSQL Dotted JSON Extract</option>
+          <option value="vector">768-Dim HNSW Vector RAG</option>
+          <option value="plsql">High-Speed PL/SQL Loop</option>
+          <option value="macro">SQL Macro Calculation</option>
+          <option value="branch">Copy-on-Write Database Branching</option>
         </select>
 
         <button id="runBtn" class="btn-primary" style="padding: 0.4rem 1.2rem; font-size: 0.88rem;">
-          Run Query â–¶
+          Run Query
         </button>
       </div>
 
@@ -415,7 +413,7 @@ GROUP BY u.name, u.role
 ORDER BY total_spent DESC;</textarea>
 
       <div class="playground-results">
-        <div id="resultStatus" class="result-status">Ready to execute. Click "Run Query â–¶" to test in-memory performance.</div>
+        <div id="resultStatus" class="result-status">Ready to execute. Click "Run Query" to test in-memory performance.</div>
         <table id="resultTable" class="benchmark-table">
           <thead>
             <tr>
@@ -454,23 +452,23 @@ ORDER BY total_spent DESC;</textarea>
         <thead>
           <tr>
             <th>Workload / Metric</th>
-            <th>âš¡ UltSQL (v1.0.22)</th>
-            <th>ðŸª¶ SQLite 3</th>
-            <th>ðŸ¦† DuckDB</th>
-            <th>ðŸ§¬ ChromaDB (Vector)</th>
+            <th>UltSQL (v1.0.22)</th>
+            <th>SQLite 3</th>
+            <th>DuckDB</th>
+            <th>ChromaDB (Vector)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><strong>Public Batch Ingestion (Indexed)</strong></td>
-            <td><strong style="color: #3b82f6;">~350,000â€“500,000+ rows/sec</strong></td>
+            <td><strong style="color: #3b82f6;">~350,000–500,000+ rows/sec</strong></td>
             <td>820,000 rows/sec</td>
             <td>650,000 rows/sec</td>
             <td>N/A</td>
           </tr>
           <tr>
             <td><strong>Multi-Row SQL INSERT</strong></td>
-            <td><strong style="color: #3b82f6;">~140,000â€“195,000 rows/sec</strong></td>
+            <td><strong style="color: #3b82f6;">~140,000–195,000 rows/sec</strong></td>
             <td>~180,000 rows/sec</td>
             <td>~160,000 rows/sec</td>
             <td>N/A</td>
@@ -485,22 +483,22 @@ ORDER BY total_spent DESC;</textarea>
           <tr>
             <td><strong>HNSW Vector Top-10 Search (10k @ 768d)</strong></td>
             <td><strong style="color: #3b82f6;">5.0 ms (100% Recall)</strong></td>
-            <td>âŒ No Vector Support</td>
-            <td>âŒ (Requires Extension)</td>
+            <td>No Vector Support</td>
+            <td>Extension Required</td>
             <td>7.8 ms</td>
           </tr>
           <tr>
             <td><strong>Zero C/C++ Compiler Dependencies</strong></td>
-            <td>âœ… <strong>100% Pure Dart</strong></td>
-            <td>âŒ Requires C Compiler</td>
-            <td>âŒ Requires C++ Toolchain</td>
-            <td>âŒ Requires Python/C++</td>
+            <td><strong>100% Pure Dart</strong></td>
+            <td>Requires C Compiler</td>
+            <td>Requires C++ Toolchain</td>
+            <td>Requires Python/C++</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div style="text-align: center; margin-top: 1.5rem;">
-      <a href="benchmarks.html" class="btn-secondary">View Complete Benchmark Methodology & Breakdown âž”</a>
+      <a href="benchmarks.html" class="btn-secondary">View Complete Benchmark Methodology & Breakdown</a>
     </div>
   </section>
 
@@ -514,7 +512,7 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>What is UltSQL?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
           <p><strong>UltSQL</strong> is an open-source, converged multimodal database engine written in <strong>100% Pure Dart</strong> with zero external C/C++ compiler or runtime dependencies.</p>
@@ -525,7 +523,7 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>How do I install UltSQL on Windows, macOS, or Linux?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
           <p>UltSQL offers zero-dependency, 1-line automated installers for all major desktop platforms:</p>
@@ -544,7 +542,7 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>How do I use UltSQL in Python, Node.js, and Rust?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
           <p>UltSQL provides official packages across package registries:</p>
@@ -568,7 +566,7 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>How does UltSQL compare to SQLite and DuckDB?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
           <p>While SQLite and DuckDB are exceptional tabular databases, they require native C/C++ compiler toolchains (CMake, Make, Clang, MSVC) and platform-specific shared libraries (<code>.dll</code>, <code>.dylib</code>, <code>.so</code>). In Flutter and cross-platform apps, native FFI dependencies frequently cause build errors or platform incompatibility.</p>
@@ -585,7 +583,7 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>Does UltSQL support the PostgreSQL Wire Protocol?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
           <p><strong>Yes!</strong> UltSQL includes a built-in PostgreSQL Wire Protocol v3 daemon. You can launch it from the CLI with <code>.pgwire 5432</code> or via <code>ultsql-server --port 5432</code> and immediately connect using standard PostgreSQL tools like <strong>psql</strong>, <strong>DBeaver</strong>, <strong>DataGrip</strong>, <strong>pgAdmin</strong>, <strong>psycopg2</strong>, or <strong>node-postgres</strong>.</p>
@@ -595,17 +593,17 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>How fast is batch data ingestion in UltSQL?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
-          <p>UltSQL achieves <strong>~350,000 to 500,000+ rows/sec</strong> public batch ingestion using its first-class <code>insertBatch</code> and <code>insertBatchRecords</code> API, while performing complete slotted page layout serialization, B+ Tree indexing, and catalog statistics synchronization. Multi-row SQL inserts run at ~140,000â€“195,000 rows/sec.</p>
+          <p>UltSQL achieves <strong>~350,000 to 500,000+ rows/sec</strong> public batch ingestion using its first-class <code>insertBatch</code> and <code>insertBatchRecords</code> API, while performing complete slotted page layout serialization, B+ Tree indexing, and catalog statistics synchronization. Multi-row SQL inserts run at ~140,000–195,000 rows/sec.</p>
         </div>
       </div>
 
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>Can UltSQL run completely in-memory?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
           <p><strong>Yes!</strong> Opening UltSQL with target <code>:memory:</code> runs in an ultra-fast ephemeral mode where all data pages, tables, and B+ Tree indexes reside directly in memory with zero disk I/O. In-memory mode is fully supported across Windows, Linux, macOS, and WebAssembly.</p>
@@ -615,10 +613,10 @@ ORDER BY total_spent DESC;</textarea>
       <div class="faq-item">
         <button class="faq-question" type="button">
           <span>Is UltSQL free for commercial applications and SaaS?</span>
-          <span class="faq-icon">â–¾</span>
+          <span class="faq-chevron" aria-hidden="true"></span>
         </button>
         <div class="faq-answer">
-          <p><strong>Yes.</strong> UltSQL is licensed under the Source Available License v1.0, which grants 100% royalty-free rights for commercial applications, desktop software, mobile apps, SaaS, internal enterprise systems, research, and education. The only requirement is providing simple attribution (<strong>â€œPowered by UltSQLâ€</strong>). Only offering UltSQL itself as a paid managed cloud DBaaS service requires a separate commercial license.</p>
+          <p><strong>Yes.</strong> UltSQL is licensed under the Source Available License v1.0, which grants 100% royalty-free rights for commercial applications, desktop software, mobile apps, SaaS, internal enterprise systems, research, and education. The only requirement is providing simple attribution (<strong>“Powered by UltSQL”</strong>). Only offering UltSQL itself as a paid managed cloud DBaaS service requires a separate commercial license.</p>
         </div>
       </div>
 
@@ -629,7 +627,7 @@ ORDER BY total_spent DESC;</textarea>
   <footer class="footer">
     <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <strong>ULTSQL Database Engine</strong> â€” Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
       </div>
       <div>
         <a href="docs.html" style="color: var(--text-muted); margin-right: 1.25rem;">Docs</a>
@@ -641,10 +639,9 @@ ORDER BY total_spent DESC;</textarea>
   </footer>
 
   <!-- TOAST NOTIFICATION -->
-  <div id="toast" class="toast-notification">âœ… Copied to clipboard!</div>
+  <div id="toast" class="toast-notification">Copied to clipboard</div>
 
   <script src="ultsql_engine.js?v=1.0.24"></script>
   <script src="app.js?v=1.0.25"></script>
 </body>
 </html>
-

@@ -1,21 +1,21 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UltSQL â€” Features & Architecture Specification</title>
+  <title>UltSQL — Features & Architecture Specification</title>
   <meta name="description" content="Explore UltSQL's unified converged database engine features: ACID transactions, B+ Tree indexing, HNSW vector search, PostgreSQL Wire Protocol, and zero-dependency pure Dart architecture.">
   <meta name="keywords" content="UltSQL features, embedded database architecture, Dart database features, B+ Tree indexing, vector database, HNSW Dart, PostgreSQL wire protocol, ACID database">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/features">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="UltSQL â€” Features & Architecture Specification">
+  <meta property="og:title" content="UltSQL — Features & Architecture Specification">
   <meta property="og:description" content="Explore UltSQL's unified converged database engine features: ACID transactions, B+ Tree indexing, HNSW vector search, PostgreSQL Wire Protocol, and pure Dart architecture.">
   <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/features">
   <meta property="og:site_name" content="UltSQL">
   <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/icon.svg">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="UltSQL â€” Features & Architecture Specification">
+  <meta name="twitter:title" content="UltSQL — Features & Architecture Specification">
   <meta name="twitter:description" content="Pure Dart embedded database engine featuring SQL, NoSQL JSON, HNSW Vector RAG, and PostgreSQL Wire Protocol.">
   <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/icon.svg">
   <link rel="stylesheet" href="style.css?v=1.0.25">
@@ -42,9 +42,9 @@
       <li><a href="index.html#faq">FAQ</a></li>
       <li><a href="license.html">License</a></li>
       <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">ðŸŒ™ Dark</button>
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">Theme: Dark</button>
       </li>
-      <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">pub.dev / ultsql â†—</a></li>
+      <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">pub.dev / ultsql</a></li>
     </ul>
   </nav>
 
@@ -52,7 +52,7 @@
   <header class="hero" style="padding: 4rem 6% 2rem;">
     <div class="hero-ambient-glow" aria-hidden="true"></div>
     <div class="hero-badge-group">
-      <div class="hero-badge">ðŸ’Ž Comprehensive Feature Specification</div>
+      <div class="hero-badge"><span class="badge-tag">SPEC</span> Comprehensive Feature Specification</div>
     </div>
     <h1>Engine Features & Innovations</h1>
     <p>Discover how UltSQL combines cutting-edge database research into a unified, zero-dependency pure Dart database engine.</p>
@@ -65,14 +65,14 @@
       <div class="pillar-card">
         <span class="pillar-tag">FEATURE 01</span>
         <h3>High-Throughput Batch Ingestion</h3>
-        <p>Pre-allocated linear page serialization delivering 350,000â€“500,000+ ops/sec batch insertion throughput on standard hardware.</p>
+        <p>Pre-allocated linear page serialization delivering 350,000–500,000+ ops/sec batch insertion throughput on standard hardware.</p>
         <div class="pillar-code">db.insertSortedBatchSync('users', rows);</div>
       </div>
 
       <div class="pillar-card">
         <span class="pillar-tag">FEATURE 02</span>
         <h3>Fast B+ Tree Indexing</h3>
-        <p>`insertSortedBatchSync` constructs 100K-row B+ Trees in ~60â€“130 ms with logarithmic root-to-leaf traversal.</p>
+        <p>`insertSortedBatchSync` constructs 100K-row B+ Trees in ~60–130 ms with logarithmic root-to-leaf traversal.</p>
         <div class="pillar-code">CREATE INDEX idx_user_id ON users(id);</div>
       </div>
 
@@ -139,7 +139,7 @@
   <footer class="footer">
     <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <strong>ULTSQL Database Engine</strong> â€” Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
       </div>
       <div>
         <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
@@ -153,4 +153,3 @@
   <script src="app.js?v=1.0.25"></script>
 </body>
 </html>
-
