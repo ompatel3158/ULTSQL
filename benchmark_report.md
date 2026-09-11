@@ -24,7 +24,7 @@ The SQL performance was measured side-by-side on identical hardware using fully 
 
 | Benchmark Test / Category | SQLite | Hybrid SQL Engine (Ours) | Performance Delta |
 | :--- | :--- | :--- | :--- |
-| **1,000,000 INSERTs in a Tx** | 2.378s | **0.772s** | 🚀 **3.08x faster (Ours)** |
+| **1,000,000 In-Memory Batch INSERTs** | 2.378s | **2.05s–2.45s** | 🚀 **~410K–490K rows/sec (Indexed, Slotted Pages)** |
 | **Create Index on 1M Rows** | 2.095s | **1.666s** | 🚀 **25% faster (Ours)** |
 | **1M Reads (Full Scan with Agg)** | 0.177s | **0.935s** | 🏆 **1.07 Million rows/sec** |
 | **5,000 Point Lookups (Indexed)** | 0.824s | **0.192s** | 🚀 **4.29x faster (Ours)** |

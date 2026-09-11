@@ -630,6 +630,8 @@ class RowTableFile {
       if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
         data.setUint16(1, rowCount);
         data.setUint16(3, freeSpaceOffset);
+        page.rowCount = rowCount;
+        page.freeSpaceOffset = freeSpaceOffset;
         cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
 
         currentPageId++;
@@ -666,6 +668,8 @@ class RowTableFile {
     // Save final page headers
     data.setUint16(1, rowCount);
     data.setUint16(3, freeSpaceOffset);
+    page.rowCount = rowCount;
+    page.freeSpaceOffset = freeSpaceOffset;
     cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
     return pointers;
   }

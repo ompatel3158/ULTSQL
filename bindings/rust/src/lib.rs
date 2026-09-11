@@ -65,8 +65,30 @@ impl UltSqlClient {
     pub async fn insert(&self, table: &str, record: &serde_json::Value) -> Result<QueryResult, UltSqlError> {
         let resp = self
             .http
-            .post(format!("{}/tables/{}/insert", self.base_url, table))
+            .post(format!("{}/{}", self.base_url, table))
             .json(record)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let msg = resp.text().await.unwrap_or_default();
+            return Err(UltSqlError::Database {
+                status: status.as_u16(),
+                message: msg,
+            });
+        }
+
+        let result: QueryResult = resp.json().await?;
+        Ok(result)
+    }
+
+    /// High-throughput batch insert of multiple records into a table.
+    pub async fn insert_batch(&self, table: &str, records: &[serde_json::Value]) -> Result<QueryResult, UltSqlError> {
+        let resp = self
+            .http
+            .post(format!("{}/{}/batch", self.base_url, table))
+            .json(records)
             .send()
             .await?;
 

@@ -96,7 +96,7 @@ func main() {
 Add to `Cargo.toml`:
 ```toml
 [dependencies]
-ultsql = "1.0.19"
+ultsql = "1.0.21"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```
@@ -118,7 +118,7 @@ include(FetchContent)
 FetchContent_Declare(
   ultsql
   GIT_REPOSITORY https://github.com/ompatel3158/ULTSQL.git
-  GIT_TAG        v1.0.19
+  GIT_TAG        v1.0.21
 )
 FetchContent_MakeAvailable(ultsql)
 target_link_libraries(my_app PRIVATE ultsql)
@@ -136,7 +136,12 @@ target_link_libraries(my_app PRIVATE ultsql)
   curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash
   ```
 
-Once installed, type `ultsql serve` in any terminal!
+Once installed, use `ultsql` anywhere on your machine:
+```bash
+ultsql                                  # Interactive REPL
+ultsql serve --port=8080                # Standalone REST daemon
+ultsql import data.csv users            # High-throughput batch import
+```
 
 ### 7. 🐳 Docker Container (Cloud & Servers)
 ```bash
@@ -156,9 +161,10 @@ ultsql .pgwire 5432
 
 | Capability / Benchmark | UltSQL Performance | Feature Status |
 | :--- | :--- | :--- |
-| **Raw Memory Table Batch Ingestion** | **1,200,000+ rows/sec** (Peak 3.48M/s) | ⚡ Direct Memory Table Buffer (No SQL Parse Overhead) |
-| **SQL Multi-Row Insert (Disk Mode)** | **~170,000–195,000 rows/sec** | 💾 Multi-Row Batch WAL & Slotted Page Storage |
-| **Full SQL Insert Pipeline Throughput** | **60,000–75,000 rows/sec** | 🚀 Full AST Parser, Planner, MVCC & B-Tree |
+| **Public Batch Ingestion API (`insertBatch`)** | **~350,000–500,000+ rows/sec** | ⚡ First-Class Public Batch Ingestion with Automatic Indexing & Stats |
+| **SQL Multi-Row Insert (Disk & Memory)** | **~140,000–195,000 rows/sec** | 💾 Full SQL Multi-Row VALUES Batch, WAL & Slotted Pages |
+| **PL/SQL Transaction Loop Ingestion** | **~170,000–230,000 rows/sec** | 🚀 In-Engine JIT Loop with B+ Tree Indexing & WAL Logging |
+| **Full SQL Insert Pipeline Throughput** | **60,000–75,000 rows/sec** | 🔍 Full AST Parser, Planner, MVCC & B-Tree |
 | **B+ Tree Index Build (100K Rows)** | **~60–130 ms** | 🏆 Sub-Second Bulk B+ Tree Indexing |
 | **768-Dim HNSW AI Vector RAG** | **6 ms** (High-Recall ANN, >99% Recall@10) | 🧠 Native AI Embedded Vector Engine |
 | **Network TCP Wire Protocol Server** | **Port 5432 (PostgreSQL v3)** | 🌐 Full Driver Compatibility (`psql`, `psycopg2`, JDBC) |
@@ -187,7 +193,7 @@ graph TD
     Pager -->|Storage Engines| StorageAdapters
     
     subgraph StorageAdapters[Converters & Adapters]
-      MemoryStore[MemoryTable: 1.2M+ rows/sec]
+      MemoryStore[MemoryStore: Fast Ephemeral In-Memory Store]
       RowStore[.db: Row-Oriented Slotted Pages]
       ColumnStore[.col_*: Columnar Parquet Store]
       BTreeIndex[.idx: B+ Tree Indexes]
@@ -225,7 +231,7 @@ graph TD
 
 UltSQL introduces 15 signature database innovations engineered specifically for high-throughput client and cloud workloads:
 
-1. ⚡ **1.2M+ Rows/sec Direct Memory Ingestion**: Zero-allocation linear byte array memory ingestion via `MemoryTable` (direct buffer API).
+1. ⚡ **High-Throughput Public Batch & Multi-Row Ingestion**: Public `insertBatch()` and multi-row SQL ingestion achieving ~140K–230K+ rows/sec with automatic slotted-page serialization, B+ Tree indexing, and full queryability.
 2. 🏆 **Fast B+ Tree Bulk Indexing**: `insertSortedBatchSync` constructs 100K-row B+ Trees in ~60–130 ms.
 3. 🧠 **Native HNSW Vector RAG Graph**: Cosine & Euclidean similarity search over 768-dim embeddings in 6 ms.
 4. 🌐 **Network TCP Wire Protocol Server**: Full PostgreSQL v3 wire protocol server with parameter status and backend key negotiation.
@@ -247,7 +253,7 @@ UltSQL introduces 15 signature database innovations engineered specifically for 
 
 Switch between in-memory speed and durable disk storage with a single line of code:
 
-### 1. ⚡ In-Memory Storage Mode (`~60K–75K rows/sec` SQL, `1.2M+ rows/sec` direct buffer)
+### 1. ⚡ In-Memory Storage Mode (`~140K–200K rows/sec` SQL batch, sub-millisecond point lookups)
 For high-frequency streaming, real-time AI vector search, and temporary session caches:
 ```dart
 final db = Database(':memory:');
@@ -266,6 +272,22 @@ await db.init();
 final prep = db.prepare("INSERT INTO users VALUES (?, ?, ?);");
 prep.executeBatchSync(batchRows);
 await db.flushWalSync(); // Flush WAL snapshot to disk
+```
+
+### 4. ⚡ High-Speed Public Batch Ingestion (`insertBatch` & `insertBatchRecords`)
+Ingest hundreds of thousands of records per second with automatic slotted-page layout, B+ Tree indexing, and instant SQL queryability:
+```dart
+// Option A: Batch insert rows with column mapping
+await engine.insertBatch('users', [
+  [1, 'Alice', 98.5],
+  [2, 'Bob', 91.2],
+], columns: ['id', 'name', 'score']);
+
+// Option B: Batch insert structured records (JSON maps)
+await engine.insertBatchRecords('users', [
+  {'id': 1, 'name': 'Alice', 'score': 98.5},
+  {'id': 2, 'name': 'Bob', 'score': 91.2},
+]);
 ```
 
 ---
@@ -481,8 +503,9 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 🔥 ULTSQL STANDALONE ENGINE PERFORMANCE (100,000 ROWS) 🔥
 ======================================================
 1. Insert Throughput:
-   - Direct MemoryTable Buffer: ~82 ms (1,200,000+ rows/sec raw memory buffer ingestion via direct API)
-   - Multi-Row SQL INSERT (Disk): ~170,000–195,000 rows/sec (Multi-row VALUES batch with WAL flush)
+   - Public Batch API (insertBatch): ~350,000–500,000+ rows/sec (Direct public API with automatic indexing & stats)
+   - Multi-Row SQL INSERT (Disk & Memory): ~140,000–195,000 rows/sec (Multi-row VALUES batch with WAL flush)
+   - PL/SQL Transaction Loop: ~170,000–230,000 rows/sec (In-engine JIT loop, B+ Tree indexing)
    - Full SQL Pipeline (Single-row/Parsed): ~60,000–75,000 rows/sec (Hand-written Lexer, Parser, Cost Planner, MVCC, B-Tree)
 
 2. B+ Tree Index Build (100,000 Rows):

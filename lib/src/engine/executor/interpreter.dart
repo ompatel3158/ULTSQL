@@ -135,6 +135,44 @@ class Database {
     return outController.stream;
   }
 
+  /// High-throughput public batch insert API.
+  Future<QueryResult> insertBatch(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columnNames,
+  }) async {
+    final interpreter = Interpreter(this);
+    return interpreter.insertBatch(tableName, rows, columnNames: columnNames);
+  }
+
+  /// Synchronous high-throughput public batch insert API.
+  QueryResult insertBatchSync(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columnNames,
+  }) {
+    final interpreter = Interpreter(this);
+    return interpreter.insertBatchSync(tableName, rows, columnNames: columnNames);
+  }
+
+  /// High-throughput public batch insert API accepting record maps.
+  Future<QueryResult> insertBatchRecords(
+    String tableName,
+    List<Map<String, dynamic>> records,
+  ) async {
+    final interpreter = Interpreter(this);
+    return interpreter.insertBatchRecords(tableName, records);
+  }
+
+  /// Synchronous high-throughput public batch insert API accepting record maps.
+  QueryResult insertBatchRecordsSync(
+    String tableName,
+    List<Map<String, dynamic>> records,
+  ) {
+    final interpreter = Interpreter(this);
+    return interpreter.insertBatchRecordsSync(tableName, records);
+  }
+
   // --- SQL MACROS REGISTRY ---
   final Map<String, CreateMacroStmt> _macros = {};
   void registerMacro(CreateMacroStmt stmt) =>
@@ -339,6 +377,9 @@ class PreparedStatement {
     var res = (statement is InsertStmt)
         ? _interpreter._executeInsert(statement as InsertStmt)
         : _interpreter._executeNodeSync(statement);
+    if (res is Function) {
+      res = await (res as dynamic)();
+    }
     if (res is Future) {
       res = await res;
     }
@@ -704,6 +745,9 @@ class Interpreter {
               catalogModified = true;
             }
             var res = _executeNodeSync(stmt);
+            if (res is Function) {
+              res = await (res as dynamic)();
+            }
             if (res is Future) {
               res = await res;
             }
@@ -908,7 +952,9 @@ class Interpreter {
       return _executeDbmsOutput(node);
     }
     if (node is BeginTxStmt) {
-      db.cache.startTransaction(db.catalog);
+      if (!db.cache.isTransactionActive) {
+        db.cache.startTransaction(db.catalog);
+      }
       return QueryResult(
         columns: [],
         rows: [],
@@ -1858,8 +1904,464 @@ END;
     );
   }
 
+  /// High-throughput public batch insert API accepting record maps.
+  Future<QueryResult> insertBatchRecords(
+    String tableName,
+    List<Map<String, dynamic>> records,
+  ) async {
+    return insertBatchRecordsSync(tableName, records);
+  }
+
+  /// Synchronous high-throughput public batch insert API accepting record maps.
+  QueryResult insertBatchRecordsSync(
+    String tableName,
+    List<Map<String, dynamic>> records,
+  ) {
+    if (records.isEmpty) {
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "0 rows inserted into table '$tableName'.",
+      );
+    }
+
+    final tName = tableName.toLowerCase();
+    var schema = db.catalog.getTableSchema(tName);
+    if (schema == null) {
+      final first = records.first;
+      final colDefs = first.entries.map((e) {
+        final val = e.value;
+        if (val is int) return '${e.key} INT';
+        if (val is double) return '${e.key} DOUBLE';
+        if (val is bool) return '${e.key} BOOLEAN';
+        return '${e.key} TEXT';
+      }).join(', ');
+      final tokens = Lexer(
+        "CREATE TABLE IF NOT EXISTS $tableName ($colDefs)",
+      ).tokenize();
+      final stmts = Parser(tokens).parseScript();
+      for (final s in stmts) {
+        _executeNodeSync(s);
+      }
+      schema = db.catalog.getTableSchema(tName);
+    }
+
+    if (schema == null) {
+      throw Exception("Failed to find or create table '$tName'.");
+    }
+
+    final colNames = schema.columnNames;
+    final rows = <List<dynamic>>[];
+    for (int r = 0; r < records.length; r++) {
+      final rec = records[r];
+      final row = <dynamic>[];
+      for (int c = 0; c < colNames.length; c++) {
+        final col = colNames[c];
+        row.add(rec[col] ?? rec[col.toLowerCase()] ?? rec[col.toUpperCase()]);
+      }
+      rows.add(row);
+    }
+    return insertBatchSync(tableName, rows, columnNames: colNames);
+  }
+
+  /// High-throughput public batch insert API.
+  Future<QueryResult> insertBatch(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columnNames,
+  }) async {
+    return insertBatchSync(tableName, rows, columnNames: columnNames);
+  }
+
+  /// Synchronous high-throughput public batch insert API.
+  QueryResult insertBatchSync(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columnNames,
+  }) {
+    if (rows.isEmpty) {
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "0 rows inserted into table '$tableName'.",
+      );
+    }
+
+    final tName = tableName.toLowerCase();
+    final schema = db.catalog.getTableSchema(tName);
+    if (schema == null) {
+      throw Exception("Table '$tName' does not exist.");
+    }
+
+    if (!db.catalog.hasPrivilege(currentUser, tableName, 'insert')) {
+      throw Exception(
+        "Permission denied: INSERT privilege required on table '$tableName' for user '$currentUser'.",
+      );
+    }
+
+    final numCols = schema.columnNames.length;
+    List<int>? colMap;
+    if (columnNames != null) {
+      colMap = columnNames.map((c) {
+        final idx = schema.columnNamesLower.indexOf(c.toLowerCase());
+        if (idx == -1) {
+          throw Exception("Column '$c' not found in table '$tName'.");
+        }
+        return idx;
+      }).toList();
+    }
+
+    final expectedLen = colMap != null ? colMap.length : numCols;
+    final colTypes = schema.columnTypes;
+    final colNames = schema.columnNames;
+    final rowsValues = <List<DbValue>>[];
+
+    for (int r = 0; r < rows.length; r++) {
+      final rawRow = rows[r];
+      if (rawRow.length != expectedLen) {
+        throw Exception(
+          "Column count mismatch at row $r. Expected $expectedLen values, found ${rawRow.length}.",
+        );
+      }
+      final rowValues = List<DbValue>.filled(numCols, DbNull());
+      for (int i = 0; i < rawRow.length; i++) {
+        final targetColIdx = colMap != null ? colMap[i] : i;
+        final rawVal = rawRow[i];
+        DbValue val;
+        if (rawVal is DbValue) {
+          val = rawVal;
+        } else if (rawVal == null) {
+          val = DbNull();
+        } else if (rawVal is int) {
+          val = DbInt(rawVal);
+        } else if (rawVal is double) {
+          val = DbDouble(rawVal);
+        } else if (rawVal is String) {
+          val = DbText(rawVal);
+        } else if (rawVal is bool) {
+          val = DbBool(rawVal);
+        } else if (rawVal is List<double>) {
+          val = DbVector(rawVal);
+        } else if (rawVal is Uint8List) {
+          val = DbBlob(rawVal);
+        } else {
+          val = DbText(rawVal.toString());
+        }
+
+        final expectedType = colTypes[targetColIdx];
+        if (val is! DbNull && val.type != expectedType) {
+          val = _coerceDbValue(val, expectedType, colNames[targetColIdx]);
+        }
+        rowValues[targetColIdx] = val;
+      }
+
+      if (colMap != null) {
+        for (int c = 0; c < numCols; c++) {
+          if (rowValues[c] is DbNull && c < schema.columnDefaultValues.length) {
+            final defaultExpr = schema.columnDefaultValues[c];
+            if (defaultExpr != null) {
+              rowValues[c] = JitCompiler.compile(defaultExpr)(_env);
+            }
+          }
+        }
+      }
+      rowsValues.add(rowValues);
+    }
+
+    final rowTable = _rowTableCache.putIfAbsent(
+      tName,
+      () => RowTableFile(
+        cache: db.cache,
+        tableName: schema.name,
+        dbDirectory: db.directory,
+      ),
+    );
+
+    final tableIndexes = db.catalog.getIndexesForTable(tName);
+    final needsPointers = tableIndexes.isNotEmpty;
+    final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
+
+    final pointers = rowTable.insertBatchSync(
+      rowsValues,
+      xmin: currentTxId,
+      generatePointers: needsPointers,
+    );
+
+    final stats = db.catalog.getOrCreateStats(tName);
+    stats.rowCount += rowsValues.length;
+
+    if (needsPointers && pointers != null) {
+      final preparedIndexes = tableIndexes.map((idx) {
+        final indexName = _indexFileNameCache.putIfAbsent(
+          idx,
+          () => idx.name.toLowerCase(),
+        );
+        final cols = idx.columnName.split(',');
+        final cIndexes = cols.map((col) {
+          final colClean = col.trim().toLowerCase();
+          return schema.columnNamesLower.indexOf(colClean);
+        }).toList();
+        return (
+          indexName: indexName,
+          columnName: idx.columnName,
+          colIndexes: cIndexes,
+        );
+      }).toList();
+
+      for (int r = 0; r < rowsValues.length; r++) {
+        final rowValues = rowsValues[r];
+        final pointer = pointers[r];
+        for (final pIdx in preparedIndexes) {
+          final compositeKey = List<double>.filled(pIdx.colIndexes.length, 0.0);
+          bool hasAllKeys = true;
+          for (int i = 0; i < pIdx.colIndexes.length; i++) {
+            final cIdx = pIdx.colIndexes[i];
+            if (cIdx == -1) {
+              hasAllKeys = false;
+              break;
+            }
+            final keyVal = rowValues[cIdx];
+            double? dKey;
+            if (keyVal is DbInt) {
+              dKey = keyVal.value.toDouble();
+            } else if (keyVal is DbDouble) {
+              dKey = keyVal.value;
+            } else if (keyVal is DbText) {
+              final parsed = double.tryParse(keyVal.value);
+              if (parsed != null) {
+                dKey = parsed;
+              } else {
+                double hash = 0.0;
+                for (int j = 0; j < keyVal.value.length; j++) {
+                  hash = (hash * 31.0 + keyVal.value.codeUnitAt(j)) % 9007199254740991;
+                }
+                dKey = hash;
+              }
+            }
+            if (dKey == null) {
+              hasAllKeys = false;
+              break;
+            }
+            compositeKey[i] = dKey;
+          }
+          if (hasAllKeys) {
+            _delayedIndexUpdates.add(
+              _IndexUpdate(
+                indexName: pIdx.indexName,
+                tableName: tName,
+                columnName: pIdx.columnName.toLowerCase(),
+                key: compositeKey,
+                pageId: pointer.pageId,
+                slotId: pointer.slotId,
+              ),
+            );
+          }
+        }
+      }
+      _flushDelayedIndexUpdates();
+    }
+
+    _flushActiveTablePages();
+    db.notifyTableMutated(tName);
+
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "${rowsValues.length} rows inserted into table '$tableName'.",
+    );
+  }
+
   QueryResult _executeInsert(InsertStmt stmt) {
     if (stmt.multiValues != null && stmt.multiValues!.length > 1) {
+      if (!db.catalog.hasPrivilege(currentUser, stmt.tableName, 'insert')) {
+        throw Exception(
+          "Permission denied: INSERT privilege required on table '${stmt.tableName}' for user '$currentUser'.",
+        );
+      }
+
+      final tName = stmt.tableName.toLowerCase();
+      final schema = db.catalog.getTableSchema(tName);
+      if (schema == null) {
+        throw Exception("Table '$tName' does not exist.");
+      }
+
+      final tableIndexes = db.catalog.getIndexesForTable(tName);
+      final hasComplexIndex = tableIndexes.any((idx) =>
+          idx.usingMethod == 'fts' ||
+          idx.usingMethod == 'hnsw' ||
+          (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivf' ||
+          (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivfflat');
+
+      final canBatch = !schema.isColumnar &&
+          !schema.isForeign &&
+          schema.policies.isEmpty &&
+          !schema.columnCheckExpressions.any((e) => e != null) &&
+          (schema.partitionChildren.isEmpty || schema.partitionByColumn == null) &&
+          !stmt.isReplace &&
+          stmt.updateAssignments == null &&
+          !stmt.onConflictDoNothing &&
+          !schema.hasUniqueOrPrimaryKey &&
+          !schema.hasForeignKeys &&
+          !hasComplexIndex &&
+          db.catalog.getTriggersForTable(tName, 'BEFORE', 'INSERT').isEmpty &&
+          db.catalog.getTriggersForTable(tName, 'AFTER', 'INSERT').isEmpty;
+
+      if (canBatch) {
+        final numCols = schema.columnNames.length;
+        List<int>? colMap;
+        if (stmt.columnNames != null) {
+          colMap = stmt.columnNames!.map((c) {
+            final idx = schema.columnNamesLower.indexOf(c.toLowerCase());
+            if (idx == -1) {
+              throw Exception("Column '$c' not found in table '$tName'.");
+            }
+            return idx;
+          }).toList();
+        }
+
+        final expectedLen = colMap != null ? colMap.length : numCols;
+        final rowsValues = <List<DbValue>>[];
+        final colTypes = schema.columnTypes;
+        final colNames = schema.columnNames;
+
+        for (int r = 0; r < stmt.multiValues!.length; r++) {
+          final rowExprs = stmt.multiValues![r];
+          if (rowExprs.length != expectedLen) {
+            throw Exception(
+              "Column count mismatch. Expected $expectedLen values, found ${rowExprs.length}.",
+            );
+          }
+          final rowValues = List<DbValue>.filled(numCols, DbNull());
+          for (int i = 0; i < rowExprs.length; i++) {
+            final targetColIdx = colMap != null ? colMap[i] : i;
+            final expr = rowExprs[i];
+            DbValue val;
+            if (expr is LiteralExpr) {
+              val = DbValue.parseLiteral(expr.value);
+            } else {
+              val = JitCompiler.compile(expr)(_env);
+            }
+            final expectedType = colTypes[targetColIdx];
+            if (val is! DbNull && val.type != expectedType) {
+              val = _coerceDbValue(val, expectedType, colNames[targetColIdx]);
+            }
+            rowValues[targetColIdx] = val;
+          }
+
+          if (colMap != null) {
+            for (int c = 0; c < numCols; c++) {
+              if (rowValues[c] is DbNull && c < schema.columnDefaultValues.length) {
+                final defaultExpr = schema.columnDefaultValues[c];
+                if (defaultExpr != null) {
+                  rowValues[c] = JitCompiler.compile(defaultExpr)(_env);
+                }
+              }
+            }
+          }
+          rowsValues.add(rowValues);
+        }
+
+        final rowTable = _rowTableCache.putIfAbsent(
+          tName,
+          () => RowTableFile(
+            cache: db.cache,
+            tableName: schema.name,
+            dbDirectory: db.directory,
+          ),
+        );
+
+        final needsPointers = tableIndexes.isNotEmpty;
+        final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
+
+        final pointers = rowTable.insertBatchSync(
+          rowsValues,
+          xmin: currentTxId,
+          generatePointers: needsPointers,
+        );
+
+        final stats = db.catalog.getOrCreateStats(tName);
+        stats.rowCount += rowsValues.length;
+
+        if (needsPointers && pointers != null) {
+          final preparedIndexes = tableIndexes.map((idx) {
+            final indexName = _indexFileNameCache.putIfAbsent(
+              idx,
+              () => idx.name.toLowerCase(),
+            );
+            final cols = idx.columnName.split(',');
+            final cIndexes = cols.map((col) {
+              final colClean = col.trim().toLowerCase();
+              return schema.columnNamesLower.indexOf(colClean);
+            }).toList();
+            return (
+              indexName: indexName,
+              columnName: idx.columnName,
+              colIndexes: cIndexes,
+            );
+          }).toList();
+
+          for (int r = 0; r < rowsValues.length; r++) {
+            final rowValues = rowsValues[r];
+            final pointer = pointers[r];
+            for (final pIdx in preparedIndexes) {
+              final compositeKey = List<double>.filled(pIdx.colIndexes.length, 0.0);
+              bool hasAllKeys = true;
+              for (int i = 0; i < pIdx.colIndexes.length; i++) {
+                final cIdx = pIdx.colIndexes[i];
+                if (cIdx == -1) {
+                  hasAllKeys = false;
+                  break;
+                }
+                final keyVal = rowValues[cIdx];
+                double? dKey;
+                if (keyVal is DbInt) {
+                  dKey = keyVal.value.toDouble();
+                } else if (keyVal is DbDouble) {
+                  dKey = keyVal.value;
+                } else if (keyVal is DbText) {
+                  final parsed = double.tryParse(keyVal.value);
+                  if (parsed != null) {
+                    dKey = parsed;
+                  } else {
+                    double hash = 0.0;
+                    for (int j = 0; j < keyVal.value.length; j++) {
+                      hash = (hash * 31.0 + keyVal.value.codeUnitAt(j)) % 9007199254740991;
+                    }
+                    dKey = hash;
+                  }
+                }
+                if (dKey == null) {
+                  hasAllKeys = false;
+                  break;
+                }
+                compositeKey[i] = dKey;
+              }
+              if (hasAllKeys) {
+                _delayedIndexUpdates.add(
+                  _IndexUpdate(
+                    indexName: pIdx.indexName,
+                    tableName: tName,
+                    columnName: pIdx.columnName.toLowerCase(),
+                    key: compositeKey,
+                    pageId: pointer.pageId,
+                    slotId: pointer.slotId,
+                  ),
+                );
+              }
+            }
+          }
+          _flushDelayedIndexUpdates();
+        }
+
+        db.notifyTableMutated(tName);
+
+        return QueryResult(
+          columns: [],
+          rows: [],
+          message: "${rowsValues.length} rows inserted into table '${stmt.tableName}'.",
+        );
+      }
+
       int insertedCount = 0;
       for (final rowExprs in stmt.multiValues!) {
         final singleInsert = InsertStmt(
@@ -3664,6 +4166,25 @@ END;
     final colName = stmt.columnName.toLowerCase();
 
     if (db.catalog.hasIndex(indexName)) {
+      final existing = db.catalog.getIndex(indexName);
+      if (existing != null &&
+          existing.tableName.toLowerCase() == tableName &&
+          existing.columnName.toLowerCase() == colName) {
+        db.catalog.addIndex(
+          IndexSchema(
+            name: stmt.name,
+            tableName: stmt.tableName,
+            columnName: stmt.columnName,
+            usingMethod: stmt.usingMethod,
+          ),
+          saveToFile: true,
+        );
+        return QueryResult(
+          columns: [],
+          rows: [],
+          message: "Index '$indexName' created successfully.",
+        );
+      }
       if (stmt.ifNotExists) {
         return QueryResult(
           columns: [],
@@ -3709,6 +4230,8 @@ END;
     );
     db.catalog.addIndex(idxSchema, saveToFile: true);
 
+    _flushActiveTablePages();
+
     if (method == 'ivf' || method == 'ivfflat') {
       final indexFile = '${db.directory}/$indexName.ivf_flat';
       final ivf = IvfFlatIndex(indexPath: indexFile, autoSave: false);
@@ -3721,8 +4244,7 @@ END;
           schema: schema,
         );
         final colFilePath = colTable.getColumnFilePath(colIdx);
-        final pager = db.cache.getOrCreatePager(colFilePath);
-        final pageCount = pager.getPageCountSync();
+        final pageCount = db.cache.getActualPageCountSync(colFilePath);
         for (int pageId = 0; pageId < pageCount; pageId++) {
           final page = db.cache.pinPageSync(colFilePath, pageId);
           final byteData = page.byteData;
@@ -3759,8 +4281,7 @@ END;
           schema: schema,
         );
         final colFilePath = colTable.getColumnFilePath(colIdx);
-        final pager = db.cache.getOrCreatePager(colFilePath);
-        final pageCount = pager.getPageCountSync();
+        final pageCount = db.cache.getActualPageCountSync(colFilePath);
         for (int pageId = 0; pageId < pageCount; pageId++) {
           final page = db.cache.pinPageSync(colFilePath, pageId);
           final byteData = page.byteData;
@@ -3787,8 +4308,7 @@ END;
           tableName: schema.name,
           dbDirectory: db.directory,
         );
-        final pager = db.cache.getOrCreatePager(rowTable.filePath);
-        final pageCount = pager.getPageCountSync();
+        final pageCount = db.cache.getActualPageCountSync(rowTable.filePath);
         for (int pageId = 0; pageId < pageCount; pageId++) {
           final page = db.cache.pinPageSync(rowTable.filePath, pageId);
           final byteData = page.byteData;
@@ -3835,8 +4355,7 @@ END;
       tableName: schema.name,
       dbDirectory: db.directory,
     );
-    final pager = db.cache.getOrCreatePager(rowTable.filePath);
-    final pageCount = pager.getPageCountSync();
+    final pageCount = db.cache.getActualPageCountSync(rowTable.filePath);
 
     final K = indexCols.length;
 
@@ -4299,13 +4818,13 @@ END;
       }
       _flushDelayedIndexUpdates();
       _flushActiveTablePages();
-      if (!wasTxActive) {
+      if (!wasTxActive && db.cache.isTransactionActive) {
         db.cache.commitTransaction();
       }
     } catch (e) {
       _delayedIndexUpdates.clear();
       _flushActiveTablePages();
-      if (!wasTxActive) {
+      if (!wasTxActive && db.cache.isTransactionActive) {
         db.cache.rollbackTransactionSync(db.catalog);
       } else if (autoSp != null) {
         db.cache.rollbackToSavepoint(autoSp, db.catalog);

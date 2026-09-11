@@ -122,35 +122,65 @@ class RestServer {
         return;
       }
 
-      final tableName = segments[0].toLowerCase();
+      String tableName;
+      if (segments[0].toLowerCase() == 'tables' && segments.length >= 2) {
+        tableName = segments[1].toLowerCase();
+      } else if (segments[0].toLowerCase() == 'batch' && segments.length >= 2) {
+        tableName = segments[1].toLowerCase();
+      } else {
+        tableName = segments[0].toLowerCase();
+      }
 
-      if (method == 'POST' && !db.catalog.tables.containsKey(tableName)) {
+      if (method == 'POST') {
         final content = await utf8.decoder.bind(request).join();
-        final body = jsonDecode(content);
-        if (body is Map<String, dynamic>) {
-          final colDefs = body.entries
-              .map((e) {
-                final val = e.value;
-                if (val is int) return '${e.key} INT';
-                if (val is double) return '${e.key} DOUBLE';
-                if (val is bool) return '${e.key} BOOLEAN';
-                return '${e.key} TEXT';
-              })
-              .join(', ');
-          await _interpreter.executeScript(
-            "CREATE TABLE IF NOT EXISTS $tableName ($colDefs)",
-          );
+        final dynamic body = jsonDecode(content);
 
-          final cols = body.keys.join(', ');
-          final vals = body.values
-              .map((v) => v is String ? "'$v'" : v.toString())
-              .join(', ');
-          final res = await _interpreter.executeScript(
-            "INSERT INTO $tableName ($cols) VALUES ($vals)",
-          );
+        if (body is List) {
+          final records = <Map<String, dynamic>>[];
+          for (final item in body) {
+            if (item is Map) {
+              records.add(Map<String, dynamic>.from(item));
+            }
+          }
+          final res = db.insertBatchRecordsSync(tableName, records);
           request.response.statusCode = HttpStatus.created;
           request.response.headers.contentType = ContentType.json;
-          request.response.write(jsonEncode({'message': res.message}));
+          request.response.write(
+            jsonEncode({
+              'status': 'ok',
+              'count': records.length,
+              'message': res.message.isNotEmpty
+                  ? res.message
+                  : 'Inserted ${records.length} records into $tableName successfully',
+            }),
+          );
+          await request.response.close();
+          return;
+        } else if (body is Map) {
+          final record = Map<String, dynamic>.from(body);
+          final res = db.insertBatchRecordsSync(tableName, [record]);
+          request.response.statusCode = HttpStatus.created;
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'status': 'ok',
+              'count': 1,
+              'message': res.message.isNotEmpty
+                  ? res.message
+                  : 'Record inserted successfully',
+            }),
+          );
+          await request.response.close();
+          return;
+        } else {
+          request.response.statusCode = HttpStatus.badRequest;
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'error':
+                  'Invalid JSON payload. Expected JSON object or array of objects.',
+            }),
+          );
           await request.response.close();
           return;
         }
@@ -182,26 +212,6 @@ class RestServer {
             'rows': jsonRows,
           }),
         );
-      } else if (method == 'POST') {
-        final content = await utf8.decoder.bind(request).join();
-        final body = jsonDecode(content);
-        if (body is Map<String, dynamic>) {
-          final cols = body.keys.join(', ');
-          final vals = body.values
-              .map((v) => v is String ? "'$v'" : v.toString())
-              .join(', ');
-          final res = await _interpreter.executeScript(
-            "INSERT INTO $tableName ($cols) VALUES ($vals)",
-          );
-          request.response.statusCode = HttpStatus.created;
-          request.response.headers.contentType = ContentType.json;
-          request.response.write(jsonEncode({'message': res.message}));
-        } else {
-          request.response.statusCode = HttpStatus.badRequest;
-          request.response.write(
-            jsonEncode({'error': 'Invalid JSON object payload.'}),
-          );
-        }
       } else if (method == 'DELETE') {
         final res = await _interpreter.executeScript(
           "TRUNCATE TABLE $tableName",

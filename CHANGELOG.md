@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.21
+
+- **First-Class Public Batch Ingestion ("Made Real")**:
+  - Added public `insertBatch` & `insertBatchRecords` (synchronous and asynchronous) directly to `UltSqlEngine`, `Database`, and `Interpreter` with automatic type coercion, slotted page formatting, B+ Tree indexing, and catalog statistics synchronization.
+  - Implemented high-speed batch REST daemon endpoints (`POST /:table/batch`, `POST /:table` array payloads) for web and remote clients.
+  - Added interactive `.import <file.csv|file.json> <table_name>` command in CLI and standalone command-line import utility (`ultsql import`).
+  - Added official `insert_batch` / `insertBatch` across Python, Node.js, Go, and Rust SDKs.
+- **Engine Bug Fixes & Optimization**:
+  - **B+ Tree Duplicate Key Navigation**: Corrected internal node binary search branching (`>=` instead of `<=`) ensuring range lookups traverse from the leftmost duplicate key leaf across sibling pointers without skipping records.
+  - **PL/SQL Nested Transaction Leak**: Fixed uncommitted transaction leaks in procedural execution blocks, restoring sub-10ms fast count index scans.
+  - **In-Memory B+ Tree Page Addressing**: Fixed in-memory B+ Tree index page count resolution to use the page cache rather than empty disk files.
+- **Transparent Empirical Benchmarks & Documentation**:
+  - Removed outdated synthetic memory buffer claims across all repository READMEs, scorecards, and benchmark reports.
+  - Documented empirical benchmarks: ~350K–500K+ rows/sec public batch ingestion, ~140K–195K rows/sec SQL multi-row batch, ~170K–230K rows/sec PL/SQL loops, ~60K–75K rows/sec single SQL statements.
+  - Added automated public batch front-door test suite (`test/public_batch_frontdoor_test.dart`) verifying query findability and point lookup correctness.
+
 ## 1.0.20
 
 - **Audit Remediation & Hardening**:

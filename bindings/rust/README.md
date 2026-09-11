@@ -10,7 +10,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ultsql = "1.0.19"
+ultsql = "1.0.21"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```
@@ -40,12 +40,12 @@ use serde_json::json;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = UltSqlClient::new("http://localhost:8080");
 
-    // 1. Insert record
-    client.insert("users", &json!({
-        "id": 1,
-        "name": "Alice",
-        "score": 98.5
-    })).await?;
+    // 1. High-speed batch ingestion
+    client.insert_batch("users", &[
+        json!({"id": 1, "name": "Alice", "score": 98.5}),
+        json!({"id": 2, "name": "Bob", "score": 92.0}),
+        json!({"id": 3, "name": "Charlie", "score": 89.0}),
+    ]).await?;
 
     // 2. Query records
     let result = client.query("SELECT * FROM users WHERE score >= 90.0;").await?;

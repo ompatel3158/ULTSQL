@@ -1208,6 +1208,16 @@ class GroupByNode extends PlanNode {
                             .toString()
                             .contains('*'))));
         if (isCountAll) {
+          if (child is IndexScanNode) {
+            final fast = (child as IndexScanNode).getFastCount();
+            if (fast != null) {
+              final aliasStr = projections[0].alias ?? 'COUNT(*)';
+              _aggregatedRows = [
+                {aliasStr: DbInt(fast)},
+              ];
+              return;
+            }
+          }
           int count = 0;
           while (true) {
             final row = child.next();

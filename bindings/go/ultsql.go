@@ -83,7 +83,7 @@ func (c *Client) Insert(ctx context.Context, tableName string, record map[string
 		return nil, fmt.Errorf("failed to encode record: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/tables/%s/insert", c.baseURL, tableName), bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/%s", c.baseURL, tableName), bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
@@ -103,6 +103,38 @@ func (c *Client) Insert(ctx context.Context, tableName string, record map[string
 	var res QueryResult
 	if err := json.Unmarshal(body, &res); err != nil {
 		return nil, fmt.Errorf("failed to parse insert response: %w", err)
+	}
+
+	return &res, nil
+}
+
+// InsertBatch inserts a batch of records into the target table with high-throughput batch ingestion.
+func (c *Client) InsertBatch(ctx context.Context, tableName string, records []map[string]interface{}) (*QueryResult, error) {
+	reqBody, err := json.Marshal(records)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode records: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/%s/batch", c.baseURL, tableName), bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create http request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to batch insert records into UltSQL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var res QueryResult
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse batch insert response: %w", err)
 	}
 
 	return &res, nil

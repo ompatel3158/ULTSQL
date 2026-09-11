@@ -36,14 +36,21 @@ from ultsql import UltSQLClient
 # Connect to ULTSQL
 db = UltSQLClient("http://localhost:8080")
 
-# 1. Insert records
-db.insert("users", {"id": 1, "name": "Alice", "score": 98.5})
+# 1. High-speed batch ingestion (slotted pages & B+Tree indexed)
+db.insert_batch("users", [
+    {"id": 1, "name": "Alice", "score": 98.5},
+    {"id": 2, "name": "Bob", "score": 91.2},
+    {"id": 3, "name": "Charlie", "score": 87.0},
+])
 
-# 2. Query records
+# 2. Single record insert
+db.insert("users", {"id": 4, "name": "Diana", "score": 95.0})
+
+# 3. Query records
 users = db.query("users")
 print("User rows:", users["rows"])
 
-# 3. Truncate table
+# 4. Truncate table
 db.truncate("users")
 ```
 
@@ -72,5 +79,6 @@ print("Postgres Client Rows:", rows)
 
 - **Do I need to install Dart or Flutter?**  
   **No!** Python developers only need Python and `pip`.
-- **Can I run ULTSQL without any background server app?**  
-  **Yes!** ULTSQL bundles precompiled dynamic C libraries (`libultsql.so` on Linux, `ultsql.dll` on Windows, `libultsql.dylib` on macOS) so the database engine can run directly inside Python process memory just like SQLite.
+- **How do I run the UltSQL database?**  
+  Use the 1-line auto-installer to install the standalone `ultsql` executable on Windows, Linux, or macOS. Then simply run `ultsql serve` to start the daemon, or use `ultsql import data.csv users` for direct batch ingestion.
+

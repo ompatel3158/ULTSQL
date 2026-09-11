@@ -27,6 +27,14 @@ class UltSQLClient:
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read().decode('utf-8'))
 
+    def insert_batch(self, table_name, records):
+        """High-throughput batch insert of multiple records into a table."""
+        url = f"{self.host}/{table_name}/batch"
+        payload = json.dumps(records).encode('utf-8')
+        req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+
     def truncate(self, table_name):
         """Truncate a table."""
         url = f"{self.host}/{table_name}"

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:ultsql/ultsql.dart';
 
@@ -6,6 +7,41 @@ void main(List<String> args) async {
   String? passphrase;
 
   if (args.isNotEmpty) {
+    if (args[0] == 'import') {
+      if (args.length < 3) {
+        print(
+          'Usage: ultsql import <file.csv|file.json> <table_name> [--db <db_path>] [--password <passphrase>]',
+        );
+        exit(1);
+      }
+      final filePath = args[1];
+      final tableName = args[2];
+      String dbPath = './ultsql_data';
+      for (int i = 3; i < args.length; i++) {
+        if (args[i] == '--db' && i + 1 < args.length) {
+          dbPath = args[i + 1];
+        } else if (args[i].startsWith('--db=')) {
+          dbPath = args[i].substring(5);
+        } else if ((args[i] == '--password' ||
+                args[i] == '--passphrase' ||
+                args[i] == '--key') &&
+            i + 1 < args.length) {
+          passphrase = args[i + 1];
+          i++;
+        } else if (args[i].startsWith('--password=')) {
+          passphrase = args[i].substring(11);
+        } else if (args[i].startsWith('--passphrase=')) {
+          passphrase = args[i].substring(13);
+        } else if (args[i].startsWith('--key=')) {
+          passphrase = args[i].substring(6);
+        }
+      }
+      final db = Database(dbPath, passphrase: passphrase);
+      await db.init();
+      await _handleImport(db, filePath, tableName);
+      await db.close();
+      return;
+    }
     if (args[0] == 'serve') {
       int port = 8080;
       String dbPath = './ultsql_data';
@@ -38,7 +74,7 @@ void main(List<String> args) async {
       final boundPort = await restServer.start(autoPort: true);
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.20)');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.21)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (passphrase != null) {
@@ -64,7 +100,7 @@ void main(List<String> args) async {
         _printHelp();
         exit(0);
       } else if (arg == '--version' || arg == '-v') {
-        print('UltSQL CLI v1.0.20');
+        print('UltSQL CLI v1.0.21');
         exit(0);
       } else if ((arg == '--password' ||
           arg == '--passphrase' ||
@@ -85,7 +121,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.20)');
+  print('🚀 UltSQL Interactive Command Line Terminal (v1.0.21)');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
   if (passphrase != null) {
@@ -137,6 +173,9 @@ void main(List<String> args) async {
         continue;
       } else if (trimmed == '.databases') {
         print('Main database: $dbTarget\n');
+        continue;
+      } else if (trimmed.startsWith('.import')) {
+        await _handleCliImportCommand(db, trimmed);
         continue;
       } else {
         print(
@@ -277,11 +316,110 @@ void _printResultTable(List<String> columns, List<List<DbValue>> rows) {
   print(border);
 }
 
+Future<void> _handleCliImportCommand(Database db, String cmd) async {
+  final parts = cmd.split(' ').where((s) => s.isNotEmpty).toList();
+  if (parts.length < 3) {
+    print('Usage: .import <file.csv|file.json> <table_name>\n');
+    return;
+  }
+  final filePath = parts[1];
+  final tableName = parts[2];
+  await _handleImport(db, filePath, tableName);
+}
+
+Future<void> _handleImport(Database db, String filePath, String tableName) async {
+  final file = File(filePath);
+  if (!await file.exists()) {
+    print('❌ Error: File "$filePath" does not exist.\n');
+    return;
+  }
+
+  print('⚡ Ingesting "$filePath" into table "$tableName" via high-speed batch path...');
+  final sw = Stopwatch()..start();
+
+  try {
+    int count = 0;
+    if (filePath.toLowerCase().endsWith('.json')) {
+      final content = await file.readAsString();
+      final dynamic decoded = jsonDecode(content);
+      if (decoded is List) {
+        final records = decoded
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+        db.insertBatchRecordsSync(tableName, records);
+        count = records.length;
+      } else {
+        print('❌ Error: JSON file must contain an array of objects.\n');
+        return;
+      }
+    } else {
+      // Default to CSV
+      final lines = await file.readAsLines();
+      if (lines.isEmpty) {
+        print('❌ Error: CSV file is empty.\n');
+        return;
+      }
+      final headers = lines[0].split(',').map((h) => h.trim()).toList();
+      final records = <Map<String, dynamic>>[];
+      for (int i = 1; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+        final parts = line.split(',');
+        final map = <String, dynamic>{};
+        for (int c = 0; c < headers.length && c < parts.length; c++) {
+          final raw = parts[c].trim();
+          final intVal = int.tryParse(raw);
+          if (intVal != null) {
+            map[headers[c]] = intVal;
+          } else {
+            final doubleVal = double.tryParse(raw);
+            if (doubleVal != null) {
+              map[headers[c]] = doubleVal;
+            } else if (raw.toLowerCase() == 'true') {
+              map[headers[c]] = true;
+            } else if (raw.toLowerCase() == 'false') {
+              map[headers[c]] = false;
+            } else {
+              if (raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) {
+                map[headers[c]] = raw.substring(1, raw.length - 1);
+              } else {
+                map[headers[c]] = raw;
+              }
+            }
+          }
+        }
+        records.add(map);
+      }
+      db.insertBatchRecordsSync(tableName, records);
+      count = records.length;
+    }
+    sw.stop();
+    final elapsedMs = sw.elapsedMicroseconds / 1000.0;
+    final rate = count > 0 && elapsedMs > 0
+        ? (count / (elapsedMs / 1000.0)).toStringAsFixed(0)
+        : '0';
+    print(
+      '✔ Successfully imported $count rows into "$tableName" in ${elapsedMs.toStringAsFixed(2)} ms ($rate rows/sec).',
+    );
+
+    // Verify findability
+    final stats = db.catalog.getOrCreateStats(tableName);
+    print(
+      '✔ Verified table "$tableName": ${stats.rowCount} total rows registered and indexed.\n',
+    );
+  } catch (e) {
+    sw.stop();
+    print('❌ Import failed: $e\n');
+  }
+}
+
 void _printHelp() {
   print('''
 UltSQL CLI Usage:
   ultsql [database_file] [--password <passphrase>]
   ultsql serve [--port=8080] [--db=./ultsql_data] [--password <passphrase>]
+  ultsql import <file.csv|file.json> <table_name> [--db <db_path>]
 
 Options:
   --password, --key <pass>  Passphrase for AES-256-CTR database encryption
@@ -295,6 +433,7 @@ Examples:
   ultsql my_data.db                     # Open disk database
   ultsql my_data.db --password secret   # Open encrypted database
   ultsql serve --port=8081              # Start REST daemon
+  ultsql import data.csv users          # Batch import CSV into users table
 ''');
 }
 
@@ -304,6 +443,8 @@ Meta Commands:
   .tables              List all tables in active database
   .schema <table_name> Display columns & types for a table
   .databases           Show active database file path
+  .import <file> <tab> High-speed batch import from CSV or JSON file
+  .pgwire [port]       Start PostgreSQL Wire Protocol daemon (default: 5432)
   .help                Show this help menu
   .exit                Exit UltSQL CLI
 ''');

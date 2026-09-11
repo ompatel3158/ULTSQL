@@ -36,10 +36,17 @@ const { UltSQLClient } = require('ultsql');
 const db = new UltSQLClient({ host: 'localhost', port: 8080 });
 
 async function main() {
-  // 1. Insert record
-  await db.insert('users', { id: 1, name: 'Alice', score: 95.5 });
+  // 1. High-speed batch ingestion (slotted pages & B+Tree indexed)
+  await db.insertBatch('users', [
+    { id: 1, name: 'Alice', score: 95.5 },
+    { id: 2, name: 'Bob', score: 88.0 },
+    { id: 3, name: 'Charlie', score: 92.3 }
+  ]);
 
-  // 2. Query records
+  // 2. Single record insert
+  await db.insert('users', { id: 4, name: 'Diana', score: 99.0 });
+
+  // 3. Query records
   const result = await db.query('users');
   console.log('Users:', result.rows);
 }

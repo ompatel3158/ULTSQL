@@ -66,8 +66,7 @@ class BTreeIndex {
   }
 
   void initSync() {
-    final pager = cache.getOrCreatePager(indexPath);
-    final count = pager.getPageCountSync();
+    final count = cache.getActualPageCountSync(indexPath);
     if (count == 0) {
       // Initialize root leaf page
       final page = cache.pinPageSync(indexPath, 0);
@@ -236,7 +235,7 @@ class BTreeIndex {
         return null;
       } else {
         // Find child node to traverse
-        int idx = _binarySearch(page, key, keyCount);
+        int idx = _binarySearchInternal(page, key, keyCount);
         final childPageId = page.byteData.getInt32(pageIdOffset + idx * 4);
         cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
         currentPageId = childPageId;
@@ -254,7 +253,7 @@ class BTreeIndex {
         return currentPageId;
       }
       final keyCount = page.byteData.getUint16(2);
-      int idx = _binarySearch(page, key, keyCount);
+      int idx = _binarySearchInternal(page, key, keyCount);
       final childPageId = page.byteData.getInt32(pageIdOffset + idx * 4);
       cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
       currentPageId = childPageId;
@@ -348,8 +347,23 @@ class BTreeIndex {
       final tableStats = activeInterpreter.db.catalog.getOrCreateStats(
         tableName,
       );
-      if (tableStats.rowCount > 0) {
+      if (tableStats.rowCount > 0 && low == null && high == null) {
         return tableStats.rowCount;
+      }
+      if (tableStats.rowCount > 0 &&
+          low != null &&
+          high != null &&
+          low.length == 1 &&
+          high.length == 1 &&
+          low[0] == high[0]) {
+        for (final cs in tableStats.columnStats.values) {
+          if (cs.min != null &&
+              cs.max != null &&
+              cs.min == low[0] &&
+              cs.max == low[0]) {
+            return tableStats.rowCount;
+          }
+        }
       }
     }
 
@@ -472,8 +486,7 @@ class BTreeIndex {
       );
       if (!success) {
         // Split root leaf
-        final pager = cache.getOrCreatePager(indexPath);
-        final newPageId = pager.getPageCountSync();
+        final newPageId = cache.getActualPageCountSync(indexPath);
         final newPage = cache.pinPageSync(indexPath, newPageId);
 
         // Initialize new leaf
@@ -515,7 +528,7 @@ class BTreeIndex {
         }
 
         // Create new root internal node
-        final newRootPageId = newPageId + 1;
+        final newRootPageId = cache.getActualPageCountSync(indexPath);
         final newRootPage = cache.pinPageSync(indexPath, newRootPageId);
         newRootPage.byteData.setUint8(0, 2);
         newRootPage.byteData.setUint8(1, 0); // isLeaf = 0
@@ -564,8 +577,7 @@ class BTreeIndex {
       }
 
       // Split leaf
-      final pager = cache.getOrCreatePager(indexPath);
-      final newPageId = pager.getPageCountSync();
+      final newPageId = cache.getActualPageCountSync(indexPath);
       final newPage = cache.pinPageSync(indexPath, newPageId);
 
       newPage.byteData.setUint8(0, 2);
@@ -605,7 +617,7 @@ class BTreeIndex {
       _rightmostLeafPageId = newPageId;
       return BTreeSplitResult(splitKey, newPageId);
     } else {
-      int idx = _binarySearch(page, key, keyCount);
+      int idx = _binarySearchInternal(page, key, keyCount);
       final childPageId = page.byteData.getInt32(pageIdOffset + idx * 4);
       cache.unpinPageSync(indexPath, pageId, isDirty: false);
 
@@ -630,8 +642,7 @@ class BTreeIndex {
       }
 
       // Split internal node
-      final pager = cache.getOrCreatePager(indexPath);
-      final newPageId = pager.getPageCountSync();
+      final newPageId = cache.getActualPageCountSync(indexPath);
       final newPage = cache.pinPageSync(indexPath, newPageId);
 
       newPage.byteData.setUint8(0, 2);
@@ -674,7 +685,7 @@ class BTreeIndex {
 
       // If we are splitting the root, create a new root
       if (pageId == _rootPageId) {
-        final newRootPageId = newPageId + 1;
+        final newRootPageId = cache.getActualPageCountSync(indexPath);
         final newRootPage = cache.pinPageSync(indexPath, newRootPageId);
         newRootPage.byteData.setUint8(0, 2);
         newRootPage.byteData.setUint8(1, 0);
@@ -768,6 +779,37 @@ class BTreeIndex {
         low = mid + 1;
       } else {
         high = mid - 1;
+      }
+    }
+    return low;
+  }
+
+  int _binarySearchInternal(Page page, dynamic key, int count) {
+    if (keyColumns == 1) {
+      final double searchVal = key is double ? key : (key as List<double>)[0];
+      int low = 0;
+      int high = count - 1;
+      while (low <= high) {
+        int mid = (low + high) ~/ 2;
+        final midVal = page.byteData.getFloat64(4 + mid * 8);
+        if (midVal >= searchVal) {
+          high = mid - 1;
+        } else {
+          low = mid + 1;
+        }
+      }
+      return low;
+    }
+
+    int low = 0;
+    int high = count - 1;
+    while (low <= high) {
+      int mid = (low + high) ~/ 2;
+      List<double> midKey = _getKey(page, mid);
+      if (_compareKeys(midKey, key) >= 0) {
+        high = mid - 1;
+      } else {
+        low = mid + 1;
       }
     }
     return low;
@@ -939,8 +981,7 @@ class BTreeIndex {
     final leafPageId = path.last;
     final leafPage = cache.pinPageSync(indexPath, leafPageId);
 
-    final pager = cache.getOrCreatePager(indexPath);
-    final newLeafPageId = pager.getPageCountSync();
+    final newLeafPageId = cache.getActualPageCountSync(indexPath);
     final newLeafPage = cache.pinPageSync(indexPath, newLeafPageId);
 
     newLeafPage.byteData.setUint8(0, 2);
@@ -979,6 +1020,7 @@ class BTreeIndex {
     cache.unpinPageSync(indexPath, leafPageId, isDirty: true);
     cache.unpinPageSync(indexPath, newLeafPageId, isDirty: true);
 
+    _rightmostLeafPageId = newLeafPageId;
     _propagateSplitUp(path, path.length - 1, splitKey, newLeafPageId);
   }
 
@@ -1033,8 +1075,7 @@ class BTreeIndex {
   ) {
     if (pathIndex == 0) {
       final rootPageId = path[0];
-      final pager = cache.getOrCreatePager(indexPath);
-      final newRootPageId = pager.getPageCountSync();
+      final newRootPageId = cache.getActualPageCountSync(indexPath);
       final newRootPage = cache.pinPageSync(indexPath, newRootPageId);
 
       newRootPage.byteData.setUint8(0, 2);
@@ -1063,8 +1104,7 @@ class BTreeIndex {
       cache.unpinPageSync(indexPath, parentPageId, isDirty: true);
       path[pathIndex] = newPageId;
     } else {
-      final pager = cache.getOrCreatePager(indexPath);
-      final newParentPageId = pager.getPageCountSync();
+      final newParentPageId = cache.getActualPageCountSync(indexPath);
       final newParentPage = cache.pinPageSync(indexPath, newParentPageId);
 
       newParentPage.byteData.setUint8(0, 2);

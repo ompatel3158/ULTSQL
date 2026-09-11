@@ -43,6 +43,29 @@ class UltSQLClient {
     });
   }
 
+  insertBatch(tableName, recordsArray) {
+    return new Promise((resolve, reject) => {
+      const payload = JSON.stringify(recordsArray);
+      const req = http.request({
+        hostname: this.host,
+        port: this.port,
+        path: `/${tableName}/batch`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      });
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+  }
+
   truncate(tableName) {
     return new Promise((resolve, reject) => {
       const req = http.request({

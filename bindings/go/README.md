@@ -41,14 +41,14 @@ import (
 func main() {
 	client := ultsql.NewClient("http://localhost:8080")
 
-	// 1. Insert record
-	_, err := client.Insert(context.Background(), "users", map[string]interface{}{
-		"id":    1,
-		"name":  "Alice",
-		"score": 98.5,
+	// 1. High-speed batch ingestion
+	_, err := client.InsertBatch(context.Background(), "users", []map[string]interface{}{
+		{"id": 1, "name": "Alice", "score": 98.5},
+		{"id": 2, "name": "Bob", "score": 91.0},
+		{"id": 3, "name": "Charlie", "score": 88.5},
 	})
 	if err != nil {
-		log.Fatalf("Insert failed: %v", err)
+		log.Fatalf("InsertBatch failed: %v", err)
 	}
 
 	// 2. Query record

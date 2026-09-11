@@ -708,8 +708,14 @@ class QueryPlanner {
             final pageCount = pager.getPageCountSync();
             final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
 
+            final isMemory = rowTableFile.filePath.startsWith(':memory:') ||
+                cache.dbDirectory == null ||
+                cache.dbDirectory == ':memory:' ||
+                identical(0, 0.0);
+
             // If table is large and not inside an active transaction, run in parallel using workers
-            if (pageCount > 50 &&
+            if (!isMemory &&
+                pageCount > 50 &&
                 !cache.isTransactionActive &&
                 stmt.join == null &&
                 stmt.withRelationship == null) {

@@ -52,6 +52,55 @@ class UltSqlEngine {
     return EngineQueryResult(res);
   }
 
+  /// High-throughput structured batch insert through the public engine API.
+  ///
+  /// Ingests rows into [tableName] with automatic type coercion, slotted-page
+  /// packing, B+ Tree index pointer generation, and catalog statistics synchronization.
+  Future<EngineQueryResult> insertBatch(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columns,
+  }) async {
+    final res = await _interpreter.insertBatch(
+      tableName,
+      rows,
+      columnNames: columns,
+    );
+    return EngineQueryResult(res);
+  }
+
+  /// Synchronous high-throughput structured batch insert through the public engine API.
+  EngineQueryResult insertBatchSync(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columns,
+  }) {
+    final res = _interpreter.insertBatchSync(
+      tableName,
+      rows,
+      columnNames: columns,
+    );
+    return EngineQueryResult(res);
+  }
+
+  /// High-throughput structured batch insert of record maps through the public engine API.
+  Future<EngineQueryResult> insertBatchRecords(
+    String tableName,
+    List<Map<String, dynamic>> records,
+  ) async {
+    final res = await _interpreter.insertBatchRecords(tableName, records);
+    return EngineQueryResult(res);
+  }
+
+  /// Synchronous high-throughput structured batch insert of record maps through the public engine API.
+  EngineQueryResult insertBatchRecordsSync(
+    String tableName,
+    List<Map<String, dynamic>> records,
+  ) {
+    final res = _interpreter.insertBatchRecordsSync(tableName, records);
+    return EngineQueryResult(res);
+  }
+
   /// Close the database and release all underlying resources.
   Future<void> close() async {
     await stopServer();
