@@ -1,5 +1,5 @@
 ﻿{
-  "version": 2,
+  "outputDirectory": "web_site",
   "cleanUrls": true,
   "routes": [
     { "src": "/docs", "dest": "/docs.html" },
@@ -9,4 +9,3 @@
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }
-

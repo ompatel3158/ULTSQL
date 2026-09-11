@@ -1,26 +1,26 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks</title>
+  <title>UltSQL vs SQLite 3 & DuckDB â€” Verified Performance Benchmarks</title>
   <meta name="description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
   <meta name="keywords" content="ultsql benchmarks, ultsql vs sqlite, ultsql vs duckdb, pure dart database benchmark, vector database speed, batch insert benchmark">
-  <link rel="canonical" href="https://ultsql.vercel.app/benchmarks">
+  <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/benchmarks">
 
   <!-- OPEN GRAPH -->
   <meta property="og:type" content="article">
-  <meta property="og:url" content="https://ultsql.vercel.app/benchmarks">
-  <meta property="og:title" content="UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks">
+  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/benchmarks">
+  <meta property="og:title" content="UltSQL vs SQLite 3 & DuckDB â€” Verified Performance Benchmarks">
   <meta property="og:description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
-  <meta property="og:image" content="https://ultsql.vercel.app/logo.png">
+  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
 
   <!-- TWITTER -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://ultsql.vercel.app/benchmarks">
-  <meta name="twitter:title" content="UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks">
+  <meta name="twitter:url" content="https://ultsql-engine-docs.vercel.app/benchmarks">
+  <meta name="twitter:title" content="UltSQL vs SQLite 3 & DuckDB â€” Verified Performance Benchmarks">
   <meta name="twitter:description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
-  <meta name="twitter:image" content="https://ultsql.vercel.app/logo.png">
+  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
 
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="stylesheet" href="style.css?v=1.0.25">
@@ -46,9 +46,9 @@
       <li><a href="benchmarks.html" class="active">Benchmarks</a></li>
       <li><a href="license.html">License & FAQ</a></li>
       <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">🌙 Dark</button>
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">ðŸŒ™ Dark</button>
       </li>
-      <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">pub.dev / ultsql ↗</a></li>
+      <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">pub.dev / ultsql â†—</a></li>
     </ul>
   </nav>
 
@@ -56,7 +56,7 @@
   <header class="hero" style="padding: 4rem 6% 2rem;">
     <div class="hero-ambient-glow" aria-hidden="true"></div>
     <div class="hero-badge-group">
-      <div class="hero-badge">⚡ Empirical Performance Benchmarks (v1.0.22)</div>
+      <div class="hero-badge">âš¡ Empirical Performance Benchmarks (v1.0.22)</div>
     </div>
     <h1>Performance Benchmarks</h1>
     <p>Measured throughput and latency benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB.</p>
@@ -64,10 +64,10 @@
     <!-- HARDWARE DISCLAIMER NOTICE -->
     <div class="disclaimer-card" style="margin-top: 2rem;">
       <div class="disclaimer-header">
-        <span>ℹ️</span> Tested Benchmark Hardware & Methodology Notice
+        <span>â„¹ï¸</span> Tested Benchmark Hardware & Methodology Notice
       </div>
       <div class="disclaimer-body">
-        Tested throughput reflects public batch API ingestion (<strong>~350,000–500,000+ rows/sec</strong> with slotted page serialization and B+ Tree indexing), disk multi-row batch inserts (<strong>~140,000–195,000 rows/sec</strong>), PL/SQL loops (<strong>~170,000–230,000 rows/sec</strong>), and parsed single SQL statements (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
+        Tested throughput reflects public batch API ingestion (<strong>~350,000â€“500,000+ rows/sec</strong> with slotted page serialization and B+ Tree indexing), disk multi-row batch inserts (<strong>~140,000â€“195,000 rows/sec</strong>), PL/SQL loops (<strong>~170,000â€“230,000 rows/sec</strong>), and parsed single SQL statements (<strong>~60,000â€“75,000 rows/sec</strong>) measured on an 
         <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
         <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
         Actual benchmark speeds may vary higher or lower depending on target hardware, storage controller, and CPU specifications.
@@ -96,7 +96,7 @@
           </tr>
           <tr>
             <td><strong>100,000-Row B+ Tree Index Build</strong></td>
-            <td><span class="speed-badge">~60–130 ms</span></td>
+            <td><span class="speed-badge">~60â€“130 ms</span></td>
             <td>180 ms</td>
             <td><strong>Sub-Second Indexing</strong></td>
           </tr>
@@ -127,7 +127,7 @@
   <footer class="footer">
     <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <strong>ULTSQL Database Engine</strong> â€” Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
       </div>
       <div>
         <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
@@ -141,3 +141,4 @@
   <script src="app.js?v=1.0.25"></script>
 </body>
 </html>
+

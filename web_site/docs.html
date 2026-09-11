@@ -1,26 +1,26 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How to Install & Use UltSQL — Documentation & Commands</title>
+  <title>How to Install & Use UltSQL â€” Documentation & Commands</title>
   <meta name="description" content="Complete documentation, CLI commands, 1-line installation, Python SDK, Node.js SDK, Rust crate, PostgreSQL Wire Protocol, and batch ingestion guide for UltSQL.">
   <meta name="keywords" content="how to install ultsql, ultsql docs, ultsql tutorial, ultsql commands, ultsql python, ultsql nodejs, ultsql rust, ultsql postgres wire">
-  <link rel="canonical" href="https://ultsql.vercel.app/docs">
+  <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/docs">
   
   <!-- OPEN GRAPH -->
   <meta property="og:type" content="article">
-  <meta property="og:url" content="https://ultsql.vercel.app/docs">
-  <meta property="og:title" content="How to Install & Use UltSQL — Documentation & Commands">
+  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/docs">
+  <meta property="og:title" content="How to Install & Use UltSQL â€” Documentation & Commands">
   <meta property="og:description" content="Complete documentation, CLI commands, 1-line installation, Python SDK, Node.js SDK, Rust crate, PostgreSQL Wire Protocol, and batch ingestion guide for UltSQL.">
-  <meta property="og:image" content="https://ultsql.vercel.app/logo.png">
+  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
 
   <!-- TWITTER -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://ultsql.vercel.app/docs">
-  <meta name="twitter:title" content="How to Install & Use UltSQL — Documentation & Commands">
+  <meta name="twitter:url" content="https://ultsql-engine-docs.vercel.app/docs">
+  <meta name="twitter:title" content="How to Install & Use UltSQL â€” Documentation & Commands">
   <meta name="twitter:description" content="Complete documentation, CLI commands, 1-line installation, Python SDK, Node.js SDK, Rust crate, PostgreSQL Wire Protocol, and batch ingestion guide for UltSQL.">
-  <meta name="twitter:image" content="https://ultsql.vercel.app/logo.png">
+  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
 
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="stylesheet" href="style.css?v=1.0.25">
@@ -46,11 +46,11 @@
       <li><a href="benchmarks.html">Benchmarks</a></li>
       <li><a href="license.html">License & FAQ</a></li>
       <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">🌙 Dark</button>
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">ðŸŒ™ Dark</button>
       </li>
       <li>
         <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
-          pub.dev / ultsql ↗
+          pub.dev / ultsql â†—
         </a>
       </li>
     </ul>
@@ -73,7 +73,7 @@
       <div class="pillars-grid">
         <div class="pillar-card">
           <span class="pillar-tag">METHOD A</span>
-          <h3>🖥️ 1-Line CLI Auto-Installer (Windows, Linux, macOS)</h3>
+          <h3>ðŸ–¥ï¸ 1-Line CLI Auto-Installer (Windows, Linux, macOS)</h3>
           <p>No Flutter, Dart, Python, or Node required. Automatically downloads binary and configures your system <code>PATH</code>:</p>
           <div class="code-wrapper">
             <pre><code># Windows (PowerShell)
@@ -81,30 +81,30 @@ iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 
 
 # Linux & macOS (Bash)
 curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
 
         <div class="pillar-card">
           <span class="pillar-tag">METHOD B</span>
-          <h3>🐍 Python `ultsql-server` CLI</h3>
+          <h3>ðŸ Python `ultsql-server` CLI</h3>
           <p>When installed via <code>pip install ultsql</code>, launch the server directly from Python terminal:</p>
           <div class="code-wrapper">
             <pre><code>pip install ultsql
 
 # Start daemon
 ultsql-server --port 8080 --db ./my_database</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
 
         <div class="pillar-card">
           <span class="pillar-tag">METHOD C</span>
-          <h3>🐳 Docker Container</h3>
+          <h3>ðŸ³ Docker Container</h3>
           <p>Run UltSQL in production cloud servers or Kubernetes with zero local installation:</p>
           <div class="code-wrapper">
             <pre><code>docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
       </div>
@@ -184,7 +184,7 @@ print("Rows:", result["rows"])
 # Fetch OpenAPI Specification
 spec = db.openapi_spec()
 print("OpenAPI Title:", spec["info"]["title"])</code></pre>
-        <button class="copy-btn">📋 Copy</button>
+        <button class="copy-btn">ðŸ“‹ Copy</button>
       </div>
     </section>
 
@@ -212,7 +212,7 @@ async function run() {
 }
 
 run();</code></pre>
-        <button class="copy-btn">📋 Copy</button>
+        <button class="copy-btn">ðŸ“‹ Copy</button>
       </div>
     </section>
 
@@ -223,41 +223,41 @@ run();</code></pre>
 
       <div class="pillars-grid">
         <div class="pillar-card">
-          <h3>⚡ Reactive Query Streams (`db.watch()`)</h3>
+          <h3>âš¡ Reactive Query Streams (`db.watch()`)</h3>
           <div class="code-wrapper">
             <pre><code>final stream = db.watch(interpreter, "SELECT * FROM users WHERE active = true");
 stream.listen((result) {
   print("Updated rows: ${result.rows}");
 });</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
 
         <div class="pillar-card">
-          <h3>🔄 SQL Macros (`CREATE MACRO`)</h3>
+          <h3>ðŸ”„ SQL Macros (`CREATE MACRO`)</h3>
           <div class="code-wrapper">
             <pre><code>CREATE MACRO calculate_tax(amount) AS amount * 0.15;
 SELECT id, price, calculate_tax(price) AS tax FROM orders;</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
 
         <div class="pillar-card">
-          <h3>📡 Event Streams (`CREATE STREAM`)</h3>
+          <h3>ðŸ“¡ Event Streams (`CREATE STREAM`)</h3>
           <div class="code-wrapper">
             <pre><code>CREATE STREAM order_events;
 EMIT TO order_events VALUES (101, 'order_placed', NOW());</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
 
         <div class="pillar-card">
-          <h3>🌿 Database Branching (`ultsql branch`)</h3>
+          <h3>ðŸŒ¿ Database Branching (`ultsql branch`)</h3>
           <div class="code-wrapper">
             <pre><code>db.createBranch('feature-dev');
 db.switchBranch('feature-dev');
 db.mergeBranch('feature-dev', 'main');</code></pre>
-            <button class="copy-btn">📋 Copy</button>
+            <button class="copy-btn">ðŸ“‹ Copy</button>
           </div>
         </div>
       </div>
@@ -268,7 +268,7 @@ db.mergeBranch('feature-dev', 'main');</code></pre>
   <footer class="footer">
     <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <strong>ULTSQL Database Engine</strong> â€” Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
       </div>
       <div>
         <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
@@ -280,8 +280,9 @@ db.mergeBranch('feature-dev', 'main');</code></pre>
   </footer>
 
   <!-- TOAST NOTIFICATION -->
-  <div id="toast" class="toast-notification">✅ Copied to clipboard!</div>
+  <div id="toast" class="toast-notification">âœ… Copied to clipboard!</div>
 
   <script src="app.js?v=1.0.25"></script>
 </body>
 </html>
+
