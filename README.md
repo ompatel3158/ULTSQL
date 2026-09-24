@@ -2,18 +2,41 @@
   <img src="assets/logo.svg" width="620" alt="ultsql: three models, one core">
 </p>
 
-# 🚀 ULTSQL — Ultra-High Performance Converged Multimodal Database Engine
+# ⚡ ULTSQL — Converged Multimodal Database Engine
 
 [![pub package](https://img.shields.io/pub/v/ultsql.svg)](https://pub.dev/packages/ultsql)
 [![Dart SDK](https://img.shields.io/badge/Dart-3.4+-0175C2.svg?logo=dart)](https://dart.dev)
 [![Flutter](https://img.shields.io/badge/Flutter-3.22+-02569B.svg?logo=flutter)](https://flutter.dev)
-[![License](https://img.shields.io/badge/License-Source_Available_v1.0-blue.svg)](LICENSE)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](LICENSE)
 [![License FAQ](https://img.shields.io/badge/License-FAQ-green.svg)](LICENSE-FAQ.md)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ompatel3158/ULTSQL/test.yml?branch=main&label=build)](https://github.com/ompatel3158/ULTSQL/actions)
 
-📦 **Package**: [ultsql | Flutter package](https://pub.dev/packages/ultsql)
+📦 **Package**: [ultsql | pub.dev](https://pub.dev/packages/ultsql)  
+📬 **ULTSQL Cloud / Managed Service**: [Join the Waitlist](https://forms.gle/ultsql-waitlist)
 
-**UltSQL** is a ground-up, zero-dependency, 4-in-1 converged database engine written in 100% pure Dart. It seamlessly combines **Relational SQL**, **PL/SQL Procedural Execution**, **NoSQL Dotted-Path Document Querying**, and **AI-Native Vector RAG Search** into a single, high-throughput storage model with zero native C dependencies or unsafe memory pointers.
+**ULTSQL** is a 4-in-1 converged database engine written in 100% pure Dart with **zero native C/C++ dependencies**. It integrates **Relational SQL**, **PL/SQL Procedural Scripting**, **NoSQL Dotted-Path Document Querying**, and **AI-Native Vector RAG Search** into a single storage engine with memory safety and cross-platform portability.
+
+---
+
+## ⚡ 5-Line Quickstart
+
+```dart
+import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  final db = Database('./app_data.db');
+  await db.init();
+  final interpreter = Interpreter(db);
+
+  await interpreter.executeScript('''
+    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, embedding VECTOR);
+    INSERT INTO users VALUES (1, 'Alice', '[0.12, 0.85, -0.44]');
+    SELECT * FROM users;
+  ''');
+}
+```
+
+> 💡 **Demo**: Run `dart run bin/ultsql_cli.dart` or `flutter run` for an interactive SQL studio console.
 
 ---
 
@@ -483,36 +506,39 @@ final csvResults = fileAdapter.queryCsvSync(
 
 ---
 
-## <a name="searchable-ciphertext-xor-equality-search"></a>🔐 Searchable Ciphertext (XOR Equality Search)
+## <a name="searchable-ciphertext-xor-equality-search"></a>🔏 Deterministic Obfuscation (XOR Fast Matching)
 
-Perform fast deterministic equality searches over repeating-key XOR-encrypted ciphertext without decrypting database records on disk:
+Perform fast deterministic equality lookups over repeating-key XOR obfuscated strings without decrypting full database records on disk:
 
 ```sql
--- Query encrypted ciphertext safely using deterministic matching
-SELECT * FROM confidential_table WHERE zk_match(ciphertext, 'search_key') = true;
+-- Query obfuscated tokens safely using deterministic matching
+SELECT * FROM obfuscated_table WHERE zk_match(ciphertext, 'search_key') = true;
 ```
+
+> [!WARNING]
+> **Cryptographic Note**: Deterministic XOR matching is a lightweight obfuscation mechanism for fast exact-match lookup on non-sensitive strings. It is **not** cryptographically secure encryption. For production data-at-rest encryption, use ULTSQL's built-in **AES-256-CTR page-level encryption**.
 
 ---
 
 ## <a name="standalone-engine-performance-metrics"></a>📊 Standalone Engine Performance Metrics
 
-Empirical performance measurements recorded on 100,000 records on local disk:
+Empirical performance measurements recorded on local disk with WAL durability:
 
 ```text
 ======================================================
-🔥 ULTSQL STANDALONE ENGINE PERFORMANCE (100,000 ROWS) 🔥
+⚡ ULTSQL STANDALONE ENGINE BENCHMARKS (100,000 ROWS) ⚡
 ======================================================
-1. Insert Throughput:
-   - Public Batch API (insertBatch): ~350,000–500,000+ rows/sec (Direct public API with automatic indexing & stats)
-   - Multi-Row SQL INSERT (Disk & Memory): ~140,000–195,000 rows/sec (Multi-row VALUES batch with WAL flush)
+1. Disk Storage Mode Throughput (WAL Enabled):
+   - Multi-Row SQL INSERT (Disk): ~140,000–195,000 rows/sec (Multi-row VALUES batch with WAL flush)
+   - Public Batch API (insertBatch): ~350,000–500,000+ rows/sec (Direct API with auto-indexing & stats)
    - PL/SQL Transaction Loop: ~170,000–230,000 rows/sec (In-engine JIT loop, B+ Tree indexing)
-   - Full SQL Pipeline (Single-row/Parsed): ~60,000–75,000 rows/sec (Hand-written Lexer, Parser, Cost Planner, MVCC, B-Tree)
+   - Single SQL Pipeline: ~60,000–75,000 rows/sec (Full parser, planner, MVCC, B-Tree)
 
 2. B+ Tree Index Build (100,000 Rows):
    - UltSQL Bulk Index: ~60–130 ms (Bulk B+ Tree Indexing via insertSortedBatchSync)
 
 3. Multimodal Features:
-   - 768-Dim HNSW Vector Search: 6 ms (High-Recall ANN, >99% Recall@10)
+   - 768-Dim HNSW Vector Search: ~6 ms query latency (ANN search over 10,000 768-dim embeddings, >99% Recall@10 against brute-force)
    - Network TCP Wire Server: Port 5432 (PostgreSQL v3 Wire Protocol)
    - WAL Crash Recovery: Automated CRC32 Replay on Startup
    - Offline CRDT State: In-Memory LWW-CRDT State Merging
@@ -520,15 +546,29 @@ Empirical performance measurements recorded on 100,000 records on local disk:
 ```
 
 > [!NOTE]
-> **Hardware Environment & Benchmark Disclosure**:
-> Performance benchmark metrics were tested by **Om** on an **ASUS ROG Strix G16 (2023)**. Actual performance throughput may vary (better or worse) depending on your device hardware, CPU architecture, memory bandwidth, and disk I/O capabilities.
+> **Hardware Environment & Benchmark Dataset Disclosure**:
+> Performance benchmark metrics were tested by **Om Patel** on an **ASUS ROG Strix G16 (2023)** using a 100,000-row synthetic dataset (`id INT`, `name VARCHAR`, `score DOUBLE`, `active BOOL`, `payload JSON`, ~18.5 MB total database footprint). Vector benchmarks evaluated 10,000 768-dimensional normalized vectors against an exact brute-force KNN baseline.
 >
 > **Test System Specifications**:
-> - **Laptop Model**: ASUS ROG Strix G16 (2023)
-> - **CPU**: Intel Core i7-13650HX
+> - **CPU**: Intel Core i7-13650HX (14 cores, 20 threads)
 > - **RAM**: 16 GB DDR5 (4800 MT/s)
 > - **Storage**: 1 TB Gen 5 NVMe SSD
-> - **GPU**: NVIDIA GeForce RTX 4050 (6 GB)
+> - **OS**: Windows 11 64-bit
+>
+> **Run Benchmarks Yourself**:
+> ```bash
+> dart run tool/benchmarks/benchmark_live_comparison.dart
+> ```
+
+---
+
+## <a name="known-limitations"></a>⚠️ Known Limitations
+
+ULTSQL is focused on single-node embedded and converged local workloads. Current architectural trade-offs:
+- **Single-Node Architecture**: ULTSQL is an embedded and local database engine; it does not currently provide multi-node clustering or distributed Raft consensus.
+- **Substring Filtering**: Wildcard matching like `LIKE '%query%'` requires sequential page scans unless combined with indexed equality or range filters.
+- **Multi-Process Concurrency**: Multi-process concurrency uses OS file locks; high concurrent write contention is best coordinated through the built-in server daemon (`ultsql serve`).
+- **Experimental Subsystems**: P2P CRDT sync and direct CSV/JSON querying are actively evolving and intended for lightweight local workflows.
 
 ---
 
@@ -545,26 +585,34 @@ Empirical performance measurements recorded on 100,000 records on local disk:
    ```
 2. Install dependencies:
    ```bash
-   flutter pub get
+   dart pub get
    ```
 3. Run the comprehensive test suite:
    ```bash
-   flutter test
+   dart test
    ```
-4. Run the interactive UI Console IDE:
+4. Run the interactive CLI:
    ```bash
-   flutter run
+   dart run bin/ultsql_cli.dart
    ```
 
 ---
 
-## <a name="license"></a>📜 License & Attribution
+## <a name="license"></a>📜 License & Terms
 
-ULTSQL is licensed under the **ULTSQL Source Available License v1.0**.
+ULTSQL is licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**.
 
 - ✅ **Free & Royalty-Free**: Permitted for commercial applications, personal projects, SaaS applications, education, and research.
-- 🏷️ **Attribution Required**: Applications incorporating ULTSQL must include **“Powered by ULTSQL”** in their About, Legal, Credits, or Documentation section.
-- ☁️ **Commercial Cloud Service Restriction**: Offering ULTSQL itself as a commercial managed database service (DBaaS/PaaS) requires a separate commercial license from the Licensor.
+- 🔓 **Automatic MIT Conversion**: Every release automatically and irrevocably converts to the standard permissive **MIT License** 2 years after publication.
+- 🚫 **No Forced Attribution**: No requirement to display "Powered by ULTSQL" badges or logos.
+- ☁️ **Competing Use Restriction**: Offering ULTSQL as a commercial managed database service (DBaaS) requires a commercial agreement from the copyright holder.
+
+### License History
+- **v1.0.0**: MIT License
+- **v1.0.1 – v1.0.17**: BSD-3-Clause License
+- **v1.0.18+**: Functional Source License (FSL-1.1-MIT)
+
+**Copyright**: Copyright (c) 2026 Om Patel (`ompatel3158@gmail.com`). All rights reserved.
 
 For full legal details and answers to common licensing questions:
 - 📄 [View the Full LICENSE](LICENSE)

@@ -3,6 +3,7 @@ name = "ultsql"
 version = "1.0.22"
 edition = "2021"
 description = "Official asynchronous Rust client for the UltSQL multimodal database engine."
+license = "FSL-1.1-MIT"
 license-file = "LICENSE"
 repository = "https://github.com/ompatel3158/ULTSQL"
 

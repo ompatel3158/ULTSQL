@@ -1,0 +1,14 @@
+# Pub ignore file for ULTSQL
+scratch/
+test_*/
+$dbDir/
+.dart_tool/
+build/
+bindings/
+web_site/
+assets/
+*.bin
+*.db
+*.db-wal
+*.db-shm
+*.log

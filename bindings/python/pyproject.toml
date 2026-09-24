@@ -7,7 +7,7 @@ name = "ultsql"
 version = "1.0.22"
 description = "Universal Python client for the UltSQL 100% Pure-Dart multimodal database engine."
 readme = "README.md"
-license = { text = "ULTSQL Source Available License v1.0" }
+license = { text = "FSL-1.1-MIT" }
 authors = [
   { name = "Om Patel", email = "ompatel3158@gmail.com" }
 ]
