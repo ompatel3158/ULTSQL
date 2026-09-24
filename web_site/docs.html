@@ -3,285 +3,337 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How to Install & Use UltSQL — Documentation & Commands</title>
-  <meta name="description" content="Complete documentation, CLI commands, 1-line installation, Python SDK, Node.js SDK, Rust crate, PostgreSQL Wire Protocol, and batch ingestion guide for UltSQL.">
-  <meta name="keywords" content="how to install ultsql, ultsql docs, ultsql tutorial, ultsql commands, ultsql python, ultsql nodejs, ultsql rust, ultsql postgres wire">
+  <title>Documentation & API Reference — ULTSQL</title>
+  <meta name="description" content="Complete documentation, quickstart, SQL syntax, HNSW vector queries, and client SDK guides for ULTSQL.">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/docs">
-  
-  <!-- OPEN GRAPH -->
-  <meta property="og:type" content="article">
-  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/docs">
-  <meta property="og:title" content="How to Install & Use UltSQL — Documentation & Commands">
-  <meta property="og:description" content="Complete documentation, CLI commands, 1-line installation, Python SDK, Node.js SDK, Rust crate, PostgreSQL Wire Protocol, and batch ingestion guide for UltSQL.">
-  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
-
-  <!-- TWITTER -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://ultsql-engine-docs.vercel.app/docs">
-  <meta name="twitter:title" content="How to Install & Use UltSQL — Documentation & Commands">
-  <meta name="twitter:description" content="Complete documentation, CLI commands, 1-line installation, Python SDK, Node.js SDK, Rust crate, PostgreSQL Wire Protocol, and batch ingestion guide for UltSQL.">
-  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
-
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.25">
+  <link rel="stylesheet" href="style.css?v=1.0.26">
+  <style>
+    .docs-layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 2.5rem;
+      padding-top: 2rem;
+      padding-bottom: 6rem;
+    }
+    .docs-sidebar {
+      position: sticky;
+      top: 5.5rem;
+      height: fit-content;
+      max-height: calc(100vh - 7rem);
+      overflow-y: auto;
+      padding: 1.5rem 1rem;
+    }
+    .docs-nav-group {
+      margin-bottom: 1.5rem;
+    }
+    .docs-nav-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    .docs-nav-link {
+      display: block;
+      font-size: 0.88rem;
+      padding: 0.35rem 0.5rem;
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.2rem;
+      transition: all 0.15s ease;
+    }
+    .docs-nav-link:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface-hover);
+    }
+    .docs-nav-link.active {
+      color: var(--accent-primary);
+      background: var(--accent-primary-glow);
+      font-weight: 600;
+    }
+    .docs-section {
+      margin-bottom: 3.5rem;
+      scroll-margin-top: 6rem;
+    }
+    @media (max-width: 860px) {
+      .docs-layout {
+        grid-template-columns: 1fr;
+      }
+      .docs-sidebar {
+        display: none;
+      }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- NAVBAR -->
-  <nav class="navbar" id="navbar">
-    <a href="index.html" class="nav-brand">
-      <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
-      <span>UltSQL</span>
-      <span class="brand-version">v1.0.22 Docs</span>
-    </a>
-    <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="features.html">Features</a></li>
-      <li><a href="docs.html" class="active">Documentation</a></li>
-      <li><a href="benchmarks.html">Benchmarks</a></li>
-      <li><a href="license.html">License & FAQ</a></li>
-      <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">Theme: Dark</button>
-      </li>
-      <li>
-        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
-          pub.dev / ultsql
-        </a>
-      </li>
-    </ul>
-  </nav>
+  <!-- AMBIENT AURORA GLOWS -->
+  <div class="ambient-mesh">
+    <div class="mesh-glow-1"></div>
+    <div class="mesh-glow-2"></div>
+  </div>
 
-  <!-- DOCS HEADER -->
-  <header class="hero" style="min-height: 35vh; padding-top: 4rem;">
-    <div class="hero-ambient-glow" aria-hidden="true"></div>
-    <h1>UltSQL <span class="hero-title-gradient">Documentation</span></h1>
-    <p>The complete manual for starting the engine, connecting clients, running CLI commands, and utilizing advanced multimodal SQL features.</p>
+  <!-- FLOATING PILL NAVBAR -->
+  <div class="nav-wrapper">
+    <nav class="nav-pill">
+      <a href="index.html" class="nav-brand">
+        <img src="icon.svg" alt="ULTSQL Pinwheel Icon">
+        <span>ULTSQL</span>
+        <span class="glass-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">v1.0.22</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link">Home</a></li>
+        <li><a href="features.html" class="nav-link">Features</a></li>
+        <li><a href="docs.html" class="nav-link active">Documentation</a></li>
+        <li><a href="benchmarks.html" class="nav-link">Benchmarks</a></li>
+        <li><a href="license.html" class="nav-link">License & FAQ</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon"></span>
+        </button>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+          pub.dev
+        </a>
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+          GitHub
+        </a>
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- MOBILE NAV DRAWER -->
+  <div class="mobile-nav-drawer" id="mobileNavDrawer">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="features.html" class="nav-link">Features</a>
+    <a href="docs.html" class="nav-link active">Documentation</a>
+    <a href="benchmarks.html" class="nav-link">Benchmarks</a>
+    <a href="license.html" class="nav-link">License & FAQ</a>
+  </div>
+
+  <!-- HEADER -->
+  <header class="hero" style="padding-bottom: 2rem;">
+    <div class="container">
+      <div class="hero-pill-badge">
+        <span class="glass-pill accent">Developer Reference</span>
+      </div>
+      <h1 class="hero-title"><span class="text-gradient">Engine</span> <span class="text-gradient-cyan">Documentation</span></h1>
+      <p class="hero-subtitle">
+        Everything you need to embed, query, and configure ULTSQL across client and server environments.
+      </p>
+    </div>
   </header>
 
-  <main style="max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem;">
-
-    <!-- SECTION 1: STARTING THE SERVER -->
-    <section class="section" id="server-start" style="padding-top: 1rem;">
-      <h2 class="section-title">1. Starting the UltSQL Server Daemon</h2>
-      <p class="section-subtitle">Choose the server startup method for your operating system or language stack.</p>
-
-      <div class="pillars-grid">
-        <div class="pillar-card">
-          <span class="pillar-tag">METHOD A</span>
-          <h3>1-Line CLI Auto-Installer (Windows, Linux, macOS)</h3>
-          <p>No Flutter, Dart, Python, or Node required. Automatically downloads binary and configures your system <code>PATH</code>:</p>
-          <div class="code-wrapper">
-            <pre><code># Windows (PowerShell)
-iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
-
-# Linux & macOS (Bash)
-curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
-
-        <div class="pillar-card">
-          <span class="pillar-tag">METHOD B</span>
-          <h3>Python `ultsql-server` CLI</h3>
-          <p>When installed via <code>pip install ultsql</code>, launch the server directly from Python terminal:</p>
-          <div class="code-wrapper">
-            <pre><code>pip install ultsql
-
-# Start daemon
-ultsql-server --port 8080 --db ./my_database</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
-
-        <div class="pillar-card">
-          <span class="pillar-tag">METHOD C</span>
-          <h3>Docker Container</h3>
-          <p>Run UltSQL in production cloud servers or Kubernetes with zero local installation:</p>
-          <div class="code-wrapper">
-            <pre><code>docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
+  <!-- DOCS CONTAINER -->
+  <main class="container docs-layout">
+    
+    <!-- STICKY FROSTED SIDEBAR -->
+    <aside class="glass-panel docs-sidebar">
+      <div class="docs-nav-group">
+        <div class="docs-nav-title">Getting Started</div>
+        <a href="#quickstart" class="docs-nav-link active">5-Line Quickstart</a>
+        <a href="#installation" class="docs-nav-link">Universal Installation</a>
+        <a href="#storage-modes" class="docs-nav-link">Storage Modes</a>
       </div>
-    </section>
 
-    <!-- SECTION 2: CLI COMMANDS & META OPTIONS -->
-    <section class="section" id="cli-commands">
-      <h2 class="section-title">2. CLI Terminal Commands & Interactive Meta-Commands</h2>
-      <p class="section-subtitle">All interactive terminal commands available inside the <code>ultsql</code> CLI prompt.</p>
-
-      <table class="benchmark-table" style="width: 100%; margin-top: 1.5rem;">
-        <thead>
-          <tr>
-            <th>Command</th>
-            <th>Description</th>
-            <th>Example</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>ultsql serve [--port 8080] [--db path]</code></td>
-            <td>Launches the HTTP REST daemon and live OpenAPI 3.0 specification server.</td>
-            <td><code>ultsql serve --port 8080 --db ./app.db</code></td>
-          </tr>
-          <tr>
-            <td><code>.pgwire [port]</code></td>
-            <td>Starts the PostgreSQL Wire Protocol server daemon inside CLI session.</td>
-            <td><code>.pgwire 5432</code></td>
-          </tr>
-          <tr>
-            <td><code>.tables</code></td>
-            <td>Lists all tables in the active catalog schema.</td>
-            <td><code>.tables</code></td>
-          </tr>
-          <tr>
-            <td><code>.schema [table]</code></td>
-            <td>Shows DDL schema definition and column types for a table.</td>
-            <td><code>.schema users</code></td>
-          </tr>
-          <tr>
-            <td><code>.databases</code></td>
-            <td>Displays active database storage path.</td>
-            <td><code>.databases</code></td>
-          </tr>
-          <tr>
-            <td><code>.exit</code> / <code>exit</code></td>
-            <td>Flushes WAL logs and safely exits the interactive prompt.</td>
-            <td><code>.exit</code></td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <!-- SECTION 3: PYTHON SDK -->
-    <section class="section" id="python-sdk">
-      <h2 class="section-title">3. Python Package (`pip install ultsql`)</h2>
-      <p class="section-subtitle">Official PyPA compliant client library. Zero Dart/Flutter setup required!</p>
-
-      <div class="code-wrapper">
-        <pre><code># 1. Install via pip
-pip install ultsql
-
-# 2. Connect and execute in Python
-from ultsql import UltSQLClient
-
-# Connect to UltSQL Daemon
-db = UltSQLClient("http://localhost:8080")
-
-# Insert record (auto-provisions table schema if missing)
-db.insert("products", {"id": 1, "name": "Quantum Laptop", "price": 1299.99})
-
-# Fetch records
-result = db.query("products")
-print("Count:", result["count"])
-print("Rows:", result["rows"])
-
-# Fetch OpenAPI Specification
-spec = db.openapi_spec()
-print("OpenAPI Title:", spec["info"]["title"])</code></pre>
-        <button class="copy-btn">Copy</button>
+      <div class="docs-nav-group">
+        <div class="docs-nav-title">Core Paradigms</div>
+        <a href="#relational-sql" class="docs-nav-link">Relational SQL & DDL</a>
+        <a href="#vector-search" class="docs-nav-link">AI Vector Search (HNSW)</a>
+        <a href="#nosql-json" class="docs-nav-link">NoSQL JSON Dotted-Path</a>
+        <a href="#plsql-scripting" class="docs-nav-link">PL/SQL Procedural</a>
       </div>
-    </section>
 
-    <!-- SECTION 4: NODE.JS SDK -->
-    <section class="section" id="nodejs-sdk">
-      <h2 class="section-title">4. Node.js & TypeScript Package (`npm install ultsql`)</h2>
-      <p class="section-subtitle">Official Node.js & TypeScript client library with full type definitions.</p>
-
-      <div class="code-wrapper">
-        <pre><code>// 1. Install via npm
-npm install ultsql
-
-// 2. Connect and execute in JavaScript / TypeScript
-const { UltSQLClient } = require('ultsql');
-
-const db = new UltSQLClient({ host: 'localhost', port: 8080 });
-
-async function run() {
-  // Insert record
-  await db.insert('users', { id: 101, name: 'Om Patel', tier: 'VIP' });
-
-  // Query records
-  const result = await db.query('users');
-  console.log('Users:', result.rows);
-}
-
-run();</code></pre>
-        <button class="copy-btn">Copy</button>
+      <div class="docs-nav-group">
+        <div class="docs-nav-title">Servers & Networking</div>
+        <a href="#pgwire-server" class="docs-nav-link">PostgreSQL Wire Daemon</a>
+        <a href="#standalone-daemon" class="docs-nav-link">REST & CLI Server</a>
       </div>
-    </section>
 
-    <!-- SECTION 5: ADVANCED MULTIMODAL FEATURES -->
-    <section class="section" id="sql-features">
-      <h2 class="section-title">5. Advanced Multimodal SQL Features Syntax</h2>
-      <p class="section-subtitle">Syntax guide for UltSQL's advanced multimodal engine capabilities.</p>
-
-      <div class="pillars-grid">
-        <div class="pillar-card">
-          <h3>Reactive Query Streams (`db.watch()`)</h3>
-          <div class="code-wrapper">
-            <pre><code>final stream = db.watch(interpreter, "SELECT * FROM users WHERE active = true");
-stream.listen((result) {
-  print("Updated rows: ${result.rows}");
-});</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
-
-        <div class="pillar-card">
-          <h3>SQL Macros (`CREATE MACRO`)</h3>
-          <div class="code-wrapper">
-            <pre><code>CREATE MACRO calculate_tax(amount) AS amount * 0.15;
-SELECT id, price, calculate_tax(price) AS tax FROM orders;</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
-
-        <div class="pillar-card">
-          <h3>Event Streams (`CREATE STREAM`)</h3>
-          <div class="code-wrapper">
-            <pre><code>CREATE STREAM order_events;
-EMIT TO order_events VALUES (101, 'order_placed', NOW());</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
-
-        <div class="pillar-card">
-          <h3>Database Branching (`ultsql branch`)</h3>
-          <div class="code-wrapper">
-            <pre><code>db.createBranch('feature-dev');
-db.switchBranch('feature-dev');
-db.mergeBranch('feature-dev', 'main');</code></pre>
-            <button class="copy-btn">Copy</button>
-          </div>
-        </div>
+      <div class="docs-nav-group">
+        <div class="docs-nav-title">Architecture</div>
+        <a href="#wal-recovery" class="docs-nav-link">ACID WAL Recovery</a>
+        <a href="#limitations" class="docs-nav-link">Known Limitations</a>
       </div>
-    </section>
+    </aside>
 
+    <!-- CONTENT BODY -->
+    <article>
+      
+      <!-- Quickstart -->
+      <section class="docs-section" id="quickstart">
+        <h2>⚡ 5-Line Quickstart</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Embed directly in your Dart or Flutter project:</p>
+        <div class="glass-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-tertiary);">main.dart</span>
+            <button class="btn btn-glass copy-btn">Copy</button>
+          </div>
+          <pre><code>import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  final db = Database('./app.db');
+  await db.init();
+  final interpreter = Interpreter(db);
+
+  await interpreter.executeScript('''
+    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, embedding VECTOR);
+    INSERT INTO users VALUES (1, 'Alice', '[0.12, 0.85, -0.44]');
+    SELECT * FROM users;
+  ''');
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Storage Modes -->
+      <section class="docs-section" id="storage-modes">
+        <h2>⚖️ Storage Modes</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Switch between in-memory speed and durable disk storage:</p>
+        <div class="bento-grid">
+          <div class="glass-card bento-span-6">
+            <h4>In-Memory Storage Mode</h4>
+            <p style="font-size: 0.88rem; margin: 0.5rem 0;">Ideal for streaming, tests, and temporary caches:</p>
+            <div class="bento-code-snippet">
+final db = Database(':memory:');
+await db.init();</div>
+          </div>
+          <div class="glass-card bento-span-6">
+            <h4>Durable Disk Mode</h4>
+            <p style="font-size: 0.88rem; margin: 0.5rem 0;">ACID slotted-page persistence with WAL crash replay:</p>
+            <div class="bento-code-snippet">
+final db = Database('/path/to/my_data');
+await db.init();</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Relational SQL -->
+      <section class="docs-section" id="relational-sql">
+        <h2>📊 Relational SQL Dialect</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Standard DDL, DML, and UPSERT syntax:</p>
+        <div class="glass-card">
+          <pre><code>-- CREATE TABLE with rich data types
+CREATE TABLE IF NOT EXISTS accounts (
+  id UUID PRIMARY KEY,
+  name VARCHAR(100),
+  active BOOL DEFAULT true,
+  balance DECIMAL,
+  created_at TIMESTAMP,
+  metadata JSON,
+  embedding VECTOR
+);
+
+-- UPSERT support (PostgreSQL & SQLite syntax)
+INSERT INTO accounts (id, name, balance) VALUES ('uuid-1', 'Alice', 1200.0)
+ON CONFLICT (id) DO UPDATE SET balance = 1500.0;</code></pre>
+        </div>
+      </section>
+
+      <!-- Vector Search -->
+      <section class="docs-section" id="vector-search">
+        <h2>🧠 AI Vector RAG (HNSW)</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Perform approximate nearest-neighbor queries across high-dimensional embeddings:</p>
+        <div class="glass-card">
+          <pre><code>-- Create HNSW graph index on embedding column
+CREATE INDEX idx_products_vector ON products (embedding) USING HNSW;
+
+-- Execute similarity search
+SELECT name, vector_distance(embedding, '[0.12, 0.85, -0.44]') AS distance
+FROM products
+ORDER BY distance ASC
+LIMIT 5;</code></pre>
+        </div>
+      </section>
+
+      <!-- NoSQL JSON -->
+      <section class="docs-section" id="nosql-json">
+        <h2>📄 NoSQL Dotted JSON Documents</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Direct dotted path navigation inside JSON fields:</p>
+        <div class="glass-card">
+          <pre><code>SELECT title, 
+  JSON_EXTRACT(metadata, 'user.profile.city') AS city,
+  metadata->>'tier' AS tier
+FROM documents
+WHERE metadata->>'tier' = 'Enterprise';</code></pre>
+        </div>
+      </section>
+
+      <!-- PL/SQL Scripting -->
+      <section class="docs-section" id="plsql-scripting">
+        <h2>⚡ PL/SQL Procedural Scripting</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Execute procedural routines with loops and conditionals:</p>
+        <div class="glass-card">
+          <pre><code>DECLARE
+  counter INT := 0;
+  total DOUBLE := 0.0;
+BEGIN
+  WHILE counter < 5 LOOP
+    counter := counter + 1;
+    total := total + (counter * 100.0);
+    DBMS_OUTPUT.PUT_LINE('Step ' || counter || ': ' || total);
+  END LOOP;
+END;</code></pre>
+        </div>
+      </section>
+
+      <!-- PostgreSQL Wire Daemon -->
+      <section class="docs-section" id="pgwire-server">
+        <h2>🌐 PostgreSQL Wire Protocol Server</h2>
+        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Connect any PostgreSQL driver or BI tool to ULTSQL on port 5432:</p>
+        <div class="glass-card">
+          <pre><code>// Start the embedded wire server
+final pgServer = PgWireServer(db: db, port: 5432);
+await pgServer.start();
+
+// Connect via standard psql CLI
+// psql -h localhost -p 5432 -U postgres</code></pre>
+        </div>
+      </section>
+
+      <!-- Known Limitations -->
+      <section class="docs-section" id="limitations">
+        <h2>⚠️ Known Limitations</h2>
+        <div class="glass-panel" style="padding: 1.5rem;">
+          <ul style="padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>Single-Node Engine:</strong> ULTSQL is focused on fast embedded and single-node workloads. It does not provide multi-master clustering or distributed consensus.</li>
+            <li><strong>Substring Filters:</strong> Arbitrary wildcards like <code>LIKE '%pattern%'</code> perform sequential page scans unless accompanied by indexed filters.</li>
+            <li><strong>Multi-Process Write Locks:</strong> Multi-process concurrency uses operating system file locking; high write contention is best channeled through the <code>ultsql serve</code> daemon.</li>
+          </ul>
+        </div>
+      </section>
+
+    </article>
   </main>
 
-  <footer class="footer">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
       <div>
-        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
+          ULTSQL Database Engine
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+          Licensed under FSL-1.1-MIT &copy; 2026 Om Patel.
+        </div>
       </div>
-      <div>
-        <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
-        <a href="features.html" style="color: var(--text-muted); margin-right: 1.25rem;">Features</a>
-        <a href="benchmarks.html" style="color: var(--text-muted); margin-right: 1.25rem;">Benchmarks</a>
-        <a href="license.html" style="color: #ffffff; font-weight: 600;">License & FAQ</a>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="docs.html">Docs</a>
+        <a href="benchmarks.html">Benchmarks</a>
+        <a href="license.html">License & FAQ</a>
       </div>
     </div>
   </footer>
 
-  <!-- TOAST NOTIFICATION -->
-  <div id="toast" class="toast-notification">Copied to clipboard</div>
-
-  <script src="app.js?v=1.0.25"></script>
+  <div class="toast-msg" id="toast">Copied to clipboard</div>
+  <script src="app.js?v=1.0.26"></script>
 </body>
 </html>

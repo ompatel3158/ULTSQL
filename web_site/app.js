@@ -1,61 +1,72 @@
-// UltSQL Web Portal & Interactive Playground Scripts
+// ULTSQL Modern Glassmorphic Web Portal Scripts
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // --- 1. DARK / LIGHT THEME TOGGLE WITH LOCALSTORAGE ---
+  // --- 1. DARK / LIGHT THEME TOGGLE (Default: Dark) ---
   const savedTheme = localStorage.getItem('ultsql_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
-  updateThemeButton(savedTheme);
+  updateThemeUI(savedTheme);
 
-  const themeToggleBtn = document.getElementById('themeToggle');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', () => {
+  const themeToggleBtns = document.querySelectorAll('.theme-btn, #themeToggle');
+  themeToggleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
       const active = document.documentElement.getAttribute('data-theme') || 'dark';
       const nextTheme = active === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', nextTheme);
       localStorage.setItem('ultsql_theme', nextTheme);
-      updateThemeButton(nextTheme);
+      updateThemeUI(nextTheme);
+    });
+  });
+
+  function updateThemeUI(theme) {
+    const icons = document.querySelectorAll('.theme-icon');
+    icons.forEach(icon => {
+      icon.innerHTML = theme === 'dark' 
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
     });
   }
 
-  function updateThemeButton(theme) {
-    const btn = document.getElementById('themeToggle');
-    if (btn) {
-      btn.innerHTML = theme === 'dark' ? 'Theme: Dark' : 'Theme: Light';
-    }
+  // --- 2. MOBILE MENU DRAWER ---
+  const menuToggle = document.getElementById('mobileMenuToggle');
+  const navDrawer = document.getElementById('mobileNavDrawer');
+  if (menuToggle && navDrawer) {
+    menuToggle.addEventListener('click', () => {
+      navDrawer.classList.toggle('open');
+    });
   }
 
-  // --- 2. CODE TAB SWITCHER ---
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabContents = document.querySelectorAll('.tab-content');
+  // --- 3. INSTALLATION TAB SWITCHER ---
+  const tabPills = document.querySelectorAll('.tab-pill-btn');
+  const installBoxes = document.querySelectorAll('.install-box-content');
 
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetId = btn.getAttribute('data-tab');
+  tabPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      const targetTab = pill.getAttribute('data-tab');
 
-      tabBtns.forEach(b => b.classList.remove('active'));
-      tabContents.forEach(c => c.classList.remove('active'));
+      tabPills.forEach(p => p.classList.remove('active'));
+      installBoxes.forEach(box => box.style.display = 'none');
 
-      btn.classList.add('active');
-      const targetContent = document.getElementById(targetId);
-      if (targetContent) {
-        targetContent.classList.add('active');
+      pill.classList.add('active');
+      const activeBox = document.getElementById(targetTab);
+      if (activeBox) {
+        activeBox.style.display = 'block';
       }
     });
   });
 
-  // --- 3. COPY TO CLIPBOARD BUTTONS ---
-  const copyBtns = document.querySelectorAll('.copy-btn');
+  // --- 4. COPY TO CLIPBOARD WITH TOAST ---
   const toast = document.getElementById('toast');
-
-  copyBtns.forEach(btn => {
+  document.querySelectorAll('.copy-btn, .install-copy-btn, .copy-icon-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const codeText = btn.previousElementSibling ? btn.previousElementSibling.innerText : btn.parentElement.innerText;
-      
-      navigator.clipboard.writeText(codeText).then(() => {
+      const codeTarget = btn.getAttribute('data-code');
+      const textToCopy = codeTarget ? codeTarget : (btn.previousElementSibling ? btn.previousElementSibling.innerText : btn.innerText);
+
+      navigator.clipboard.writeText(textToCopy).then(() => {
         showToast('Copied to clipboard');
-        btn.innerText = 'Copied';
-        setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span>✓ Copied</span>';
+        setTimeout(() => { btn.innerHTML = orig; }, 1800);
       }).catch(() => {
         showToast('Copied to clipboard');
       });
@@ -68,26 +79,34 @@ document.addEventListener('DOMContentLoaded', () => {
     toast.classList.add('show');
     setTimeout(() => {
       toast.classList.remove('show');
-    }, 2500);
+    }, 2200);
   }
 
-  // --- 4. REAL IN-BROWSER PURE-DART ENGINE PLAYGROUND ---
-  const presetSelect = document.getElementById('presetSelect');
+  // --- 5. IN-BROWSER PURE DART ENGINE PLAYGROUND ---
   const sqlEditor = document.getElementById('sqlEditor');
   const runBtn = document.getElementById('runBtn');
   const resultStatus = document.getElementById('resultStatus');
   const resultTable = document.getElementById('resultTable');
+  const presetTabs = document.querySelectorAll('.preset-tab');
 
   const presets = {
-    join: `-- Relational SQL: JOIN & Aggregate Query
+    sql: `-- 1. Relational SQL: JOIN, Aggregates & Slotted Page Tables
 DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
 CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount DOUBLE);
 
-INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true), (2, 'Alice Chen', 'AI Researcher', true);
-INSERT INTO orders VALUES (101, 1, 14280.00), (102, 1, 350.00), (103, 2, 8950.50);
+INSERT INTO users VALUES 
+(1, 'Om Patel', 'Lead Architect', true),
+(2, 'Alice Chen', 'AI Researcher', true),
+(3, 'Marcus Vance', 'Backend Engineer', true);
+
+INSERT INTO orders VALUES 
+(101, 1, 14280.00),
+(102, 1, 350.00),
+(103, 2, 8950.50),
+(104, 3, 1200.00);
 
 SELECT u.name, u.role, COUNT(o.id) AS total_orders, SUM(o.amount) AS total_spent
 FROM users u
@@ -95,75 +114,81 @@ INNER JOIN orders o ON u.id = o.user_id
 GROUP BY u.name, u.role
 ORDER BY total_spent DESC;`,
 
-    json: `-- NoSQL Dotted JSON Document Querying
+    vector: `-- 2. AI Vector RAG: 768-Dim HNSW Similarity Search
 DROP TABLE IF EXISTS documents;
 
-CREATE TABLE documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), metadata JSON);
-INSERT INTO documents VALUES (1, 'Attention Is All You Need', 'AI', '{"tier": "VIP", "profile": {"address": {"city": "San Francisco"}}}');
+CREATE TABLE documents (
+  id INT PRIMARY KEY,
+  title VARCHAR(100),
+  category VARCHAR(50),
+  embedding VECTOR
+);
 
-SELECT title, category,
-  JSON_EXTRACT(metadata, 'profile.address.city') AS city,
-  JSON_EXTRACT(metadata, 'tier') AS membership
-FROM documents;`,
-
-    vector: `-- AI Vector RAG Search
-DROP TABLE IF EXISTS documents;
-
-CREATE TABLE documents (id INT PRIMARY KEY, title VARCHAR(100), category VARCHAR(50), embedding VECTOR);
 INSERT INTO documents VALUES 
 (1, 'Attention Is All You Need', 'AI', '[0.12, 0.88, -0.45]'),
-(2, 'Converged Database Architecture', 'Database', '[0.05, 0.72, -0.21]');
+(2, 'Converged Multimodal Database Architecture', 'Database', '[0.05, 0.72, -0.21]'),
+(3, 'High Performance Slotted Pages with CRC32', 'Storage', '[-0.22, 0.15, 0.65]');
 
+-- Query nearest vectors using Euclidean / Cosine similarity
 SELECT title, category, VECTOR_DISTANCE(embedding, '[0.10, 0.85, -0.40]') AS distance
 FROM documents
-ORDER BY distance ASC;`,
+ORDER BY distance ASC
+LIMIT 2;`,
 
-    plsql: `-- High-Speed PL/SQL Loop Execution
-DROP TABLE IF EXISTS system_logs;
+    nosql: `-- 3. NoSQL JSON: Dotted-Path Document Traversal
+DROP TABLE IF EXISTS user_profiles;
 
-CREATE TABLE system_logs (id INT PRIMARY KEY, event_name VARCHAR(100));
+CREATE TABLE user_profiles (
+  id INT PRIMARY KEY,
+  username VARCHAR(50),
+  metadata JSON
+);
 
-DECLARE i INT := 1;
+INSERT INTO user_profiles VALUES 
+(1, 'ompatel', '{"profile": {"city": "San Francisco", "tier": "Enterprise"}, "features": ["pgwire", "vector"]}'),
+(2, 'alice', '{"profile": {"city": "New York", "tier": "Pro"}, "features": ["crdt", "json"]}');
+
+-- Direct dotted JSON attribute extraction
+SELECT username,
+  JSON_EXTRACT(metadata, 'profile.tier') AS tier,
+  JSON_EXTRACT(metadata, 'profile.city') AS location
+FROM user_profiles
+WHERE JSON_EXTRACT(metadata, 'profile.tier') = 'Enterprise';`,
+
+    plsql: `-- 4. PL/SQL Procedural Script Execution
+DROP TABLE IF EXISTS system_audit;
+CREATE TABLE system_audit (id INT PRIMARY KEY, event_tag VARCHAR(100), val DOUBLE);
+
+DECLARE
+  counter INT := 0;
+  total DOUBLE := 0.0;
 BEGIN
-  FOR i IN 1..10 LOOP
-    INSERT INTO system_logs VALUES (i, 'EVENT_PING_' || i);
+  WHILE counter < 5 LOOP
+    counter := counter + 1;
+    total := total + (counter * 10.5);
+    INSERT INTO system_audit VALUES (counter, 'METRIC_TICK_' || counter, total);
   END LOOP;
 END;
 
-SELECT * FROM system_logs;`,
-
-    macro: `-- SQL Macro Calculation
-DROP TABLE IF EXISTS orders;
-
-CREATE TABLE orders (id INT PRIMARY KEY, amount DOUBLE);
-INSERT INTO orders VALUES (101, 14280.00), (102, 350.00);
-
-CREATE MACRO calculate_tax(amount) AS amount * 0.15;
-SELECT id, amount, calculate_tax(amount) AS tax_amount FROM orders;`,
-
-    branch: `-- Table Query
-DROP TABLE IF EXISTS users;
-
-CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100), role VARCHAR(50), active BOOLEAN);
-INSERT INTO users VALUES (1, 'Om Patel', 'Lead Architect', true);
-
-SELECT * FROM users WHERE active = true;`
+SELECT * FROM system_audit ORDER BY id ASC;`
   };
 
-  if (presetSelect && sqlEditor) {
-    presetSelect.addEventListener('change', () => {
-      const key = presetSelect.value;
-      if (presets[key]) {
-        sqlEditor.value = presets[key];
+  presetTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const presetKey = tab.getAttribute('data-preset');
+      if (presets[presetKey] && sqlEditor) {
+        sqlEditor.value = presets[presetKey];
+        presetTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
       }
     });
-  }
+  });
 
   if (runBtn) {
     runBtn.addEventListener('click', async () => {
       const sqlText = sqlEditor ? sqlEditor.value : 'SELECT * FROM users;';
 
-      runBtn.innerText = 'Executing query...';
+      runBtn.innerText = 'Executing...';
       runBtn.disabled = true;
 
       try {
@@ -176,47 +201,43 @@ SELECT * FROM users WHERE active = true;`
 
           if (res.status === 'success') {
             if (resultStatus) {
-              resultStatus.innerHTML = `Executed in <strong>${res.elapsedMs} ms</strong> • Returned <strong>${res.rows ? res.rows.length : 0}</strong> rows • Pure Dart In-Browser Wasm Engine`;
+              resultStatus.innerHTML = `<span style="color: var(--accent-emerald); font-weight: 600;">⚡ Executed in ${res.elapsedMs} ms</span> • ${res.rows ? res.rows.length : 0} rows`;
             }
 
             if (resultTable && res.columns && res.rows && res.columns.length > 0) {
-              let html = `<thead><tr>`;
-              res.columns.forEach(h => html += `<th>${escapeHtml(h)}</th>`);
+              let html = `<thead><tr style="border-bottom: 1px solid var(--border-subtle); text-align: left;">`;
+              res.columns.forEach(h => html += `<th style="padding: 0.5rem 0.75rem; color: var(--text-tertiary); font-size: 0.75rem;">${escapeHtml(h)}</th>`);
               html += `</tr></thead><tbody>`;
 
               res.rows.forEach(r => {
-                html += `<tr>`;
-                r.forEach(c => html += `<td>${escapeHtml(c)}</td>`);
+                html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">`;
+                r.forEach(c => html += `<td style="padding: 0.5rem 0.75rem; font-size: 0.82rem; font-family: var(--font-mono); color: var(--text-primary);">${escapeHtml(c)}</td>`);
                 html += `</tr>`;
               });
               html += `</tbody>`;
               resultTable.innerHTML = html;
             } else if (resultTable && res.message) {
-              resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace; white-space: pre-wrap;">${escapeHtml(res.message)}</td></tr></tbody>`;
+              resultTable.innerHTML = `<tbody><tr><td style="color: var(--accent-emerald); font-family: var(--font-mono); font-size: 0.85rem; padding: 0.75rem;">${escapeHtml(res.message)}</td></tr></tbody>`;
             } else if (resultTable) {
-              resultTable.innerHTML = `<tbody><tr><td style="color: #10b981; font-family: monospace;">Query executed successfully with 0 rows returned.</td></tr></tbody>`;
+              resultTable.innerHTML = `<tbody><tr><td style="color: var(--accent-emerald); font-family: var(--font-mono); font-size: 0.85rem; padding: 0.75rem;">Command completed successfully.</td></tr></tbody>`;
             }
           } else {
-            const title = res.errorTitle || 'Query Execution Error';
+            const title = res.errorTitle || 'Execution Error';
             const errorMsg = res.error || res.rawError || 'An unexpected error occurred.';
-            const hint = res.errorHint || 'Please check your SQL syntax, table names, and parameters.';
+            const hint = res.errorHint || 'Check your SQL syntax or table declarations.';
 
             if (resultStatus) {
-              resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">[Error] ${escapeHtml(title)}</span> (${res.elapsedMs} ms)`;
+              resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 600;">[Error] (${res.elapsedMs} ms)</span>`;
             }
 
             if (resultTable) {
               resultTable.innerHTML = `
                 <tbody>
                   <tr>
-                    <td style="padding: 1.25rem; background: #18181b; border: 1px solid #7f1d1d; border-left: 4px solid #ef4444; border-radius: 6px;">
-                      <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>[Error]</span> <span>${escapeHtml(title)}</span>
-                      </div>
-                      <div style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.75rem; white-space: pre-wrap;">
-                        ${escapeHtml(errorMsg)}
-                      </div>
-                      ${hint ? `<div style="color: #a1a1aa; font-size: 0.82rem; line-height: 1.4; border-top: 1px dashed #3f3f46; padding-top: 0.6rem;"><strong>Suggestion:</strong> ${escapeHtml(hint)}</div>` : ''}
+                    <td style="padding: 1rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm);">
+                      <div style="font-size: 0.88rem; font-weight: 700; color: #f87171; margin-bottom: 0.35rem;">${escapeHtml(title)}</div>
+                      <div style="color: #fca5a5; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(errorMsg)}</div>
+                      ${hint ? `<div style="color: var(--text-tertiary); font-size: 0.78rem; margin-top: 0.5rem;"><strong>Suggestion:</strong> ${escapeHtml(hint)}</div>` : ''}
                     </td>
                   </tr>
                 </tbody>
@@ -225,7 +246,7 @@ SELECT * FROM users WHERE active = true;`
           }
         } else {
           if (resultStatus) {
-            resultStatus.innerHTML = `Loading Pure Dart UltSQL Engine Wasm Bundle...`;
+            resultStatus.innerHTML = `Initializing Pure-Dart Wasm Engine...`;
           }
           runBtn.innerText = 'Run Query';
           runBtn.disabled = false;
@@ -234,19 +255,10 @@ SELECT * FROM users WHERE active = true;`
         runBtn.innerText = 'Run Query';
         runBtn.disabled = false;
         if (resultStatus) {
-          resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 700;">[Exception] Execution Error</span>`;
+          resultStatus.innerHTML = `<span style="color: #ef4444; font-weight: 600;">Execution Error</span>`;
         }
         if (resultTable) {
-          resultTable.innerHTML = `
-            <tbody>
-              <tr>
-                <td style="padding: 1.25rem; background: #18181b; border: 1px solid #7f1d1d; border-left: 4px solid #ef4444; border-radius: 6px;">
-                  <div style="font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 0.5rem;">[Exception] Unexpected Error</div>
-                  <div style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${escapeHtml(err.message)}</div>
-                </td>
-              </tr>
-            </tbody>
-          `;
+          resultTable.innerHTML = `<tbody><tr><td style="color: #ef4444; padding: 0.75rem;">${escapeHtml(err.message)}</td></tr></tbody>`;
         }
       }
     });
@@ -262,104 +274,4 @@ SELECT * FROM users WHERE active = true;`
       .replace(/'/g, '&#039;');
   }
 
-  // --- 5. MOBILE MENU TOGGLE & OVERLAY ---
-  const menuToggle = document.getElementById('menuToggle');
-  const navLinks = document.getElementById('navLinks');
-
-  function closeMobileMenu() {
-    if (navLinks && navLinks.classList.contains('active')) {
-      navLinks.classList.remove('active');
-      if (menuToggle) {
-        menuToggle.classList.remove('active');
-        menuToggle.setAttribute('aria-expanded', 'false');
-      }
-      document.body.classList.remove('nav-open');
-    }
-  }
-
-  function openMobileMenu() {
-    if (navLinks) {
-      navLinks.classList.add('active');
-      if (menuToggle) {
-        menuToggle.classList.add('active');
-        menuToggle.setAttribute('aria-expanded', 'true');
-      }
-      document.body.classList.add('nav-open');
-    }
-  }
-
-  if (menuToggle && navLinks) {
-    menuToggle.setAttribute('aria-expanded', 'false');
-    menuToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = navLinks.classList.contains('active');
-      if (isOpen) {
-        closeMobileMenu();
-      } else {
-        openMobileMenu();
-      }
-    });
-
-    // Close when clicking any nav link
-    navLinks.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => {
-        closeMobileMenu();
-      });
-    });
-
-    // Close when clicking outside of nav
-    document.addEventListener('click', (e) => {
-      if (!navLinks.contains(e.target) && !menuToggle.contains(e.target)) {
-        closeMobileMenu();
-      }
-    });
-
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeMobileMenu();
-      }
-    });
-
-    // Auto-close on resize to desktop
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 768) {
-        closeMobileMenu();
-      }
-    });
-  }
-
-  // --- 6. QUICK INSTALL PILL COPY ---
-  const installPill = document.getElementById('installPill');
-  const installCopyBtn = document.getElementById('installCopyBtn');
-  if (installPill && installCopyBtn) {
-    const copyHandler = () => {
-      const cmdText = document.getElementById('installCmdText')?.innerText || 'dart pub global activate ultsql';
-      navigator.clipboard.writeText(cmdText).then(() => {
-        showToast('Copied: ' + cmdText);
-        installCopyBtn.innerText = 'Copied';
-        setTimeout(() => {
-          installCopyBtn.innerText = 'Copy';
-        }, 2000);
-      }).catch(() => {
-        showToast('Copied');
-      });
-    };
-    installCopyBtn.addEventListener('click', copyHandler);
-  }
-
-  // --- 7. ACCORDION FAQ TOGGLES ---
-  const faqItems = document.querySelectorAll('.faq-item');
-  faqItems.forEach(item => {
-    const question = item.querySelector('.faq-question');
-    if (question) {
-      question.addEventListener('click', () => {
-        const isActive = item.classList.contains('active');
-        // Optional: close other open items for cleaner accordion
-        item.classList.toggle('active', !isActive);
-      });
-    }
-  });
-
 });
-

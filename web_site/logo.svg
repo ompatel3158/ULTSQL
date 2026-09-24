@@ -18,5 +18,5 @@
 
   <!-- Typography -->
   <text x="135" y="60" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="56" font-weight="800" fill="#FFFFFF" letter-spacing="-0.5">ULTSQL</text>
-  <text x="137" y="86" font-family="'Inter', -apple-system, sans-serif" font-size="15" font-weight="600" fill="#CCCCCC" letter-spacing="1.5">THREE MODELS, ONE CORE</text>
+  <text x="137" y="86" font-family="'Inter', -apple-system, sans-serif" font-size="15" font-weight="600" fill="#CCCCCC" letter-spacing="1.5">ONE CORE, EVERY MODEL</text>
 </svg>

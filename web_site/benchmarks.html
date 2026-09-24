@@ -3,141 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks</title>
-  <meta name="description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
-  <meta name="keywords" content="ultsql benchmarks, ultsql vs sqlite, ultsql vs duckdb, pure dart database benchmark, vector database speed, batch insert benchmark">
+  <title>Benchmarks & Hardware Disclosure — ULTSQL</title>
+  <meta name="description" content="Verified empirical performance benchmarks for ULTSQL: disk-mode multi-row SQL ingestion, batch throughput, and HNSW vector ANN latency on 100,000 rows.">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/benchmarks">
-
-  <!-- OPEN GRAPH -->
-  <meta property="og:type" content="article">
-  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/benchmarks">
-  <meta property="og:title" content="UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks">
-  <meta property="og:description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
-  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
-
-  <!-- TWITTER -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://ultsql-engine-docs.vercel.app/benchmarks">
-  <meta name="twitter:title" content="UltSQL vs SQLite 3 & DuckDB — Verified Performance Benchmarks">
-  <meta name="twitter:description" content="Empirical benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB across batch ingestion, B+ Tree indexing, and HNSW vector search.">
-  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
-
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.25">
+  <link rel="stylesheet" href="style.css?v=1.0.26">
 </head>
 <body>
 
-  <!-- NAVBAR -->
-  <nav class="navbar" id="navbar">
-    <a href="index.html" class="nav-brand">
-      <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
-      <span>UltSQL</span>
-      <span class="brand-version">v1.0.22</span>
-    </a>
-    <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="features.html">Features</a></li>
-      <li><a href="docs.html">Documentation</a></li>
-      <li><a href="benchmarks.html" class="active">Benchmarks</a></li>
-      <li><a href="license.html">License & FAQ</a></li>
-      <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">Theme: Dark</button>
-      </li>
-      <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">pub.dev / ultsql</a></li>
-    </ul>
-  </nav>
+  <!-- AMBIENT AURORA GLOWS -->
+  <div class="ambient-mesh">
+    <div class="mesh-glow-1"></div>
+    <div class="mesh-glow-2"></div>
+  </div>
+
+  <!-- FLOATING PILL NAVBAR -->
+  <div class="nav-wrapper">
+    <nav class="nav-pill">
+      <a href="index.html" class="nav-brand">
+        <img src="icon.svg" alt="ULTSQL Pinwheel Icon">
+        <span>ULTSQL</span>
+        <span class="glass-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">v1.0.22</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link">Home</a></li>
+        <li><a href="features.html" class="nav-link">Features</a></li>
+        <li><a href="docs.html" class="nav-link">Documentation</a></li>
+        <li><a href="benchmarks.html" class="nav-link active">Benchmarks</a></li>
+        <li><a href="license.html" class="nav-link">License & FAQ</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon"></span>
+        </button>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+          pub.dev
+        </a>
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+          GitHub
+        </a>
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- MOBILE NAV DRAWER -->
+  <div class="mobile-nav-drawer" id="mobileNavDrawer">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="features.html" class="nav-link">Features</a>
+    <a href="docs.html" class="nav-link">Documentation</a>
+    <a href="benchmarks.html" class="nav-link active">Benchmarks</a>
+    <a href="license.html" class="nav-link">License & FAQ</a>
+  </div>
 
   <!-- HEADER -->
-  <header class="hero" style="padding: 4rem 6% 2rem;">
-    <div class="hero-ambient-glow" aria-hidden="true"></div>
-    <div class="hero-badge-group">
-      <div class="hero-badge"><span class="badge-tag">BENCHMARKS</span> Empirical Performance Metrics (v1.0.22)</div>
-    </div>
-    <h1>Performance Benchmarks</h1>
-    <p>Measured throughput and latency benchmarks comparing UltSQL (100% Pure Dart) against SQLite 3, DuckDB, and ChromaDB.</p>
-
-    <!-- HARDWARE DISCLAIMER NOTICE -->
-    <div class="disclaimer-card" style="margin-top: 2rem;">
-      <div class="disclaimer-header">
-        <span>[Notice]</span> Tested Benchmark Hardware & Methodology Notice
+  <header class="hero" style="padding-bottom: 2.5rem;">
+    <div class="container">
+      <div class="hero-pill-badge">
+        <span class="glass-pill emerald">Empirical Performance</span>
       </div>
-      <div class="disclaimer-body">
-        Tested throughput reflects public batch API ingestion (<strong>~350,000–500,000+ rows/sec</strong> with slotted page serialization and B+ Tree indexing), disk multi-row batch inserts (<strong>~140,000–195,000 rows/sec</strong>), PL/SQL loops (<strong>~170,000–230,000 rows/sec</strong>), and parsed single SQL statements (<strong>~60,000–75,000 rows/sec</strong>) measured on an 
-        <strong>ASUS ROG Strix G16 (2023)</strong> powered by an 
-        <em>Intel Core i7-13650HX, 16GB DDR5 4800MT/s RAM, 1TB Gen 5 NVMe SSD, and NVIDIA RTX 4050 6GB</em>. 
-        Actual benchmark speeds may vary higher or lower depending on target hardware, storage controller, and CPU specifications.
-      </div>
+      <h1 class="hero-title"><span class="text-gradient">Verified</span> <span class="text-gradient-cyan">Benchmarks</span></h1>
+      <p class="hero-subtitle">
+        Performance measurements evaluated across disk persistence, batch ingestion, B+ Tree indexing, and HNSW vector similarity search.
+      </p>
     </div>
   </header>
 
-  <!-- BENCHMARKS TABLE -->
-  <section class="section">
-    <div class="table-responsive">
-      <table class="benchmark-table">
+  <main class="container" style="padding-bottom: 6rem;">
+    
+    <!-- HARDWARE & DATASET DISCLOSURE -->
+    <div class="glass-panel" style="padding: 2rem; margin-bottom: 3rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+        <h3>Benchmark Test Environment & Disclosure</h3>
+        <span class="glass-pill">ASUS ROG Strix G16 (2023)</span>
+      </div>
+      <p style="margin-bottom: 1.25rem;">
+        Performance throughput was empirically benchmarked by <strong>Om Patel</strong> on local NVMe disk with WAL durability enabled, using a synthetic 100,000-row test dataset (<code>id INT</code>, <code>name VARCHAR</code>, <code>score DOUBLE</code>, <code>active BOOL</code>, <code>payload JSON</code>, ~18.5 MB database footprint).
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div class="glass-card" style="padding: 1rem;">
+          <div style="font-size: 0.75rem; color: var(--text-tertiary); text-transform: uppercase;">CPU</div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-top: 0.25rem;">Intel Core i7-13650HX</div>
+        </div>
+        <div class="glass-card" style="padding: 1rem;">
+          <div style="font-size: 0.75rem; color: var(--text-tertiary); text-transform: uppercase;">RAM</div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-top: 0.25rem;">16 GB DDR5 (4800 MT/s)</div>
+        </div>
+        <div class="glass-card" style="padding: 1rem;">
+          <div style="font-size: 0.75rem; color: var(--text-tertiary); text-transform: uppercase;">Disk I/O</div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-top: 0.25rem;">1 TB Gen 5 NVMe SSD</div>
+        </div>
+        <div class="glass-card" style="padding: 1rem;">
+          <div style="font-size: 0.75rem; color: var(--text-tertiary); text-transform: uppercase;">Platform</div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-top: 0.25rem;">Dart 3.12 (AOT / JIT)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPRODUCIBLE SCRIPT BOX -->
+    <div class="glass-card" style="margin-bottom: 3rem; padding: 1.75rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h4>Run the Reproducible Benchmark Suite</h4>
+        <button class="btn btn-glass copy-btn" data-code="dart run tool/benchmarks/benchmark_live_comparison.dart">Copy Command</button>
+      </div>
+      <p style="margin-bottom: 1rem; font-size: 0.92rem;">
+        Every developer can clone the repository and verify these measurements locally on their own machines:
+      </p>
+      <div class="bento-code-snippet" style="margin-top: 0;">
+git clone https://github.com/ompatel3158/ULTSQL.git
+cd ULTSQL
+dart run tool/benchmarks/benchmark_live_comparison.dart</div>
+    </div>
+
+    <!-- CORE BENCHMARK COMPARISON TABLE -->
+    <div class="glass-panel" style="padding: 2rem; overflow-x: auto;">
+      <h3 style="margin-bottom: 1.5rem;">Throughput & Latency Breakdown</h3>
+      <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
         <thead>
-          <tr>
-            <th>Benchmark Workload</th>
-            <th>UltSQL Engine</th>
-            <th>Standard SQLite3</th>
-            <th>Speedup Delta</th>
+          <tr style="border-bottom: 1px solid var(--border-subtle); text-align: left;">
+            <th style="padding: 0.75rem 1rem; color: var(--text-tertiary); font-size: 0.8rem; text-transform: uppercase;">Operation</th>
+            <th style="padding: 0.75rem 1rem; color: var(--text-tertiary); font-size: 0.8rem; text-transform: uppercase;">Throughput / Latency</th>
+            <th style="padding: 0.75rem 1rem; color: var(--text-tertiary); font-size: 0.8rem; text-transform: uppercase;">Storage & Features</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td><strong>100,000 Batch Inserts (In-Memory)</strong></td>
-            <td><span class="speed-badge">974 ms (102,669 ops/sec)</span></td>
-            <td>1,420 ms</td>
-            <td><strong>1.45x Faster</strong></td>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <td style="padding: 1rem; font-weight: 600;">Public Batch API (<code>insertBatch</code>)</td>
+            <td style="padding: 1rem; color: var(--accent-primary); font-family: var(--font-mono); font-weight: 700;">~350,000–500,000+ rows/sec</td>
+            <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Direct API with automatic slotted page serialization & stats</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <td style="padding: 1rem; font-weight: 600;">SQL Multi-Row Insert (Disk)</td>
+            <td style="padding: 1rem; color: var(--accent-emerald); font-family: var(--font-mono); font-weight: 700;">~140,000–195,000 rows/sec</td>
+            <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Multi-row VALUES batch with active WAL flush</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <td style="padding: 1rem; font-weight: 600;">PL/SQL Transaction Loop</td>
+            <td style="padding: 1rem; color: var(--accent-amber); font-family: var(--font-mono); font-weight: 700;">~170,000–230,000 rows/sec</td>
+            <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">In-engine JIT loop execution with B+ Tree indexing</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <td style="padding: 1rem; font-weight: 600;">Full Single-Row SQL Pipeline</td>
+            <td style="padding: 1rem; color: var(--text-primary); font-family: var(--font-mono); font-weight: 700;">~60,000–75,000 rows/sec</td>
+            <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Lexer, Parser, AST Planner, MVCC, and B-Tree</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+            <td style="padding: 1rem; font-weight: 600;">Bulk B+ Tree Index (100K Rows)</td>
+            <td style="padding: 1rem; color: var(--accent-primary); font-family: var(--font-mono); font-weight: 700;">~60–130 ms</td>
+            <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Direct sorted batch bulk indexing</td>
           </tr>
           <tr>
-            <td><strong>100,000-Row B+ Tree Index Build</strong></td>
-            <td><span class="speed-badge">~60–130 ms</span></td>
-            <td>180 ms</td>
-            <td><strong>Sub-Second Indexing</strong></td>
-          </tr>
-          <tr>
-            <td><strong>768-Dim Vector HNSW Search (100K)</strong></td>
-            <td><span class="speed-badge">6 ms</span></td>
-            <td>N/A (No Vector Engine)</td>
-            <td><strong>Native Support</strong></td>
-          </tr>
-          <tr>
-            <td><strong>1M-Row PL/SQL Transaction Loop</strong></td>
-            <td><span class="speed-badge">< 800 ms</span></td>
-            <td>N/A (No PL/SQL Engine)</td>
-            <td><strong>Native Support</strong></td>
-          </tr>
-          <tr>
-            <td><strong>10,000 Point Lookups via Index</strong></td>
-            <td><span class="speed-badge">1.62 ms / lookup</span></td>
-            <td>3.54 ms / lookup</td>
-            <td><strong>2.18x Faster</strong></td>
+            <td style="padding: 1rem; font-weight: 600;">768-Dim HNSW Vector Search</td>
+            <td style="padding: 1rem; color: var(--accent-violet); font-family: var(--font-mono); font-weight: 700;">~6 ms (ANN)</td>
+            <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">&gt;99% Recall@10 verified against brute-force scan (10,000 vectors)</td>
           </tr>
         </tbody>
       </table>
     </div>
-  </section>
+
+  </main>
 
   <!-- FOOTER -->
-  <footer class="footer">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <footer class="site-footer">
+    <div class="container footer-inner">
       <div>
-        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
+          ULTSQL Database Engine
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+          Licensed under FSL-1.1-MIT &copy; 2026 Om Patel.
+        </div>
       </div>
-      <div>
-        <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
-        <a href="features.html" style="color: var(--text-muted); margin-right: 1.25rem;">Features</a>
-        <a href="docs.html" style="color: var(--text-muted); margin-right: 1.25rem;">Docs</a>
-        <a href="license.html" style="color: #ffffff; font-weight: 600;">License & FAQ</a>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="docs.html">Docs</a>
+        <a href="benchmarks.html">Benchmarks</a>
+        <a href="license.html">License & FAQ</a>
       </div>
     </div>
   </footer>
 
-  <script src="app.js?v=1.0.25"></script>
+  <div class="toast-msg" id="toast">Copied to clipboard</div>
+  <script src="app.js?v=1.0.26"></script>
 </body>
 </html>

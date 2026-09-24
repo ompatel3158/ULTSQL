@@ -3,308 +3,258 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>License & FAQ — ULTSQL Converged Database Engine</title>
+  <title>License & FAQ — ULTSQL Converged Engine</title>
   <meta name="description" content="ULTSQL Functional Source License (FSL-1.1-MIT) terms, automatic MIT conversion after 2 years, commercial embedding, and Frequently Asked Questions (FAQ).">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/license">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="License & FAQ — ULTSQL Converged Database Engine">
-  <meta property="og:description" content="ULTSQL Functional Source License (FSL-1.1-MIT) terms, automatic MIT conversion, and FAQ.">
-  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/license">
-  <meta property="og:site_name" content="UltSQL">
-  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/icon.svg">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="License & FAQ — ULTSQL Converged Database Engine">
-  <meta name="twitter:description" content="ULTSQL Functional Source License (FSL-1.1-MIT) terms and FAQ.">
-  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.25">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=1.0.26">
   <style>
-    .license-container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 2rem 1.5rem 5rem;
-    }
-    .license-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 2.5rem;
-      margin-bottom: 3rem;
-      line-height: 1.7;
-    }
-    .license-box h2 {
-      font-size: 1.35rem;
-      margin-top: 2rem;
-      margin-bottom: 0.75rem;
-      color: #ffffff;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 0.5rem;
-    }
-    .license-box h3 {
-      font-size: 1.1rem;
-      margin-top: 1.5rem;
-      margin-bottom: 0.5rem;
-      color: var(--accent-blue);
-    }
-    .license-box p, .license-box ul, .license-box ol {
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-      font-size: 0.95rem;
-    }
-    .license-box ul {
-      padding-left: 1.5rem;
-    }
-    .faq-item {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
+    .faq-accordion-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
       border-radius: var(--radius-md);
-      margin-bottom: 1rem;
+      margin-bottom: 0.85rem;
       overflow: hidden;
-      transition: border-color 0.2s;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(16px);
     }
-    .faq-item:hover {
-      border-color: var(--accent-blue);
+    .faq-accordion-item:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-surface-hover);
     }
-    .faq-question {
+    .faq-header {
       padding: 1.25rem 1.5rem;
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: #ffffff;
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text-primary);
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
       user-select: none;
     }
-    .faq-answer {
+    .faq-body {
       padding: 0 1.5rem 1.25rem;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       font-size: 0.92rem;
       line-height: 1.6;
     }
-    .tab-bar {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      border-bottom: 1px solid var(--border-color);
+    .license-legal-text {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      margin-top: 2rem;
+      line-height: 1.7;
+      backdrop-filter: blur(20px);
+    }
+    .license-legal-text h2 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
       padding-bottom: 0.5rem;
     }
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
+    .license-legal-text h3 {
       font-size: 1.05rem;
-      font-weight: 600;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent-primary);
     }
-    .tab-btn.active {
-      color: var(--accent-blue);
-      border-bottom-color: var(--accent-blue);
+    .license-legal-text p, .license-legal-text ol, .license-legal-text ul {
+      color: var(--text-secondary);
+      margin-bottom: 0.85rem;
+      font-size: 0.92rem;
     }
   </style>
 </head>
 <body>
-  <!-- NAVIGATION -->
-  <nav class="navbar" id="navbar">
-    <a href="index.html" class="nav-brand">
-      <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
-      <span>UltSQL</span>
-      <span class="brand-version">v1.0.22</span>
-    </a>
-    <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="features.html">Features</a></li>
-      <li><a href="docs.html">Documentation</a></li>
-      <li><a href="benchmarks.html">Benchmarks</a></li>
-      <li><a href="license.html" class="active">License & FAQ</a></li>
-      <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">Theme: Dark</button>
-      </li>
-      <li>
-        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">
-          pub.dev / ultsql
+
+  <!-- AMBIENT AURORA GLOWS -->
+  <div class="ambient-mesh">
+    <div class="mesh-glow-1"></div>
+    <div class="mesh-glow-2"></div>
+  </div>
+
+  <!-- FLOATING PILL NAVBAR -->
+  <div class="nav-wrapper">
+    <nav class="nav-pill">
+      <a href="index.html" class="nav-brand">
+        <img src="icon.svg" alt="ULTSQL Pinwheel Icon">
+        <span>ULTSQL</span>
+        <span class="glass-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">v1.0.22</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link">Home</a></li>
+        <li><a href="features.html" class="nav-link">Features</a></li>
+        <li><a href="docs.html" class="nav-link">Documentation</a></li>
+        <li><a href="benchmarks.html" class="nav-link">Benchmarks</a></li>
+        <li><a href="license.html" class="nav-link active">License & FAQ</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon"></span>
+        </button>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+          pub.dev
         </a>
-      </li>
-    </ul>
-  </nav>
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+          GitHub
+        </a>
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- MOBILE NAV DRAWER -->
+  <div class="mobile-nav-drawer" id="mobileNavDrawer">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="features.html" class="nav-link">Features</a>
+    <a href="docs.html" class="nav-link">Documentation</a>
+    <a href="benchmarks.html" class="nav-link">Benchmarks</a>
+    <a href="license.html" class="nav-link active">License & FAQ</a>
+  </div>
 
   <!-- HEADER -->
-  <header class="hero" style="min-height: 35vh; padding-top: 4rem;">
-    <h1>ULTSQL <span class="hero-title-gradient">License & FAQ</span></h1>
-    <p>Functional Source License (FSL-1.1-MIT) — Free for commercial applications, personal projects, education & SaaS.</p>
+  <header class="hero" style="padding-bottom: 2rem;">
+    <div class="container">
+      <div class="hero-pill-badge">
+        <span class="glass-pill accent">Licensing Clarity</span>
+      </div>
+      <h1 class="hero-title"><span class="text-gradient">License &</span> <span class="text-gradient-cyan">FAQ</span></h1>
+      <p class="hero-subtitle">
+        Functional Source License (FSL-1.1-MIT) — Free for commercial applications, personal projects, education & SaaS.
+      </p>
+    </div>
   </header>
 
-  <main class="license-container">
+  <main class="container" style="max-width: 900px; padding-bottom: 6rem;">
 
-    <!-- SUMMARY CARDS -->
+    <!-- SUMMARY PILLARS -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
-      <div class="pillar-card" style="padding: 1.5rem;">
-        <div class="badge-tag" style="font-size: 0.85rem; margin-bottom: 0.75rem;">TIER 1</div>
-        <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">100% Free & Royalty-Free</h3>
-        <p style="font-size: 0.88rem; margin: 0;">Use in commercial software, mobile, desktop, backend servers, SaaS, internal systems, and education without licensing fees.</p>
+      <div class="glass-card">
+        <span class="glass-pill emerald">Free & Royalty-Free</span>
+        <h4 style="margin-top: 0.75rem;">100% Free Commercial Embedding</h4>
+        <p style="font-size: 0.88rem; margin-top: 0.4rem;">
+          Embed in desktop, mobile, backend servers, SaaS applications, and enterprise products with no royalties.
+        </p>
       </div>
-      <div class="pillar-card" style="padding: 1.5rem;">
-        <div class="badge-tag" style="font-size: 0.85rem; margin-bottom: 0.75rem;">TIER 2</div>
-        <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Automatic MIT Conversion</h3>
-        <p style="font-size: 0.88rem; margin: 0;">Every release automatically and irrevocably converts to standard permissive <strong>MIT License</strong> 2 years after publication.</p>
+
+      <div class="glass-card">
+        <span class="glass-pill violet">Future Open Source</span>
+        <h4 style="margin-top: 0.75rem;">Automatic MIT Conversion</h4>
+        <p style="font-size: 0.88rem; margin-top: 0.4rem;">
+          Every release automatically and irrevocably converts to the permissive <strong>MIT License</strong> after 2 years.
+        </p>
       </div>
-      <div class="pillar-card" style="padding: 1.5rem;">
-        <div class="badge-tag" style="font-size: 0.85rem; margin-bottom: 0.75rem;">TIER 3</div>
-        <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Cloud Reseller Protection</h3>
-        <p style="font-size: 0.88rem; margin: 0;">Prevents third parties from packaging ULTSQL as a competing commercial managed database-as-a-service (DBaaS).</p>
+
+      <div class="glass-card">
+        <span class="glass-pill accent">Reseller Protection</span>
+        <h4 style="margin-top: 0.75rem;">Cloud Non-Compete Clause</h4>
+        <p style="font-size: 0.88rem; margin-top: 0.4rem;">
+          Third parties cannot offer raw managed ULTSQL hosting (DBaaS) in direct competition with the author.
+        </p>
       </div>
     </div>
 
-    <!-- TABS -->
-    <div class="tab-bar">
-      <button class="tab-btn active" id="tabFaqBtn" onclick="showTab('faq')">Frequently Asked Questions</button>
-      <button class="tab-btn" id="tabLicenseBtn" onclick="showTab('license')">Full Legal License Text</button>
+    <!-- FAQ LIST -->
+    <h3 style="margin-bottom: 1.25rem;">Frequently Asked Questions</h3>
+
+    <div class="faq-accordion-item">
+      <div class="faq-header"><span>What is the ULTSQL license?</span> <span>▾</span></div>
+      <div class="faq-body">
+        ULTSQL is licensed under the <strong>Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)</strong>. Created by Sentry, the FSL is an established Fair Source standard that gives full source code access, permits commercial and SaaS use, and automatically converts to standard open-source MIT after 2 years.
+      </div>
     </div>
 
-    <!-- FAQ SECTION -->
-    <div id="faqSection">
-      
-      <div class="faq-item">
-        <div class="faq-question"><span>What is the ULTSQL license?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          ULTSQL is licensed under the <strong>Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)</strong>. It is a modern source-available standard (stewarded by Sentry) that gives you full access to the source code, allows free commercial embedding and SaaS use, and automatically converts to the standard open-source MIT License after 2 years.
-        </div>
+    <div class="faq-accordion-item">
+      <div class="faq-header"><span>Can I build and sell commercial software using ULTSQL?</span> <span>▾</span></div>
+      <div class="faq-body">
+        <strong>Yes.</strong> You can build and sell proprietary commercial applications, mobile apps, desktop software, and SaaS platforms powered by ULTSQL without paying licensing fees or royalties.
       </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>Can I use ULTSQL for free in my commercial application?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          <strong>Yes.</strong> You can build, ship, and sell commercial applications and SaaS products that embed ULTSQL without paying any licensing fees or royalties.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>Do I need to show “Powered by ULTSQL” or any forced attribution?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          <strong>No.</strong> Under FSL-1.1-MIT, there is no forced UI attribution or badge requirement. You only need to keep the standard copyright notice in source distributions as customary.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>Do I have to open-source my own application?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          <strong>No.</strong> FSL-1.1-MIT does not require your application to become open source. You can keep your own application's code 100% proprietary.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>Can I use ULTSQL in a SaaS application?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          <strong>Yes.</strong> For example, you can build an accounting SaaS, an analytics platform, or an AI application powered by ULTSQL. That is fully permitted because ULTSQL is used to power your software, not sold as a raw database hosting service.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>Can I run ULTSQL on AWS, GCP, or Azure for my company?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          <strong>Yes.</strong> Internal and customer-facing application deployment is permitted on any cloud provider. The only restriction is offering ULTSQL itself as a commercial hosted DBaaS product to third parties in competition with the author.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>When does it convert to the MIT License?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          Exactly <strong>two years</strong> after release, each version automatically converts into the standard, permissive MIT License with no further restrictions.
-        </div>
-      </div>
-
-      <div class="faq-item">
-        <div class="faq-question"><span>What is the license history across versions?</span> <span>▾</span></div>
-        <div class="faq-answer">
-          <ul style="margin: 0; padding-left: 1.2rem;">
-            <li><strong>v1.0.0</strong>: MIT License</li>
-            <li><strong>v1.0.1 – v1.0.17</strong>: BSD-3-Clause License</li>
-            <li><strong>v1.0.18+</strong>: Functional Source License (FSL-1.1-MIT)</li>
-          </ul>
-        </div>
-      </div>
-
     </div>
 
-    <!-- FULL LICENSE TEXT SECTION -->
-    <div id="licenseSection" style="display: none;">
-      <div class="license-box">
-        <h1 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Functional Source License, Version 1.1, MIT Future License</h1>
-        <p style="font-weight: 700; color: var(--accent-blue);">Abbreviation: FSL-1.1-MIT</p>
-        <p>Copyright 2026 Om Patel &lt;ompatel3158@gmail.com&gt;</p>
-
-        <h2>Terms and Conditions</h2>
-        <h3>Licensor ("We")</h3>
-        <p>The party offering the Software under these Terms and Conditions.</p>
-
-        <h3>The Software</h3>
-        <p>The "Software" is each version of the software that we make available under these Terms and Conditions, as indicated by our inclusion of these Terms and Conditions with the Software.</p>
-
-        <h3>License Grant</h3>
-        <p>Subject to your compliance with this License Grant and the Patents, Redistribution and Trademark clauses below, we hereby grant you the right to use, copy, modify, create derivative works, publicly perform, publicly display and redistribute the Software for any Permitted Purpose identified below.</p>
-
-        <h3>Permitted Purpose</h3>
-        <p>A Permitted Purpose is any purpose other than a Competing Use. A Competing Use means making the Software available to others in a commercial product or service that:</p>
-        <ol>
-          <li>substitutes for the Software;</li>
-          <li>substitutes for any other product or service we offer using the Software that exists as of the date we make the Software available; or</li>
-          <li>offers the same or substantially similar functionality as the Software.</li>
-        </ol>
-        <p>Permitted Purposes specifically include using the Software for internal use and access, non-commercial education, non-commercial research, and commercial applications and SaaS that do not provide a competing database service.</p>
-
-        <h3>Grant of Future License</h3>
-        <p>We hereby irrevocably grant you an additional license to use the Software under the MIT license that is effective on the second anniversary of the date we make the Software available.</p>
+    <div class="faq-accordion-item">
+      <div class="faq-header"><span>Is there any forced attribution (e.g. "Powered by ULTSQL")?</span> <span>▾</span></div>
+      <div class="faq-body">
+        <strong>No.</strong> Under FSL-1.1-MIT, there is no requirement to display "Powered by ULTSQL" badges or splash screens. You only need to retain standard copyright notices in source distributions as customary.
       </div>
+    </div>
+
+    <div class="faq-accordion-item">
+      <div class="faq-header"><span>Do I have to open-source my own application?</span> <span>▾</span></div>
+      <div class="faq-body">
+        <strong>No.</strong> FSL-1.1-MIT does not require your application to become open source. You can keep your own application's code 100% proprietary.
+      </div>
+    </div>
+
+    <div class="faq-accordion-item">
+      <div class="faq-header"><span>Can I run ULTSQL on AWS, GCP, or Azure for my company?</span> <span>▾</span></div>
+      <div class="faq-body">
+        <strong>Yes.</strong> Internal and customer-facing application deployment is permitted on any cloud provider. The only restriction is offering ULTSQL itself as a commercial hosted DBaaS product to third parties in competition with the author.
+      </div>
+    </div>
+
+    <div class="faq-accordion-item">
+      <div class="faq-header"><span>What is the version license history?</span> <span>▾</span></div>
+      <div class="faq-body">
+        <ul style="padding-left: 1.25rem;">
+          <li><strong>v1.0.0:</strong> MIT License</li>
+          <li><strong>v1.0.1 – v1.0.17:</strong> BSD-3-Clause License</li>
+          <li><strong>v1.0.18+:</strong> Functional Source License (FSL-1.1-MIT)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- FULL LEGAL TEXT ACCORDION -->
+    <div class="license-legal-text">
+      <h2>Functional Source License, Version 1.1, MIT Future License</h2>
+      <p style="font-weight: 600; color: var(--accent-primary); margin-top: 0.5rem;">Abbreviation: FSL-1.1-MIT</p>
+      <p>Copyright 2026 Om Patel &lt;ompatel3158@gmail.com&gt;</p>
+
+      <h3>Licensor ("We")</h3>
+      <p>The party offering the Software under these Terms and Conditions.</p>
+
+      <h3>The Software</h3>
+      <p>The "Software" is each version of the software that we make available under these Terms and Conditions.</p>
+
+      <h3>License Grant</h3>
+      <p>Subject to your compliance with this License Grant and the Patents, Redistribution and Trademark clauses, we hereby grant you the right to use, copy, modify, create derivative works, publicly perform, publicly display and redistribute the Software for any Permitted Purpose identified below.</p>
+
+      <h3>Permitted Purpose</h3>
+      <p>A Permitted Purpose is any purpose other than a Competing Use. A Competing Use means making the Software available to others in a commercial product or service that substitutes for the Software or offers substantially similar functionality as the Software.</p>
+
+      <h3>Grant of Future License</h3>
+      <p>We hereby irrevocably grant you an additional license to use the Software under the MIT license that is effective on the second anniversary of the date we make the Software available.</p>
     </div>
 
   </main>
 
   <!-- FOOTER -->
-  <footer class="footer">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <footer class="site-footer">
+    <div class="container footer-inner">
       <div>
-        <strong>ULTSQL Database Engine</strong> — Licensed under FSL-1.1-MIT &copy; 2026 Om Patel.
+        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
+          ULTSQL Database Engine
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+          Licensed under FSL-1.1-MIT &copy; 2026 Om Patel.
+        </div>
       </div>
-      <div>
-        <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
-        <a href="features.html" style="color: var(--text-muted); margin-right: 1.25rem;">Features</a>
-        <a href="docs.html" style="color: var(--text-muted); margin-right: 1.25rem;">Docs</a>
-        <a href="license.html" style="color: #ffffff; font-weight: 600;">License & FAQ</a>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="docs.html">Docs</a>
+        <a href="benchmarks.html">Benchmarks</a>
+        <a href="license.html">License & FAQ</a>
       </div>
     </div>
   </footer>
 
-  <script>
-    function showTab(tab) {
-      const faqSection = document.getElementById('faqSection');
-      const licenseSection = document.getElementById('licenseSection');
-      const tabFaqBtn = document.getElementById('tabFaqBtn');
-      const tabLicenseBtn = document.getElementById('tabLicenseBtn');
-
-      if (tab === 'faq') {
-        faqSection.style.display = 'block';
-        licenseSection.style.display = 'none';
-        tabFaqBtn.classList.add('active');
-        tabLicenseBtn.classList.remove('active');
-      } else {
-        faqSection.style.display = 'none';
-        licenseSection.style.display = 'block';
-        tabFaqBtn.classList.remove('active');
-        tabLicenseBtn.classList.add('active');
-      }
-    }
-  </script>
-  <script src="app.js?v=1.0.25"></script>
+  <script src="app.js?v=1.0.26"></script>
 </body>
 </html>

@@ -3,153 +3,276 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UltSQL — Features & Architecture Specification</title>
-  <meta name="description" content="Explore UltSQL's unified converged database engine features: ACID transactions, B+ Tree indexing, HNSW vector search, PostgreSQL Wire Protocol, and zero-dependency pure Dart architecture.">
-  <meta name="keywords" content="UltSQL features, embedded database architecture, Dart database features, B+ Tree indexing, vector database, HNSW Dart, PostgreSQL wire protocol, ACID database">
+  <title>Features & Innovations — ULTSQL Converged Engine</title>
+  <meta name="description" content="Explore ULTSQL's 15 signature database innovations: HNSW vector search, slotted-page persistence, CRC32 crash recovery, and PostgreSQL wire protocol.">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/features">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="UltSQL — Features & Architecture Specification">
-  <meta property="og:description" content="Explore UltSQL's unified converged database engine features: ACID transactions, B+ Tree indexing, HNSW vector search, PostgreSQL Wire Protocol, and pure Dart architecture.">
-  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/features">
-  <meta property="og:site_name" content="UltSQL">
-  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/icon.svg">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="UltSQL — Features & Architecture Specification">
-  <meta name="twitter:description" content="Pure Dart embedded database engine featuring SQL, NoSQL JSON, HNSW Vector RAG, and PostgreSQL Wire Protocol.">
-  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.25">
+  <link rel="stylesheet" href="style.css?v=1.0.26">
 </head>
 <body>
 
-  <!-- NAVBAR -->
-  <nav class="navbar" id="navbar">
-    <a href="index.html" class="nav-brand">
-      <img src="icon.svg" alt="UltSQL Pinwheel" class="brand-pinwheel-img">
-      <span>UltSQL</span>
-      <span class="brand-version">v1.0.22</span>
-    </a>
-    <button id="menuToggle" class="mobile-menu-btn" aria-label="Toggle Menu">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
-    </button>
-    <ul class="nav-links" id="navLinks">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="features.html" class="active">Features</a></li>
-      <li><a href="docs.html">Documentation</a></li>
-      <li><a href="benchmarks.html">Benchmarks</a></li>
-      <li><a href="index.html#faq">FAQ</a></li>
-      <li><a href="license.html">License</a></li>
-      <li>
-        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle theme">Theme: Dark</button>
-      </li>
-      <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="btn-primary">pub.dev / ultsql</a></li>
-    </ul>
-  </nav>
+  <!-- AMBIENT AURORA GLOWS -->
+  <div class="ambient-mesh">
+    <div class="mesh-glow-1"></div>
+    <div class="mesh-glow-2"></div>
+  </div>
+
+  <!-- FLOATING PILL NAVBAR -->
+  <div class="nav-wrapper">
+    <nav class="nav-pill">
+      <a href="index.html" class="nav-brand">
+        <img src="icon.svg" alt="ULTSQL Pinwheel Icon">
+        <span>ULTSQL</span>
+        <span class="glass-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">v1.0.22</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link">Home</a></li>
+        <li><a href="features.html" class="nav-link active">Features</a></li>
+        <li><a href="docs.html" class="nav-link">Documentation</a></li>
+        <li><a href="benchmarks.html" class="nav-link">Benchmarks</a></li>
+        <li><a href="license.html" class="nav-link">License & FAQ</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon"></span>
+        </button>
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+          pub.dev
+        </a>
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+          GitHub
+        </a>
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- MOBILE NAV DRAWER -->
+  <div class="mobile-nav-drawer" id="mobileNavDrawer">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="features.html" class="nav-link active">Features</a>
+    <a href="docs.html" class="nav-link">Documentation</a>
+    <a href="benchmarks.html" class="nav-link">Benchmarks</a>
+    <a href="license.html" class="nav-link">License & FAQ</a>
+  </div>
 
   <!-- HEADER -->
-  <header class="hero" style="padding: 4rem 6% 2rem;">
-    <div class="hero-ambient-glow" aria-hidden="true"></div>
-    <div class="hero-badge-group">
-      <div class="hero-badge"><span class="badge-tag">SPEC</span> Comprehensive Feature Specification</div>
+  <header class="hero" style="padding-bottom: 2rem;">
+    <div class="container">
+      <div class="hero-pill-badge">
+        <span class="glass-pill accent">Architectural Innovations</span>
+      </div>
+      <h1 class="hero-title"><span class="text-gradient">15 Signature</span> <span class="text-gradient-cyan">Innovations</span></h1>
+      <p class="hero-subtitle">
+        Engineered specifically for high-throughput single-node databases, local embedded apps, and cloud microservices.
+      </p>
     </div>
-    <h1>Engine Features & Innovations</h1>
-    <p>Discover how UltSQL combines cutting-edge database research into a unified, zero-dependency pure Dart database engine.</p>
   </header>
 
-  <!-- FEATURES DEEP DIVE -->
-  <section class="section">
-    <div class="pillars-grid">
-      
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 01</span>
-        <h3>High-Throughput Batch Ingestion</h3>
-        <p>Pre-allocated linear page serialization delivering 350,000–500,000+ ops/sec batch insertion throughput on standard hardware.</p>
-        <div class="pillar-code">db.insertSortedBatchSync('users', rows);</div>
+  <!-- FEATURES CATALOG -->
+  <main class="container" style="padding-bottom: 6rem;">
+    <div class="bento-grid">
+
+      <!-- Feature 1 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">Storage & Ingestion</span>
+        <h3 style="margin-top: 1rem;">1. High-Throughput Public Batch API</h3>
+        <p style="margin-top: 0.5rem;">
+          Native <code>insertBatch()</code> and multi-row SQL statements delivering up to ~500,000 rows/sec with automatic slotted-page serialization and catalog updates.
+        </p>
+        <div class="bento-code-snippet">
+await engine.insertBatch('users', [
+  [1, 'Alice', 98.5],
+  [2, 'Bob', 91.2],
+], columns: ['id', 'name', 'score']);</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 02</span>
-        <h3>Fast B+ Tree Indexing</h3>
-        <p>`insertSortedBatchSync` constructs 100K-row B+ Trees in ~60–130 ms with logarithmic root-to-leaf traversal.</p>
-        <div class="pillar-code">CREATE INDEX idx_user_id ON users(id);</div>
+      <!-- Feature 2 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">Indexing</span>
+        <h3 style="margin-top: 1rem;">2. Bulk B+ Tree Index Construction</h3>
+        <p style="margin-top: 0.5rem;">
+          Specialized <code>insertSortedBatchSync</code> builds a complete 100K-row B+ Tree index in ~60–130 ms with zero runtime memory fragmentation.
+        </p>
+        <div class="bento-code-snippet">
+CREATE INDEX idx_users_score ON users (score);
+-- Evaluated and maintained via balanced B+ Tree nodes</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 03</span>
-        <h3>HNSW Vector RAG Graph</h3>
-        <p>Sub-7ms Cosine & Euclidean similarity search over 768-dim embeddings with high-recall approximate nearest neighbor accuracy.</p>
-        <div class="pillar-code">CREATE INDEX idx_v ON items(vector) USING HNSW;</div>
+      <!-- Feature 3 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill violet">AI & Vector</span>
+        <h3 style="margin-top: 1rem;">3. Native 768-Dim HNSW Vector Graph</h3>
+        <p style="margin-top: 0.5rem;">
+          Sub-7ms approximate nearest-neighbor vector search over 768-dim embeddings with &gt;99% Recall@10, eliminating external vector databases.
+        </p>
+        <div class="bento-code-snippet">
+CREATE INDEX idx_emb ON docs (embedding) USING HNSW;
+SELECT * FROM docs ORDER BY vector_distance(embedding, '[0.1, ...]') LIMIT 5;</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 04</span>
-        <h3>PostgreSQL Wire Protocol (Port 5432)</h3>
-        <p>Embedded TCP server engine allowing standard PostgreSQL drivers and tools to query UltSQL directly.</p>
-        <div class="pillar-code">db.startPgWireServer(port: 5432);</div>
+      <!-- Feature 4 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill emerald">Network Protocol</span>
+        <h3 style="margin-top: 1rem;">4. PostgreSQL v3 Wire Protocol Server</h3>
+        <p style="margin-top: 0.5rem;">
+          Embeds a TCP server compatible with standard Postgres drivers (<code>psql</code>, <code>psycopg2</code>, <code>node-postgres</code>, JDBC) on port 5432.
+        </p>
+        <div class="bento-code-snippet">
+final server = PgWireServer(db: db, port: 5432);
+await server.start();</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 05</span>
-        <h3>PL/SQL Engine & Loops</h3>
-        <p>Auto-batched procedural loops with local environment scopes executing 1M loop iterations in <800ms.</p>
-        <div class="pillar-code">FOR i IN 1..1000 LOOP ... END LOOP;</div>
+      <!-- Feature 5 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill emerald">Resilience</span>
+        <h3 style="margin-top: 1rem;">5. WAL CRC32 Crash Recovery</h3>
+        <p style="margin-top: 0.5rem;">
+          ACID write-ahead log protects against power loss. Checksums verify each page, auto-rolling back incomplete writes and replaying committed transactions.
+        </p>
+        <div class="bento-code-snippet">
+// Automatically executes upon Database.init()
+await db.init(); // Recovers from wal.log seamlessly</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 06</span>
-        <h3>NoSQL Dotted Path Queries</h3>
-        <p>Query unstructured JSON objects using native dotted-path notation (`profile.address.city`).</p>
-        <div class="pillar-code">SELECT data.user.name FROM docs;</div>
+      <!-- Feature 6 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">Optimization</span>
+        <h3 style="margin-top: 1rem;">6. Autonomous Telemetry Auto-Indexer</h3>
+        <p style="margin-top: 0.5rem;">
+          Monitors query scan frequencies and automatically provisions B+ Tree indexes for repetitive full-table scans.
+        </p>
+        <div class="bento-code-snippet">
+SET engine_option auto_create_indexes = true;</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 07</span>
-        <h3>Self-Healing WAL Recovery</h3>
-        <p>Automatic write-ahead log crash recovery with IEEE 802.3 CRC32 page checksumming.</p>
-        <div class="pillar-code">db.recoverFromWalSync();</div>
+      <!-- Feature 7 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">Data Ingestion</span>
+        <h3 style="margin-top: 1rem;">7. Universal Direct File SQL Adapter</h3>
+        <p style="margin-top: 0.5rem;">
+          Execute live SQL queries directly over standard <code>.csv</code>, <code>.json</code>, and <code>.log</code> files without importing data into tables.
+        </p>
+        <div class="bento-code-snippet">
+SELECT * FROM file('/data/access.log') WHERE status = '500';</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 08</span>
-        <h3>Offline P2P Mesh Sync</h3>
-        <p>Local-first P2P mesh synchronization powered by LWW-Element-Set CRDTs.</p>
-        <div class="pillar-code">db.syncPeer(peerState);</div>
+      <!-- Feature 8 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill violet">AI Generation</span>
+        <h3 style="margin-top: 1rem;">8. Natural Language to SQL Compiler</h3>
+        <p style="margin-top: 0.5rem;">
+          Built-in rule-based NL-to-SQL compiler translates natural queries directly into optimized SQL execution plans.
+        </p>
+        <div class="bento-code-snippet">
+final sql = nlCompiler.compile("Show all active users ordered by score");</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 09</span>
-        <h3>Universal Direct File Queries</h3>
-        <p>Query external CSV, JSON, and LOG files directly without ETL or table import.</p>
-        <div class="pillar-code">SELECT * FROM READ_CSV('logs.csv');</div>
+      <!-- Feature 9 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">Query Execution</span>
+        <h3 style="margin-top: 1rem;">9. Deterministic Obfuscation Matching</h3>
+        <p style="margin-top: 0.5rem;">
+          Fast constant-time token equality matching over repeating-key XOR strings. (For secure data-at-rest, AES-256-CTR is built-in).
+        </p>
+        <div class="bento-code-snippet">
+SELECT * FROM accounts WHERE zk_match(token, 'key_123') = true;</div>
       </div>
 
-      <div class="pillar-card">
-        <span class="pillar-tag">FEATURE 10</span>
-        <h3>Multi-Process File Locking</h3>
-        <p>Cross-process exclusive file locking prevents WAL corruption when multiple processes access the same database file concurrently.</p>
-        <div class="pillar-code">throw DatabaseLockException('Database locked');</div>
+      <!-- Feature 10 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill emerald">Offline Sync</span>
+        <h3 style="margin-top: 1rem;">10. In-Memory LWW CRDT State Merging</h3>
+        <p style="margin-top: 0.5rem;">
+          Last-Write-Wins element state merging for local multi-device synchronization workflows.
+        </p>
+        <div class="bento-code-snippet">
+final updated = nodeA.mergePeerState(remoteState);</div>
+      </div>
+
+      <!-- Feature 11 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">Memory Efficiency</span>
+        <h3 style="margin-top: 1rem;">11. Zero-Allocation RowMap Wrapper</h3>
+        <p style="margin-top: 0.5rem;">
+          Replaces heavy heap Map instantiations with zero-allocation array views into slotted record memory.
+        </p>
+        <div class="bento-code-snippet">
+// Iterates row views directly without creating Map objects</div>
+      </div>
+
+      <!-- Feature 12 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill accent">JIT Compilation</span>
+        <h3 style="margin-top: 1rem;">12. JIT Compiled WHERE Expressions</h3>
+        <p style="margin-top: 0.5rem;">
+          Compiles complex SQL filter conditions directly into native Dart closure delegates for accelerated evaluation.
+        </p>
+        <div class="bento-code-snippet">
+SELECT * FROM transactions WHERE amount > 1000 AND status = 'COMPLETE';</div>
+      </div>
+
+      <!-- Feature 13 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill violet">Analytics</span>
+        <h3 style="margin-top: 1rem;">13. Auto-Optimized Columnar Store</h3>
+        <p style="margin-top: 0.5rem;">
+          Automatically stores analytical or <code>VECTOR</code> tables in a columnar layout with run-length and dictionary encoding.
+        </p>
+        <div class="bento-code-snippet">
+CREATE TABLE analytics (...) WITH (storage = 'columnar');</div>
+      </div>
+
+      <!-- Feature 14 -->
+      <div class="glass-card bento-span-6">
+        <span class="glass-pill emerald">Concurrency</span>
+        <h3 style="margin-top: 1rem;">14. MVCC Multi-Version Concurrency</h3>
+        <p style="margin-top: 0.5rem;">
+          Lock-free read queries that never block writers, repeatable read isolation, and OS-level multi-process file locking.
+        </p>
+        <div class="bento-code-snippet">
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;</div>
+      </div>
+
+      <!-- Feature 15 -->
+      <div class="glass-card bento-span-12">
+        <span class="glass-pill accent">Security</span>
+        <h3 style="margin-top: 1rem;">15. Transparent AES-256-CTR Page Encryption</h3>
+        <p style="margin-top: 0.5rem;">
+          Full database-at-rest cryptographic encryption implemented in pure Dart. Storage pages are encrypted and decrypted on the fly using standard 256-bit AES with zero native dependencies.
+        </p>
+        <div class="bento-code-snippet">
+final db = Database('/path/to/db', encryptionKey: 'passphrase_or_raw_key');</div>
       </div>
 
     </div>
-  </section>
+  </main>
 
   <!-- FOOTER -->
-  <footer class="footer">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <footer class="site-footer">
+    <div class="container footer-inner">
       <div>
-        <strong>ULTSQL Database Engine</strong> — Source Available License v1.0 &copy; 2026 The ULTSQL Authors.
+        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
+          ULTSQL Database Engine
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-tertiary);">
+          Licensed under FSL-1.1-MIT &copy; 2026 Om Patel.
+        </div>
       </div>
-      <div>
-        <a href="index.html" style="color: var(--text-muted); margin-right: 1.25rem;">Home</a>
-        <a href="docs.html" style="color: var(--text-muted); margin-right: 1.25rem;">Docs</a>
-        <a href="benchmarks.html" style="color: var(--text-muted); margin-right: 1.25rem;">Benchmarks</a>
-        <a href="license.html" style="color: #ffffff; font-weight: 600;">License & FAQ</a>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="docs.html">Docs</a>
+        <a href="benchmarks.html">Benchmarks</a>
+        <a href="license.html">License & FAQ</a>
       </div>
     </div>
   </footer>
 
-  <script src="app.js?v=1.0.25"></script>
+  <script src="app.js?v=1.0.26"></script>
 </body>
 </html>
