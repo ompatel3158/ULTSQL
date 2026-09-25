@@ -31,8 +31,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuToggle = document.getElementById('mobileMenuToggle');
   const navDrawer = document.getElementById('mobileNavDrawer');
   if (menuToggle && navDrawer) {
-    menuToggle.addEventListener('click', () => {
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
       navDrawer.classList.toggle('open');
+    });
+    navDrawer.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navDrawer.classList.remove('open');
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!navDrawer.contains(e.target) && !menuToggle.contains(e.target)) {
+        navDrawer.classList.remove('open');
+      }
     });
   }
 

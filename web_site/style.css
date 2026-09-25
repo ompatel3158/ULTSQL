@@ -402,6 +402,11 @@ code, pre {
   padding: 0.5rem;
 }
 
+.mobile-nav-drawer {
+  display: none;
+}
+
+
 /* LAYOUT CONTAINER */
 .container {
   width: 100%;
@@ -886,9 +891,11 @@ code, pre {
     left: 1rem;
     right: 1rem;
     background: var(--bg-elevated);
-    backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glass);
     padding: 1.5rem;
     z-index: 999;
     flex-direction: column;
@@ -897,6 +904,12 @@ code, pre {
 
   .mobile-nav-drawer.open {
     display: flex;
+  }
+
+  .mobile-nav-drawer .nav-link {
+    display: block;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-md);
   }
 
   .hero {
