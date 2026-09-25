@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ultsql/src/engine/executor/interpreter.dart';
+import 'package:ultsql/src/engine/cache/crypto_security.dart';
 
 void main() {
   const dbDir = 'test_data_encryption';
@@ -64,14 +65,11 @@ void main() {
     expect(resCorrect.rows[0][1].toString(), 'Secure Data Here!');
     await dbCorrect.close();
 
-    // 4. Open with INCORRECT passphrase and verify data is garbage (or fails to read/decrypt properly)
-    final dbIncorrect = Database(dbDir, passphrase: 'wrong-passphrase');
-    await dbIncorrect.init();
-    final interpreterIncorrect = Interpreter(dbIncorrect);
-
-    final resIncorrect = await interpreterIncorrect.executeScript('SELECT id, note FROM confidential;');
-    // Since the encryption/decryption key is wrong, deserializing slotted page records should fail or yield null/corrupted fields
-    expect(resIncorrect.rows.isEmpty, isTrue, reason: "Decryption with wrong passphrase should result in failed row deserialization.");
-    await dbIncorrect.close();
+    // 4. Open with INCORRECT passphrase and verify DatabaseIntegrityException is thrown
+    expect(
+      () => Database(dbDir, passphrase: 'wrong-passphrase'),
+      throwsA(isA<DatabaseIntegrityException>()),
+      reason: "Decryption with wrong passphrase must immediately throw DatabaseIntegrityException.",
+    );
   });
 }

@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import '../parser/token.dart';
 import '../parser/lexer.dart';
 import '../parser/ast.dart';
 import '../parser/parser.dart';
 import '../cache/page_cache.dart';
+import '../cache/aes_crypt.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
 import '../storage/btree_index.dart';
@@ -253,6 +255,7 @@ class Database {
   Database(
     this.directory, {
     String? passphrase,
+    AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage,
     bool useWal = true,
     int maxCapacity = 1000,
   }) {
@@ -264,7 +267,15 @@ class Database {
       useWal: useWal,
     ); // Configurable cache limit
     if (passphrase != null) {
-      cache.encryptionKey = Uint8List.fromList(utf8.encode(passphrase));
+      _initCrypto(passphrase, authEnvelopeMode);
+    } else if (directory != ':memory:' && !identical(0, 0.0)) {
+      final metaFile = File('$directory/security.meta');
+      if (metaFile.existsSync()) {
+        throw DatabaseIntegrityException(
+          "Database is encrypted. Passphrase required.",
+          filePath: metaFile.path,
+        );
+      }
     }
     planner = QueryPlanner(
       catalog: catalog,
@@ -273,6 +284,88 @@ class Database {
       getMacro: getMacro,
     );
     auditLogger = AuditLogger(directory);
+  }
+
+  void _initCrypto(String passphrase, AuthEnvelopeMode authEnvelopeMode) {
+    if (directory == ':memory:') {
+      final salt = Uint8List.fromList(utf8.encode('ULTSQL_MEM_SALT_STATIC_16B!'));
+      final derived = CryptoSecurity.pbkdf2DeriveKeys(
+        passphrase,
+        salt,
+        iterations: 1000,
+      );
+      cache.setCryptoKeys(derived.encKey, derived.authKey, mode: authEnvelopeMode);
+      return;
+    }
+
+    final metaFile = File('$directory/security.meta');
+    const markerText = 'ULTSQL_VERIFY_OK_2026';
+    final markerPlaintext = Uint8List.fromList(utf8.encode(markerText));
+
+    if (metaFile.existsSync()) {
+      final content = metaFile.readAsStringSync();
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      final salt = base64Decode(json['salt'] as String);
+      final iterations = json['iterations'] as int? ?? 10000;
+      final modeStr = json['envelopeMode'] as String?;
+      final mode = (modeStr == 'companion')
+          ? AuthEnvelopeMode.companion
+          : AuthEnvelopeMode.inPage;
+      final markerCiphertext = base64Decode(json['verificationMarker'] as String);
+      final expectedTag = base64Decode(json['verificationTag'] as String);
+
+      final derived = CryptoSecurity.pbkdf2DeriveKeys(
+        passphrase,
+        salt,
+        iterations: iterations,
+      );
+
+      final calculatedTag =
+          Hmac(sha256, derived.authKey).convert(markerCiphertext).bytes;
+      if (!CryptoSecurity.constantTimeEquals(calculatedTag, expectedTag)) {
+        derived.wipe();
+        throw DatabaseIntegrityException(
+          "Invalid database passphrase or corrupted security metadata.",
+          filePath: metaFile.path,
+        );
+      }
+
+      final decryptedMarker = Uint8List.fromList(markerCiphertext);
+      AesCtr(derived.encKey).cryptPage(0, decryptedMarker);
+      if (utf8.decode(decryptedMarker, allowMalformed: true) != markerText) {
+        derived.wipe();
+        throw DatabaseIntegrityException(
+          "Invalid database passphrase or corrupted security metadata.",
+          filePath: metaFile.path,
+        );
+      }
+
+      cache.setCryptoKeys(derived.encKey, derived.authKey, mode: mode);
+    } else {
+      metaFile.parent.createSync(recursive: true);
+      final salt = CryptoSecurity.generateSalt(16);
+      final derived = CryptoSecurity.pbkdf2DeriveKeys(
+        passphrase,
+        salt,
+        iterations: 10000,
+      );
+      final markerCiphertext = Uint8List.fromList(markerPlaintext);
+      AesCtr(derived.encKey).cryptPage(0, markerCiphertext);
+      final tag =
+          Hmac(sha256, derived.authKey).convert(markerCiphertext).bytes;
+
+      final data = {
+        'version': 1,
+        'salt': base64Encode(salt),
+        'iterations': 10000,
+        'envelopeMode':
+            authEnvelopeMode == AuthEnvelopeMode.companion ? 'companion' : 'inPage',
+        'verificationMarker': base64Encode(markerCiphertext),
+        'verificationTag': base64Encode(tag),
+      };
+      metaFile.writeAsStringSync(jsonEncode(data));
+      cache.setCryptoKeys(derived.encKey, derived.authKey, mode: authEnvelopeMode);
+    }
   }
 
   Future<void> init() async {
@@ -336,6 +429,7 @@ class Database {
   Future<void> close() async {
     _indexCache.clear();
     cache.closeAllSync();
+    cache.wipeCryptoKeys();
     if (_lockFile != null) {
       try {
         _lockFile!.unlockSync();

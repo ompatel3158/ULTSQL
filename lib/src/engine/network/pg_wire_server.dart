@@ -10,9 +10,15 @@ class PgWireServer {
   final Database db;
   final int port;
   final String address;
+  final SecurityContext? securityContext;
   ServerSocket? _server;
 
-  PgWireServer(this.db, {this.port = 5432, this.address = '127.0.0.1'});
+  PgWireServer(
+    this.db, {
+    this.port = 5432,
+    this.address = '127.0.0.1',
+    this.securityContext,
+  });
 
   Future<int> start({bool autoPort = true}) async {
     int boundPort = port;
@@ -41,7 +47,7 @@ class PgWireServer {
   void _handleConnection(Socket socket) {
     final sessionCtx = db.cache.createSessionContext();
     runZonedGuarded(() {
-      _PgConnectionHandler(socket, db).handle();
+      _PgConnectionHandler(socket, db, securityContext).handle();
     }, (error, stack) {
       print('PgWire connection unhandled error: $error\n$stack');
       try {
@@ -52,28 +58,36 @@ class PgWireServer {
 }
 
 class _PgConnectionHandler {
-  final Socket socket;
+  Socket socket;
   final Database db;
+  final SecurityContext? securityContext;
   late Interpreter interpreter;
   bool _startupComplete = false;
   String _lastQuery = '';
   final List<int> _buffer = [];
+  StreamSubscription<Uint8List>? _subscription;
 
-  _PgConnectionHandler(this.socket, this.db) {
+  _PgConnectionHandler(this.socket, this.db, [this.securityContext]) {
     interpreter = Interpreter(db);
   }
 
   void handle() {
-    socket.listen(
+    _attachListener();
+  }
+
+  void _attachListener() {
+    _subscription = socket.listen(
       (data) {
         _buffer.addAll(data);
         _processBuffer();
       },
       onError: (e) {
         print('PgWireServer connection error: $e');
+        _subscription?.cancel();
         socket.close();
       },
       onDone: () {
+        _subscription?.cancel();
         socket.close();
       },
     );
@@ -89,13 +103,32 @@ class _PgConnectionHandler {
         final protocol = _readInt32(4);
         if (protocol == 80877103) {
           // SSLRequest
-          if (db.config.enableTlsEncryption) {
+          _buffer.removeRange(0, length);
+          if (securityContext != null && db.config.enableTlsEncryption) {
             _safeAdd([83]); // 'S'
+            await socket.flush();
+            await _subscription?.cancel();
+            _subscription = null;
+            final remaining =
+                _buffer.isNotEmpty ? Uint8List.fromList(_buffer) : null;
+            _buffer.clear();
+            try {
+              final secureSocket = await SecureSocket.secureServer(
+                socket,
+                securityContext,
+                bufferedData: remaining,
+              );
+              socket = secureSocket;
+              _attachListener();
+            } catch (e) {
+              print('TLS handshake error: $e');
+              socket.destroy();
+            }
+            return;
           } else {
             _safeAdd([78]); // 'N'
+            continue;
           }
-          _buffer.removeRange(0, length);
-          continue;
         }
 
         // Complete startup

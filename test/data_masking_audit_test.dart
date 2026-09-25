@@ -17,10 +17,12 @@ void main() {
     });
 
     tearDown(() async {
-      db.cache.closeAllSync();
-      if (tempDir.existsSync()) {
-        tempDir.deleteSync(recursive: true);
-      }
+      await db.close();
+      try {
+        if (tempDir.existsSync()) {
+          tempDir.deleteSync(recursive: true);
+        }
+      } catch (_) {}
     });
 
     test('Masking applied for non-admin user and Audit logs recorded', () async {

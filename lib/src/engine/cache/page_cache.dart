@@ -5,7 +5,10 @@ import 'dart:async';
 import 'page.dart';
 import '../storage/catalog.dart';
 import 'aes_crypt.dart';
+import 'crypto_security.dart';
 import 'engine_config.dart';
+
+export 'crypto_security.dart';
 
 final Uint8List _sharedFlushBuffer = Uint8List(256 * 4096);
 
@@ -33,14 +36,34 @@ class PageKey {
 class Pager {
   final String filePath;
   RandomAccessFile? _file;
+  RandomAccessFile? _authFile;
   final int pageSize;
   int _virtualPageCount = -1;
   Uint8List? encryptionKey;
+  Uint8List? authKey;
+  AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage;
   late final bool _isMemoryMode;
   final Map<int, Uint8List> _memoryPages = {};
+  final Map<int, Uint8List> _memoryAuthTags = {};
 
   Pager(this.filePath, {this.pageSize = 4096}) {
     _isMemoryMode = filePath.startsWith(':memory:') || identical(0, 0.0);
+  }
+
+  void _ensureAuthFileOpenSync() {
+    if (_isMemoryMode || _authFile != null) return;
+    try {
+      final authPath = filePath.endsWith('.db')
+          ? '${filePath.substring(0, filePath.length - 3)}.auth'
+          : '$filePath.auth';
+      final file = File(authPath);
+      if (!file.existsSync()) {
+        file.createSync(recursive: true);
+      }
+      _authFile = file.openSync(mode: FileMode.append);
+    } catch (_) {
+      _authFile = null;
+    }
   }
 
   void _cryptPage(int pageId, Uint8List buffer) {
@@ -100,6 +123,50 @@ class Pager {
       } else {
         buffer.fillRange(0, buffer.length, 0);
       }
+      if (encryptionKey != null) {
+        bool isBlank = true;
+        for (int i = 0; i < buffer.length; i++) {
+          if (buffer[i] != 0) {
+            isBlank = false;
+            break;
+          }
+        }
+        if (!isBlank) {
+          if (authEnvelopeMode == AuthEnvelopeMode.inPage) {
+            if (authKey != null) {
+              final tag = buffer.sublist(4064, 4096);
+              final payload =
+                  Uint8List.view(buffer.buffer, buffer.offsetInBytes, 4064);
+              if (!CryptoSecurity.verifyPageHmac(
+                  authKey!, pageId, payload, tag)) {
+                throw DatabaseIntegrityException(
+                  "Cryptographic verification failed: page data has been tampered with or corrupted",
+                  pageId: pageId,
+                  filePath: filePath,
+                );
+              }
+            }
+            final payload =
+                Uint8List.view(buffer.buffer, buffer.offsetInBytes, 4064);
+            _cryptPage(pageId, payload);
+            buffer.fillRange(4064, 4096, 0);
+          } else {
+            if (authKey != null) {
+              final tag = _memoryAuthTags[pageId];
+              if (tag != null &&
+                  !CryptoSecurity.verifyPageHmac(
+                      authKey!, pageId, buffer, tag)) {
+                throw DatabaseIntegrityException(
+                  "Cryptographic verification failed: page data has been tampered with or corrupted",
+                  pageId: pageId,
+                  filePath: filePath,
+                );
+              }
+            }
+            _cryptPage(pageId, buffer);
+          }
+        }
+      }
       return;
     }
     _ensureOpenSync();
@@ -119,8 +186,56 @@ class Pager {
     _file!.setPositionSync(offset);
     _file!.readIntoSync(buffer);
 
-    // Decrypt in-place
-    _cryptPage(pageId, buffer);
+    // Decrypt and verify in-place
+    if (encryptionKey != null) {
+      bool isBlank = true;
+      for (int i = 0; i < buffer.length; i++) {
+        if (buffer[i] != 0) {
+          isBlank = false;
+          break;
+        }
+      }
+      if (!isBlank) {
+        if (authEnvelopeMode == AuthEnvelopeMode.inPage) {
+          if (authKey != null) {
+            final tag = buffer.sublist(4064, 4096);
+            final payload =
+                Uint8List.view(buffer.buffer, buffer.offsetInBytes, 4064);
+            if (!CryptoSecurity.verifyPageHmac(
+                authKey!, pageId, payload, tag)) {
+              throw DatabaseIntegrityException(
+                "Cryptographic verification failed: disk data has been tampered with or corrupted",
+                pageId: pageId,
+                filePath: filePath,
+              );
+            }
+          }
+          final payload =
+              Uint8List.view(buffer.buffer, buffer.offsetInBytes, 4064);
+          _cryptPage(pageId, payload);
+          buffer.fillRange(4064, 4096, 0);
+        } else {
+          if (authKey != null) {
+            _ensureAuthFileOpenSync();
+            if (_authFile != null &&
+                _authFile!.lengthSync() >= (pageId + 1) * 32) {
+              _authFile!.setPositionSync(pageId * 32);
+              final tag = Uint8List(32);
+              _authFile!.readIntoSync(tag);
+              if (!CryptoSecurity.verifyPageHmac(
+                  authKey!, pageId, buffer, tag)) {
+                throw DatabaseIntegrityException(
+                  "Cryptographic verification failed: disk data has been tampered with or corrupted",
+                  pageId: pageId,
+                  filePath: filePath,
+                );
+              }
+            }
+          }
+          _cryptPage(pageId, buffer);
+        }
+      }
+    }
   }
 
   void writePageSync(int pageId, Uint8List buffer) {
@@ -128,7 +243,29 @@ class Pager {
       _virtualPageCount = pageId + 1;
     }
     if (_isMemoryMode) {
-      _memoryPages[pageId] = Uint8List.fromList(buffer);
+      if (encryptionKey != null) {
+        final encryptedBuffer = Uint8List.fromList(buffer);
+        if (authEnvelopeMode == AuthEnvelopeMode.inPage) {
+          final payload = Uint8List.view(
+              encryptedBuffer.buffer, encryptedBuffer.offsetInBytes, 4064);
+          _cryptPage(pageId, payload);
+          if (authKey != null) {
+            final tag =
+                CryptoSecurity.computePageHmac(authKey!, pageId, payload);
+            encryptedBuffer.setRange(4064, 4096, tag);
+          }
+        } else {
+          _cryptPage(pageId, encryptedBuffer);
+          if (authKey != null) {
+            final tag = CryptoSecurity.computePageHmac(
+                authKey!, pageId, encryptedBuffer);
+            _memoryAuthTags[pageId] = tag;
+          }
+        }
+        _memoryPages[pageId] = encryptedBuffer;
+      } else {
+        _memoryPages[pageId] = Uint8List.fromList(buffer);
+      }
       return;
     }
     _ensureOpenSync();
@@ -139,7 +276,27 @@ class Pager {
     // Encrypt a copy of buffer so cache remains clear text
     if (encryptionKey != null) {
       final encryptedBuffer = Uint8List.fromList(buffer);
-      _cryptPage(pageId, encryptedBuffer);
+      if (authEnvelopeMode == AuthEnvelopeMode.inPage) {
+        final payload = Uint8List.view(
+            encryptedBuffer.buffer, encryptedBuffer.offsetInBytes, 4064);
+        _cryptPage(pageId, payload);
+        if (authKey != null) {
+          final tag =
+              CryptoSecurity.computePageHmac(authKey!, pageId, payload);
+          encryptedBuffer.setRange(4064, 4096, tag);
+        }
+      } else {
+        _cryptPage(pageId, encryptedBuffer);
+        if (authKey != null) {
+          final tag = CryptoSecurity.computePageHmac(
+              authKey!, pageId, encryptedBuffer);
+          _ensureAuthFileOpenSync();
+          if (_authFile != null) {
+            _authFile!.setPositionSync(pageId * 32);
+            _authFile!.writeFromSync(tag);
+          }
+        }
+      }
       _file!.writeFromSync(encryptedBuffer);
     } else {
       _file!.writeFromSync(buffer);
@@ -158,7 +315,7 @@ class Pager {
           i * pageSize,
           (i + 1) * pageSize,
         );
-        _memoryPages[startPageId + i] = pageData;
+        writePageSync(startPageId + i, pageData);
       }
       return;
     }
@@ -170,12 +327,40 @@ class Pager {
     if (encryptionKey != null) {
       final encryptedBuffer = Uint8List.fromList(combinedBuffer);
       for (int i = 0; i < pageCount; i++) {
-        final view = Uint8List.view(
-          encryptedBuffer.buffer,
-          encryptedBuffer.offsetInBytes + i * pageSize,
-          pageSize,
-        );
-        _cryptPage(startPageId + i, view);
+        final curPageId = startPageId + i;
+        if (authEnvelopeMode == AuthEnvelopeMode.inPage) {
+          final payload = Uint8List.view(
+            encryptedBuffer.buffer,
+            encryptedBuffer.offsetInBytes + i * pageSize,
+            4064,
+          );
+          _cryptPage(curPageId, payload);
+          if (authKey != null) {
+            final tag =
+                CryptoSecurity.computePageHmac(authKey!, curPageId, payload);
+            encryptedBuffer.setRange(
+              i * pageSize + 4064,
+              (i + 1) * pageSize,
+              tag,
+            );
+          }
+        } else {
+          final pageView = Uint8List.view(
+            encryptedBuffer.buffer,
+            encryptedBuffer.offsetInBytes + i * pageSize,
+            pageSize,
+          );
+          _cryptPage(curPageId, pageView);
+          if (authKey != null) {
+            final tag =
+                CryptoSecurity.computePageHmac(authKey!, curPageId, pageView);
+            _ensureAuthFileOpenSync();
+            if (_authFile != null) {
+              _authFile!.setPositionSync(curPageId * 32);
+              _authFile!.writeFromSync(tag);
+            }
+          }
+        }
       }
       _file!.writeFromSync(encryptedBuffer);
     } else {
@@ -186,17 +371,29 @@ class Pager {
   void flushSync() {
     if (_isMemoryMode) return;
     _file?.flushSync();
+    _authFile?.flushSync();
   }
 
   void closeSync() {
     if (_isMemoryMode) {
       _memoryPages.clear();
+      _memoryAuthTags.clear();
       _virtualPageCount = -1;
       return;
     }
     if (_file != null) {
-      _file!.closeSync();
+      try {
+        _file!.flushSync();
+        _file!.closeSync();
+      } catch (_) {}
       _file = null;
+    }
+    if (_authFile != null) {
+      try {
+        _authFile!.flushSync();
+        _authFile!.closeSync();
+      } catch (_) {}
+      _authFile = null;
     }
     _virtualPageCount = -1;
   }
@@ -254,6 +451,43 @@ class PageCache {
   final Map<PageKey, Page> _cache = {};
   final Set<PageKey> _unpinnedKeys = {};
   Uint8List? encryptionKey;
+  Uint8List? authKey;
+  AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage;
+
+  int get maxPagePayloadSize =>
+      (encryptionKey != null && authEnvelopeMode == AuthEnvelopeMode.inPage)
+          ? (pageSize - 32)
+          : pageSize;
+
+  void setCryptoKeys(
+    Uint8List encKey,
+    Uint8List macKey, {
+    AuthEnvelopeMode mode = AuthEnvelopeMode.inPage,
+  }) {
+    encryptionKey = encKey;
+    authKey = macKey;
+    authEnvelopeMode = mode;
+    for (final pager in _pagers.values) {
+      pager.encryptionKey = encKey;
+      pager.authKey = macKey;
+      pager.authEnvelopeMode = mode;
+    }
+  }
+
+  void wipeCryptoKeys() {
+    if (encryptionKey != null) {
+      CryptoSecurity.wipe(encryptionKey!);
+      encryptionKey = null;
+    }
+    if (authKey != null) {
+      CryptoSecurity.wipe(authKey!);
+      authKey = null;
+    }
+    for (final pager in _pagers.values) {
+      pager.encryptionKey = null;
+      pager.authKey = null;
+    }
+  }
 
   // Track active pagers to write pages back on eviction/flush
   final Map<String, Pager> _pagers = {};
@@ -591,15 +825,47 @@ class PageCache {
           dbDirectory != null &&
           dbDirectory != ':memory:' &&
           !identical(0, 0.0)) {
-        // Write remaining dirty pages to WAL
+        // Write remaining dirty pages to WAL in a single sequential buffer
+        final walBuilder = BytesBuilder(copy: false);
         for (final entry in _cache.entries) {
           final key = entry.key;
           final page = entry.value;
-          if (page.isDirty) {
-            _writePageToWalBeforeWriteSync(key, page.data);
+          if (page.isDirty && !_txState!.loggedPages.contains(key)) {
+            final beforeData =
+                _txState!.originalPages[key]?.originalData ?? Uint8List(pageSize);
+            final afterData = page.data;
+            final Uint8List encBefore;
+            final Uint8List encAfter;
+            if (encryptionKey != null) {
+              encBefore = Uint8List.fromList(beforeData);
+              encAfter = Uint8List.fromList(afterData);
+              _cryptPageData(key.pageId, encBefore);
+              _cryptPageData(key.pageId, encAfter);
+            } else {
+              encBefore = beforeData;
+              encAfter = afterData;
+            }
+
+            final pathBytes = _encodedPathsCache.putIfAbsent(
+              key.filePath,
+              () => Uint8List.fromList(utf8.encode(key.filePath)),
+            );
+            walBuilder.addByte(2); // PAGE_RECORD
+            final header = ByteData(8)
+              ..setUint32(0, pathBytes.length, Endian.big)
+              ..setUint32(4, key.pageId, Endian.big);
+            walBuilder.add(header.buffer.asUint8List());
+            walBuilder.add(pathBytes);
+            walBuilder.add(encBefore);
+            walBuilder.add(encAfter);
+            _txState!.loggedPages.add(key);
           }
         }
-        _appendWalRecordSync(3);
+        walBuilder.addByte(3); // COMMIT_TX
+        _ensureWalOpenSync();
+        if (_walFile != null) {
+          _walFile!.writeFromSync(walBuilder.takeBytes());
+        }
       }
     }
     _txState = null;
@@ -887,6 +1153,8 @@ class PageCache {
       () => Pager(filePath, pageSize: pageSize),
     );
     pager.encryptionKey = encryptionKey;
+    pager.authKey = authKey;
+    pager.authEnvelopeMode = authEnvelopeMode;
     return pager;
   }
 

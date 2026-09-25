@@ -291,13 +291,14 @@ class SlottedPageHelper {
 
   static const int headerSize = 5;
 
-  static void initPage(Page page) {
+  static void initPage(Page page, [int? maxPayloadSize]) {
     final data = page.byteData;
     data.setUint8(0, 1); // Page Type = 1
     data.setUint16(1, 0); // rowCount = 0
-    data.setUint16(3, page.data.length); // freeSpaceOffset = pageSize (4096)
+    final freeSpace = maxPayloadSize ?? page.data.length;
+    data.setUint16(3, freeSpace); // freeSpaceOffset
     page.rowCount = 0;
-    page.freeSpaceOffset = page.data.length;
+    page.freeSpaceOffset = freeSpace;
     page.markDirty();
   }
 
@@ -421,6 +422,7 @@ class RowTableFile {
   Pager get pager => _cachedPager ??= cache.getOrCreatePager(filePath);
 
   int? _cachedPageCount;
+  int get maxPayloadSize => cache.maxPagePayloadSize;
   int getPageCount() {
     if (_cachedPageCount == null) {
       _cachedPageCount = cache.getActualPageCountSync(filePath);
@@ -473,7 +475,7 @@ class RowTableFile {
     if (pageCount == 0) {
       final page = cache.pinPageSync(filePath, 0);
       cache.logPageBeforeModifySync(filePath, 0);
-      SlottedPageHelper.initPage(page);
+      SlottedPageHelper.initPage(page, maxPayloadSize);
       SlottedPageHelper.insertRecordDirect(
         page,
         recordBytes,
@@ -504,7 +506,7 @@ class RowTableFile {
       final newPageId = pageCount;
       final newPage = cache.pinPageSync(filePath, newPageId);
       cache.logPageBeforeModifySync(filePath, newPageId);
-      SlottedPageHelper.initPage(newPage);
+      SlottedPageHelper.initPage(newPage, maxPayloadSize);
       SlottedPageHelper.insertRecordDirect(
         newPage,
         recordBytes,
@@ -547,7 +549,7 @@ class RowTableFile {
     if (pageCount == 0) {
       final page = cache.pinPageSync(filePath, 0);
       cache.logPageBeforeModifySync(filePath, 0);
-      SlottedPageHelper.initPage(page);
+      SlottedPageHelper.initPage(page, maxPayloadSize);
       SlottedPageHelper.insertRecordDirect(page, _sharedTempBuffer, recordLen);
       page.isDirty = true;
       _activeInsertPage = page;
@@ -575,7 +577,7 @@ class RowTableFile {
       cache.unpinPageSync(filePath, lastPageId, isDirty: false);
       final newPageId = pageCount;
       final newPage = cache.pinPageSync(filePath, newPageId);
-      SlottedPageHelper.initPage(newPage);
+      SlottedPageHelper.initPage(newPage, maxPayloadSize);
       SlottedPageHelper.insertRecordDirect(
         newPage,
         _sharedTempBuffer,
@@ -605,7 +607,7 @@ class RowTableFile {
     int currentPageId = pageCount > 0 ? pageCount - 1 : 0;
     Page page = cache.pinPageSync(filePath, currentPageId);
     if (pageCount == 0) {
-      SlottedPageHelper.initPage(page);
+      SlottedPageHelper.initPage(page, maxPayloadSize);
     }
 
     ByteData data = page.byteData;
@@ -636,10 +638,10 @@ class RowTableFile {
 
         currentPageId++;
         page = cache.pinPageSync(filePath, currentPageId);
-        SlottedPageHelper.initPage(page);
+        SlottedPageHelper.initPage(page, maxPayloadSize);
         data = page.byteData;
         rowCount = 0;
-        freeSpaceOffset = 4096;
+        freeSpaceOffset = maxPayloadSize;
         pageDirty = true;
       }
 
