@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 import '../parser/ast.dart';
 import 'value.dart';
+import '../../version.dart';
+import '../security/zk_crypto.dart';
 
 typedef JitClosure = DbValue Function(Map<String, DbValue> rowContext);
 
@@ -1095,7 +1097,29 @@ class JitCompiler {
           return evalJsonObject(argFns.map((fn) => fn(row)).toList());
         }
         if (name == 'version') {
-          return DbText('ULTSQL v1.0.12 (Pure-Dart Converged Database Engine)');
+          return DbText('ULTSQL v$ultSqlVersion (Pure-Dart Converged Database Engine)');
+        }
+        if (name == 'zk_encrypt' && argFns.length >= 2) {
+          final text = argFns[0](row).toString();
+          final key = argFns[1](row).toString();
+          return DbText(ZkCryptoEnclave.encryptFieldToHex(text, key));
+        }
+        if (name == 'zk_decrypt' && argFns.length >= 2) {
+          final hexStr = argFns[0](row).toString();
+          final key = argFns[1](row).toString();
+          try {
+            return DbText(ZkCryptoEnclave.decryptHexField(hexStr, key));
+          } catch (_) {
+            return DbNull();
+          }
+        }
+        if (name == 'zk_match' && argFns.length >= 2) {
+          final cipherVal = argFns[0](row).toString();
+          final searchPrompt = argFns[1](row).toString();
+          final key = argFns.length > 2
+              ? argFns[2](row).toString()
+              : searchPrompt;
+          return DbBool(ZkCryptoEnclave.queryField(cipherVal, searchPrompt, key));
         }
         if ((name == 'position' || name == 'strpos') && argFns.length >= 2) {
           final sub = argFns[0](row).toString();

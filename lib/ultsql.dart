@@ -39,5 +39,7 @@ export 'src/engine/nosql/query_filter.dart' show QueryFilter;
 export 'src/engine/nosql/document_mutator.dart' show DocumentMutator;
 export 'src/engine/executor/telemetry.dart'
     show FlightRecorder, FlightRecorderReport, FlightRecorderStep;
+export 'src/version.dart';
+export 'src/engine/security/zk_crypto.dart' show ZkCryptoEnclave;
 export 'src/services/local_database_service.dart' show LocalDatabaseService;
 

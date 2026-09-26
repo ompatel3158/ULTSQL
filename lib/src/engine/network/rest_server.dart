@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import '../executor/interpreter.dart';
+import '../../version.dart';
 
 /// Embedded REST & OpenAPI server daemon for UltSQL database instances.
 class RestServer {
@@ -272,7 +273,7 @@ class RestServer {
       'openapi': '3.0.0',
       'info': {
         'title': 'UltSQL REST Daemon API',
-        'version': '1.0.13',
+        'version': ultSqlVersion,
         'description':
             'Auto-generated OpenAPI documentation from UltSQL database catalog.',
       },

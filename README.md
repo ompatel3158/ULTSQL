@@ -735,12 +735,20 @@ final csvResults = fileAdapter.queryCsvSync(
 Perform fast deterministic equality lookups over repeating-key XOR obfuscated strings without decrypting full database records on disk:
 
 ```sql
--- Query obfuscated tokens safely using deterministic matching
-SELECT * FROM obfuscated_table WHERE zk_match(ciphertext, 'search_key') = true;
+-- 1. Create table with obfuscated fields
+CREATE TABLE secure_tokens (id INT, cipher TEXT);
+
+-- 2. Insert deterministically obfuscated ciphertext via zk_encrypt
+INSERT INTO secure_tokens VALUES (1, zk_encrypt('credit_card_4111', 'my_secret_key'));
+
+-- 3. Query obfuscated tokens safely without decrypting records
+SELECT id, zk_decrypt(cipher, 'my_secret_key') as plain 
+FROM secure_tokens 
+WHERE zk_match(cipher, 'credit_card_4111', 'my_secret_key') = true;
 ```
 
 > [!WARNING]
-> **Cryptographic Note**: Deterministic XOR matching is a lightweight obfuscation mechanism for fast exact-match lookup on non-sensitive strings. It is **not** cryptographically secure encryption. For production data-at-rest encryption, use ULTSQL's built-in **AES-256-CTR page-level encryption**.
+> **Cryptographic Scope**: Deterministic XOR matching (`zk_encrypt`, `zk_decrypt`, `zk_match`) is a lightweight obfuscation mechanism for fast exact-match lookups on non-sensitive tokens or pre-hashed identifiers without full record decryption. It is **not** authenticated disk encryption. For production data-at-rest encryption with tamper resistance and key derivation, use ULTSQL's built-in **AES-256-CTR page-level encryption** with HMAC-SHA256 authenticated envelopes (`inPage` or `companion`), detailed below.
 
 ---
 
