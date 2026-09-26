@@ -10,6 +10,7 @@ import 'package:ultsql/src/engine/storage/catalog.dart';
 import 'package:ultsql/src/engine/storage/btree_index.dart';
 import 'package:ultsql/src/engine/storage/hnsw_index.dart';
 import 'package:ultsql/src/engine/executor/replication.dart';
+import 'package:ultsql/src/engine/cache/crypto_security.dart';
 
 @Timeout(Duration(minutes: 5))
 void main() {
@@ -594,25 +595,20 @@ END;
 
       // 2. Attempt to open database without a key (key is null)
       {
-        final db = openDb(encryptDir);
-        await db.init();
-        final interpreter = Interpreter(db);
-        
-        final queryRes = await interpreter.executeScript('SELECT * FROM confidential;');
-        // Since pages are encrypted, slotted page deserialization returns garbage or errors, resulting in empty rows
-        expect(queryRes.rows.isEmpty, isTrue, reason: 'Access without key must deny reading correct records');
-        await db.close();
+        expect(
+          () => openDb(encryptDir),
+          throwsA(isA<DatabaseIntegrityException>()),
+          reason: 'Access without key must deny opening encrypted database',
+        );
       }
 
       // 3. Attempt to open database with INCORRECT key passphrase
       {
-        final db = openDb(encryptDir, passphrase: 'wrong-passphrase-abc');
-        await db.init();
-        final interpreter = Interpreter(db);
-
-        final queryRes = await interpreter.executeScript('SELECT * FROM confidential;');
-        expect(queryRes.rows.isEmpty, isTrue, reason: 'Access with incorrect key must deny reading correct records');
-        await db.close();
+        expect(
+          () => openDb(encryptDir, passphrase: 'wrong-passphrase-abc'),
+          throwsA(isA<DatabaseIntegrityException>()),
+          reason: 'Access with incorrect key must deny opening encrypted database',
+        );
       }
 
       // 4. Verify access is allowed when CORRECT key passphrase is provided

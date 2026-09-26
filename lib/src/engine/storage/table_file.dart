@@ -688,9 +688,11 @@ class RowTableFile {
           rollPtr: mvccRecord.rollPtr,
           rowData: mvccRecord.rowData,
         );
+        cache.logPageBeforeModifySync(filePath, pageId);
         final slotOffset = SlottedPageHelper.headerSize + slotId * 4;
         final offset = page.byteData.getUint16(slotOffset);
         page.data.setAll(offset, updatedRecord.toBytes());
+        cache.logPageToWalSync(filePath, pageId);
         cache.unpinPageSync(filePath, pageId, isDirty: true);
       } catch (_) {
         cache.unpinPageSync(filePath, pageId, isDirty: false);
@@ -839,7 +841,6 @@ class RowCursor extends Iterable<List<DbValue>>
             } else {
               isVisible = mgr.isVisible(xmin, xmax, currentTxId, activeTxIds);
             }
-            // Clean production scan (no debug print per row)
             if (isVisible) {
               final rowData = Uint8List.view(
                 recBytes.buffer,

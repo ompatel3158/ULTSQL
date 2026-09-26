@@ -761,7 +761,8 @@ String exprToSqlString(Expression expr) {
       if (partition.isNotEmpty) partition,
       if (order.isNotEmpty) order,
     ].join(' ');
-    res = '${expr.functionName.toUpperCase()}() OVER ($overInner)';
+    final args = expr.arguments.map(exprToSqlString).join(', ');
+    res = '${expr.functionName.toUpperCase()}($args) OVER ($overInner)';
   } else if (expr is VectorLiteralExpr) {
     res = '[${expr.elements.join(', ')}]';
   } else if (expr is JsonExtractExpr) {

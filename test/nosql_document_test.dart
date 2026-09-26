@@ -121,6 +121,7 @@ void main() {
     );
     expect(updateRes.matchedCount, 1);
     expect(updateRes.modifiedCount, 1);
+    expect(await users.countDocuments(), 4);
 
     final updatedAlice = await users.findOne({'email': 'alice@google.com'});
     expect(updatedAlice!.getByPath('profile.karma'), 1500);

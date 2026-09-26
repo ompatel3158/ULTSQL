@@ -1979,32 +1979,39 @@ class WindowNode extends PlanNode {
         }
       } else if (fnName == 'lag' || fnName == 'lead') {
         int offset = 1;
-        final rawArg = windowExpr.arguments.isNotEmpty
-            ? exprToSqlString(windowExpr.arguments.first)
-            : '';
+        DbValue defaultVal = DbNull();
+        if (windowExpr.arguments.length > 1) {
+          final offVal = JitCompiler.compile(windowExpr.arguments[1])({});
+          if (offVal is DbInt) {
+            offset = offVal.value;
+          } else {
+            offset = int.tryParse(offVal.toString()) ?? 1;
+          }
+        }
+        if (windowExpr.arguments.length > 2) {
+          defaultVal = JitCompiler.compile(windowExpr.arguments[2])({});
+        }
+
+        final argJit = windowExpr.arguments.isNotEmpty
+            ? JitCompiler.compile(windowExpr.arguments.first)
+            : null;
+
         for (int i = 0; i < partitionRows.length; i++) {
           final row = Map<String, DbValue>.of(partitionRows[i]);
           final targetIdx = fnName == 'lag' ? i - offset : i + offset;
           if (targetIdx >= 0 && targetIdx < partitionRows.length) {
             final targetRow = partitionRows[targetIdx];
-            DbValue targetVal = DbNull();
-            if (rawArg.isNotEmpty) {
-              final targetColName = rawArg.split('.').last.toLowerCase();
-              for (final k in targetRow.keys) {
-                final kLower = k.split('.').last.toLowerCase();
-                if (kLower == targetColName) {
-                  targetVal = targetRow[k]!;
-                  break;
-                }
-              }
+            DbValue targetVal = defaultVal;
+            if (argJit != null) {
+              targetVal = argJit(targetRow);
             } else {
               targetVal = targetRow.values.isNotEmpty
                   ? targetRow.values.first
-                  : DbNull();
+                  : defaultVal;
             }
             row[colName] = targetVal;
           } else {
-            row[colName] = DbNull();
+            row[colName] = defaultVal;
           }
           _resultRows!.add(row);
         }

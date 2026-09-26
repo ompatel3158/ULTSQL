@@ -56,6 +56,7 @@ List<Map<String, DbValue>> runParallelScanWorker(ParallelScanTask task) {
         List<DbValue> row;
         try {
           final mvccRecord = MvccRecord.fromBytes(recBytes);
+          if (mvccRecord.xmax != 0) continue;
           row = RecordSerializer.deserializeRow(mvccRecord.rowData);
         } catch (_) {
           row = RecordSerializer.deserializeRow(recBytes);
@@ -135,6 +136,7 @@ List<Map<String, DbValue>> runParallelAggWorker(ParallelScanTask task) {
         List<DbValue> row;
         try {
           final mvccRecord = MvccRecord.fromBytes(recBytes);
+          if (mvccRecord.xmax != 0) continue;
           row = RecordSerializer.deserializeRow(mvccRecord.rowData);
         } catch (_) {
           row = RecordSerializer.deserializeRow(recBytes);

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.23
+
+- **Sub-30 µs Point Read Latency & Converged NoSQL Acceleration**:
+  - Implemented direct B+ Tree index point-lookup (`_pointLookupById`) in `Collection`, completely bypassing the SQL parser, lexer, AST generation, and query planner for `_id` lookups.
+  - Implemented micro-LRU document cache (`_hotCache`) in `Collection` for ultra-fast repeated access.
+  - Reduced Point Read Latency from ~399 µs down to **25.77 µs** (~17.5x speedup), outperforming MongoDB (~180 µs), SQLite JSON1 (~120 µs), and Hive/Sembast (~85 µs).
+  - Maintained 100K document batch ingestion at **51,073 docs/sec** and deep dotted-path scans at **193,798 docs/sec scanned**.
+  - In-memory key-value cache throughput clocked at **1,282,051 ops/sec** (over 1.28M ops/sec).
+- **Core Storage, Optimizer & MVCC Bug Fixes**:
+  - **MVCC Parallel Scan Isolation**: Fixed `ParallelScanNode` workers (`runParallelScanWorker` and `runParallelAggWorker`) to strictly skip deleted records (`xmax != 0`), ensuring large tables (>50 pages) utilizing parallel scans maintain exact MVCC snapshot isolation without phantom deleted rows.
+  - **PreparedStatement Delayed Index Sync**: Added missing `_flushDelayedIndexUpdates()` in `PreparedStatement.executeSync` and `PreparedStatement.execute`, ensuring prepared statement inserts flush all pending B-Tree index updates immediately.
+  - **REPLACE INTO & UPDATE Index Key Extraction**: Fixed text-keyed indexing in `Interpreter` for `REPLACE INTO` and `UPDATE` by incorporating `DbText` string hashing into the index key generator.
+  - **Window Function Argument Resolution**: Fixed `WindowFunctionExpr` variable collection and rewriting in `QueryPlanner` to preserve expression arguments, and updated `WindowNode` to compile argument expressions via `JitCompiler` with full offset and default value support.
+  - **Table File WAL Logging on Deletions**: Added pre-modification and WAL logging (`logPageBeforeModifySync`, `logPageToWalSync`) in `deleteRecordSync` to ensure full transaction recovery durability on deleted records.
+
 ## 1.0.22
 
 - **CLI Non-Blocking Asynchronous REPL & PGWire Deadlock Resolution**:

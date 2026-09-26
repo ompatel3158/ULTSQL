@@ -502,6 +502,7 @@ class PreparedStatement {
     if (res is Future) {
       res = await res;
     }
+    _interpreter._flushDelayedIndexUpdates();
     if (!_interpreter.db.cache.isTransactionActive) {
       _interpreter._flushActiveTablePages();
     }
@@ -520,6 +521,7 @@ class PreparedStatement {
     if (res is Future) {
       throw Exception("Asynchronous operation encountered in executeSync.");
     }
+    _interpreter._flushDelayedIndexUpdates();
     if (!_interpreter.db.cache.isTransactionActive) {
       _interpreter._flushActiveTablePages();
     }
@@ -2893,10 +2895,26 @@ END;
               );
               if (cIdx != -1) {
                 final v = targetRowValues[cIdx];
-                final dKey = v is DbInt
-                    ? v.value.toDouble()
-                    : (v is DbDouble ? v.value : 0.0);
-                keyList.add(dKey);
+                double? dKey;
+                if (v is DbInt) {
+                  dKey = v.value.toDouble();
+                } else if (v is DbDouble) {
+                  dKey = v.value;
+                } else if (v is DbText) {
+                  final parsed = double.tryParse(v.value);
+                  if (parsed != null) {
+                    dKey = parsed;
+                  } else {
+                    double hash = 0.0;
+                    for (int j = 0; j < v.value.length; j++) {
+                      hash = (hash * 31.0 + v.value.codeUnitAt(j)) % 9007199254740991;
+                    }
+                    dKey = hash;
+                  }
+                }
+                if (dKey != null) {
+                  keyList.add(dKey);
+                }
               }
             }
             if (keyList.isNotEmpty) {
@@ -3704,10 +3722,26 @@ END;
                 );
                 if (cIdx != -1) {
                   final v = newRowValues[cIdx];
-                  final dKey = v is DbInt
-                      ? v.value.toDouble()
-                      : (v is DbDouble ? v.value : 0.0);
-                  keyList.add(dKey);
+                  double? dKey;
+                  if (v is DbInt) {
+                    dKey = v.value.toDouble();
+                  } else if (v is DbDouble) {
+                    dKey = v.value;
+                  } else if (v is DbText) {
+                    final parsed = double.tryParse(v.value);
+                    if (parsed != null) {
+                      dKey = parsed;
+                    } else {
+                      double hash = 0.0;
+                      for (int j = 0; j < v.value.length; j++) {
+                        hash = (hash * 31.0 + v.value.codeUnitAt(j)) % 9007199254740991;
+                      }
+                      dKey = hash;
+                    }
+                  }
+                  if (dKey != null) {
+                    keyList.add(dKey);
+                  }
                 }
               }
               if (keyList.isNotEmpty) {

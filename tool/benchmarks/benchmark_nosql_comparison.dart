@@ -184,7 +184,7 @@ void main() async {
 ========================================================================================================================
                           🏆 HEAD-TO-HEAD NoSQL & MULTI-MODEL DATABASE COMPARISON 🏆                          
 ========================================================================================================================
-Feature / Metric                ELTSQL (Converged)       MongoDB (v7.0)       SQLite (JSON1)       Hive / Sembast      
+Feature / Metric                ULTSQL (Converged)       MongoDB (v7.0)       SQLite (JSON1)       Hive / Sembast      
 ------------------------------------------------------------------------------------------------------------------------
 Primary Architecture            Slotted Page + WAL       WiredTiger B-Tree    B-Tree + JSON Ext    Append-Only / Map   
 Runtime Environment             100% Pure Dart           C++ Native Daemon    C Native Library     Pure Dart / FFI     

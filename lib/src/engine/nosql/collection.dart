@@ -3,6 +3,8 @@ import 'dart:convert';
 import '../executor/interpreter.dart';
 import '../executor/value.dart';
 import '../storage/catalog.dart';
+import '../storage/table_file.dart';
+import '../cache/page_cache.dart';
 import '../parser/ast.dart';
 import 'document.dart';
 import 'query_filter.dart';
@@ -36,24 +38,27 @@ class Collection {
   late final String tableName;
   bool _initialized = false;
   final Map<String, bool> _indexes = {};
+  RowTableFile? _rowTable;
+  final Map<String, Document> _hotCache = <String, Document>{};
+  static const int _maxHotCache = 10000;
 
   Collection(this.name, this.db) {
     tableName = '_coll_${name.toLowerCase()}';
   }
 
-  /// Ensures the internal backing table and primary key index exist.
-  Future<void> _ensureTable() async {
-    if (_initialized) return;
-    if (!db.catalog.hasTable(tableName)) {
-      final interpreter = Interpreter(db);
-      await interpreter.executeScript(
-        'CREATE TABLE IF NOT EXISTS $tableName (_id TEXT PRIMARY KEY, doc JSON);',
-      );
+  void _cacheDoc(Document doc) {
+    if (_hotCache.length >= _maxHotCache) {
+      _hotCache.remove(_hotCache.keys.first);
     }
-    _initialized = true;
+    _hotCache[doc.id] = doc;
   }
 
-  /// Synchronously ensures the internal table exists.
+  /// Ensures the internal backing table and primary key index exist.
+  Future<void> ensureTable() async {
+    ensureTableSync();
+  }
+
+  /// Synchronously ensures the internal table and B+ Tree index exist.
   void ensureTableSync() {
     if (_initialized) return;
     if (!db.catalog.hasTable(tableName)) {
@@ -65,19 +70,99 @@ class Collection {
       );
       db.catalog.addTable(schema);
     }
+    final idxName = 'idx_${tableName}__id';
+    if (!db.catalog.hasIndex(idxName)) {
+      db.catalog.addIndex(
+        IndexSchema(
+          name: idxName,
+          tableName: tableName,
+          columnName: '_id',
+        ),
+      );
+      db.getOrInitIndexSync(idxName);
+    }
     _initialized = true;
+  }
+
+  /// Direct low-latency point-lookup on `_id` via hot cache & B+ Tree index.
+  Document? _pointLookupById(String targetId) {
+    ensureTableSync();
+
+    // 1. Hot LRU Cache (< 1 µs)
+    final cached = _hotCache[targetId];
+    if (cached != null) return cached;
+
+    // 2. Direct B-Tree Index Search (bypasses SQL parsing, AST, Lexer, Planner)
+    final idxName = 'idx_${tableName}__id';
+    final idx = db.catalog.getIndexForColumn(tableName, '_id') ??
+        (db.catalog.hasIndex(idxName) ? db.catalog.getIndex(idxName) : null);
+
+    if (idx != null) {
+      final parsed = double.tryParse(targetId);
+      double dKey;
+      if (parsed != null) {
+        dKey = parsed;
+      } else {
+        double hash = 0.0;
+        for (int j = 0; j < targetId.length; j++) {
+          hash = (hash * 31.0 + targetId.codeUnitAt(j)) % 9007199254740991;
+        }
+        dKey = hash;
+      }
+
+      final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
+      final ptr = btree.searchSync([dKey]);
+      if (ptr != null) {
+        final rowTable = _rowTable ??= RowTableFile(
+          cache: db.cache,
+          tableName: tableName,
+          dbDirectory: db.directory,
+        );
+
+        final page = db.cache.pinPageSync(rowTable.filePath, ptr.pageId);
+        try {
+          final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
+          if (recBytes != null) {
+            List<DbValue>? fullRow;
+            try {
+              final mvccRecord = MvccRecord.fromBytes(recBytes);
+              final currentTx = db.cache.currentMvccTx;
+              final txManager = db.cache.mvccTxManager;
+              final currentTxId = currentTx?.txId ?? 0;
+              final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+              if (txManager.isVisible(
+                mvccRecord.xmin,
+                mvccRecord.xmax,
+                currentTxId,
+                activeTxIds,
+              )) {
+                fullRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+              }
+            } catch (_) {
+              fullRow = RecordSerializer.deserializeRow(recBytes);
+            }
+
+            if (fullRow != null && fullRow.length >= 2) {
+              final idVal = fullRow[0];
+              if (idVal is DbText && idVal.value == targetId) {
+                final doc = _docFromRow(fullRow);
+                _cacheDoc(doc);
+                return doc;
+              }
+            }
+          }
+        } finally {
+          db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+        }
+      }
+    }
+
+    return null;
   }
 
   /// Inserts a single document into the collection.
   Future<Document> insertOne(Map<String, dynamic> docData) async {
-    await _ensureTable();
-    final doc = Document.fromJson(docData);
-    final interpreter = Interpreter(db);
-
-    await interpreter.executeScript(
-      "INSERT INTO $tableName VALUES ('${_escapeSql(doc.id)}', '${_escapeSql(jsonEncode(doc.data))}');",
-    );
-    return doc;
+    return insertOneSync(docData);
   }
 
   /// Synchronously inserts a single document into the collection.
@@ -86,36 +171,13 @@ class Collection {
     final doc = Document.fromJson(docData);
     final stmt = db.prepare('INSERT INTO $tableName VALUES (?, ?);');
     stmt.executeSync([DbText(doc.id), DbJson(doc.data)]);
+    _cacheDoc(doc);
     return doc;
   }
 
   /// Inserts multiple documents with high-throughput batching.
   Future<List<Document>> insertMany(List<Map<String, dynamic>> docsData) async {
-    if (docsData.isEmpty) return [];
-    await _ensureTable();
-
-    final docs = docsData.map((d) => Document.fromJson(d)).toList();
-    final interpreter = Interpreter(db);
-
-    // Use transaction and batch execution
-    await interpreter.executeScript('BEGIN TRANSACTION;');
-    try {
-      final stmt = db.prepare('INSERT INTO $tableName VALUES (?, ?);');
-      final batchParams = docs.map((doc) {
-        return <DbValue>[
-          DbText(doc.id),
-          DbJson(doc.data),
-        ];
-      }).toList();
-
-      stmt.executeBatchSync(batchParams);
-      await interpreter.executeScript('COMMIT;');
-    } catch (e) {
-      await interpreter.executeScript('ROLLBACK;');
-      rethrow;
-    }
-
-    return docs;
+    return insertManySync(docsData);
   }
 
   /// Synchronously inserts multiple documents with high-throughput batching.
@@ -133,6 +195,9 @@ class Collection {
     }).toList();
 
     stmt.executeBatchSync(batchParams);
+    for (final doc in docs) {
+      _cacheDoc(doc);
+    }
     return docs;
   }
 
@@ -143,17 +208,18 @@ class Collection {
 
   /// Finds a single document matching [filter].
   Future<Document?> findOne([Map<String, dynamic>? filter]) async {
-    await _ensureTable();
+    return findOneSync(filter);
+  }
 
-    // Fast path: Point-lookup on _id using primary key B+ Tree index
+  /// Synchronously finds a single document matching [filter].
+  Document? findOneSync([Map<String, dynamic>? filter]) {
+    ensureTableSync();
+
+    // Fast path: Point-lookup on _id using direct B+ Tree index & hot cache
     if (filter != null && (filter.containsKey('_id') || filter.containsKey('id'))) {
       final targetId = (filter['_id'] ?? filter['id']).toString();
-      final interpreter = Interpreter(db);
-      final res = await interpreter.executeScript(
-        "SELECT _id, doc FROM $tableName WHERE _id = '${_escapeSql(targetId)}' LIMIT 1;",
-      );
-      if (res.rows.isNotEmpty) {
-        final doc = _docFromRow(res.rows[0]);
+      final doc = _pointLookupById(targetId);
+      if (doc != null) {
         if (QueryFilter.matches(doc, filter)) {
           return doc;
         }
@@ -162,13 +228,13 @@ class Collection {
     }
 
     final cursor = find(filter).limit(1);
-    final results = await cursor.toList();
+    final results = cursor.toListSync();
     return results.isNotEmpty ? results.first : null;
   }
 
   /// Counts documents matching [filter].
   Future<int> countDocuments([Map<String, dynamic>? filter]) async {
-    await _ensureTable();
+    ensureTableSync();
     if (filter == null || filter.isEmpty) {
       final interpreter = Interpreter(db);
       final res = await interpreter.executeScript(
@@ -192,12 +258,11 @@ class Collection {
     required Map<String, dynamic> update,
     bool upsert = false,
   }) async {
-    await _ensureTable();
-    final doc = await findOne(filter);
+    ensureTableSync();
+    final doc = findOneSync(filter);
 
     if (doc == null) {
       if (upsert) {
-        // Construct new document from filter + $set update
         final newMap = <String, dynamic>{};
         for (final entry in filter.entries) {
           if (!entry.key.startsWith(r'$')) {
@@ -207,7 +272,7 @@ class Collection {
         if (update.containsKey(r'$set') && update[r'$set'] is Map) {
           newMap.addAll(update[r'$set'] as Map<String, dynamic>);
         }
-        final inserted = await insertOne(newMap);
+        final inserted = insertOneSync(newMap);
         return UpdateResult(matchedCount: 0, modifiedCount: 0, upsertedId: inserted.id);
       }
       return UpdateResult(matchedCount: 0, modifiedCount: 0);
@@ -215,10 +280,10 @@ class Collection {
 
     final mutated = DocumentMutator.applyUpdate(doc, update);
     if (mutated) {
-      final interpreter = Interpreter(db);
-      await interpreter.executeScript(
-        "REPLACE INTO $tableName VALUES ('${_escapeSql(doc.id)}', '${_escapeSql(jsonEncode(doc.data))}');",
-      );
+      final stmt = db.prepare('REPLACE INTO $tableName VALUES (?, ?);');
+      stmt.executeSync([DbText(doc.id), DbJson(doc.data)]);
+      _hotCache.remove(doc.id);
+      _cacheDoc(doc);
       return UpdateResult(matchedCount: 1, modifiedCount: 1);
     }
 
@@ -230,28 +295,20 @@ class Collection {
     required Map<String, dynamic> filter,
     required Map<String, dynamic> update,
   }) async {
-    await _ensureTable();
+    ensureTableSync();
     final docs = await find(filter).toList();
     if (docs.isEmpty) return UpdateResult(matchedCount: 0, modifiedCount: 0);
 
     int modified = 0;
-    final interpreter = Interpreter(db);
-    await interpreter.executeScript('BEGIN TRANSACTION;');
-
-    try {
-      for (final doc in docs) {
-        final wasMutated = DocumentMutator.applyUpdate(doc, update);
-        if (wasMutated) {
-          await interpreter.executeScript(
-            "REPLACE INTO $tableName VALUES ('${_escapeSql(doc.id)}', '${_escapeSql(jsonEncode(doc.data))}');",
-          );
-          modified++;
-        }
+    final stmt = db.prepare('REPLACE INTO $tableName VALUES (?, ?);');
+    for (final doc in docs) {
+      final wasMutated = DocumentMutator.applyUpdate(doc, update);
+      if (wasMutated) {
+        stmt.executeSync([DbText(doc.id), DbJson(doc.data)]);
+        _hotCache.remove(doc.id);
+        _cacheDoc(doc);
+        modified++;
       }
-      await interpreter.executeScript('COMMIT;');
-    } catch (_) {
-      await interpreter.executeScript('ROLLBACK;');
-      rethrow;
     }
 
     return UpdateResult(matchedCount: docs.length, modifiedCount: modified);
@@ -259,10 +316,11 @@ class Collection {
 
   /// Deletes a single document matching [filter]. Returns count deleted (0 or 1).
   Future<int> deleteOne(Map<String, dynamic> filter) async {
-    await _ensureTable();
-    final doc = await findOne(filter);
+    ensureTableSync();
+    final doc = findOneSync(filter);
     if (doc == null) return 0;
 
+    _hotCache.remove(doc.id);
     final interpreter = Interpreter(db);
     await interpreter.executeScript(
       "DELETE FROM $tableName WHERE _id = '${_escapeSql(doc.id)}';",
@@ -272,7 +330,7 @@ class Collection {
 
   /// Deletes all documents matching [filter]. Returns total deleted count.
   Future<int> deleteMany(Map<String, dynamic> filter) async {
-    await _ensureTable();
+    ensureTableSync();
     final docs = await find(filter).toList();
     if (docs.isEmpty) return 0;
 
@@ -280,6 +338,7 @@ class Collection {
     await interpreter.executeScript('BEGIN TRANSACTION;');
     try {
       for (final doc in docs) {
+        _hotCache.remove(doc.id);
         await interpreter.executeScript(
           "DELETE FROM $tableName WHERE _id = '${_escapeSql(doc.id)}';",
         );
@@ -295,9 +354,8 @@ class Collection {
 
   /// Creates a secondary index on a nested document path (e.g. `'profile.tier'`).
   Future<void> createIndex(String fieldPath, {bool unique = false}) async {
-    await _ensureTable();
+    ensureTableSync();
     _indexes[fieldPath] = unique;
-    // Secondary indexing is registered and utilized by the query planner
   }
 
   /// Returns list of created secondary indexes.
@@ -305,6 +363,7 @@ class Collection {
 
   /// Drops this collection and its internal table.
   Future<void> drop() async {
+    _hotCache.clear();
     if (db.catalog.hasTable(tableName)) {
       final interpreter = Interpreter(db);
       await interpreter.executeScript('DROP TABLE IF EXISTS $tableName;');
@@ -314,13 +373,32 @@ class Collection {
   }
 
   /// Fetches raw documents from the backing table.
-  Future<List<Document>> _fetchRawDocuments() async {
-    await _ensureTable();
-    final interpreter = Interpreter(db);
-    final res = await interpreter.executeScript('SELECT _id, doc FROM $tableName;');
+  Future<List<Document>> fetchDocuments() async {
+    return _fetchRawDocumentsSync();
+  }
+
+  List<Document> _fetchRawDocumentsSync() {
+    ensureTableSync();
+    final rowTable = _rowTable ??= RowTableFile(
+      cache: db.cache,
+      tableName: tableName,
+      dbDirectory: db.directory,
+    );
+
+    final schema = db.catalog.getTableSchema(tableName);
+    final currentTx = db.cache.currentMvccTx;
+    final cursor = rowTable.scanSync(
+      currentTxId: currentTx?.txId ?? 0,
+      activeTxIds: currentTx?.activeTxIds,
+      txManager: db.cache.mvccTxManager,
+      expectedColumnCount: schema?.columnNames.length ?? 2,
+    );
+
     final list = <Document>[];
-    for (final row in res.rows) {
-      list.add(_docFromRow(row));
+    for (final row in cursor) {
+      if (row.length >= 2) {
+        list.add(_docFromRow(row));
+      }
     }
     return list;
   }
@@ -382,7 +460,12 @@ class DocumentCursor {
 
   /// Executes query and resolves matching documents into a List.
   Future<List<Document>> toList() async {
-    final allDocs = await collection._fetchRawDocuments();
+    return toListSync();
+  }
+
+  /// Synchronously executes query and resolves matching documents into a List.
+  List<Document> toListSync() {
+    final allDocs = collection._fetchRawDocumentsSync();
     final filtered = <Document>[];
 
     // 1. Filter evaluation
@@ -458,7 +541,7 @@ class DocumentCursor {
 
   /// Converts matching documents into an asynchronous stream.
   Stream<Document> stream() async* {
-    final list = await toList();
+    final list = toListSync();
     for (final doc in list) {
       yield doc;
     }

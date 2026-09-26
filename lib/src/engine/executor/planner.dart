@@ -1267,6 +1267,9 @@ class QueryPlanner {
         _collectVariables(arg, collected);
       }
     } else if (expr is WindowFunctionExpr) {
+      for (final arg in expr.arguments) {
+        _collectVariables(arg, collected);
+      }
       for (final partition in expr.partitionBy) {
         _collectVariables(partition, collected);
       }
@@ -1456,6 +1459,7 @@ class QueryPlanner {
       if (expr is WindowFunctionExpr) {
         return WindowFunctionExpr(
           functionName: expr.functionName,
+          arguments: expr.arguments.map(rewriteExpr).toList(),
           partitionBy: expr.partitionBy.map(rewriteExpr).toList(),
           orderBy: expr.orderBy != null
               ? OrderBy(
