@@ -35,11 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
+      - name: Set up Flutter & Dart
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
 
       - name: Install dependencies
-        run: dart pub get
+        run: flutter pub get
 
       - name: Compile CLI executable
         run: dart compile exe bin/ultsql_cli.dart -o bin/ultsql.exe

@@ -10,6 +10,9 @@ jobs:
     name: Build and publish Node.js package to NPM
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     steps:
       - uses: actions/checkout@v4
 
@@ -20,7 +23,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to NPM
-        run: npm publish --access public || echo "Notice: Package already published or NPM_TOKEN secret pending setup."
+        run: |
+          npm publish --access public || echo "Notice: Package already published or NPM_TOKEN secret pending setup."
         working-directory: bindings/nodejs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+

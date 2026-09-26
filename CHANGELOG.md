@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.24
+
+- **Deterministic Obfuscation (XOR Fast Matching) in SQL Engine**:
+  - Implemented and wired native SQL functions `zk_encrypt(text, key)`, `zk_decrypt(hex, key)`, and `zk_match(cipher, search_prompt, [key])` directly into `JitCompiler`.
+  - Enables zero-decryption equality matching in queries (`WHERE zk_match(cipher, 'keyword', 'key') = true`) without decrypting raw data rows in storage or RAM.
+  - Complemented with full test suite coverage in `test/encryption_test.dart`.
+- **Single Source of Truth Version Management**:
+  - Centralized canonical version string in `lib/src/version.dart` (`ultSqlVersion = '1.0.24'`).
+  - Automatically referenced across CLI banners, `--version` command line flags, `.version` REPL commands, REST OpenAPI metadata, and `SELECT version()`.
+  - Updated all client package manifests (`pubspec.yaml`, `package.json`, `pyproject.toml`, `setup.py`, `Cargo.toml`).
+- **CI/CD & Release Workflow Hardening**:
+  - Fixed YAML multi-line block scalar syntax in `.github/workflows/publish_npm.yml` to unblock automated NPM releases.
+  - Updated `.github/workflows/test.yml` on Windows runners to use Flutter action and `flutter pub get` for seamless multiplatform dependency resolution.
+- **Enterprise Cybersecurity & Encryption Documentation**:
+  - Fully documented Dual Authenticated Envelopes (`inPage` 4064+32 byte vs `companion` `$table.auth`), pre-flight `DatabaseIntegrityException` access rejection, and CLI `--envelope` flags in `README.md`.
+
 ## 1.0.23
 
 - **Sub-30 µs Point Read Latency & Converged NoSQL Acceleration**:

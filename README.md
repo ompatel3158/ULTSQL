@@ -119,7 +119,7 @@ func main() {
 Add to `Cargo.toml`:
 ```toml
 [dependencies]
-ultsql = "1.0.23"
+ultsql = "1.0.24"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```
@@ -141,7 +141,7 @@ include(FetchContent)
 FetchContent_Declare(
   ultsql
   GIT_REPOSITORY https://github.com/ompatel3158/ULTSQL.git
-  GIT_TAG        v1.0.23
+  GIT_TAG        v1.0.24
 )
 FetchContent_MakeAvailable(ultsql)
 target_link_libraries(my_app PRIVATE ultsql)

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/network/pg_wire_server.dart';
+import 'package:ultsql/src/version.dart';
 
 void main(List<String> args) async {
   int port = 5432;
@@ -30,7 +31,7 @@ void main(List<String> args) async {
     } else if (arg.startsWith('--key=')) {
       passphrase = arg.substring(6);
     } else if (arg == '--version' || arg == '-v') {
-      print('UltSQL Server Daemon v1.0.23');
+      print('UltSQL Server Daemon v$ultSqlVersion');
       exit(0);
     } else if (arg == '--help') {
       _printHelp();
@@ -44,7 +45,7 @@ void main(List<String> args) async {
   }
 
   print('===============================================================');
-  print('🚀 UltSQL Server Daemon v1.0.23');
+  print('🚀 UltSQL Server Daemon v$ultSqlVersion');
   print('   Converged Database Engine (SQL + NoSQL + Vector RAG + PL/SQL)');
   print('===============================================================');
   print('📁 Data Directory : ${dir.absolute.path}');

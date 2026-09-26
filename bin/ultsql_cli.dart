@@ -164,7 +164,7 @@ void main(List<String> args) async {
       }
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.23)');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v$ultSqlVersion)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (passphrase != null) {
@@ -238,7 +238,7 @@ void main(List<String> args) async {
       _printHelp();
       exit(0);
     } else if (arg == '--version' || arg == '-v') {
-      print('UltSQL CLI v1.0.23 (Converged Database Engine)');
+      print('UltSQL CLI v$ultSqlVersion (Converged Database Engine)');
       exit(0);
     } else if ((arg == '-c' || arg == '--execute') && i + 1 < args.length) {
       oneShotSql = args[++i];
@@ -334,7 +334,7 @@ void main(List<String> args) async {
 
   // INTERACTIVE REPL
   print('===============================================================');
-  print('🚀 UltSQL Interactive Console (v1.0.23)');
+  print('🚀 UltSQL Interactive Console (v$ultSqlVersion)');
   print('   Converged Multimodal Database Engine');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
@@ -599,7 +599,7 @@ Future<String?> _handleMetaCommand(
       return null;
 
     case '.version':
-      print('UltSQL CLI v1.0.23 (Converged Database Engine)\n');
+      print('UltSQL CLI v$ultSqlVersion (Converged Database Engine)\n');
       return null;
 
     case '.tables':

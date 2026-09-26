@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/cache/crypto_security.dart';
+import 'package:ultsql/src/version.dart';
 
 void main() {
   const dbDir = 'test_data_encryption';
@@ -80,7 +81,7 @@ void main() {
 
     // Test version() SQL function
     final verRes = await interpreter.executeScript('SELECT version();');
-    expect(verRes.rows[0][0].toString(), contains('1.0.23'));
+    expect(verRes.rows[0][0].toString(), contains(ultSqlVersion));
 
     // Create table with obfuscated tokens
     await interpreter.executeScript('CREATE TABLE tokens (id INT, cipher TEXT);');
