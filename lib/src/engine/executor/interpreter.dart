@@ -23,6 +23,8 @@ import 'jit_compiler.dart';
 import 'telemetry.dart';
 import 'parallel_scan_nodes.dart';
 import '../cache/engine_config.dart';
+import '../nosql/collection.dart';
+import '../nosql/kv_store.dart';
 
 /// Represents the formatted result set returned by UltSQL query execution.
 class QueryResult {
@@ -251,6 +253,29 @@ class Database {
     }
     _branches.remove(bName);
   }
+
+  // --- NOSQL MULTI-MODEL SUBSYSTEM ---
+  final Map<String, Collection> _collectionCache = {};
+  KVStore? _kvStore;
+
+  /// Returns a schema-less NoSQL document [Collection] with the given [name].
+  Collection collection(String name) {
+    return _collectionCache.putIfAbsent(
+      name.toLowerCase(),
+      () => Collection(name, this),
+    );
+  }
+
+  /// Returns the names of all persistent document collections in the database.
+  List<String> listCollections() {
+    return catalog.tables.keys
+        .where((t) => t.startsWith('_coll_'))
+        .map((t) => t.substring('_coll_'.length))
+        .toList();
+  }
+
+  /// Returns the persistent Key-Value store instance for this database.
+  KVStore get kv => _kvStore ??= KVStore(this);
 
   Database(
     this.directory, {
@@ -2623,10 +2648,24 @@ END;
             schema.columnNames[i],
           );
           bool checkedWithIndex = false;
-          if (idx != null && (val is DbInt || val is DbDouble)) {
-            final double? dKey = val is DbInt
-                ? val.value.toDouble()
-                : (val is DbDouble ? val.value : null);
+          if (idx != null) {
+            double? dKey;
+            if (val is DbInt) {
+              dKey = val.value.toDouble();
+            } else if (val is DbDouble) {
+              dKey = val.value;
+            } else if (val is DbText) {
+              final parsed = double.tryParse(val.value);
+              if (parsed != null) {
+                dKey = parsed;
+              } else {
+                double hash = 0.0;
+                for (int j = 0; j < val.value.length; j++) {
+                  hash = (hash * 31.0 + val.value.codeUnitAt(j)) % 9007199254740991;
+                }
+                dKey = hash;
+              }
+            }
             if (dKey != null) {
               final rowTable = _rowTableCache.putIfAbsent(
                 tableName,
@@ -2637,7 +2676,13 @@ END;
                 ),
               );
               final btree = db.getOrInitIndexSync(idx.name);
-              final ptrs = btree.searchRangeSync([dKey], [dKey]);
+              final ptrs = <BTreePointer>[];
+              final pointPtr = btree.searchSync([dKey]);
+              if (pointPtr != null) {
+                ptrs.add(pointPtr);
+              } else {
+                ptrs.addAll(btree.searchRangeSync([dKey], [dKey]));
+              }
               for (final ptr in ptrs) {
                 final page = db.cache.pinPageSync(
                   rowTable.filePath,
@@ -3201,9 +3246,23 @@ END;
               () => JitCompiler.compile(cond.right),
             );
             final rightVal = rightValFn({}); // Evaluate with empty context
-            final double? searchKey = rightVal is DbInt
-                ? rightVal.value.toDouble()
-                : (rightVal is DbDouble ? rightVal.value : null);
+            double? searchKey;
+            if (rightVal is DbInt) {
+              searchKey = rightVal.value.toDouble();
+            } else if (rightVal is DbDouble) {
+              searchKey = rightVal.value;
+            } else if (rightVal is DbText) {
+              final parsed = double.tryParse(rightVal.value);
+              if (parsed != null) {
+                searchKey = parsed;
+              } else {
+                double hash = 0.0;
+                for (int j = 0; j < rightVal.value.length; j++) {
+                  hash = (hash * 31.0 + rightVal.value.codeUnitAt(j)) % 9007199254740991;
+                }
+                searchKey = hash;
+              }
+            }
 
             if (searchKey != null) {
               final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
@@ -3300,6 +3359,7 @@ END;
                   );
                   final condVal = condFn(rowMap);
                   matches =
+                      (condVal is DbBool && condVal.value) ||
                       (condVal is DbInt && condVal.value == 1) ||
                       (condVal is DbDouble && condVal.value > 0.0);
                 }
@@ -3500,6 +3560,7 @@ END;
                   );
                   final condVal = condFn(rowMap);
                   matches =
+                      (condVal is DbBool && condVal.value) ||
                       (condVal is DbInt && condVal.value == 1) ||
                       (condVal is DbDouble && condVal.value > 0.0);
                 }
@@ -3817,8 +3878,26 @@ END;
         );
       }
     }
-    _flushDelayedIndexUpdates();
-    final tableName = stmt.tableName.toLowerCase();
+    var tableName = stmt.tableName.toLowerCase();
+    if (stmt.fromFunction?.name.toLowerCase() == 'collection') {
+      final args = stmt.fromFunction!.arguments;
+      if (args.isNotEmpty) {
+        final cVal = JitCompiler.compile(args[0])({});
+        final cName = cVal.toString().replaceAll("'", "").replaceAll('"', '');
+        tableName = '_coll_${cName.toLowerCase()}';
+        stmt.tableName = tableName;
+        stmt.fromFunction = null;
+      }
+    } else if (tableName.startsWith('collection(') && tableName.endsWith(')')) {
+      final inner = tableName.substring(11, tableName.length - 1).trim();
+      final cName = inner.replaceAll("'", "").replaceAll('"', '');
+      tableName = '_coll_${cName.toLowerCase()}';
+      stmt.tableName = tableName;
+    }
+
+    if (tableName.startsWith('_coll_') && !db.catalog.hasTable(tableName)) {
+      db.collection(tableName.substring(6)).ensureTableSync();
+    }
 
     if (tableName == 'information_schema.tables' ||
         tableName == 'information.tables') {

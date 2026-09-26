@@ -1,6 +1,8 @@
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/network/pg_wire_server.dart';
 import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/src/engine/nosql/collection.dart';
+import 'package:ultsql/src/engine/nosql/kv_store.dart';
 
 /// Unified Multi-Platform & Multi-Mode Deployment Driver for UltSQL.
 /// Supports Embedded File DB, In-Memory DB, PGWire TCP Server, and Web storage.
@@ -13,6 +15,15 @@ class UltSqlEngine {
   UltSqlEngine._(this.db) {
     _interpreter = Interpreter(db);
   }
+
+  /// Returns a schema-less NoSQL document [Collection] with the given [name].
+  Collection collection(String name) => db.collection(name);
+
+  /// Returns the names of all persistent document collections in the database.
+  List<String> listCollections() => db.listCollections();
+
+  /// Returns the persistent Key-Value store instance for this database.
+  KVStore get kv => db.kv;
 
   /// Open a file-persisted disk database on mobile, desktop, or server.
   static Future<UltSqlEngine> openFile(

@@ -293,6 +293,22 @@ void main(List<String> args) async {
 
   // HEADLESS ONE-SHOT EXECUTION (-c / --execute)
   if (oneShotSql != null) {
+    if (oneShotSql.trim().startsWith('.')) {
+      await _handleMetaCommand(db, interpreter, oneShotSql.trim(), (newMode) {
+        outputMode = newMode;
+      }, (timerToggle) {
+        showTimer = timerToggle;
+      }, outputMode, showTimer);
+      await db.close();
+      exit(0);
+    }
+    if (oneShotSql.trim().startsWith('db.')) {
+      final handled = await _handleMongoCommand(db, oneShotSql.trim(), outputMode, showTimer);
+      if (handled) {
+        await db.close();
+        exit(0);
+      }
+    }
     final sw = Stopwatch()..start();
     try {
       final result = await interpreter.executeScript(oneShotSql);
@@ -331,7 +347,7 @@ void main(List<String> args) async {
   print('🌿 Active Branch   : ${db.currentBranch}');
   print('🎨 Output Mode     : ${outputMode.name}');
   print('Type ".help" for meta commands, ".exit" to quit.');
-  print('Enter SQL, NoSQL JSON, or PL/SQL statements ending with ";".\n');
+  print('Enter SQL, NoSQL (db.users.find()), or PL/SQL statements ending with ";".\n');
 
   _loadHistory();
 
@@ -360,6 +376,16 @@ void main(List<String> args) async {
       }
       stdout.write(prompt());
       continue;
+    }
+
+    // Handle MongoDB-style NoSQL commands (db.<collection>.<method> or db.kv.<method>)
+    if (scriptBuffer.isEmpty && trimmed.startsWith('db.')) {
+      _appendHistory(trimmed);
+      final handled = await _handleMongoCommand(db, trimmed, outputMode, showTimer);
+      if (handled) {
+        stdout.write(prompt());
+        continue;
+      }
     }
 
     if (scriptBuffer.isEmpty && (trimmed == 'exit' || trimmed == 'quit')) {
@@ -665,6 +691,14 @@ Future<String?> _handleMetaCommand(
       _showStats(db, parts.length > 1 ? parts[1] : null);
       return null;
 
+    case '.collections':
+      await _listCollections(db);
+      return null;
+
+    case '.kv':
+      await _handleKvCommand(db, parts);
+      return null;
+
     case '.pgwire':
       final port = parts.length > 1 ? (int.tryParse(parts[1]) ?? 5432) : 5432;
       final server = PgWireServer(db, port: port);
@@ -774,9 +808,9 @@ void _showStats(Database db, String? tableName) {
 }
 
 void _listTables(Database db) {
-  final tables = db.catalog.tables.keys.toList();
+  final tables = db.catalog.tables.keys.where((t) => !t.startsWith('_coll_') && t != '_kv_store').toList();
   if (tables.isEmpty) {
-    print('No tables found in catalog.\n');
+    print('No relational tables found in catalog.\n');
   } else {
     print('Tables:');
     for (final t in tables) {
@@ -787,6 +821,341 @@ void _listTables(Database db) {
     }
     print('');
   }
+}
+
+Future<void> _listCollections(Database db) async {
+  final colls = db.listCollections();
+  if (colls.isEmpty) {
+    print('No NoSQL document collections found.\n');
+    return;
+  }
+  print('NoSQL Collections:');
+  for (final name in colls) {
+    final count = await db.collection(name).countDocuments();
+    print(' - $name ($count document(s))');
+  }
+  print('');
+}
+
+Future<void> _handleKvCommand(Database db, List<String> parts) async {
+  if (parts.length == 1 || (parts.length == 2 && (parts[1] == 'list' || parts[1] == 'keys'))) {
+    final keys = await db.kv.keys();
+    if (keys.isEmpty) {
+      print('Key-Value store is empty.\n');
+    } else {
+      print('Key-Value Store (${keys.length} keys):');
+      for (final k in keys) {
+        final val = await db.kv.get(k);
+        final type = val?.runtimeType.toString() ?? 'null';
+        final preview = jsonEncode(val);
+        final truncated = preview.length > 50 ? '${preview.substring(0, 47)}...' : preview;
+        print(' - $k [$type]: $truncated');
+      }
+      print('');
+    }
+    return;
+  }
+
+  final sub = parts[1].toLowerCase();
+  if (sub == 'get' && parts.length > 2) {
+    final key = parts[2];
+    final val = await db.kv.get(key);
+    if (val == null) {
+      print('(nil)\n');
+    } else {
+      print(val is Map || val is List ? JsonEncoder.withIndent('  ').convert(val) : '$val\n');
+    }
+  } else if (sub == 'set' && parts.length > 3) {
+    final key = parts[2];
+    final rawRest = parts.sublist(3);
+    dynamic val;
+    int? ttl;
+    if (rawRest.length > 1 && int.tryParse(rawRest.last) != null) {
+      ttl = int.parse(rawRest.last);
+      val = _parseKvValue(rawRest.sublist(0, rawRest.length - 1).join(' '));
+    } else {
+      val = _parseKvValue(rawRest.join(' '));
+    }
+    await db.kv.set(key, val, ttl: ttl != null ? Duration(seconds: ttl) : null);
+    print('OK${ttl != null ? " (TTL: ${ttl}s)" : ""}\n');
+  } else if (sub == 'del' && parts.length > 2) {
+    final key = parts[2];
+    final deleted = await db.kv.delete(key);
+    print(deleted ? 'OK (deleted)\n' : '(not found)\n');
+  } else if (sub == 'clear') {
+    await db.kv.clear();
+    print('OK (cleared)\n');
+  } else {
+    print('Usage: .kv [list | get <key> | set <key> <val> [ttlSec] | del <key> | clear]\n');
+  }
+}
+
+dynamic _parseKvValue(String raw) {
+  final trimmed = raw.trim();
+  try {
+    return jsonDecode(trimmed);
+  } catch (_) {}
+  final intVal = int.tryParse(trimmed);
+  if (intVal != null) return intVal;
+  final dVal = double.tryParse(trimmed);
+  if (dVal != null) return dVal;
+  if (trimmed.toLowerCase() == 'true') return true;
+  if (trimmed.toLowerCase() == 'false') return false;
+  return trimmed;
+}
+
+Map<String, dynamic> _parseJsonMap(String raw) {
+  var trimmed = raw.trim();
+  if (trimmed.isEmpty || trimmed == '{}') return {};
+  trimmed = trimmed.replaceAll(r'\$', r'$');
+  try {
+    return Map<String, dynamic>.from(jsonDecode(trimmed) as Map);
+  } catch (_) {
+    try {
+      var relaxed = trimmed.replaceAllMapped(
+        RegExp(r'([a-zA-Z0-9_$]+)\s*:'),
+        (m) => '"${m.group(1)}":',
+      );
+      relaxed = relaxed.replaceAllMapped(
+        RegExp(r':\s*([a-zA-Z_][a-zA-Z0-9_-]*)([\s,}])'),
+        (m) {
+          final word = m.group(1)!;
+          if (word == 'true' || word == 'false' || word == 'null') {
+            return ': $word${m.group(2)}';
+          }
+          return ': "$word"${m.group(2)}';
+        },
+      );
+      return Map<String, dynamic>.from(jsonDecode(relaxed) as Map);
+    } catch (_) {
+      return Map<String, dynamic>.from(jsonDecode(trimmed) as Map);
+    }
+  }
+}
+
+List<dynamic> _parseCommaArguments(String argsStr) {
+  var trimmed = argsStr.trim();
+  if (trimmed.isEmpty) return [];
+  trimmed = trimmed.replaceAll(r'\$', r'$');
+  try {
+    return jsonDecode('[$trimmed]') as List;
+  } catch (_) {
+    var relaxed = trimmed.replaceAllMapped(
+      RegExp(r'([a-zA-Z0-9_$]+)\s*:'),
+      (m) => '"${m.group(1)}":',
+    );
+    relaxed = relaxed.replaceAllMapped(
+      RegExp(r':\s*([a-zA-Z_][a-zA-Z0-9_-]*)([\s,}])'),
+      (m) {
+        final word = m.group(1)!;
+        if (word == 'true' || word == 'false' || word == 'null') {
+          return ': $word${m.group(2)}';
+        }
+        return ': "$word"${m.group(2)}';
+      },
+    );
+    try {
+      return jsonDecode('[$relaxed]') as List;
+    } catch (_) {}
+
+    if (trimmed.startsWith('{') && trimmed.contains('},')) {
+      final idx = trimmed.indexOf('},');
+      final firstPart = trimmed.substring(0, idx + 1).trim();
+      final secondPart = trimmed.substring(idx + 2).trim();
+      return [_parseJsonMap(firstPart), _parseJsonMap(secondPart)];
+    }
+
+    return trimmed.split(',').map((s) => s.trim().replaceAll('"', '').replaceAll("'", '')).toList();
+  }
+}
+
+Future<bool> _handleMongoCommand(
+  Database db,
+  String rawInput,
+  OutputMode outputMode,
+  bool showTimer,
+) async {
+  var input = rawInput.trim();
+  if (input.endsWith(';')) input = input.substring(0, input.length - 1).trim();
+
+  final sw = Stopwatch()..start();
+
+  try {
+    // 1. db.collections() / db.getCollections()
+    if (input == 'db.collections()' || input == 'db.getCollections()') {
+      await _listCollections(db);
+      return true;
+    }
+
+    // 2. db.kv.<subcommand>
+    if (input.startsWith('db.kv.')) {
+      final rest = input.substring('db.kv.'.length).trim();
+      final callMatch = RegExp(r'^([a-zA-Z0-9_]+)\s*\((.*)\)$', dotAll: true).firstMatch(rest);
+      if (callMatch != null) {
+        final kvMethod = callMatch.group(1)!;
+        final kvArgs = callMatch.group(2)!.trim();
+        if (kvMethod == 'get') {
+          final key = kvArgs.replaceAll('"', '').replaceAll("'", '').trim();
+          final val = await db.kv.get(key);
+          if (val == null) {
+            print('(nil)\n');
+          } else {
+            print(val is Map || val is List ? JsonEncoder.withIndent('  ').convert(val) : '$val\n');
+          }
+          return true;
+        } else if (kvMethod == 'set') {
+          final parsedArgs = _parseCommaArguments(kvArgs);
+          if (parsedArgs.length >= 2) {
+            final key = parsedArgs[0].toString();
+            final val = parsedArgs[1];
+            int? ttlSec;
+            if (parsedArgs.length >= 3 && parsedArgs[2] is num) {
+              ttlSec = (parsedArgs[2] as num).toInt();
+            }
+            await db.kv.set(key, val, ttl: ttlSec != null ? Duration(seconds: ttlSec) : null);
+            print('OK${ttlSec != null ? " (TTL: ${ttlSec}s)" : ""}\n');
+            return true;
+          }
+        } else if (kvMethod == 'del' || kvMethod == 'delete') {
+          final key = kvArgs.replaceAll('"', '').replaceAll("'", '').trim();
+          final deleted = await db.kv.delete(key);
+          print(deleted ? 'OK (deleted)\n' : '(not found)\n');
+          return true;
+        } else if (kvMethod == 'keys') {
+          final keys = await db.kv.keys();
+          print(JsonEncoder.withIndent('  ').convert(keys) + '\n');
+          return true;
+        }
+      }
+    }
+
+    // 3. db.<collection>.<method>(<args>)[.chain()]
+    final match = RegExp(r'^db\.([a-zA-Z0-9_]+)\.(.+)$', dotAll: true).firstMatch(input);
+    if (match == null) return false;
+
+    final collName = match.group(1)!;
+    final callPart = match.group(2)!.trim();
+
+    final mCall = RegExp(r'^([a-zA-Z0-9_]+)\s*\((.*?)\)(.*)$', dotAll: true).firstMatch(callPart);
+    if (mCall == null) return false;
+
+    final method = mCall.group(1)!;
+    final argsStr = mCall.group(2)!.trim();
+    final chain = mCall.group(3)!.trim();
+
+    final coll = db.collection(collName);
+
+    if (method == 'find') {
+      final filter = _parseJsonMap(argsStr);
+      var cursor = coll.find(filter);
+
+      final limitMatch = RegExp(r'\.limit\s*\(\s*(\d+)\s*\)').firstMatch(chain);
+      if (limitMatch != null) {
+        cursor = cursor.limit(int.parse(limitMatch.group(1)!));
+      }
+      final skipMatch = RegExp(r'\.skip\s*\(\s*(\d+)\s*\)').firstMatch(chain);
+      if (skipMatch != null) {
+        cursor = cursor.skip(int.parse(skipMatch.group(1)!));
+      }
+      final sortMatch = RegExp(r'\.sort\s*\(\s*(\{.*?\})\s*\)').firstMatch(chain);
+      if (sortMatch != null) {
+        cursor = cursor.sort(
+          _parseJsonMap(sortMatch.group(1)!).map(
+            (k, v) => MapEntry(k, (v as num).toInt()),
+          ),
+        );
+      }
+
+      final docs = await cursor.toList();
+      sw.stop();
+      final elapsedMs = (sw.elapsedMicroseconds / 1000.0).toStringAsFixed(3);
+
+      if (docs.isEmpty) {
+        print('Empty result set (0 documents)\n');
+      } else {
+        if (outputMode == OutputMode.json) {
+          print(JsonEncoder.withIndent('  ').convert(docs.map((d) => d.toMap()).toList()) + '\n');
+        } else {
+          for (final d in docs) {
+            print(JsonEncoder.withIndent('  ').convert(d.toMap()));
+          }
+          if (showTimer) {
+            print('(${docs.length} document(s) returned in ${elapsedMs} ms)\n');
+          } else {
+            print('(${docs.length} document(s) returned)\n');
+          }
+        }
+      }
+      return true;
+    } else if (method == 'findOne') {
+      final filter = _parseJsonMap(argsStr);
+      final doc = await coll.findOne(filter);
+      sw.stop();
+      if (doc == null) {
+        print('null\n');
+      } else {
+        print(JsonEncoder.withIndent('  ').convert(doc.toMap()) + '\n');
+      }
+      return true;
+    } else if (method == 'count' || method == 'countDocuments') {
+      final filter = _parseJsonMap(argsStr);
+      final count = await coll.countDocuments(filter);
+      sw.stop();
+      print('$count\n');
+      return true;
+    } else if (method == 'insertOne' || method == 'insert') {
+      final data = _parseJsonMap(argsStr);
+      final doc = await coll.insertOne(data);
+      sw.stop();
+      print('{\n  "acknowledged": true,\n  "insertedId": "${doc.id}"\n}\n');
+      return true;
+    } else if (method == 'insertMany') {
+      final list = jsonDecode(argsStr) as List;
+      final docs = await coll.insertMany(list.map((m) => Map<String, dynamic>.from(m as Map)).toList());
+      sw.stop();
+      print('{\n  "acknowledged": true,\n  "insertedCount": ${docs.length}\n}\n');
+      return true;
+    } else if (method == 'updateOne' || method == 'updateMany') {
+      final argsList = _parseCommaArguments(argsStr);
+      if (argsList.length < 2) {
+        print('❌ Error: update requires (filter, update) arguments.\n');
+        return true;
+      }
+      final filter = Map<String, dynamic>.from(argsList[0] as Map);
+      final update = Map<String, dynamic>.from(argsList[1] as Map);
+      final count = method == 'updateOne'
+          ? (await coll.updateOne(filter: filter, update: update)).modifiedCount
+          : (await coll.updateMany(filter: filter, update: update)).modifiedCount;
+      sw.stop();
+      print('{\n  "acknowledged": true,\n  "modifiedCount": $count\n}\n');
+      return true;
+    } else if (method == 'deleteOne' || method == 'deleteMany') {
+      final filter = _parseJsonMap(argsStr);
+      final count = method == 'deleteOne'
+          ? await coll.deleteOne(filter)
+          : await coll.deleteMany(filter);
+      sw.stop();
+      print('{\n  "acknowledged": true,\n  "deletedCount": $count\n}\n');
+      return true;
+    } else if (method == 'drop') {
+      await coll.drop();
+      sw.stop();
+      print('true\n');
+      return true;
+    } else if (method == 'createIndex') {
+      final field = argsStr.replaceAll('"', '').replaceAll("'", '').trim();
+      await coll.createIndex(field);
+      sw.stop();
+      print('{\n  "createdIndex": "$field"\n}\n');
+      return true;
+    }
+  } catch (e) {
+    sw.stop();
+    print('⚡ NoSQL Error: $e\n');
+    return true;
+  }
+
+  return false;
 }
 
 void _showSchema(Database db, String? tableName) {
@@ -1110,7 +1479,7 @@ UltSQL CLI Usage:
   ultsql pgwire [--port=5432] [--db=./ultsql_data]
 
 Options:
-  -c, --execute <sql>       Execute SQL query headlessly and exit
+  -c, --execute <sql|nosql> Execute SQL or NoSQL query headlessly and exit
   -m, --mode <format>       Output format: box, table, json, csv, markdown, line
   -t, --timer               Display microsecond-precision execution timer
   --envelope <mode>         Encryption envelope mode: inPage (default) or companion
@@ -1121,19 +1490,22 @@ Options:
   -h, --help                Show this help message
 
 Examples:
-  ultsql                                # Launch in-memory SQL terminal
-  ultsql app.db                         # Open local database file
-  ultsql app.db -c "SELECT * FROM t1;"  # Run headless query
-  ultsql bench 1000000                  # Run 1M-row disk throughput benchmark
-  ultsql export users users.csv         # Dump table to CSV file
-  ultsql import data.json users         # High-speed batch import from JSON
+  ultsql                                      # Launch in-memory SQL terminal
+  ultsql app.db                               # Open local database file
+  ultsql app.db -c "SELECT * FROM t1;"        # Run headless SQL query
+  ultsql app.db -c "db.users.find()"          # Run headless NoSQL query
+  ultsql bench 1000000                        # Run 1M-row disk throughput benchmark
+  ultsql export users users.csv               # Dump table to CSV file
+  ultsql import data.json users               # High-speed batch import from JSON
 ''');
 }
 
 void _printMetaHelp() {
-  print('''
+  print(r'''
 Meta Commands:
   .tables              List all tables with row count and store layout
+  .collections         List all NoSQL document collections and document counts
+  .kv [cmd]            Manage Key-Value store: list, get <k>, set <k> <v> [ttl], del <k>, clear
   .schema [table]      Display column schema, types, and primary keys
   .indexes [table]     Display all B+Tree, Vector HNSW, and FTS indexes
   .databases           Show active database file path and branch
@@ -1148,5 +1520,23 @@ Meta Commands:
   .pgwire [port]       Start background PostgreSQL Wire Protocol server (5432)
   .help                Show this help menu
   .exit                Exit UltSQL CLI
+
+NoSQL Mongo-Style Syntax:
+  db.<coll>.insertOne({ ... })                Insert single JSON document
+  db.<coll>.insertMany([ { ... } ])           Insert batch of JSON documents
+  db.<coll>.find([filter])[.limit(N)][.skip(N)] Query documents with rich filters
+  db.<coll>.findOne([filter])                 Retrieve single matching document
+  db.<coll>.count([filter])                   Count documents matching filter
+  db.<coll>.updateOne(filter, update)         Update single document ($set, $inc, etc.)
+  db.<coll>.updateMany(filter, update)        Update multiple documents
+  db.<coll>.deleteOne(filter)                 Delete single matching document
+  db.<coll>.deleteMany(filter)                Delete multiple matching documents
+  db.<coll>.createIndex("field")              Create secondary index on document field
+  db.<coll>.drop()                            Drop entire document collection
+  db.collections()                            List all document collections
+  db.kv.get("key")                            Get key from Key-Value store
+  db.kv.set("key", value, [ttlSec])           Set key with optional TTL in seconds
+  db.kv.del("key")                            Delete key from Key-Value store
+  db.kv.keys()                                List all active keys in Key-Value store
 ''');
 }

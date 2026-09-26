@@ -307,9 +307,9 @@ class UpdateStmt extends Stmt {
 
 class SelectStmt extends Stmt {
   final List<Projection> projections;
-  final String tableName;
+  String tableName;
   final SelectStmt? fromSubquery;
-  final FunctionCallExpr? fromFunction;
+  FunctionCallExpr? fromFunction;
   final String? tableAlias;
   final List<Join> joins;
   final Expression? whereCondition;
