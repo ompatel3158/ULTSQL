@@ -724,6 +724,7 @@ class Catalog {
   }
 
   Map<String, TableSchema> get tables => _tables;
+  Map<String, IndexSchema> get indexes => _indexes;
   Map<String, TableSchema> getTablesInternal() => _tables;
   void restoreTablesInternal(Map<String, TableSchema> backup) {
     _tables.clear();

@@ -29,6 +29,8 @@ export 'src/engine/executor/value.dart'
 export 'src/engine/parser/ast.dart' show DataType;
 export 'src/engine/network/pg_wire_server.dart' show PgWireServer;
 export 'src/engine/network/rest_server.dart' show RestServer;
+export 'src/engine/cache/crypto_security.dart'
+    show AuthEnvelopeMode, DatabaseIntegrityException;
 export 'src/engine/executor/telemetry.dart'
     show FlightRecorder, FlightRecorderReport, FlightRecorderStep;
 export 'src/services/local_database_service.dart' show LocalDatabaseService;

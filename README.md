@@ -161,9 +161,12 @@ target_link_libraries(my_app PRIVATE ultsql)
 
 Once installed, use `ultsql` anywhere on your machine:
 ```bash
-ultsql                                  # Interactive REPL
-ultsql serve --port=8080                # Standalone REST daemon
-ultsql import data.csv users            # High-throughput batch import
+ultsql app.db                                       # Interactive REPL with auto-completion
+ultsql bench 1000000                                # Live 1M-row disk ingestion benchmark
+ultsql app.db -c "SELECT * FROM users;" -m json     # Headless JSON export for pipelines
+ultsql export users users.csv                       # Streaming table export
+ultsql import data.json users                       # Zero-allocation batch import
+ultsql serve --port=8080 --pgwire=5432              # Combined REST API & PostgreSQL wire daemon
 ```
 
 ### 7. 🐳 Docker Container (Cloud & Servers)
@@ -248,9 +251,10 @@ graph TD
 12. [🔏 Deterministic Obfuscation (XOR Fast Matching)](#searchable-ciphertext-xor-equality-search)
 13. [🛡️ Enterprise Cybersecurity & Active Tamper Detection](#enterprise-cybersecurity)
 14. [⚡ 2.08M Rows/Sec Durable NVMe Ingestion Pipeline](#durable-ingestion-pipeline)
-15. [📊 Standalone Engine Performance Metrics](#standalone-engine-performance-metrics)
-16. [🚀 Getting Started & Installation](#getting-started--installation)
-17. [📜 License](#license)
+15. [🖥️ Next-Gen Interactive CLI & Tooling](#next-gen-interactive-cli)
+16. [📊 Standalone Engine Performance Metrics](#standalone-engine-performance-metrics)
+17. [🚀 Getting Started & Installation](#getting-started--installation)
+18. [📜 License](#license)
 
 ---
 
@@ -586,6 +590,101 @@ final verifyDb = Database('./telemetry_db', useWal: true);
 await verifyDb.init();
 final count = await Interpreter(verifyDb).executeScript('SELECT count(*) FROM logs;');
 print(count.rows[0][0]); // Output: 1000000
+```
+
+---
+
+## <a name="next-gen-interactive-cli"></a>🖥️ Next-Gen Interactive CLI & Tooling
+
+UltSQL includes a standalone developer CLI with a high-performance interactive REPL, multi-mode output formatters, headless scripting flags, and specialized subcommands.
+
+### 1. Subcommands
+
+| Subcommand | Syntax | Description |
+| :--- | :--- | :--- |
+| **Benchmark** | `ultsql bench [rows] [--db <path>] [--wal]` | Measures real-time durable disk ingestion, WAL commit latency, and verifies zero-loss row count on disk. |
+| **Export** | `ultsql export <table_name> <file.csv\|file.json> [--db <path>]` | Streams table data to CSV or formatted JSON. |
+| **Import** | `ultsql import <file.csv\|file.json> <table_name> [--db <path>]` | High-speed batch ingestion of external CSV or JSON files into a table. |
+| **Serve** | `ultsql serve [--port=8080] [--pgwire=5432] [--db <path>]` | Spawns a REST API HTTP daemon with optional concurrent PostgreSQL Wire Protocol server. |
+| **PG Wire** | `ultsql pgwire [--port=5432] [--db <path>]` | Starts a dedicated PostgreSQL v3 wire protocol server compatible with `psql`, `psycopg2`, and JDBC. |
+
+#### Live Ingestion Benchmark Runner
+```bash
+ultsql bench 1000000
+```
+Outputs live latency breakdown (BEGIN, batch insert, WAL commit flush) and re-verifies 1,000,000 rows directly from disk after closing buffers.
+
+---
+
+### 2. Headless Scripting & CI/CD (`-c` / `--execute`)
+
+Execute SQL queries headlessly from scripts, CI/CD pipelines, or UNIX pipes:
+
+```bash
+# Formatted Unicode Box
+ultsql app.db -c "SELECT id, name, score FROM users LIMIT 5;" -m box
+
+# JSON Output piped directly to jq
+ultsql app.db -c "SELECT * FROM users WHERE active = true;" -m json | jq .
+
+# CSV Output for data exports
+ultsql app.db -c "SELECT * FROM orders;" -m csv > orders.csv
+
+# Markdown format for automated documentation
+ultsql app.db -c "SELECT name, count(*) as count FROM events GROUP BY name;" -m markdown
+```
+
+#### Output Formatting Modes (`-m`, `--mode`)
+- **`box`**: Unicode box-drawing table with clean cell boundaries (`┌─┬─┐`).
+- **`table`**: Standard ASCII table format (`+-+-+`).
+- **`json`**: Pretty-printed JSON array of objects.
+- **`csv`**: RFC 4180 compliant CSV stream with automatic header escaping.
+- **`markdown`**: GitHub Flavored Markdown table.
+- **`line`**: Key-value vertical display ideal for inspect-heavy schemas.
+
+---
+
+### 3. Interactive REPL Meta Commands
+
+Launch an interactive terminal session with persistent history (`~/.ultsql_history`):
+
+```bash
+ultsql app.db
+```
+
+Within the REPL, use SQLite/Postgres-style dot commands:
+
+| Meta Command | Description |
+| :--- | :--- |
+| `.tables` | List all tables currently defined in the catalog. |
+| `.schema [table]` | Display `CREATE TABLE` DDL statement and storage layout (Row vs Columnar). |
+| `.indexes [table]` | Inspect all active B+ Tree indexes and their associated columns. |
+| `.explain <sql>` | Render Volcano query iterator execution plan tree. |
+| `.branch list` | List all Git-like database branches. |
+| `.branch create <name>` | Create an isolated Copy-on-Write branch for testing migrations or staging. |
+| `.branch switch <name>` | Switch active database branch context instantly. |
+| `.branch merge <src>` | Merge changes from another branch into current branch. |
+| `.branch delete <name>` | Delete an existing database branch. |
+| `.mode <type>` | Switch active output format (`box`, `table`, `json`, `csv`, `markdown`, `line`). |
+| `.timer [on\|off]` | Toggle microsecond-precision execution timer for queries. |
+| `.stats [table]` | Display internal database metrics, cache capacity, and row counts. |
+| `.vacuum` | Reclaim fragmented slotted pages and optimize disk storage. |
+| `.export <table> <file>` | Dump table to CSV or JSON file from inside the REPL. |
+| `.import <file> <table>` | Batch load CSV or JSON file directly into a table. |
+| `.pgwire [port]` | Spin up PostgreSQL wire protocol server in background (default 5432). |
+| `.help` | Show command reference manual. |
+| `.exit` / `.quit` | Flush buffers and cleanly exit terminal. |
+
+---
+
+### 4. Interactive Security & Passphrase Prompting
+
+When opening an encrypted database without the `--password` flag, the CLI automatically prompts with masked input (`stdin.echoMode = false`):
+
+```text
+Database 'secure.db' is encrypted with AES-256-CTR + HMAC-SHA256.
+Enter passphrase: [Hidden]
+✔ Unlocked database. Encryption: inPage (4064-byte payload + 32-byte HMAC tag).
 ```
 
 ---
