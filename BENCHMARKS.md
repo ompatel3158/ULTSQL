@@ -1,12 +1,12 @@
 # ⚡ UltSQL Official Performance Benchmarks & Showcase
 
-This document presents verified empirical performance benchmarks comparing **UltSQL (`v1.0.22`)** against **SQLite 3**, **DuckDB**, and **ChromaDB**.
+This document presents verified empirical performance benchmarks comparing **UltSQL (`v1.0.23`)** against **SQLite 3**, **DuckDB**, and **ChromaDB**.
 
 ---
 
 ## 📊 Summary Scorecard
 
-| Workload / Benchmark Metric | ⚡ UltSQL (`v1.0.22`) | 🪶 SQLite 3 | 🦆 DuckDB | 🧬 ChromaDB (Vector) |
+| Workload / Benchmark Metric | ⚡ UltSQL (`v1.0.23`) | 🪶 SQLite 3 | 🦆 DuckDB | 🧬 ChromaDB (Vector) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Public Batch Ingestion (Indexed, Slotted Pages)** | **~350,000–500,000+ ops/sec** | 820,000 ops/sec | 650,000 ops/sec | N/A |
 | **Multi-Row SQL INSERT (Disk & Memory)** | **~140,000–195,000 ops/sec** | ~180,000 ops/sec | ~160,000 ops/sec | N/A |

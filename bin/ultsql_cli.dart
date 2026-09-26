@@ -164,7 +164,7 @@ void main(List<String> args) async {
       }
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.22)');
+      print('🚀 UltSQL Server Daemon Active & Ready! (v1.0.23)');
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (passphrase != null) {
@@ -238,7 +238,7 @@ void main(List<String> args) async {
       _printHelp();
       exit(0);
     } else if (arg == '--version' || arg == '-v') {
-      print('UltSQL CLI v1.0.22 (Converged Database Engine)');
+      print('UltSQL CLI v1.0.23 (Converged Database Engine)');
       exit(0);
     } else if ((arg == '-c' || arg == '--execute') && i + 1 < args.length) {
       oneShotSql = args[++i];
@@ -334,7 +334,7 @@ void main(List<String> args) async {
 
   // INTERACTIVE REPL
   print('===============================================================');
-  print('🚀 UltSQL Interactive Console (v1.0.22)');
+  print('🚀 UltSQL Interactive Console (v1.0.23)');
   print('   Converged Multimodal Database Engine');
   print('===============================================================');
   print('📁 Database Target : $dbTarget');
@@ -596,6 +596,10 @@ Future<String?> _handleMetaCommand(
 
     case '.help':
       _printMetaHelp();
+      return null;
+
+    case '.version':
+      print('UltSQL CLI v1.0.23 (Converged Database Engine)\n');
       return null;
 
     case '.tables':
@@ -1518,6 +1522,7 @@ Meta Commands:
   .vacuum              Flush WAL and compact active page buffers
   .stats [table]       Display storage, row count, and page cache statistics
   .pgwire [port]       Start background PostgreSQL Wire Protocol server (5432)
+  .version             Display CLI and database engine version
   .help                Show this help menu
   .exit                Exit UltSQL CLI
 

@@ -746,10 +746,18 @@ SELECT * FROM obfuscated_table WHERE zk_match(ciphertext, 'search_key') = true;
 
 ## <a name="enterprise-cybersecurity"></a>🛡️ Enterprise Cybersecurity & Active Tamper Detection
 
-ULTSQL provides pure-Dart authenticated encryption with active disk-tamper trapping, cryptographic memory zeroization, and dynamic TLS 1.3 socket negotiation:
+ULTSQL provides pure-Dart authenticated encryption with active disk-tamper trapping, cryptographic memory zeroization, strict pre-flight authorization, and dynamic TLS 1.3 socket negotiation:
 
-### 1. Authenticated Envelopes & Tamper Trapping
-Every encrypted database page is wrapped with an HMAC-SHA256 signature calculated over `pageId || ciphertext`. Cross-page swap attacks, bit-flips, or malicious hex modifications on disk trigger an immediate `DatabaseIntegrityException`:
+### 1. Dual Authenticated Envelopes & User Preferences
+Every encrypted database page is wrapped with an HMAC-SHA256 signature calculated over `pageId || ciphertext`. Developers can switch between two physical envelope strategies based on deployment needs:
+
+- **`AuthEnvelopeMode.inPage` (Default / Recommended for Mobile & Single-File Deployments)**:
+  - Embeds a 32-byte HMAC-SHA256 authentication tag in the tail of every 4096-byte slotted page (leaving a 4064-byte user data payload).
+  - Completely self-contained and crash-safe with zero extra companion files. Ideal for mobile apps, edge devices, and embedded Flutter deployments.
+- **`AuthEnvelopeMode.companion` (Recommended for High-Capacity Relational Workloads)**:
+  - Retains full 4096-byte slotted page payloads in the main table file.
+  - Authentication tags are stored in a dedicated companion `$table.auth` file indexed by `pageId * 32`.
+  - Ideal when maximizing byte density per slotted page and preserving raw 4096-byte alignments is paramount.
 
 ```dart
 import 'package:ultsql/ultsql.dart';
@@ -771,13 +779,21 @@ final dbCompanion = Database(
 await dbCompanion.init();
 ```
 
-### 2. Cryptographic Memory Zeroization
-When `db.close()` is called, all derived AES-256 and HMAC keys in RAM are cryptographically zeroized (`DerivedKeys.wipe()`) to protect against cold-boot and memory inspection attacks.
+### 2. Strict Pre-Flight Access Control & Tamper Trapping
+ULTSQL enforces cryptographic verification at the front door before any table page or catalog metadata is read:
+- **Missing Passphrase Trap**: Attempting to open an encrypted database without a passphrase immediately throws `DatabaseIntegrityException("Database is encrypted. Passphrase required.")`.
+- **Invalid Passphrase Trap**: Supplying an incorrect passphrase fails the pre-flight verification marker test in constant time and immediately throws `DatabaseIntegrityException("Invalid database passphrase or corrupted security metadata.")`.
+- **Active Bit-Flip & Swap Trapping**: The HMAC tag binds `pageId || ciphertext`. If an attacker flips a single bit or attempts to swap page files on disk, the signature check fails and throws `DatabaseIntegrityException` before page deserialization, preventing cold-data tampering and memory poisoning.
+- **Constant-Time Verification**: Uses `CryptoSecurity.constantTimeEquals` to eliminate timing side-channel attacks during authentication.
 
-### 3. Key Derivation & Tamper Resistance
-- **PBKDF2-HMAC-SHA256**: 10,000 iterations using a 16-byte cryptographically secure random salt (`Random.secure()`).
-- **Constant-Time Verification**: Eliminates timing side-channel attacks during authentication.
-- **Passphrase Pre-Flight Check**: Metadata verification marker prevents corrupted or incorrect decryption from ever initializing.
+### 3. Key Derivation & Memory Zeroization
+- **PBKDF2-HMAC-SHA256**: 10,000 iterations using a cryptographically secure 16-byte random salt (`Random.secure()`) generates separate 256-bit encryption (`AES-256-CTR`) and authentication (`HMAC-SHA256`) keys.
+- **Memory Zeroization**: Calling `db.close()` immediately invokes `DerivedKeys.wipe()`, overwriting all in-memory cryptographic key buffers with zeros to protect against memory inspection, RAM dumps, and cold-boot attacks.
+
+### 4. Dynamic TLS 1.3 Transport Encryption (PGWire Server)
+The PostgreSQL wire protocol daemon (`ultsql pgwire --port 5432` or `.pgwire [port]`) dynamically negotiates TLS 1.3 encrypted transport:
+- Automatically detects client `SSLRequest` packets (`80877103`), responds with `'S'`, and performs an in-place socket upgrade using `SecureSocket.secureServer(socket, securityContext)`.
+- Fully compatible with `psql "sslmode=require"`, Python `psycopg2`, Node `pg`, and standard database GUIs (DBeaver, TablePlus).
 
 ---
 
@@ -890,14 +906,25 @@ Within the REPL, use SQLite/Postgres-style dot commands:
 | `.export <table> <file>` | Dump table to CSV or JSON file from inside the REPL. |
 | `.import <file> <table>` | Batch load CSV or JSON file directly into a table. |
 | `.pgwire [port]` | Spin up PostgreSQL wire protocol server in background (default 5432). |
+| `.version` | Display CLI and database engine version. |
 | `.help` | Show command reference manual. |
 | `.exit` / `.quit` | Flush buffers and cleanly exit terminal. |
 
 ---
 
-### 4. Interactive Security & Passphrase Prompting
+### 4. Interactive Security & Encryption Flags
 
-When opening an encrypted database without the `--password` flag, the CLI automatically prompts with masked input (`stdin.echoMode = false`):
+Open an encrypted database directly via CLI flags or let the terminal prompt interactively:
+
+```bash
+# Non-interactive / Headless with passphrase and envelope preference:
+ultsql secure_db --key "my-secret-passphrase" --envelope inPage
+
+# Interactive launch with masked password prompt:
+ultsql secure_db
+```
+
+When opened without the `--key` flag, the CLI detects `security.meta` and securely prompts with masked input (`stdin.echoMode = false`):
 
 ```text
 Database 'secure.db' is encrypted with AES-256-CTR + HMAC-SHA256.
