@@ -87,6 +87,8 @@ void main() {
   });
 
   test('🧹 Resilience 4: MVCC Autovacuum Garbage Collection (Zero Tuple Leaks)', () async {
+    final dbDir = Directory('test_chaos_mvcc_db');
+    if (dbDir.existsSync()) dbDir.deleteSync(recursive: true);
     final db = Database('test_chaos_mvcc_db');
     await db.init();
     final interpreter = Interpreter(db);
@@ -107,7 +109,6 @@ void main() {
     expect(res.rows[0][1].value, equals(100));
 
     await db.close();
-    final dbDir = Directory('test_chaos_mvcc_db');
     if (dbDir.existsSync()) dbDir.deleteSync(recursive: true);
   });
 

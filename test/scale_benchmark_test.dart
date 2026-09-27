@@ -40,6 +40,7 @@ void main() {
       final scales = [100, 1000, 10000, 100000];
 
       for (final scale in scales) {
+        await interpreter.executeScript('DELETE FROM scale_test;');
         final swInsert = Stopwatch()..start();
         final batchSize = scale > 10000 ? 10000 : scale;
         int inserted = 0;

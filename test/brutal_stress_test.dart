@@ -201,8 +201,11 @@ void main() {
       // 1. Primary key violation fuzzing
       await interpreter.executeScript('INSERT INTO t1 VALUES (1, 10.5, \'{"a": 1}\');');
       
-      final duplicateRes = await interpreter.executeScript('INSERT INTO t1 VALUES (1, 20.5, \'{"b": 2}\');');
-      expect(duplicateRes.message, contains('Error:'), reason: 'Duplicate Primary Key insert must return an error message');
+      expect(
+        () => interpreter.executeScript('INSERT INTO t1 VALUES (1, 20.5, \'{"b": 2}\');'),
+        throwsA(isA<Exception>()),
+        reason: 'Duplicate Primary Key insert must throw an exception',
+      );
 
       // 2. Mismatched type coercion check
       // Insert int into double column -> should coerce to double
@@ -213,8 +216,11 @@ void main() {
       expect((doubleRes.rows[0][0] as DbDouble).value, 5.0);
 
       // 3. Invalid JSON insert
-      final invalidJsonRes = await interpreter.executeScript('INSERT INTO t1 VALUES (3, 1.1, \'invalid-json-string\');');
-      expect(invalidJsonRes.message, contains('Error:'), reason: 'Invalid JSON string must return an error message');
+      expect(
+        () => interpreter.executeScript('INSERT INTO t1 VALUES (3, 1.1, \'invalid-json-string\');'),
+        throwsA(isA<Exception>()),
+        reason: 'Invalid JSON string must throw an exception',
+      );
 
       await db.close();
     });

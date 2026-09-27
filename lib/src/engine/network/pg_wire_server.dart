@@ -104,25 +104,27 @@ class _PgConnectionHandler {
         if (protocol == 80877103) {
           // SSLRequest
           _buffer.removeRange(0, length);
-          if (securityContext != null && db.config.enableTlsEncryption) {
+          if (db.config.enableTlsEncryption) {
             _safeAdd([83]); // 'S'
             await socket.flush();
-            await _subscription?.cancel();
-            _subscription = null;
-            final remaining =
-                _buffer.isNotEmpty ? Uint8List.fromList(_buffer) : null;
-            _buffer.clear();
-            try {
-              final secureSocket = await SecureSocket.secureServer(
-                socket,
-                securityContext,
-                bufferedData: remaining,
-              );
-              socket = secureSocket;
-              _attachListener();
-            } catch (e) {
-              print('TLS handshake error: $e');
-              socket.destroy();
+            if (securityContext != null) {
+              await _subscription?.cancel();
+              _subscription = null;
+              final remaining =
+                  _buffer.isNotEmpty ? Uint8List.fromList(_buffer) : null;
+              _buffer.clear();
+              try {
+                final secureSocket = await SecureSocket.secureServer(
+                  socket,
+                  securityContext!,
+                  bufferedData: remaining,
+                );
+                socket = secureSocket;
+                _attachListener();
+              } catch (e) {
+                print('TLS handshake error: $e');
+                socket.destroy();
+              }
             }
             return;
           } else {

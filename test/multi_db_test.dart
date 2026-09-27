@@ -60,8 +60,10 @@ void main() {
     expect(interpreter.db.directory, 'test_other_db');
 
     // 4. Verify primary table does not exist in the new database
-    final selMainFail = await interpreter.executeScript('SELECT * FROM t_main;');
-    expect(selMainFail.message.contains('Error'), true); // Should fail because t_main is in primary_db
+    expect(
+      () => interpreter.executeScript('SELECT * FROM t_main;'),
+      throwsA(isA<Exception>()),
+    );
 
     // 5. Create table and insert in the second database
     await interpreter.executeScript('CREATE TABLE t_secondary(b TEXT);');
@@ -81,7 +83,9 @@ void main() {
     expect(selMainSuccess.rows.length, 1);
     expect(selMainSuccess.rows.first.first.toString(), '42');
 
-    final selSecondaryFail = await interpreter.executeScript('SELECT * FROM t_secondary;');
-    expect(selSecondaryFail.message.contains('Error'), true);
+    expect(
+      () => interpreter.executeScript('SELECT * FROM t_secondary;'),
+      throwsA(isA<Exception>()),
+    );
   });
 }

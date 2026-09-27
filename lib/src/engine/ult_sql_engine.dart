@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/network/pg_wire_server.dart';
 import 'package:ultsql/src/engine/executor/value.dart';
@@ -43,8 +44,8 @@ class UltSqlEngine {
   }
 
   /// Start PostgreSQL Wire Protocol Server daemon on the specified TCP [port].
-  Future<int> startServer({int port = 5432}) async {
-    _server = PgWireServer(db, port: port);
+  Future<int> startServer({int port = 5432, SecurityContext? securityContext}) async {
+    _server = PgWireServer(db, port: port, securityContext: securityContext);
     await _server!.start();
     return port;
   }

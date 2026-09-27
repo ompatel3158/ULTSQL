@@ -39,12 +39,16 @@ void main() {
     expect(interpreter.currentUser, 'guest');
 
     // 4. Try select (should fail with permission denied)
-    final selectGuestFail = await interpreter.executeScript('SELECT * FROM t_perm;');
-    expect(selectGuestFail.message.contains('Permission denied'), true);
+    expect(
+      () => interpreter.executeScript('SELECT * FROM t_perm;'),
+      throwsA(predicate((e) => e.toString().contains('Permission denied'))),
+    );
 
     // 5. Try insert (should fail with permission denied)
-    final insertGuestFail = await interpreter.executeScript("INSERT INTO t_perm VALUES (2, 'Guest Row');");
-    expect(insertGuestFail.message.contains('Permission denied'), true);
+    expect(
+      () => interpreter.executeScript("INSERT INTO t_perm VALUES (2, 'Guest Row');"),
+      throwsA(predicate((e) => e.toString().contains('Permission denied'))),
+    );
 
     // 6. Switch back to admin and GRANT select privilege to guest
     await interpreter.executeScript("SET USER 'admin';");
@@ -56,8 +60,10 @@ void main() {
     expect(selectGuestSuccess.rows.length, 1);
     expect(selectGuestSuccess.rows.first[1].toString(), 'Admin Row');
 
-    final insertGuestFail2 = await interpreter.executeScript("INSERT INTO t_perm VALUES (2, 'Guest Row 2');");
-    expect(insertGuestFail2.message.contains('Permission denied'), true);
+    expect(
+      () => interpreter.executeScript("INSERT INTO t_perm VALUES (2, 'Guest Row 2');"),
+      throwsA(predicate((e) => e.toString().contains('Permission denied'))),
+    );
 
     // 8. Switch back to admin, GRANT INSERT, and verify guest can insert
     await interpreter.executeScript("SET USER 'admin';");
@@ -76,7 +82,9 @@ void main() {
     await interpreter.executeScript("REVOKE INSERT ON t_perm FROM 'guest';");
 
     await interpreter.executeScript("SET USER 'guest';");
-    final insertGuestFail3 = await interpreter.executeScript("INSERT INTO t_perm VALUES (3, 'Guest Row Blocked');");
-    expect(insertGuestFail3.message.contains('Permission denied'), true);
+    expect(
+      () => interpreter.executeScript("INSERT INTO t_perm VALUES (3, 'Guest Row Blocked');"),
+      throwsA(predicate((e) => e.toString().contains('Permission denied'))),
+    );
   });
 }

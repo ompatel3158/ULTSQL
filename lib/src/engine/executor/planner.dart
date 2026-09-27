@@ -1414,7 +1414,15 @@ class QueryPlanner {
 
   SelectStmt _rewriteSelectStmt(SelectStmt stmt) {
     final mainAlias = stmt.tableAlias?.toLowerCase();
-    final joinAlias = stmt.join?.alias?.toLowerCase();
+    final joinAliases = <String, String>{};
+    for (final j in stmt.joins) {
+      if (j.alias != null) {
+        joinAliases[j.alias!.toLowerCase()] = j.tableName;
+      }
+    }
+    if (stmt.join?.alias != null) {
+      joinAliases[stmt.join!.alias!.toLowerCase()] = stmt.join!.tableName;
+    }
 
     Expression rewriteExpr(Expression expr) {
       if (expr is VariableExpr) {
@@ -1423,9 +1431,9 @@ class QueryPlanner {
           if (mainAlias != null && first == mainAlias) {
             return VariableExpr([stmt.tableName, ...expr.path.sublist(1)]);
           }
-          if (joinAlias != null && first == joinAlias) {
+          if (joinAliases.containsKey(first)) {
             return VariableExpr([
-              stmt.join!.tableName,
+              joinAliases[first]!,
               ...expr.path.sublist(1),
             ]);
           }
@@ -1479,9 +1487,26 @@ class QueryPlanner {
         ? Join(
             stmt.join!.tableName,
             rewriteExpr(stmt.join!.onCondition),
+            fromSubquery: stmt.join!.fromSubquery != null ? _rewriteSelectStmt(stmt.join!.fromSubquery!) : null,
             alias: stmt.join!.alias,
+            isLeftJoin: stmt.join!.isLeftJoin,
+            isRightJoin: stmt.join!.isRightJoin,
+            isFullJoin: stmt.join!.isFullJoin,
           )
         : null;
+    final newJoins = stmt.joins
+        .map(
+          (j) => Join(
+            j.tableName,
+            rewriteExpr(j.onCondition),
+            fromSubquery: j.fromSubquery != null ? _rewriteSelectStmt(j.fromSubquery!) : null,
+            alias: j.alias,
+            isLeftJoin: j.isLeftJoin,
+            isRightJoin: j.isRightJoin,
+            isFullJoin: j.isFullJoin,
+          ),
+        )
+        .toList();
     final newWhere = stmt.whereCondition != null
         ? rewriteExpr(stmt.whereCondition!)
         : null;
@@ -1496,16 +1521,20 @@ class QueryPlanner {
     return SelectStmt(
       projections: newProjections,
       tableName: stmt.tableName,
-      fromSubquery: stmt.fromSubquery,
+      fromSubquery: stmt.fromSubquery != null ? _rewriteSelectStmt(stmt.fromSubquery!) : null,
       fromFunction: stmt.fromFunction,
       tableAlias: stmt.tableAlias,
       join: newJoin,
+      joins: newJoins,
       whereCondition: newWhere,
       groupBy: newGroupBy,
       havingCondition: newHaving,
       orderBy: newOrderBy,
       limit: stmt.limit,
+      offset: stmt.offset,
+      isDistinct: stmt.isDistinct,
       withRelationship: stmt.withRelationship,
+      asOfClause: stmt.asOfClause,
     );
   }
 

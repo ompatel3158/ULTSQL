@@ -25,6 +25,7 @@ import 'parallel_scan_nodes.dart';
 import '../cache/engine_config.dart';
 import '../nosql/collection.dart';
 import '../nosql/kv_store.dart';
+import '../storage/autovacuum.dart';
 
 /// Represents the formatted result set returned by UltSQL query execution.
 class QueryResult {
@@ -1205,6 +1206,20 @@ class Interpreter {
     }
     if (node is UseDatabaseStmt) {
       return _executeUseDatabase(node);
+    }
+    if (node is VacuumStmt) {
+      if (node.tableName.isNotEmpty) {
+        VacuumManager(db).vacuumTable(node.tableName, full: node.full);
+      } else {
+        for (final t in db.catalog.tables.keys) {
+          VacuumManager(db).vacuumTable(t, full: node.full);
+        }
+      }
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: 'VACUUM completed successfully.',
+      );
     }
     throw Exception("Unsupported AST Node type: ${node.runtimeType}");
   }
@@ -2742,6 +2757,68 @@ END;
                   isDirty: false,
                 );
               }
+              if (!conflictFound && pointPtr != null) {
+                final rangePtrs = btree.searchRangeSync([dKey], [dKey]);
+                for (final ptr in rangePtrs) {
+                  if (ptr.pageId == pointPtr.pageId && ptr.slotId == pointPtr.slotId) continue;
+                  final page = db.cache.pinPageSync(
+                    rowTable.filePath,
+                    ptr.pageId,
+                  );
+                  final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
+                  if (recBytes != null) {
+                    try {
+                      final mvccRecord = MvccRecord.fromBytes(recBytes);
+                      final currentTx = db.cache.currentMvccTx;
+                      final txManager = db.cache.mvccTxManager;
+                      final currentTxId = currentTx?.txId ?? 0;
+                      final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+                      if (txManager.isVisible(
+                        mvccRecord.xmin,
+                        mvccRecord.xmax,
+                        currentTxId,
+                        activeTxIds,
+                      )) {
+                        conflictFound = true;
+                        conflictPageId = ptr.pageId;
+                        conflictSlotId = ptr.slotId;
+                        conflictingRowValues = RecordSerializer.deserializeRow(
+                          mvccRecord.rowData,
+                        );
+                        conflictCol = schema.columnNames[i];
+                        conflictVal = val;
+                        db.cache.unpinPageSync(
+                          rowTable.filePath,
+                          ptr.pageId,
+                          isDirty: false,
+                        );
+                        break;
+                      }
+                    } catch (_) {
+                      conflictFound = true;
+                      conflictPageId = ptr.pageId;
+                      conflictSlotId = ptr.slotId;
+                      conflictingRowValues = RecordSerializer.deserializeRow(
+                        recBytes,
+                      );
+                      conflictCol = schema.columnNames[i];
+                      conflictVal = val;
+                      db.cache.unpinPageSync(
+                        rowTable.filePath,
+                        ptr.pageId,
+                        isDirty: false,
+                      );
+                      break;
+                    }
+                  }
+                  db.cache.unpinPageSync(
+                    rowTable.filePath,
+                    ptr.pageId,
+                    isDirty: false,
+                  );
+                  if (conflictFound) break;
+                }
+              }
               checkedWithIndex = true;
             }
           }
@@ -2804,7 +2881,9 @@ END;
                   }
                 }
               }
-              db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
+              if (!conflictFound) {
+                db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
+              }
               if (conflictFound) break;
             }
           }

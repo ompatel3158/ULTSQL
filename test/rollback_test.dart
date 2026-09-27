@@ -84,8 +84,8 @@ void main() {
     await interpreter.executeScript('CREATE TABLE base_table (id INT, val TEXT);');
     await interpreter.executeScript('INSERT INTO base_table VALUES (1, \'Clean record\');');
 
-    // Run a script where DDL + DML occurs, but a later statement fails
-    final scriptRes = await interpreter.executeScript('''
+    try {
+      await interpreter.executeScript('''
 BEGIN TRANSACTION;
 CREATE TABLE temp_table (id INT, category TEXT);
 INSERT INTO temp_table VALUES (100, 'Sneakers');
@@ -94,8 +94,10 @@ INSERT INTO base_table VALUES (2, 'Modified record');
 SELECT * FROM non_existent_table;
 COMMIT;
 ''');
-
-    expect(scriptRes.message, contains('Error'));
+      fail('Expected script execution to fail and throw an exception');
+    } catch (e) {
+      expect(e.toString(), contains('non_existent_table'));
+    }
 
     // Verify catalog cleaned up 'temp_table'
     expect(db!.catalog.hasTable('temp_table'), isFalse, reason: "temp_table must be removed from catalog on rollback.");
