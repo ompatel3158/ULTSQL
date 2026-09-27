@@ -120,7 +120,7 @@ void main() {
     final promptCompleter = Completer<void>();
 
     proc.stdout.transform(utf8.decoder).listen((text) {
-      if (text.contains('ultsql>') && !promptCompleter.isCompleted) {
+      if ((text.contains('ultsql') && text.contains('>')) && !promptCompleter.isCompleted) {
         promptCompleter.complete();
       }
       if (text.contains('PostgreSQL Wire Protocol daemon listening') && !readyCompleter.isCompleted) {

@@ -191,7 +191,9 @@ END;
 ''');
 
     // Verify it fails constraint validation after BEFORE trigger modified cat_id
-    final insertRes = await interpreter.executeScript("INSERT INTO products VALUES (1, 1, 'Gadget');");
-    expect(insertRes.message.contains('Foreign key constraint violation'), true);
+    expect(
+      () => interpreter.executeScript("INSERT INTO products VALUES (1, 1, 'Gadget');"),
+      throwsA(predicate((e) => e.toString().contains('Foreign key constraint violation'))),
+    );
   });
 }
