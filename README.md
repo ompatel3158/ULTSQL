@@ -12,7 +12,8 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ompatel3158/ULTSQL/test.yml?branch=main&label=build)](https://github.com/ompatel3158/ULTSQL/actions)
 
 📦 **Package**: [ultsql | pub.dev](https://pub.dev/packages/ultsql)  
-📬 **ULTSQL Cloud / Managed Service**: [Join the Waitlist](https://forms.gle/ultsql-waitlist)
+📬 **ULTSQL Cloud / Managed Service**: [Join the Waitlist](https://forms.gle/ultsql-waitlist)  
+⚡ **Feature Matrix & Customization Guide**: [FEATURES.md](FEATURES.md)
 
 **ULTSQL** is a 5-in-1 converged multimodal database engine written in 100% pure Dart with **zero native C/C++ dependencies**. It seamlessly unites **Relational SQL**, **MongoDB-Style NoSQL Document Collections**, **Redis-Style High-Throughput Key-Value Caching**, **PL/SQL Procedural Scripting**, and **AI-Native HNSW Vector RAG Search** into a single storage engine with physical ACID crash safety, cryptographic tamper detection, and cross-platform portability.
 

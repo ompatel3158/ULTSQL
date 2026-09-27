@@ -2,6 +2,8 @@
 
 Welcome to the official user manual for **UltSQL** — the converged 4-in-1 multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
 
+> ⚡ **Looking for the Complete Feature Matrix & Customization Guide?** See [FEATURES.md](FEATURES.md) for full architectural breakdowns, code examples across 5 languages, and deep engine tuning instructions.
+
 ---
 
 ## 📖 Table of Contents
