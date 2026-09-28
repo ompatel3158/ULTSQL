@@ -1289,11 +1289,25 @@ class JitCompiler {
               case 'cosine':
                 return DbDouble(v1.cosineDistanceTo(v2));
               case 'dot':
-                return DbDouble(v1.dotProductTo(v2));
+                return DbDouble(-v1.dotProductTo(v2));
               case 'euclidean':
               default:
                 return DbDouble(v1.distanceTo(v2));
             }
+          }
+          return DbNull();
+        }
+        if ((name == 'dot_product' || name == 'vec_dot' || name == 'vec_dot_product') && argFns.length == 2) {
+          var v1 = argFns[0](row);
+          var v2 = argFns[1](row);
+          if (v1 is DbText) {
+            v1 = _parseVectorFromString(v1.value) ?? v1;
+          }
+          if (v2 is DbText) {
+            v2 = _parseVectorFromString(v2.value) ?? v2;
+          }
+          if (v1 is DbVector && v2 is DbVector) {
+            return DbDouble(v1.dotProductTo(v2));
           }
           return DbNull();
         }

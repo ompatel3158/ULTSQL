@@ -325,12 +325,26 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
           case 'cosine':
             return DbDouble(v1.cosineDistanceTo(v2));
           case 'dot':
-            return DbDouble(v1.dotProductTo(v2));
+            return DbDouble(-v1.dotProductTo(v2));
           case 'euclidean':
           default:
             return DbDouble(v1.distanceTo(v2));
         }
       }
+    }
+    if ((name == 'dot_product' || name == 'vec_dot' || name == 'vec_dot_product') && args.length == 2) {
+      var v1 = args[0];
+      var v2 = args[1];
+      if (v1 is DbText) {
+        v1 = _parseVectorFromString(v1.value) ?? v1;
+      }
+      if (v2 is DbText) {
+        v2 = _parseVectorFromString(v2.value) ?? v2;
+      }
+      if (v1 is DbVector && v2 is DbVector) {
+        return DbDouble(v1.dotProductTo(v2));
+      }
+      return DbNull();
     }
     if (name == 'cast' && args.length == 2) {
       final val = args[0];
@@ -795,6 +809,8 @@ class IndexScanNode extends PlanNode {
   late final Map<String, int> _staticKeyToIndex;
   late final List<DbValue> _reusedRowList;
 
+  final int? asOfTxId;
+
   IndexScanNode({
     required this.tableFile,
     required this.schema,
@@ -802,6 +818,7 @@ class IndexScanNode extends PlanNode {
     required this.low,
     required this.high,
     required this.projectedColIndexes,
+    this.asOfTxId,
   }) {
     _prefixKeys = projectedColIndexes
         .map((idx) => '${schema.name}.${schema.columnNames[idx]}')
@@ -819,6 +836,7 @@ class IndexScanNode extends PlanNode {
   }
 
   int? getFastCount() {
+    if (asOfTxId != null) return null;
     final currentTx = tableFile.cache.currentMvccTx;
     final txManager = tableFile.cache.mvccTxManager;
     if (currentTx != null && currentTx.txId != 0) {
@@ -850,6 +868,9 @@ class IndexScanNode extends PlanNode {
     if (length < 12) return true; // Non-MVCC records are always visible
     final xmin = bd.getUint32(0);
     final xmax = bd.getUint32(4);
+    if (asOfTxId != null) {
+      return xmin <= asOfTxId! && (xmax == 0 || xmax > asOfTxId!);
+    }
     final currentTx = tableFile.cache.currentMvccTx;
     final txManager = tableFile.cache.mvccTxManager;
     final currentTxId = currentTx?.txId ?? 0;
@@ -863,15 +884,23 @@ class IndexScanNode extends PlanNode {
     int length,
     int colIndex,
   ) {
+    DbValue val;
     if (length < 12) {
-      return RecordSerializer.deserializeCellFromView(bd, 0, length, colIndex);
+      val = RecordSerializer.deserializeCellFromView(bd, 0, length, colIndex);
+    } else {
+      val = RecordSerializer.deserializeCellFromView(
+        bd,
+        12,
+        length - 12,
+        colIndex,
+      );
     }
-    return RecordSerializer.deserializeCellFromView(
-      bd,
-      12,
-      length - 12,
-      colIndex,
-    );
+    if (val is DbNull &&
+        colIndex < schema.columnDefaultValues.length &&
+        schema.columnDefaultValues[colIndex] != null) {
+      return evaluateExpression(schema.columnDefaultValues[colIndex]!, {});
+    }
+    return val;
   }
 
   @override
@@ -2899,7 +2928,7 @@ class HnswScanNode extends PlanNode {
           case 'cosine':
             return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
           case 'dot':
-            return n.vector.dotProductTo(queryVector) <= maxDistance!;
+            return -n.vector.dotProductTo(queryVector) <= maxDistance!;
           case 'euclidean':
           default:
             return n.vector.distanceTo(queryVector) <= maxDistance!;
@@ -3079,7 +3108,7 @@ class IvfFlatScanNode extends PlanNode {
           case 'cosine':
             return n.vector.cosineDistanceTo(queryVector) <= maxDistance!;
           case 'dot':
-            return n.vector.dotProductTo(queryVector) <= maxDistance!;
+            return -n.vector.dotProductTo(queryVector) <= maxDistance!;
           case 'euclidean':
           default:
             return n.vector.distanceTo(queryVector) <= maxDistance!;

@@ -506,7 +506,7 @@ class DbVector extends DbValue {
     for (; i < len; i++) {
       dotProd += v1[i] * v2[i];
     }
-    return -dotProd;
+    return dotProd;
   }
 }
 

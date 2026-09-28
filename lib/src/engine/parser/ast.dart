@@ -452,6 +452,8 @@ class DbmsOutputStmt extends Stmt {
   DbmsOutputStmt(this.expr);
 }
 
+class NullStmt extends Stmt {}
+
 // Transaction Statements
 class BeginTxStmt extends Stmt {}
 

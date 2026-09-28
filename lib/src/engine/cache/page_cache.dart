@@ -931,7 +931,9 @@ class PageCache {
           }
         }
         for (final k in keysToRemove) {
-          _cache.remove(k);
+          final p = _cache.remove(k);
+          if (p != null) p.pinCount = 0;
+          _unpinnedKeys.remove(k);
         }
         pager.truncateToPagesSync(originalCount);
       }
@@ -1038,7 +1040,9 @@ class PageCache {
           }
         });
         for (final k in keysToRemove) {
-          _cache.remove(k);
+          final p = _cache.remove(k);
+          if (p != null) p.pinCount = 0;
+          _unpinnedKeys.remove(k);
         }
         pager.truncateToPagesSync(originalCount);
       }
@@ -1092,7 +1096,9 @@ class PageCache {
       }
     }
     for (final k in keysToRemove) {
-      _cache.remove(k);
+      final p = _cache.remove(k);
+      if (p != null) p.pinCount = 0;
+      _unpinnedKeys.remove(k);
     }
     final pager = _pagers.remove(filePath);
     if (pager != null) {

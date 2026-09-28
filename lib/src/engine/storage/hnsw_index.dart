@@ -63,7 +63,7 @@ class HnswIndex {
     this.M0 = 32,
     this.efConstruction = 64,
     this.efSearch = 32,
-    this.autoSave = true,
+    this.autoSave = false,
     this.metric = 'euclidean',
   }) : mL = 1.0 / log(16); // M is 16
 
@@ -109,7 +109,7 @@ class HnswIndex {
       case 'cosine':
         return a.cosineDistanceTo(b);
       case 'dot':
-        return a.dotProductTo(b);
+        return -a.dotProductTo(b);
       case 'euclidean':
       default:
         return a.distanceTo(b);

@@ -11,6 +11,7 @@ import 'plan_nodes.dart';
 import 'value.dart';
 import 'jit_compiler.dart';
 import 'parallel_scan_nodes.dart';
+import '../storage/universal_file_adapter.dart';
 
 class QueryPlanner {
   final Catalog catalog;
@@ -24,6 +25,114 @@ class QueryPlanner {
     required this.dbDirectory,
     this.getMacro,
   });
+
+  (TableSchema, PlanNode)? _tryResolveFileTable(String tableName) {
+    final lower = tableName.toLowerCase();
+    final rawPath = (tableName.startsWith('/') ||
+            tableName.contains(':') ||
+            (tableName.length > 2 && tableName[1] == ':'))
+        ? tableName
+        : (dbDirectory != ':memory:'
+            ? '$dbDirectory/$tableName'
+            : tableName);
+    final file = File(rawPath);
+    final exists = !identical(0, 0.0) && file.existsSync();
+
+    if (lower.endsWith('.csv') ||
+        lower.endsWith('.json') ||
+        lower.endsWith('.log') ||
+        exists) {
+      final colNames = <String>[];
+      final colTypes = <DataType>[];
+      final rows = <Map<String, DbValue>>[];
+
+      if (lower.endsWith('.csv') ||
+          (exists && file.path.toLowerCase().endsWith('.csv'))) {
+        if (exists) {
+          final lines = file.readAsLinesSync();
+          if (lines.isNotEmpty) {
+            final headerCols = lines.first
+                .split(',')
+                .map((c) => c.trim().replaceAll('"', ''))
+                .toList();
+            colNames.addAll(headerCols);
+            colTypes.addAll(List.filled(headerCols.length, DataType.text));
+            final rawRows = UniversalFileAdapter.queryCsvFile(file.path, '');
+            for (final r in rawRows) {
+              final map = <String, DbValue>{};
+              for (int i = 0; i < colNames.length && i < r.length; i++) {
+                map[colNames[i]] = r[i];
+                map['$tableName.${colNames[i]}'] = r[i];
+              }
+              rows.add(map);
+            }
+          }
+        }
+      } else if (lower.endsWith('.json') ||
+          (exists && file.path.toLowerCase().endsWith('.json'))) {
+        if (exists) {
+          final content = file.readAsStringSync();
+          final decoded = json.decode(content);
+          if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
+            final firstMap = decoded.first as Map<String, dynamic>;
+            for (final k in firstMap.keys) {
+              colNames.add(k.toString());
+              colTypes.add(DataType.text);
+            }
+            for (final item in decoded) {
+              if (item is Map) {
+                final map = <String, DbValue>{};
+                for (final col in colNames) {
+                  final v = item[col];
+                  final dbVal = v == null
+                      ? DbNull()
+                      : (v is int
+                          ? DbInt(v)
+                          : (v is double
+                              ? DbDouble(v)
+                              : (v is bool
+                                  ? DbInt(v ? 1 : 0)
+                                  : DbText(v.toString()))));
+                  map[col] = dbVal;
+                  map['$tableName.$col'] = dbVal;
+                }
+                rows.add(map);
+              }
+            }
+          }
+        }
+      } else if (lower.endsWith('.log') ||
+          (exists && file.path.toLowerCase().endsWith('.log'))) {
+        colNames.addAll(['line', 'message']);
+        colTypes.addAll([DataType.integer, DataType.text]);
+        if (exists) {
+          final rawRows = UniversalFileAdapter.queryLogFile(file.path, '');
+          for (final r in rawRows) {
+            rows.add({
+              'line': r[0],
+              '$tableName.line': r[0],
+              'message': r[1],
+              '$tableName.message': r[1],
+            });
+          }
+        }
+      }
+
+      if (colNames.isEmpty) {
+        colNames.add('content');
+        colTypes.add(DataType.text);
+      }
+
+      final schema = TableSchema(
+        name: tableName,
+        columnNames: colNames,
+        columnTypes: colTypes,
+      );
+      final scanNode = MemoryScanNode(rows);
+      return (schema, scanNode);
+    }
+    return null;
+  }
 
   Expression _expandMacro(CreateMacroStmt macro, List<Expression> args) {
     final paramMap = <String, Expression>{};
@@ -148,7 +257,7 @@ class QueryPlanner {
     stmt = _rewriteSelectStmt(stmt);
 
     TableSchema schema;
-    late PlanNode scanNode;
+    PlanNode? scanNode;
     bool isParallelScan = false;
     List<Projection> projections = stmt.projections;
 
@@ -311,7 +420,13 @@ class QueryPlanner {
           );
           scanNode = MemoryScanNode([<String, DbValue>{}]);
         } else {
-          throw Exception("Table '$tableName' does not exist in catalog.");
+          final fileTable = _tryResolveFileTable(tableName);
+          if (fileTable != null) {
+            schema = fileTable.$1;
+            scanNode = fileTable.$2;
+          } else {
+            throw Exception("Table '$tableName' does not exist in catalog.");
+          }
         }
       } else {
         schema = loadedSchema;
@@ -646,6 +761,18 @@ class QueryPlanner {
           }
         }
 
+        int? resolvedAsOfTxId;
+        if (stmt.asOfClause != null) {
+          final val = evaluateExpression(stmt.asOfClause!.expr, {});
+          if (val is DbInt) {
+            resolvedAsOfTxId = val.value;
+          } else if (val is DbDouble) {
+            resolvedAsOfTxId = val.value.toInt();
+          } else {
+            resolvedAsOfTxId = int.tryParse(val.toString());
+          }
+        }
+
         if (schema.isColumnar) {
           // Columnar Projection Push-down Optimization
           final neededColIndexes = _getReferencedColumnIndexes(stmt, schema);
@@ -682,7 +809,10 @@ class QueryPlanner {
             low: lowKeys,
             high: highKeys,
             projectedColIndexes: neededColIndexes,
+            asOfTxId: resolvedAsOfTxId,
           );
+        } else if (scanNode != null) {
+          // Already resolved (e.g., dual or file table)
         } else if (!useIndexScan &&
             stmt.fromSubquery == null &&
             stmt.fromFunction == null &&
@@ -738,22 +868,11 @@ class QueryPlanner {
               );
               isParallelScan = true;
             } else {
-              int? asOfTxId;
-              if (stmt.asOfClause != null) {
-                final val = evaluateExpression(stmt.asOfClause!.expr, {});
-                if (val is DbInt) {
-                  asOfTxId = val.value;
-                } else if (val is DbDouble) {
-                  asOfTxId = val.value.toInt();
-                } else {
-                  asOfTxId = int.tryParse(val.toString());
-                }
-              }
               scanNode = RowScanNode(
                 rowTableFile,
                 schema,
                 neededColIndexes,
-                asOfTxId,
+                resolvedAsOfTxId,
               );
             }
           }
@@ -770,10 +889,10 @@ class QueryPlanner {
           schema.policies[i].condition,
         );
       }
-      scanNode = FilterNode(scanNode, combinedPolicy);
+      scanNode = FilterNode(scanNode!, combinedPolicy);
     }
 
-    PlanNode currentPlan = scanNode;
+    PlanNode currentPlan = scanNode!;
 
     final List<String> leftColumns = [];
     for (final col in schema.columnNames) {
@@ -817,7 +936,7 @@ class QueryPlanner {
 
     // 1. Handle JOIN
     for (final join in stmt.joins) {
-      PlanNode joinScan;
+      PlanNode? joinScan;
       TableSchema joinSchema;
       String joinTable = '';
       if (join.fromSubquery != null) {
@@ -848,45 +967,53 @@ class QueryPlanner {
         joinTable = joinAlias;
       } else {
         joinTable = join.tableName.toLowerCase();
-        final loadedJoinSchema = catalog.getTableSchema(joinTable);
+        var loadedJoinSchema = catalog.getTableSchema(joinTable);
         if (loadedJoinSchema == null) {
-          throw Exception("Join table '$joinTable' does not exist.");
+          final fileTable = _tryResolveFileTable(join.tableName);
+          if (fileTable != null) {
+            loadedJoinSchema = fileTable.$1;
+            joinScan = fileTable.$2;
+          } else {
+            throw Exception("Join table '$joinTable' does not exist.");
+          }
         }
         joinSchema = loadedJoinSchema;
-        if (joinSchema.isColumnar) {
-          // Collect all column indexes needed for join table
-          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(
-            stmt,
-            join,
-            joinSchema,
-          );
-          final colTableFile = ColumnTableFile(
-            cache: cache,
-            tableName: joinSchema.name,
-            dbDirectory: dbDirectory,
-            schema: joinSchema,
-          );
-          joinScan = ColumnScanNode(
-            colTableFile,
-            joinSchema,
-            neededJoinColIndexes,
-          );
-        } else {
-          final rowTableFile = RowTableFile(
-            cache: cache,
-            tableName: joinSchema.name,
-            dbDirectory: dbDirectory,
-          );
-          final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(
-            stmt,
-            join,
-            joinSchema,
-          );
-          joinScan = RowScanNode(
-            rowTableFile,
-            joinSchema,
-            neededJoinColIndexes,
-          );
+        if (joinScan == null) {
+          if (joinSchema.isColumnar) {
+            // Collect all column indexes needed for join table
+            final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(
+              stmt,
+              join,
+              joinSchema,
+            );
+            final colTableFile = ColumnTableFile(
+              cache: cache,
+              tableName: joinSchema.name,
+              dbDirectory: dbDirectory,
+              schema: joinSchema,
+            );
+            joinScan = ColumnScanNode(
+              colTableFile,
+              joinSchema,
+              neededJoinColIndexes,
+            );
+          } else {
+            final rowTableFile = RowTableFile(
+              cache: cache,
+              tableName: joinSchema.name,
+              dbDirectory: dbDirectory,
+            );
+            final neededJoinColIndexes = _getReferencedColumnIndexesForJoin(
+              stmt,
+              join,
+              joinSchema,
+            );
+            joinScan = RowScanNode(
+              rowTableFile,
+              joinSchema,
+              neededJoinColIndexes,
+            );
+          }
         }
       }
 

@@ -124,8 +124,13 @@ class Parser {
     List<CursorDeclare> cursors = [];
     if (_match([TokenType.declare])) {
       while (!_check(TokenType.begin) && !_isAtEnd) {
-        if (_check(TokenType.identifier)) {
-          if (_peekNext().type == TokenType.cursorKeyword) {
+        if (_check(TokenType.cursorKeyword) ||
+            (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'cursor')) {
+          cursors.add(_parseCursorDeclaration());
+        } else if (_check(TokenType.identifier)) {
+          if (_peekNext().type == TokenType.cursorKeyword ||
+              (_peekNext().type == TokenType.identifier &&
+                  _peekNext().lexeme.toLowerCase() == 'cursor')) {
             cursors.add(_parseCursorDeclaration());
           } else if (_checkNextIsDataType()) {
             declarations.add(_parseDeclaration());
@@ -190,11 +195,29 @@ class Parser {
   }
 
   CursorDeclare _parseCursorDeclaration() {
-    final nameToken = _consume(TokenType.identifier, "Expected cursor name.");
-    final name = nameToken.lexeme;
+    String name;
+    if (_match([TokenType.cursorKeyword]) ||
+        (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'cursor')) {
+      if (_check(TokenType.identifier)) _advance();
+      final nameToken = _consume(
+        TokenType.identifier,
+        "Expected cursor name after 'CURSOR'.",
+      );
+      name = nameToken.lexeme;
+    } else {
+      final nameToken = _consume(TokenType.identifier, "Expected cursor name.");
+      name = nameToken.lexeme;
+      if (_match([TokenType.cursorKeyword]) ||
+          (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'cursor')) {
+        if (_check(TokenType.identifier)) _advance();
+      }
+    }
 
-    _consume(TokenType.cursorKeyword, "Expected 'CURSOR' keyword.");
-    _consume(TokenType.forKeyword, "Expected 'FOR' after 'CURSOR'.");
+    if (_match([TokenType.forKeyword])) {
+      // FOR
+    } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'is') {
+      _advance(); // Consume 'IS'
+    }
 
     _consume(TokenType.select, "Expected 'SELECT' for cursor query.");
     final selectStmt = _parseSelectStatement() as SelectStmt;
@@ -336,6 +359,13 @@ class Parser {
     }
     if (_check(TokenType.returnKeyword)) {
       return _parseReturnStatement();
+    }
+    if (_check(TokenType.nullKeyword) ||
+        (_check(TokenType.identifier) &&
+            _peek().lexeme.toLowerCase() == 'null')) {
+      _advance();
+      if (_match([TokenType.semicolon])) {}
+      return NullStmt();
     }
     if (_check(TokenType.identifier)) {
       final id = _peek().lexeme.toLowerCase();
@@ -846,6 +876,11 @@ class Parser {
       if (_check(TokenType.semicolon)) _advance();
       return UseDatabaseStmt(dbNameToken.lexeme);
     }
+    if (nextLexeme == 'null') {
+      _advance();
+      if (_check(TokenType.semicolon)) _advance();
+      return NullStmt();
+    }
     throw Exception(
       "Unsupported statement beginning with '${_peek().lexeme}'.",
     );
@@ -1311,7 +1346,154 @@ class Parser {
       } else {
         _consume(TokenType.lParen, "Expected '(' to list columns.");
         do {
-          columns.add(_parseColumnDef());
+          if (_check(TokenType.identifier) &&
+              _peek().lexeme.toLowerCase() == 'constraint') {
+            _advance(); // Consume 'CONSTRAINT'
+            _consume(TokenType.identifier, "Expected constraint name.");
+          }
+
+          if (_match([TokenType.primaryKeyword]) ||
+              (_check(TokenType.identifier) &&
+                  _peek().lexeme.toLowerCase() == 'primary')) {
+            if (_check(TokenType.identifier)) _advance();
+            _consume(TokenType.keyKeyword, "Expected 'KEY' after 'PRIMARY'.");
+            _consume(TokenType.lParen, "Expected '(' after 'PRIMARY KEY'.");
+            final pkCols = <String>[];
+            do {
+              pkCols.add(_consume(TokenType.identifier, "Expected column name.").lexeme);
+            } while (_match([TokenType.comma]));
+            _consume(TokenType.rParen, "Expected ')' after PRIMARY KEY column list.");
+            for (final pkCol in pkCols) {
+              final idx = columns.indexWhere(
+                (c) => c.name.toLowerCase() == pkCol.toLowerCase(),
+              );
+              if (idx != -1) {
+                final c = columns[idx];
+                columns[idx] = ColumnDef(
+                  c.name,
+                  c.type,
+                  isPrimaryKey: true,
+                  isUnique: c.isUnique,
+                  referencesTable: c.referencesTable,
+                  referencesColumn: c.referencesColumn,
+                  onDeleteCascade: c.onDeleteCascade,
+                  defaultValue: c.defaultValue,
+                  checkExpression: c.checkExpression,
+                  maskedWith: c.maskedWith,
+                );
+              }
+            }
+          } else if (_match([TokenType.foreignKeyword]) ||
+              (_check(TokenType.identifier) &&
+                  _peek().lexeme.toLowerCase() == 'foreign')) {
+            if (_check(TokenType.identifier)) _advance();
+            _consume(TokenType.keyKeyword, "Expected 'KEY' after 'FOREIGN'.");
+            _consume(TokenType.lParen, "Expected '(' after 'FOREIGN KEY'.");
+            final fkCols = <String>[];
+            do {
+              fkCols.add(_consume(TokenType.identifier, "Expected column name.").lexeme);
+            } while (_match([TokenType.comma]));
+            _consume(TokenType.rParen, "Expected ')' after FOREIGN KEY column list.");
+
+            _consume(TokenType.referencesKeyword, "Expected 'REFERENCES'.");
+            final targetTable = _consume(
+              TokenType.identifier,
+              "Expected referenced table name.",
+            ).lexeme;
+            _consume(TokenType.lParen, "Expected '(' before referenced column name.");
+            final targetCols = <String>[];
+            do {
+              targetCols.add(_consume(TokenType.identifier, "Expected referenced column name.").lexeme);
+            } while (_match([TokenType.comma]));
+            _consume(TokenType.rParen, "Expected ')' after referenced column list.");
+
+            bool onCascade = false;
+            if (_match([TokenType.on]) ||
+                (_check(TokenType.identifier) &&
+                    _peek().lexeme.toLowerCase() == 'on')) {
+              if (_check(TokenType.identifier)) _advance();
+              _consume(TokenType.deleteKeyword, "Expected 'DELETE' after 'ON'.");
+              _consume(TokenType.cascadeKeyword, "Expected 'CASCADE' after 'DELETE'.");
+              onCascade = true;
+            }
+
+            for (int k = 0; k < fkCols.length; k++) {
+              final colName = fkCols[k];
+              final refCol = k < targetCols.length ? targetCols[k] : targetCols.first;
+              final idx = columns.indexWhere(
+                (c) => c.name.toLowerCase() == colName.toLowerCase(),
+              );
+              if (idx != -1) {
+                final c = columns[idx];
+                columns[idx] = ColumnDef(
+                  c.name,
+                  c.type,
+                  isPrimaryKey: c.isPrimaryKey,
+                  isUnique: c.isUnique,
+                  referencesTable: targetTable,
+                  referencesColumn: refCol,
+                  onDeleteCascade: onCascade,
+                  defaultValue: c.defaultValue,
+                  checkExpression: c.checkExpression,
+                  maskedWith: c.maskedWith,
+                );
+              }
+            }
+          } else if (_match([TokenType.uniqueKeyword]) ||
+              (_check(TokenType.identifier) &&
+                  _peek().lexeme.toLowerCase() == 'unique')) {
+            if (_check(TokenType.identifier)) _advance();
+            _consume(TokenType.lParen, "Expected '(' after 'UNIQUE'.");
+            final uqCols = <String>[];
+            do {
+              uqCols.add(_consume(TokenType.identifier, "Expected column name.").lexeme);
+            } while (_match([TokenType.comma]));
+            _consume(TokenType.rParen, "Expected ')' after UNIQUE column list.");
+            for (final uqCol in uqCols) {
+              final idx = columns.indexWhere(
+                (c) => c.name.toLowerCase() == uqCol.toLowerCase(),
+              );
+              if (idx != -1) {
+                final c = columns[idx];
+                columns[idx] = ColumnDef(
+                  c.name,
+                  c.type,
+                  isPrimaryKey: c.isPrimaryKey,
+                  isUnique: true,
+                  referencesTable: c.referencesTable,
+                  referencesColumn: c.referencesColumn,
+                  onDeleteCascade: c.onDeleteCascade,
+                  defaultValue: c.defaultValue,
+                  checkExpression: c.checkExpression,
+                  maskedWith: c.maskedWith,
+                );
+              }
+            }
+          } else if (_match([TokenType.checkKeyword]) ||
+              (_check(TokenType.identifier) &&
+                  _peek().lexeme.toLowerCase() == 'check')) {
+            if (_check(TokenType.identifier)) _advance();
+            _consume(TokenType.lParen, "Expected '(' after 'CHECK'.");
+            final checkExpr = _parseExpression();
+            _consume(TokenType.rParen, "Expected ')' after CHECK expression.");
+            if (columns.isNotEmpty) {
+              final c = columns.first;
+              columns[0] = ColumnDef(
+                c.name,
+                c.type,
+                isPrimaryKey: c.isPrimaryKey,
+                isUnique: c.isUnique,
+                referencesTable: c.referencesTable,
+                referencesColumn: c.referencesColumn,
+                onDeleteCascade: c.onDeleteCascade,
+                defaultValue: c.defaultValue,
+                checkExpression: checkExpr,
+                maskedWith: c.maskedWith,
+              );
+            }
+          } else {
+            columns.add(_parseColumnDef());
+          }
         } while (_match([TokenType.comma]));
         _consume(TokenType.rParen, "Expected ')' to close column list.");
       }
@@ -1557,6 +1739,7 @@ class Parser {
     final tableName = tableNameToken.lexeme;
 
     if (_match([TokenType.addKeyword])) {
+      if (_check(TokenType.columnKeyword)) _advance();
       final colDef = _parseColumnDef();
       if (_check(TokenType.semicolon)) _advance();
       return AlterTableStmt.add(tableName, colDef);
@@ -1756,6 +1939,8 @@ class Parser {
         _consume(TokenType.rParen, "Expected ')' after function arguments.");
         fromFunction = FunctionCallExpr(funcName, args);
         tableName = funcName;
+      } else if (_match([TokenType.stringLiteral])) {
+        tableName = _previous().lexeme;
       } else {
         final parts = <String>[];
         do {
@@ -1895,6 +2080,8 @@ class Parser {
         } else {
           throw Exception("Expected SelectStmt inside JOIN subquery.");
         }
+      } else if (_match([TokenType.stringLiteral])) {
+        joinTable = _previous().lexeme;
       } else {
         final joinTableToken = _consume(
           TokenType.identifier,
@@ -1935,8 +2122,12 @@ class Parser {
       }
 
       Expression onCond;
-      if (isCrossJoin && !_match([TokenType.on])) {
-        onCond = LiteralExpr(1);
+      if (isCrossJoin) {
+        if (_match([TokenType.on])) {
+          onCond = _parseExpression();
+        } else {
+          onCond = LiteralExpr(1);
+        }
       } else {
         _consume(TokenType.on, "Expected 'ON' condition for JOIN.");
         onCond = _parseExpression();

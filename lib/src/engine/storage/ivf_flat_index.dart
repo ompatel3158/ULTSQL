@@ -194,7 +194,7 @@ class IvfFlatIndex {
       case 'cosine':
         return a.cosineDistanceTo(b);
       case 'dot':
-        return a.dotProductTo(b);
+        return -a.dotProductTo(b);
       case 'euclidean':
       default:
         return a.distanceTo(b);
