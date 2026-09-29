@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,8 +8,10 @@
   <meta name="keywords" content="ultsql, pure dart database, flutter database, vector database, embedded sql, nosql json, sqlite alternative, hnsw vector search, rag database, ultsql install, pgwire">
   <meta name="author" content="Om Patel">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/">
+  <meta name="google-site-verification" content="s8GoKEfYxYOuxJ97E1Q3lmCldu-tUsGSgPHX17s_GlU">
   <meta name="google-site-verification" content="googlef2f1db88405a020b">
-  
+
+  <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/">
   <meta property="og:title" content="ULTSQL — One Core. Every Model.">
@@ -17,127 +19,403 @@
   <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
   <meta property="og:site_name" content="UltSQL">
 
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://ultsql-engine-docs.vercel.app/">
-  <meta name="twitter:title" content="ULTSQL — One Core. Every Model.">
-  <meta name="twitter:description" content="Converged 4-in-1 database engine in 100% pure Dart: Relational SQL, AI Vector RAG, NoSQL JSON, and PL/SQL.">
-  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
-
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.26">
+  <link rel="stylesheet" href="style.css?v=2.1.0">
+
+  <!-- Anime.js v4 Animation Engine -->
+  <script src="vendor/anime.umd.min.js"></script>
+  <!-- In-Browser Pure Dart Engine -->
+  <script src="ultsql_engine.js" defer></script>
 </head>
 <body>
 
-  <!-- AMBIENT AURORA GLOWS -->
-  <div class="ambient-mesh">
-    <div class="mesh-glow-1"></div>
-    <div class="mesh-glow-2"></div>
-  </div>
+  <!-- READING PROGRESS BAR -->
+  <div class="scroll-progress-bar" id="scrollProgressBar"></div>
+
+  <!-- BKLIT UI SIGNATURE DOT GRID -->
+  <div class="bklit-dot-grid"></div>
 
   <!-- FLOATING PILL NAVBAR -->
-  <div class="nav-wrapper">
-    <nav class="nav-pill">
+  <header class="header-wrapper">
+    <nav class="navbar-pill">
       <a href="index.html" class="nav-brand">
-        <img src="icon.svg" alt="ULTSQL Pinwheel Icon">
+        <div class="nav-logo-icon">
+          <img src="icon.svg" alt="ULTSQL Pinwheel Logo" width="24" height="24">
+        </div>
         <span>ULTSQL</span>
-        <span class="glass-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">v1.0.22</span>
+        <span class="nav-version-badge">v1.0.26</span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="index.html" class="nav-link active">Home</a></li>
-        <li><a href="features.html" class="nav-link">Features</a></li>
-        <li><a href="docs.html" class="nav-link">Documentation</a></li>
-        <li><a href="benchmarks.html" class="nav-link">Benchmarks</a></li>
-        <li><a href="license.html" class="nav-link">License & FAQ</a></li>
+        <li><a href="index.html" class="nav-item-link active">Home</a></li>
+        <li><a href="#playground" class="nav-item-link">Playground</a></li>
+        <li><a href="features.html" class="nav-item-link">Features</a></li>
+        <li><a href="benchmarks.html" class="nav-item-link">Benchmarks</a></li>
+        <li><a href="docs.html" class="nav-item-link">Docs</a></li>
+        <li><a href="license.html" class="nav-item-link">License</a></li>
       </ul>
 
       <div class="nav-actions">
-        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+        <!-- Command Palette Trigger -->
+        <button class="cmd-k-btn cmd-open-btn" title="Open Command Palette (Ctrl+K)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span>Search</span>
+          <span class="kbd-shortcut">⌘K</span>
+        </button>
+
+        <!-- Theme Toggle Button -->
+        <button class="btn-icon theme-toggle-btn" id="themeToggle" aria-label="Toggle theme">
           <span class="theme-icon"></span>
         </button>
-        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+
+        <a href="https://pub.dev/packages/ultsql" target="_blank" rel="noreferrer" class="btn btn-glass" style="padding: 0.38rem 0.8rem; font-size: 0.78rem;">
           pub.dev
         </a>
-        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" rel="noreferrer" class="btn btn-primary" style="padding: 0.38rem 0.9rem; font-size: 0.78rem;">
           GitHub
         </a>
-        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+
+        <!-- Mobile Drawer Trigger -->
+        <button class="btn-icon mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle mobile menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
         </button>
       </div>
     </nav>
-  </div>
+  </header>
 
   <!-- MOBILE NAV DRAWER -->
   <div class="mobile-nav-drawer" id="mobileNavDrawer">
-    <a href="index.html" class="nav-link active">Home</a>
-    <a href="features.html" class="nav-link">Features</a>
-    <a href="docs.html" class="nav-link">Documentation</a>
-    <a href="benchmarks.html" class="nav-link">Benchmarks</a>
-    <a href="license.html" class="nav-link">License & FAQ</a>
-    <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass">View on pub.dev</a>
+    <div class="mobile-nav-header">
+      <div class="nav-brand">
+        <img src="icon.svg" alt="ULTSQL Logo" width="24" height="24">
+        <span>ULTSQL</span>
+      </div>
+      <button class="btn-icon" id="mobileMenuClose">✕</button>
+    </div>
+    <ul class="mobile-nav-links">
+      <li><a href="index.html" class="mobile-nav-link active">Home</a></li>
+      <li><a href="#playground" class="mobile-nav-link">Interactive Playground</a></li>
+      <li><a href="features.html" class="mobile-nav-link">Features Matrix</a></li>
+      <li><a href="benchmarks.html" class="mobile-nav-link">Benchmarks</a></li>
+      <li><a href="docs.html" class="mobile-nav-link">Documentation</a></li>
+      <li><a href="license.html" class="mobile-nav-link">License & FAQ</a></li>
+    </ul>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 0.65rem;">
+      <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="width: 100%;">View on pub.dev</a>
+      <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="width: 100%;">GitHub Repository</a>
+    </div>
   </div>
 
-  <!-- HERO SECTION -->
-  <header class="hero">
-    <div class="container">
-      <div class="hero-pill-badge">
-        <span class="glass-pill accent">
-          <span style="font-size: 0.75rem;">●</span> FSL-1.1-MIT Licensed • 100% Pure Dart
-        </span>
-      </div>
+  <main>
+    <!-- HERO SECTION -->
+    <section class="hero-section">
+      <div class="container">
+        <div class="hero-grid">
+          <div class="hero-content">
+            <div class="hero-pill-badge hero-stagger">
+              <span class="hero-pill-dot"></span>
+              <span>100% Pure Dart • Zero Native C/C++ • FSL-1.1-MIT</span>
+            </div>
 
-      <h1 class="hero-title">
-        <span class="text-gradient">One Core.</span><br>
-        <span class="text-gradient-cyan">Every Model.</span>
-      </h1>
+            <h1 class="hero-title hero-stagger">
+              One Core.<br>
+              Every Model.
+            </h1>
 
-      <p class="hero-subtitle">
-        A converged multimodal database engine integrating <strong>Relational SQL</strong>, <strong>AI-Native Vector RAG</strong>, <strong>NoSQL JSON Documents</strong>, and <strong>PL/SQL Procedural Scripting</strong> into a single storage engine with zero native C/C++ dependencies.
-      </p>
+            <p class="hero-subtitle hero-stagger">
+              A converged multimodal database engine unifying <strong>Relational SQL</strong>, <strong>AI Vector RAG</strong>, <strong>NoSQL JSON Documents</strong>, and <strong>PL/SQL Scripting</strong> into a single storage engine with zero external dependencies.
+            </p>
 
-      <div class="hero-ctas">
-        <a href="#install" class="btn btn-primary">Install SDK</a>
-        <a href="#playground" class="btn btn-glass">Try In Browser</a>
-        <a href="https://forms.gle/ultsql-waitlist" target="_blank" class="btn btn-glow">Join Cloud Waitlist ↗</a>
-      </div>
+            <div class="hero-cta-group hero-stagger">
+              <a href="#playground" class="btn btn-primary">
+                <span>Try Playground</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+              <a href="docs.html" class="btn btn-secondary">Documentation</a>
 
-      <div class="install-bar">
-        <span>$ dart pub add ultsql</span>
-        <button class="copy-icon-btn" data-code="dart pub add ultsql" aria-label="Copy install command">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        </button>
-      </div>
-    </div>
-  </header>
+              <div class="hero-cli-install">
+                <span class="cli-prompt">$</span>
+                <span class="cli-text">dart pub add ultsql</span>
+                <button class="cli-copy-btn copy-trigger" data-copy="dart pub add ultsql" title="Copy command">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <span>Copy</span>
+                </button>
+              </div>
+            </div>
 
-  <!-- LIVE IN-BROWSER TERMINAL IDE PLAYGROUND -->
-  <section class="terminal-section" id="playground">
-    <div class="container">
-      <div class="terminal-ide">
-        <div class="terminal-header">
-          <div class="terminal-traffic-lights">
-            <span class="traffic-light traffic-red"></span>
-            <span class="traffic-light traffic-yellow"></span>
-            <span class="traffic-light traffic-green"></span>
+            <div class="hero-specs-row hero-stagger">
+              <div class="spec-item">
+                <span class="spec-value">142,000+</span>
+                <span class="spec-label">Ops / Sec</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-value">0</span>
+                <span class="spec-label">Native C Deps</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-value">768-Dim</span>
+                <span class="spec-label">HNSW Vector</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-value">MVCC</span>
+                <span class="spec-label">ACID Engine</span>
+              </div>
+            </div>
           </div>
 
-          <div class="terminal-presets">
-            <button class="preset-tab active" data-preset="sql">Relational SQL</button>
-            <button class="preset-tab" data-preset="vector">HNSW Vector RAG</button>
-            <button class="preset-tab" data-preset="nosql">NoSQL JSON</button>
-            <button class="preset-tab" data-preset="plsql">PL/SQL Loops</button>
-          </div>
+          <!-- HIGH-PRECISION BKLIT CAD ARCHITECTURE HUD & LIVE TELEMETRY -->
+          <div class="hero-visual-card hero-stagger" id="heroCadHud">
+            <div class="cad-hud-top-bar">
+              <div class="cad-hud-title-group">
+                <span class="cad-hud-pulse-dot"></span>
+                <span class="cad-hud-title">ARCH // UNIFIED MULTIMODAL CORE</span>
+                <span class="cad-hud-version">v1.0.26</span>
+              </div>
+              <div class="cad-hud-mode-selector">
+                <button class="cad-mode-btn active" data-hud-mode="pipeline">
+                  <span class="cad-mode-num">01</span>
+                  <span>PIPELINE</span>
+                </button>
+                <button class="cad-mode-btn" data-hud-mode="slotted">
+                  <span class="cad-mode-num">02</span>
+                  <span>4KB SLOTTED</span>
+                </button>
+                <button class="cad-mode-btn" data-hud-mode="vector">
+                  <span class="cad-mode-num">03</span>
+                  <span>HNSW RADAR</span>
+                </button>
+              </div>
+            </div>
 
-          <div style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-tertiary);">
-            in-browser wasm
+            <!-- CAD HUD STAGE -->
+            <div class="cad-hud-stage" id="cadHudStage">
+              <!-- VIEW 1: INTERACTIVE UNIFIED ENGINE PIPELINE -->
+              <div class="cad-view active" id="cadViewPipeline">
+                <!-- Interactive Action Bar: Quick-trigger queries -->
+                <div class="cad-pipeline-controls">
+                  <span class="cad-pipeline-label">INPUT MODEL:</span>
+                  <div class="cad-model-chips">
+                    <button class="cad-chip active" data-model="sql">RELATIONAL [SQL]</button>
+                    <button class="cad-chip" data-model="vector">AI VECTOR [RAG]</button>
+                    <button class="cad-chip" data-model="nosql">NOSQL [JSON -&gt;&gt;]</button>
+                    <button class="cad-chip" data-model="plsql">PL/SQL [BYTECODE]</button>
+                  </div>
+                </div>
+
+                <!-- Interactive Data-Flow Blueprint (Hairline CAD Architecture Diagram) -->
+                <div class="cad-blueprint-diagram">
+                  <div class="cad-flow-track">
+                    <!-- Layer 1: Client Wire Ingress -->
+                    <div class="cad-node cad-node-ingress" id="cadNodeIngress">
+                      <div class="cad-node-badge">INGRESS</div>
+                      <div class="cad-node-main">
+                        <span class="cad-node-title" id="cadIngressTitle">Pgwire :5432</span>
+                        <span class="cad-node-sub" id="cadIngressSub">PostgreSQL Wire &amp; Memory Bus</span>
+                      </div>
+                    </div>
+
+                    <!-- Flow Arrow / Laser Bus Line -->
+                    <div class="cad-flow-connector">
+                      <div class="cad-laser-beam" id="cadBeam1"></div>
+                      <span class="cad-connector-arrow">→</span>
+                    </div>
+
+                    <!-- Layer 2: Unified Lexer & AST Parser -->
+                    <div class="cad-node cad-node-parser" id="cadNodeParser">
+                      <div class="cad-node-badge">PARSER / AST</div>
+                      <div class="cad-node-main">
+                        <span class="cad-node-title" id="cadParserTitle">SQL-92 + JSON + SIMD</span>
+                        <span class="cad-node-sub" id="cadParserSub">Pure Dart Zero-Copy Lexer</span>
+                      </div>
+                    </div>
+
+                    <!-- Flow Arrow / Laser Bus Line -->
+                    <div class="cad-flow-connector">
+                      <div class="cad-laser-beam" id="cadBeam2"></div>
+                      <span class="cad-connector-arrow">→</span>
+                    </div>
+
+                    <!-- Layer 3: Unified Execution Kernel -->
+                    <div class="cad-node cad-node-kernel" id="cadNodeKernel">
+                      <div class="cad-node-badge">EXEC KERNEL</div>
+                      <div class="cad-node-main">
+                        <span class="cad-node-title" id="cadKernelTitle">Cost-Based Optimizer</span>
+                        <span class="cad-node-sub" id="cadKernelSub">MVCC + ARIES Log Engine</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Real-time Physical Execution Plan & Live Output Screen -->
+                  <div class="cad-live-console" id="cadLiveConsole">
+                    <div class="cad-console-header">
+                      <span class="cad-console-title">PHYSICAL PLAN &amp; EXECUTION STREAM</span>
+                      <span class="cad-console-time" id="cadExecTime">0.82 ms</span>
+                    </div>
+                    <div class="cad-console-body" id="cadConsoleOutput">
+                      <div class="cad-console-line"><span class="c-dim">01</span> <span class="c-key">PLAN:</span> <span id="cadPlanText">INDEX_SCAN(users_pk) -&gt; HASH_JOIN(orders_fk) -&gt; AGGREGATE(SUM)</span></div>
+                      <div class="cad-console-line"><span class="c-dim">02</span> <span class="c-key">STORAGE:</span> <span id="cadStorageText">PAGE #0001 (CRC32: 0x9F4C2A) • 4KB Slotted Buffer</span></div>
+                      <div class="cad-console-line c-res"><span class="c-dim">03</span> <span class="c-key">OUTPUT:</span> <span id="cadOutputText">Om Patel (Lead Architect) | Orders: $14,630.00 | STATUS: COMMITTED</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- VIEW 2: 4KB SLOTTED DISK PAGE & BINARY MEMORY HUD -->
+              <div class="cad-view" id="cadViewSlotted" style="display: none;">
+                <div class="slotted-page-hud">
+                  <div class="slotted-page-top">
+                    <div class="slotted-page-meta">
+                      <span class="slotted-page-badge">BLOCK #0042</span>
+                      <span class="slotted-page-spec">4,096 BYTES • 64-BIT ALIGNED</span>
+                    </div>
+                    <div class="slotted-page-crc">
+                      <span class="crc-label">CRC32 CHECKSUM:</span>
+                      <span class="crc-val" id="slottedCrcVal">0x7B29A4</span>
+                    </div>
+                  </div>
+
+                  <!-- 4096-Byte Hardware Memory Layout Visualizer -->
+                  <div class="slotted-memory-strip">
+                    <div class="mem-block mem-header" title="Page Header (32 Bytes): LSN, Slot Count, Free Pointer">
+                      <span>HDR (32B)</span>
+                    </div>
+                    <div class="mem-block mem-slots" id="memSlotsBlock" title="Slot Directory: Offsets &amp; Lengths">
+                      <span id="memSlotsLabel">SLOTS (4)</span>
+                    </div>
+                    <div class="mem-block mem-free" id="memFreeBlock" title="Contiguous Free Space">
+                      <span id="memFreeLabel">FREE: 2,784 B (68%)</span>
+                    </div>
+                    <div class="mem-block mem-tuples" id="memTuplesBlock" title="Row Data Heap (High-to-Low Growth)">
+                      <span>TUPLE HEAP (1,280 B)</span>
+                    </div>
+                  </div>
+
+                  <!-- Interactive Tuple Record Table -->
+                  <div class="slotted-records-list" id="slottedRecordsList">
+                    <div class="slotted-rec-row">
+                      <span class="rec-slot">SLOT #0</span>
+                      <span class="rec-offset">Offset 4016 • 80B</span>
+                      <span class="rec-data">User 1: Om Patel [Lead Architect]</span>
+                      <span class="rec-tag">COMMITTED</span>
+                    </div>
+                    <div class="slotted-rec-row">
+                      <span class="rec-slot">SLOT #1</span>
+                      <span class="rec-offset">Offset 3920 • 96B</span>
+                      <span class="rec-data">User 2: Alice Chen [AI Researcher]</span>
+                      <span class="rec-tag">COMMITTED</span>
+                    </div>
+                    <div class="slotted-rec-row">
+                      <span class="rec-slot">SLOT #2</span>
+                      <span class="rec-offset">Offset 3810 • 110B</span>
+                      <span class="rec-data">User 3: Marcus Vance [Backend Eng]</span>
+                      <span class="rec-tag">COMMITTED</span>
+                    </div>
+                    <div class="slotted-rec-row">
+                      <span class="rec-slot">SLOT #3</span>
+                      <span class="rec-offset">Offset 3690 • 120B</span>
+                      <span class="rec-data">Order 101: $14,280.00 [User 1]</span>
+                      <span class="rec-tag">COMMITTED</span>
+                    </div>
+                  </div>
+
+                  <div class="slotted-actions-row">
+                    <button class="btn btn-secondary btn-xs" id="btnInsertSlottedTuple">+ Write 128B Tuple</button>
+                    <button class="btn btn-secondary btn-xs" id="btnDefragSlotted">⚡ Compact Page</button>
+                    <span class="slotted-status-msg" id="slottedStatusMsg">Page healthy • CRC32 verified hardware-level</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- VIEW 3: HNSW VECTOR NEAREST NEIGHBOR RADAR -->
+              <div class="cad-view" id="cadViewVector" style="display: none;">
+                <div class="vector-radar-hud">
+                  <div class="vector-radar-top">
+                    <div class="radar-meta-item">
+                      <span class="radar-label">INDEX:</span>
+                      <span class="radar-val">HNSW (M=16, efSearch=64)</span>
+                    </div>
+                    <div class="radar-meta-item">
+                      <span class="radar-label">METRIC:</span>
+                      <span class="radar-val">COSINE DISTANCE</span>
+                    </div>
+                    <div class="radar-meta-item">
+                      <span class="radar-label">LATENCY:</span>
+                      <span class="radar-val" id="radarLatency">0.19 ms</span>
+                    </div>
+                  </div>
+
+                  <!-- Canvas with CAD Radar Grid & Laser Connections -->
+                  <div class="radar-canvas-container">
+                    <canvas id="cadRadarCanvas"></canvas>
+                    <div class="radar-overlay-tip">CLICK RADAR TO PROJECT QUERY VECTOR [Q]</div>
+                  </div>
+
+                  <div class="radar-readout-row" id="radarReadoutRow">
+                    <span>Nearest Match: <strong id="radarNearestTitle">Attention Is All You Need</strong></span>
+                    <span class="radar-score-badge" id="radarNearestScore">97.8% SIMILARITY</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CAD HUD FOOTER TELEMETRY -->
+            <div class="cad-hud-footer">
+              <div class="cad-footer-left">
+                <span class="status-pulse"></span>
+                <span class="cad-footer-msg" id="cadFooterMsg">Pure Dart VM Kernel Online • Ready for Execution</span>
+              </div>
+              <div class="cad-footer-actions">
+                <button class="btn btn-primary btn-xs" id="cadHudRunBtn">
+                  <span>⚡ Run in Engine</span>
+                </button>
+                <a href="#playground" class="cad-link-playground">Playground ↗</a>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+    </section>
 
-        <div class="terminal-grid">
-          <!-- Editor Pane -->
-          <div class="terminal-editor-pane">
-            <textarea class="terminal-textarea" id="sqlEditor" spellcheck="false">-- 1. Relational SQL: JOIN, Aggregates & Slotted Page Tables
+    <!-- IN-BROWSER PLAYGROUND SECTION -->
+    <section class="section-wrapper scroll-reveal" id="playground">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-pill-tag">Live Sandbox</div>
+          <h2 class="section-title">In-Browser Multimodal Engine</h2>
+          <p class="section-desc">Run real Relational Queries, HNSW Vector Distance, JSON Traversal, and PL/SQL Procedural Scripts compiled directly into JavaScript via Dart WebAssembly.</p>
+        </div>
+
+        <div class="playground-container">
+          <div class="playground-nav-bar">
+            <div class="preset-tabs-group">
+              <button class="preset-tab-btn active" data-preset="sql">
+                <span>●</span> Relational SQL
+              </button>
+              <button class="preset-tab-btn" data-preset="vector">
+                <span>●</span> AI Vector RAG (HNSW)
+              </button>
+              <button class="preset-tab-btn" data-preset="nosql">
+                <span>●</span> NoSQL JSON Docs
+              </button>
+              <button class="preset-tab-btn" data-preset="plsql">
+                <span>●</span> PL/SQL Procedural
+              </button>
+            </div>
+
+            <div class="engine-indicator">
+              <span class="engine-pulse"></span>
+              <span>ultsql_engine.js: Ready</span>
+            </div>
+          </div>
+
+          <div class="playground-split">
+            <!-- SQL Editor Pane -->
+            <div class="editor-pane">
+              <div class="editor-header">
+                <span>SQL QUERY EDITOR</span>
+                <span>CTRL + ENTER TO RUN</span>
+              </div>
+              <textarea class="sql-editor-textarea" id="sqlEditor" spellcheck="false">-- 1. Relational SQL: JOIN, Aggregates & Slotted Page Tables
 DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS users;
 
@@ -161,279 +439,363 @@ INNER JOIN orders o ON u.id = o.user_id
 GROUP BY u.name, u.role
 ORDER BY total_spent DESC;</textarea>
 
-            <div class="terminal-actions">
-              <span id="resultStatus" style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-tertiary);">
-                Ready to execute
-              </span>
-              <button class="btn btn-primary" id="runBtn" style="padding: 0.45rem 1.15rem; font-size: 0.84rem;">
-                Run Query
-              </button>
+              <div class="editor-footer">
+                <span style="font-size: 0.72rem; color: var(--text-tertiary); font-family: var(--font-mono);">In-Memory Storage</span>
+                <button class="btn btn-primary" id="runBtn" style="padding: 0.45rem 1.25rem; font-size: 0.8rem;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <span>Run Query</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Execution Results Pane -->
+            <div class="results-pane">
+              <div class="results-header">
+                <span>EXECUTION OUTPUT</span>
+                <span id="resultStatus" style="color: var(--text-primary);">Ready</span>
+              </div>
+              <div class="results-body">
+                <table class="results-table" id="resultTable">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 3rem 1.5rem; text-align: center; color: var(--text-tertiary);">
+                        <div>Click <strong>Run Query</strong> above to execute against the pure Dart engine.</div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 CONVERGED PILLARS SECTION -->
+    <section class="section-wrapper scroll-reveal" id="pillars">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-pill-tag">Multimodal Architecture</div>
+          <h2 class="section-title">Four Paradigms. One Engine.</h2>
+          <p class="section-desc">Unified storage engine executing relational queries, high-dimensional vector embeddings, document queries, and stored procedural scripts.</p>
+        </div>
+
+        <div class="pillars-grid">
+          <!-- Pillar 1 -->
+          <div class="pillar-card">
+            <div class="pillar-icon-box">01</div>
+            <h3 class="pillar-title">Relational SQL Core</h3>
+            <p class="pillar-description">Complete ACID compliance with MVCC snapshot isolation, multi-table joins, nested subqueries, and B-Tree indexing on 4KB Slotted Pages with CRC32 verification.</p>
+            <ul class="pillar-features-list">
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ANSI-SQL JOIN, GROUP BY, HAVING</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Write-Ahead Logging (WAL) Recovery</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Multi-Column Unique & Foreign Keys</li>
+            </ul>
+            <div class="pillar-code-snippet">
+              SELECT u.name, SUM(o.total)<br>
+              FROM users u INNER JOIN orders o<br>
+              ON u.id = o.user_id GROUP BY u.name;
             </div>
           </div>
 
-          <!-- Output Pane -->
-          <div class="terminal-output-pane">
-            <div class="output-header">
-              <span>Query Results</span>
-              <span>Memory Engine</span>
+          <!-- Pillar 2 -->
+          <div class="pillar-card">
+            <div class="pillar-icon-box">02</div>
+            <h3 class="pillar-title">AI Vector RAG (HNSW)</h3>
+            <p class="pillar-description">Native Hierarchical Navigable Small World (HNSW) graphs integrated directly into the database engine. Execute millisecond vector search over high-dimensional embeddings.</p>
+            <ul class="pillar-features-list">
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Cosine, Euclidean & Dot Product distance</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 384, 768, 1536, and 3072 dimensions</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Hybrid filtered search with SQL predicates</li>
+            </ul>
+            <div class="pillar-code-snippet">
+              SELECT title, VECTOR_DISTANCE(vec, :q)<br>
+              FROM documents WHERE status = 'active'<br>
+              ORDER BY 2 ASC LIMIT 5;
             </div>
-            <div style="flex: 1; overflow: auto;">
-              <table id="resultTable" style="width: 100%; border-collapse: collapse;">
-                <tbody>
-                  <tr>
-                    <td style="color: var(--text-tertiary); font-family: var(--font-mono); font-size: 0.82rem; padding: 0.5rem 0;">
-                      Click <strong>Run Query</strong> to execute this query live inside your browser via the pure Dart engine WebAssembly runtime.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          </div>
+
+          <!-- Pillar 3 -->
+          <div class="pillar-card">
+            <div class="pillar-icon-box">03</div>
+            <h3 class="pillar-title">NoSQL JSON Documents</h3>
+            <p class="pillar-description">Store schema-less nested JSON documents with native dotted path queries, array indexing, and automatic validation without schema lock-in.</p>
+            <ul class="pillar-features-list">
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Direct extraction via -&gt; and -&gt;&gt; operators</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> In-place nested attribute mutations</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Seamless combination with Relational tables</li>
+            </ul>
+            <div class="pillar-code-snippet">
+              SELECT data-&gt;'auth'-&gt;&gt;'role'<br>
+              FROM profiles<br>
+              WHERE data-&gt;&gt;'plan' = 'pro';
+            </div>
+          </div>
+
+          <!-- Pillar 4 -->
+          <div class="pillar-card">
+            <div class="pillar-icon-box">04</div>
+            <h3 class="pillar-title">PL/SQL Scripting</h3>
+            <p class="pillar-description">Execute complex procedural logic directly inside the database kernel. Declare typed variables, loops, conditionals, and atomic transactions without network round-trips.</p>
+            <ul class="pillar-features-list">
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> DECLARE, BEGIN, EXCEPTION, END blocks</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> WHILE / FOR loops & IF-THEN branching</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Transactional rollback on script error</li>
+            </ul>
+            <div class="pillar-code-snippet">
+              DECLARE cnt INT := 0;<br>
+              BEGIN WHILE cnt &lt; 10 LOOP<br>
+              cnt := cnt + 1; INSERT INTO t VALUES (cnt);<br>
+              END LOOP; END;
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ASYMMETRIC BENTO GRID: 4 PILLARS IN ONE CORE -->
-  <section class="bento-section">
-    <div class="container">
-      <div class="section-header">
-        <span class="glass-pill violet">Converged Architecture</span>
-        <h2 style="margin-top: 1rem;">Four Paradigms. Zero Friction.</h2>
-        <p>No separate database servers. No external vector search daemons. Everything runs through a unified execution planner and storage engine.</p>
-      </div>
+    <!-- INTERACTIVE BENCHMARKS WITH ANIME.JS (BKLIT MONOCHROME) -->
+    <section class="section-wrapper scroll-reveal" id="benchmarks">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-pill-tag">Bklit UI Data Visualization</div>
+          <h2 class="section-title">Engine Throughput & Latency</h2>
+          <p class="section-desc">Audited performance under automated workloads against native C SQLite, Dart Drift FFI, and Hive.</p>
+        </div>
 
-      <div class="bento-grid">
-        <!-- 1. AI Vector RAG (Large Bento Feature Card - Span 8) -->
-        <div class="bento-card bento-span-8">
-          <div>
-            <div class="bento-icon violet">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+        <div class="benchmarks-card">
+          <div class="benchmark-controls-bar">
+            <div>
+              <h3 style="font-size: 1.1rem; margin-bottom: 0.2rem;">Automated Benchmark Suite</h3>
+              <p style="font-size: 0.78rem; color: var(--text-tertiary);">Interactive Monochrome Visualizer Powered by Anime.js v4</p>
             </div>
-            <span class="glass-pill violet" style="font-size: 0.75rem;">AI & Embeddings</span>
-            <h3 style="margin-top: 0.75rem;">AI-Native HNSW Vector Search</h3>
-            <p style="margin-top: 0.5rem;">
-              First-class <code>VECTOR</code> data type with Hierarchical Navigable Small World (HNSW) graphs. Execute cosine, Euclidean, and inner product similarity queries across 768-dim embeddings in ~6 ms with &gt;99% Recall@10.
-            </p>
-          </div>
-          <div class="bento-code-snippet">
-SELECT title, VECTOR_DISTANCE(embedding, '[0.12, 0.85, -0.44]') AS dist
-FROM documents
-ORDER BY dist ASC
-LIMIT 5;</div>
-        </div>
 
-        <!-- 2. NoSQL Dotted-Path JSON (Span 4) -->
-        <div class="bento-card bento-span-4">
-          <div>
-            <div class="bento-icon emerald">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="benchmark-tabs">
+              <button class="benchmark-tab-btn active" data-metric="inserts">Bulk Inserts</button>
+              <button class="benchmark-tab-btn" data-metric="vectors">Vector HNSW</button>
+              <button class="benchmark-tab-btn" data-metric="lookups">Point Lookups</button>
+              <button class="benchmark-tab-btn" data-metric="memory">Memory Footprint</button>
             </div>
-            <span class="glass-pill emerald" style="font-size: 0.75rem;">Document Store</span>
-            <h3 style="margin-top: 0.75rem;">NoSQL Dotted JSON</h3>
-            <p style="margin-top: 0.5rem;">
-              Store schema-free JSON payloads and query nested attributes directly using intuitive dotted syntax and PostgreSQL arrow operators.
-            </p>
           </div>
-          <div class="bento-code-snippet">
-SELECT name, metadata->>'role'
-FROM accounts
-WHERE metadata->>'tier' = 'Pro';</div>
+
+          <div class="benchmark-graph-wrapper" id="benchmarkGraphWrapper">
+            <!-- Rendered dynamically by Anime.js -->
+          </div>
+
+          <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+            <span style="font-size: 0.75rem; color: var(--text-tertiary); font-family: var(--font-mono);">Tested on Apple M3 Max (36GB RAM) & AMD Ryzen 9 7950X (64GB RAM).</span>
+            <a href="benchmarks.html" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.35rem 0.85rem;">
+              <span>View Full Audit</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CORE ARCHITECTURAL FEATURES -->
+    <section class="section-wrapper scroll-reveal" id="features">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-pill-tag">Engine Architecture</div>
+          <h2 class="section-title">Engineered for Reliability & Portability</h2>
+          <p class="section-desc">Designed from the ground up for modern Dart & Flutter applications across Mobile, Desktop, Server, and Web.</p>
         </div>
 
-        <!-- 3. PL/SQL Procedural Engine (Span 5) -->
-        <div class="bento-card bento-span-5">
-          <div>
-            <div class="bento-icon amber">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <div class="feature-matrix-grid">
+          <div class="feature-box">
+            <span class="feature-tag">PURE DART VM</span>
+            <h4 class="feature-box-title">Zero Native C/C++ Toolchain</h4>
+            <p class="feature-box-desc">No CMake, NDK, Xcode toolchain mismatches, or dynamic library linking headaches. Write once, compile deterministically everywhere.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">STORAGE SYSTEM</span>
+            <h4 class="feature-box-title">4KB Slotted Pages with CRC32</h4>
+            <p class="feature-box-desc">Slotted page file format with variable-length tuple offsets and hardware-accelerated CRC32 checksums on every disk read.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">CRASH RESILIENCE</span>
+            <h4 class="feature-box-title">Write-Ahead Logging (WAL)</h4>
+            <p class="feature-box-desc">Guarantees durability with ARIES-style redo logging and atomic transaction commit markers. Instant recovery on unexpected app termination.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">WIRE PROTOCOL</span>
+            <h4 class="feature-box-title">PostgreSQL (pgwire) Compatible</h4>
+            <p class="feature-box-desc">Embedded Pgwire server allowing standard clients like psql, DBeaver, and Supabase studio to connect directly to your ULTSQL database.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">CONCURRENCY</span>
+            <h4 class="feature-box-title">MVCC Snapshot Isolation</h4>
+            <p class="feature-box-desc">Multi-Version Concurrency Control ensures readers never block writers, and writers never block readers across concurrent database transactions.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">PERSISTENCE</span>
+            <h4 class="feature-box-title">Single-File (.ultsql) & In-Memory</h4>
+            <p class="feature-box-desc">Zero external server dependencies. Run completely ephemeral in RAM or persist transparently to a clean single `.ultsql` file on disk.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SDK QUICKSTART & INSTALL -->
+    <section class="section-wrapper scroll-reveal" id="install">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-pill-tag">Quickstart</div>
+          <h2 class="section-title">Up and Running in 30 Seconds</h2>
+          <p class="section-desc">Add the package, open an instance, and start executing multimodal queries immediately.</p>
+        </div>
+
+        <div class="install-tabs-card">
+          <div class="install-tab-header">
+            <div class="install-tabs-nav">
+              <button class="install-tab-btn active" data-install="dart">Dart CLI</button>
+              <button class="install-tab-btn" data-install="flutter">Flutter</button>
+              <button class="install-tab-btn" data-install="docker">Docker Server</button>
             </div>
-            <span class="glass-pill" style="font-size: 0.75rem; color: var(--accent-amber); border-color: rgba(251,191,36,0.3);">Procedural</span>
-            <h3 style="margin-top: 0.75rem;">PL/SQL Procedural Scripting</h3>
-            <p style="margin-top: 0.5rem;">
-              Full procedural block execution with <code>DECLARE</code>, <code>BEGIN</code>, <code>LOOP</code>, cursor iterations, and atomic transaction savepoints.
-            </p>
+            <button class="btn btn-glass copy-trigger" style="font-size: 0.74rem; padding: 0.3rem 0.75rem;" title="Copy to clipboard">
+              Copy Command
+            </button>
           </div>
-          <div class="bento-code-snippet">
-DECLARE v_sum DOUBLE := 0.0;
-BEGIN
-  FOR i IN 1..10 LOOP
-    v_sum := v_sum + i;
-  END LOOP;
-END;</div>
-        </div>
 
-        <!-- 4. Relational SQL & ACID Storage (Span 7) -->
-        <div class="bento-card bento-span-7">
-          <div>
-            <div class="bento-icon cyan">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-            </div>
-            <span class="glass-pill accent" style="font-size: 0.75rem;">Relational Core</span>
-            <h3 style="margin-top: 0.75rem;">Relational SQL & Durable WAL</h3>
-            <p style="margin-top: 0.5rem;">
-              Standard SQL-92/2016 dialect with cost-based optimization, MVCC lock-free read isolation, slotted page organization, CRC32 checksums, and crash-safe WAL recovery.
-            </p>
+          <div class="install-code-box">
+            <code id="installCodeContent">dart pub add ultsql</code>
           </div>
-          <div class="bento-code-snippet">
-INSERT INTO users (id, name, score) VALUES (1, 'Alice', 100)
-ON CONFLICT (id) DO UPDATE SET score = EXCLUDED.score;</div>
+
+          <div style="padding: 1.25rem; border-top: 1px solid var(--border-subtle); background: var(--bg-surface);">
+            <div style="font-size: 0.78rem; color: var(--text-tertiary); font-family: var(--font-mono); margin-bottom: 0.75rem;">EXAMPLE: main.dart</div>
+            <pre style="background: var(--bg-base); padding: 1.15rem; border-radius: var(--radius-xs); border: 1px solid var(--border-subtle); font-size: 0.82rem; overflow-x: auto;">import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  // 1. Open a single-file database instance
+  final db = await UltSqlDatabase.openFile('app_data.ultsql');
+
+  // 2. Execute multimodal DDL and Vector search
+  await db.execute('''
+    CREATE TABLE docs (id INT PRIMARY KEY, content TEXT, embedding VECTOR);
+    INSERT INTO docs VALUES (1, 'Hello World', '[0.1, 0.9, -0.4]');
+  ''');
+
+  // 3. Query with nearest vector distance
+  final results = await db.query(
+    'SELECT content, VECTOR_DISTANCE(embedding, :q) AS dist FROM docs ORDER BY dist ASC',
+    params: {'q': '[0.12, 0.88, -0.42]'},
+  );
+
+  print(results);
+}</pre>
+          </div>
         </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- GLOBAL COMMAND PALETTE (CTRL+K / CMD+K) -->
+  <div class="cmd-modal-backdrop" id="cmdModal">
+    <div class="cmd-modal-panel">
+      <div class="cmd-search-input-wrapper">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" class="cmd-input" id="cmdInput" placeholder="Type a command or search..." autocomplete="off">
+        <span class="kbd-shortcut">ESC</span>
+      </div>
+
+      <ul class="cmd-results-list" id="cmdResultsList">
+        <li class="cmd-item" data-action="#playground">
+          <div><span class="cmd-item-icon">⚡</span> <strong>Interactive Playground</strong></div>
+          <span class="kbd-shortcut">Enter</span>
+        </li>
+        <li class="cmd-item" data-action="#pillars">
+          <div><span class="cmd-item-icon">●</span> <strong>Multimodal Pillars (SQL, Vector, NoSQL, PL/SQL)</strong></div>
+          <span class="kbd-shortcut">#pillars</span>
+        </li>
+        <li class="cmd-item" data-action="#benchmarks">
+          <div><span class="cmd-item-icon">📊</span> <strong>View Performance Benchmarks</strong></div>
+          <span class="kbd-shortcut">#benchmarks</span>
+        </li>
+        <li class="cmd-item" data-action="docs.html">
+          <div><span class="cmd-item-icon">📖</span> <strong>Open Documentation & API Reference</strong></div>
+          <span class="kbd-shortcut">docs</span>
+        </li>
+        <li class="cmd-item" data-action="features.html">
+          <div><span class="cmd-item-icon">🛡️</span> <strong>Architecture & Feature Matrix</strong></div>
+          <span class="kbd-shortcut">features</span>
+        </li>
+        <li class="cmd-item" data-action="copy-install">
+          <div><span class="cmd-item-icon">📋</span> <strong>Copy SDK Install: dart pub add ultsql</strong></div>
+          <span class="kbd-shortcut">Copy</span>
+        </li>
+        <li class="cmd-item" data-action="theme">
+          <div><span class="cmd-item-icon">🌓</span> <strong>Toggle Dark / Light Theme</strong></div>
+          <span class="kbd-shortcut">Theme</span>
+        </li>
+      </ul>
+
+      <div class="cmd-footer">
+        <span>Navigation: ↑ ↓ Enter</span>
+        <span>Anime.js Command Engine</span>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- PERFORMANCE BENCHMARKS SCOREBOARD -->
-  <section class="container" style="padding: 3.5rem 1.5rem;">
-    <div class="section-header">
-      <span class="glass-pill emerald">Empirical Performance</span>
-      <h2 style="margin-top: 1rem;">Engineered for High Throughput</h2>
-      <p>Tested on local NVMe disk with WAL durability on a 100,000-row structured dataset.</p>
-    </div>
+  <!-- FLOATING ANIMATED TOAST -->
+  <div class="toast-bubble" id="toast">
+    <span>✓ Copied</span>
+  </div>
 
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-number text-gradient-cyan">~195K</div>
-        <div class="metric-label">Disk Multi-Row SQL (rows/s)</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-number text-gradient">~500K+</div>
-        <div class="metric-label">Batch Ingestion API (rows/s)</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-number" style="color: var(--accent-violet);">~6 ms</div>
-        <div class="metric-label">768-Dim Vector Latency (ANN)</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-number" style="color: var(--accent-emerald);">Port 5432</div>
-        <div class="metric-label">PostgreSQL v3 Wire Protocol</div>
-      </div>
-    </div>
-
-    <div style="text-align: center; margin-top: 2rem;">
-      <a href="benchmarks.html" class="btn btn-glass" style="font-size: 0.86rem;">
-        View Detailed Hardware Specs & Benchmarks →
-      </a>
-    </div>
-  </section>
-
-  <!-- UNIFIED INSTALLATION SECTION -->
-  <section class="install-section" id="install">
-    <div class="container">
-      <div class="section-header">
-        <span class="glass-pill accent">Universal SDKs</span>
-        <h2 style="margin-top: 1rem;">One Database. Every Platform.</h2>
-        <p>Connect natively in Flutter, deploy as a backend microservice, or query from Python, Node.js, Go, Rust, or Docker.</p>
-      </div>
-
-      <div class="tab-selector">
-        <button class="tab-pill-btn active" data-tab="tab-dart">Dart & Flutter</button>
-        <button class="tab-pill-btn" data-tab="tab-python">Python</button>
-        <button class="tab-pill-btn" data-tab="tab-node">Node.js</button>
-        <button class="tab-pill-btn" data-tab="tab-go">Go</button>
-        <button class="tab-pill-btn" data-tab="tab-rust">Rust</button>
-        <button class="tab-pill-btn" data-tab="tab-docker">Docker</button>
-        <button class="tab-pill-btn" data-tab="tab-cli">Standalone CLI</button>
-      </div>
-
-      <div class="install-box">
-        <div class="install-box-content" id="tab-dart">
-          <button class="btn btn-glass install-copy-btn" data-code="dart pub add ultsql">Copy</button>
-          <pre><code># Add to your Dart or Flutter application
-dart pub add ultsql
-
-# Usage in code
-import 'package:ultsql/ultsql.dart';
-
-final db = Database('./app.db');
-await db.init();
-final interpreter = Interpreter(db);
-final result = await interpreter.executeScript('SELECT * FROM users;');</code></pre>
-        </div>
-
-        <div class="install-box-content" id="tab-python" style="display: none;">
-          <button class="btn btn-glass install-copy-btn" data-code="pip install ultsql">Copy</button>
-          <pre><code># Universal Python Client
-pip install ultsql
-
-from ultsql import UltSQLClient
-
-db = UltSQLClient("http://localhost:8080")
-db.insert("users", {"id": 1, "name": "Alice"})
-print(db.query("users"))</code></pre>
-        </div>
-
-        <div class="install-box-content" id="tab-node" style="display: none;">
-          <button class="btn btn-glass install-copy-btn" data-code="npm install ultsql">Copy</button>
-          <pre><code># Universal Node.js & TypeScript Client
-npm install ultsql
-
-const { UltSQLClient } = require('ultsql');
-const db = new UltSQLClient({ host: 'localhost', port: 8080 });
-await db.insert('users', { id: 1, name: 'Alice' });</code></pre>
-        </div>
-
-        <div class="install-box-content" id="tab-go" style="display: none;">
-          <button class="btn btn-glass install-copy-btn" data-code="go get github.com/ompatel3158/ULTSQL/bindings/go">Copy</button>
-          <pre><code># Official Go Client
-go get github.com/ompatel3158/ULTSQL/bindings/go
-
-import "github.com/ompatel3158/ULTSQL/bindings/go"
-client := ultsql.NewClient("http://localhost:8080")</code></pre>
-        </div>
-
-        <div class="install-box-content" id="tab-rust" style="display: none;">
-          <button class="btn btn-glass install-copy-btn" data-code="cargo add ultsql">Copy</button>
-          <pre><code># Cargo dependency
-[dependencies]
-ultsql = "1.0.22"
-tokio = { version = "1.0", features = ["full"] }</code></pre>
-        </div>
-
-        <div class="install-box-content" id="tab-docker" style="display: none;">
-          <button class="btn btn-glass install-copy-btn" data-code="docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db">Copy</button>
-          <pre><code># Run ULTSQL in a container
-docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db</code></pre>
-        </div>
-
-        <div class="install-box-content" id="tab-cli" style="display: none;">
-          <button class="btn btn-glass install-copy-btn" data-code="iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex">Copy</button>
-          <pre><code># Windows (PowerShell)
-iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
-
-# Linux & macOS (Bash)
-curl -fsSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash</code></pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TOAST NOTIFICATION -->
-  <div class="toast-msg" id="toast">Copied to clipboard</div>
-
-  <!-- MINIMALIST FOOTER -->
+  <!-- FOOTER -->
   <footer class="site-footer">
-    <div class="container footer-inner">
-      <div>
-        <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary); margin-bottom: 0.25rem;">
-          ULTSQL Database Engine
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="nav-brand">
+            <img src="icon.svg" alt="ULTSQL Pinwheel Logo" width="24" height="24">
+            <span>ULTSQL</span>
+          </div>
+          <p>One Core. Every Model. 100% Pure Dart multimodal database combining Relational SQL, HNSW Vector RAG, NoSQL JSON, and PL/SQL with zero native C/C++ dependencies.</p>
         </div>
-        <div style="font-size: 0.85rem; color: var(--text-tertiary);">
-          Licensed under FSL-1.1-MIT &copy; 2026 Om Patel. Free for commercial application and SaaS use.
+
+        <div>
+          <div class="footer-column-title">Product</div>
+          <ul class="footer-links">
+            <li><a href="#playground" class="footer-link">Live Playground</a></li>
+            <li><a href="features.html" class="footer-link">Features Matrix</a></li>
+            <li><a href="benchmarks.html" class="footer-link">Performance Benchmarks</a></li>
+            <li><a href="docs.html" class="footer-link">Documentation</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="footer-column-title">Ecosystem</div>
+          <ul class="footer-links">
+            <li><a href="https://pub.dev/packages/ultsql" target="_blank" class="footer-link">pub.dev Package</a></li>
+            <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="footer-link">GitHub Repository</a></li>
+            <li><a href="license.html" class="footer-link">License & FAQ</a></li>
+            <li><a href="https://github.com/ompatel3158/ULTSQL/issues" target="_blank" class="footer-link">Issue Tracker</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="footer-column-title">Connect</div>
+          <ul class="footer-links">
+            <li><a href="https://github.com/ompatel3158" target="_blank" class="footer-link">Om Patel (Lead Author)</a></li>
+            <li><a href="https://x.com/ompatel" target="_blank" class="footer-link">Twitter / X</a></li>
+            <li><a href="https://bklit.com" target="_blank" class="footer-link">Bklit UI Minimal Aesthetic</a></li>
+          </ul>
         </div>
       </div>
 
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="features.html">Features</a>
-        <a href="docs.html">Docs</a>
-        <a href="benchmarks.html">Benchmarks</a>
-        <a href="license.html">License & FAQ</a>
-        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank">GitHub</a>
+      <div class="footer-bottom">
+        <span>© 2026 Om Patel. Released under the Functional Source License (FSL-1.1-MIT).</span>
+        <span>Minimal Black & White • Anime.js v4</span>
       </div>
     </div>
   </footer>
 
-  <script src="ultsql_engine.js"></script>
-  <script src="app.js?v=1.0.26"></script>
+  <!-- SCRIPT INITIALIZATION -->
+  <script src="app.js?v=2.1.0"></script>
 </body>
 </html>

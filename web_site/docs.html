@@ -1,67 +1,126 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Documentation & API Reference — ULTSQL</title>
-  <meta name="description" content="Complete documentation, quickstart, SQL syntax, HNSW vector queries, and client SDK guides for ULTSQL.">
+  <meta name="description" content="Comprehensive documentation, quickstart guides, SQL syntax reference, HNSW vector search, and client SDKs for ULTSQL.">
   <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/docs">
+  <meta name="google-site-verification" content="s8GoKEfYxYOuxJ97E1Q3lmCldu-tUsGSgPHX17s_GlU">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=1.0.26">
+  <link rel="stylesheet" href="style.css?v=2.1.0">
+
+  <!-- Anime.js v4 Animation Engine -->
+  <script src="vendor/anime.umd.min.js"></script>
+
   <style>
-    .docs-layout {
+    .docs-layout-grid {
       display: grid;
       grid-template-columns: 240px 1fr;
-      gap: 2.5rem;
-      padding-top: 2rem;
-      padding-bottom: 6rem;
+      gap: 3rem;
+      padding: 3rem 0 6rem;
     }
-    .docs-sidebar {
+    .docs-sidebar-pane {
       position: sticky;
       top: 5.5rem;
       height: fit-content;
       max-height: calc(100vh - 7rem);
       overflow-y: auto;
-      padding: 1.5rem 1rem;
+      padding: 1.25rem 1rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
     }
-    .docs-nav-group {
+    .docs-sidebar-group {
       margin-bottom: 1.5rem;
     }
-    .docs-nav-title {
-      font-size: 0.75rem;
+    .docs-sidebar-title {
+      font-size: 0.7rem;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
       color: var(--text-tertiary);
       margin-bottom: 0.5rem;
-      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
-    .docs-nav-link {
+    .docs-nav-link-item {
       display: block;
-      font-size: 0.88rem;
-      padding: 0.35rem 0.5rem;
+      font-size: 0.84rem;
+      padding: 0.35rem 0.6rem;
       color: var(--text-secondary);
-      border-radius: var(--radius-sm);
-      margin-bottom: 0.2rem;
-      transition: all 0.15s ease;
+      border-radius: var(--radius-xs);
+      transition: all var(--transition-fast);
+      margin-bottom: 0.15rem;
     }
-    .docs-nav-link:hover {
+    .docs-nav-link-item:hover {
       color: var(--text-primary);
       background: var(--bg-surface-hover);
     }
-    .docs-nav-link.active {
-      color: var(--accent-primary);
-      background: var(--accent-primary-glow);
+    .docs-nav-link-item.active {
+      color: var(--text-primary);
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
       font-weight: 600;
     }
-    .docs-section {
-      margin-bottom: 3.5rem;
-      scroll-margin-top: 6rem;
+    .doc-article-section {
+      margin-bottom: 4rem;
+      scroll-margin-top: 6.5rem;
     }
-    @media (max-width: 860px) {
-      .docs-layout {
+    .doc-article-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      margin-bottom: 0.85rem;
+      letter-spacing: -0.03em;
+    }
+    .doc-article-p {
+      color: var(--text-secondary);
+      font-size: 0.98rem;
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+    }
+    .doc-code-card {
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xs);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .doc-code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.85rem;
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+    }
+    .doc-code-block {
+      padding: 1.15rem;
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      color: var(--text-primary);
+    }
+    .doc-alert-box {
+      padding: 0.85rem 1.15rem;
+      background: var(--bg-surface-elevated);
+      border-left: 2px solid var(--text-primary);
+      border-radius: var(--radius-xs);
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 880px) {
+      .docs-layout-grid {
         grid-template-columns: 1fr;
       }
-      .docs-sidebar {
+      .docs-sidebar-pane {
         display: none;
       }
     }
@@ -69,271 +128,292 @@
 </head>
 <body>
 
-  <!-- AMBIENT AURORA GLOWS -->
-  <div class="ambient-mesh">
-    <div class="mesh-glow-1"></div>
-    <div class="mesh-glow-2"></div>
-  </div>
+  <!-- READING PROGRESS BAR -->
+  <div class="scroll-progress-bar" id="scrollProgressBar"></div>
+
+  <!-- BKLIT UI SIGNATURE DOT GRID -->
+  <div class="bklit-dot-grid"></div>
 
   <!-- FLOATING PILL NAVBAR -->
-  <div class="nav-wrapper">
-    <nav class="nav-pill">
+  <header class="header-wrapper">
+    <nav class="navbar-pill">
       <a href="index.html" class="nav-brand">
-        <img src="icon.svg" alt="ULTSQL Pinwheel Icon">
+        <div class="nav-logo-icon">
+          <img src="icon.svg" alt="ULTSQL Logo" width="24" height="24">
+        </div>
         <span>ULTSQL</span>
-        <span class="glass-pill" style="font-size: 0.72rem; padding: 0.15rem 0.5rem;">v1.0.22</span>
+        <span class="nav-version-badge">v1.0.26</span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="index.html" class="nav-link">Home</a></li>
-        <li><a href="features.html" class="nav-link">Features</a></li>
-        <li><a href="docs.html" class="nav-link active">Documentation</a></li>
-        <li><a href="benchmarks.html" class="nav-link">Benchmarks</a></li>
-        <li><a href="license.html" class="nav-link">License & FAQ</a></li>
+        <li><a href="index.html" class="nav-item-link">Home</a></li>
+        <li><a href="index.html#playground" class="nav-item-link">Playground</a></li>
+        <li><a href="features.html" class="nav-item-link">Features</a></li>
+        <li><a href="benchmarks.html" class="nav-item-link">Benchmarks</a></li>
+        <li><a href="docs.html" class="nav-item-link active">Docs</a></li>
+        <li><a href="license.html" class="nav-item-link">License</a></li>
       </ul>
 
       <div class="nav-actions">
-        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+        <button class="cmd-k-btn cmd-open-btn" title="Open Command Palette (Ctrl+K)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span>Search</span>
+          <span class="kbd-shortcut">⌘K</span>
+        </button>
+
+        <button class="btn-icon theme-toggle-btn" id="themeToggle" aria-label="Toggle theme">
           <span class="theme-icon"></span>
         </button>
-        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
-          pub.dev
-        </a>
-        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
-          GitHub
-        </a>
-        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+
+        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.38rem 0.8rem; font-size: 0.78rem;">pub.dev</a>
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.38rem 0.9rem; font-size: 0.78rem;">GitHub</a>
+
+        <button class="btn-icon mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle mobile menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
         </button>
       </div>
     </nav>
-  </div>
+  </header>
 
   <!-- MOBILE NAV DRAWER -->
   <div class="mobile-nav-drawer" id="mobileNavDrawer">
-    <a href="index.html" class="nav-link">Home</a>
-    <a href="features.html" class="nav-link">Features</a>
-    <a href="docs.html" class="nav-link active">Documentation</a>
-    <a href="benchmarks.html" class="nav-link">Benchmarks</a>
-    <a href="license.html" class="nav-link">License & FAQ</a>
+    <div class="mobile-nav-header">
+      <div class="nav-brand">
+        <img src="icon.svg" alt="ULTSQL Logo" width="24" height="24">
+        <span>ULTSQL</span>
+      </div>
+      <button class="btn-icon" id="mobileMenuClose">✕</button>
+    </div>
+    <ul class="mobile-nav-links">
+      <li><a href="index.html" class="mobile-nav-link">Home</a></li>
+      <li><a href="index.html#playground" class="mobile-nav-link">Playground</a></li>
+      <li><a href="features.html" class="mobile-nav-link">Features Matrix</a></li>
+      <li><a href="benchmarks.html" class="mobile-nav-link">Benchmarks</a></li>
+      <li><a href="docs.html" class="mobile-nav-link active">Documentation</a></li>
+      <li><a href="license.html" class="mobile-nav-link">License & FAQ</a></li>
+    </ul>
   </div>
 
-  <!-- HEADER -->
-  <header class="hero" style="padding-bottom: 2rem;">
-    <div class="container">
-      <div class="hero-pill-badge">
-        <span class="glass-pill accent">Developer Reference</span>
-      </div>
-      <h1 class="hero-title"><span class="text-gradient">Engine</span> <span class="text-gradient-cyan">Documentation</span></h1>
-      <p class="hero-subtitle">
-        Everything you need to embed, query, and configure ULTSQL across client and server environments.
-      </p>
-    </div>
-  </header>
+  <main class="container">
+    <div class="docs-layout-grid">
+      <!-- SIDEBAR -->
+      <aside class="docs-sidebar-pane">
+        <div class="docs-sidebar-group">
+          <div class="docs-sidebar-title">Getting Started</div>
+          <a href="#introduction" class="docs-nav-link-item active">Introduction</a>
+          <a href="#installation" class="docs-nav-link-item">Installation</a>
+          <a href="#quickstart" class="docs-nav-link-item">Quickstart</a>
+        </div>
 
-  <!-- DOCS CONTAINER -->
-  <main class="container docs-layout">
-    
-    <!-- STICKY FROSTED SIDEBAR -->
-    <aside class="glass-panel docs-sidebar">
-      <div class="docs-nav-group">
-        <div class="docs-nav-title">Getting Started</div>
-        <a href="#quickstart" class="docs-nav-link active">5-Line Quickstart</a>
-        <a href="#installation" class="docs-nav-link">Universal Installation</a>
-        <a href="#storage-modes" class="docs-nav-link">Storage Modes</a>
-      </div>
+        <div class="docs-sidebar-group">
+          <div class="docs-sidebar-title">Relational SQL</div>
+          <a href="#ddl-dml" class="docs-nav-link-item">DDL & DML Syntax</a>
+          <a href="#joins-aggregates" class="docs-nav-link-item">JOINs & Aggregates</a>
+          <a href="#indexes-storage" class="docs-nav-link-item">Slotted Pages</a>
+        </div>
 
-      <div class="docs-nav-group">
-        <div class="docs-nav-title">Core Paradigms</div>
-        <a href="#relational-sql" class="docs-nav-link">Relational SQL & DDL</a>
-        <a href="#vector-search" class="docs-nav-link">AI Vector Search (HNSW)</a>
-        <a href="#nosql-json" class="docs-nav-link">NoSQL JSON Dotted-Path</a>
-        <a href="#plsql-scripting" class="docs-nav-link">PL/SQL Procedural</a>
-      </div>
+        <div class="docs-sidebar-group">
+          <div class="docs-sidebar-title">AI Vector RAG</div>
+          <a href="#vector-hnsw" class="docs-nav-link-item">HNSW Graphs</a>
+          <a href="#vector-queries" class="docs-nav-link-item">Vector Distance</a>
+        </div>
 
-      <div class="docs-nav-group">
-        <div class="docs-nav-title">Servers & Networking</div>
-        <a href="#pgwire-server" class="docs-nav-link">PostgreSQL Wire Daemon</a>
-        <a href="#standalone-daemon" class="docs-nav-link">REST & CLI Server</a>
-      </div>
+        <div class="docs-sidebar-group">
+          <div class="docs-sidebar-title">NoSQL & JSON</div>
+          <a href="#json-queries" class="docs-nav-link-item">Dotted Traversal</a>
+          <a href="#json-mutations" class="docs-nav-link-item">Mutations</a>
+        </div>
 
-      <div class="docs-nav-group">
-        <div class="docs-nav-title">Architecture</div>
-        <a href="#wal-recovery" class="docs-nav-link">ACID WAL Recovery</a>
-        <a href="#limitations" class="docs-nav-link">Known Limitations</a>
-      </div>
-    </aside>
+        <div class="docs-sidebar-group">
+          <div class="docs-sidebar-title">PL/SQL & Server</div>
+          <a href="#plsql-procedural" class="docs-nav-link-item">Procedural Scripts</a>
+          <a href="#pgwire-server" class="docs-nav-link-item">Pgwire Server</a>
+        </div>
+      </aside>
 
-    <!-- CONTENT BODY -->
-    <article>
-      
-      <!-- Quickstart -->
-      <section class="docs-section" id="quickstart">
-        <h2>⚡ 5-Line Quickstart</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Embed directly in your Dart or Flutter project:</p>
-        <div class="glass-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-tertiary);">main.dart</span>
-            <button class="btn btn-glass copy-btn">Copy</button>
+      <!-- ARTICLE CONTENT -->
+      <div class="docs-article-body">
+        <section class="doc-article-section" id="introduction">
+          <h1 class="doc-article-title">Introduction to ULTSQL</h1>
+          <p class="doc-article-p">
+            ULTSQL is an embedded, multimodal database engine written in <strong>100% pure Dart</strong>. It uniquely combines a relational SQL execution engine with ACID MVCC guarantees, native HNSW high-dimensional vector search, schema-less JSON document storage, and a procedural PL/SQL runtime into a single lightweight package.
+          </p>
+          <div class="doc-alert-box">
+            <strong>Zero C/C++ Dependencies:</strong> Runs entirely in pure Dart bytecode and Dart WebAssembly. Works identically across iOS, Android, macOS, Windows, Linux, and Web.
           </div>
-          <pre><code>import 'package:ultsql/ultsql.dart';
+        </section>
+
+        <section class="doc-article-section" id="installation">
+          <h2 class="doc-article-title">Installation</h2>
+          <p class="doc-article-p">Add ULTSQL to your Dart or Flutter application:</p>
+          
+          <div class="doc-code-card">
+            <div class="doc-code-header">
+              <span>TERMINAL</span>
+              <button class="cli-copy-btn copy-trigger" data-copy="dart pub add ultsql">Copy</button>
+            </div>
+            <pre class="doc-code-block">dart pub add ultsql</pre>
+          </div>
+
+          <p class="doc-article-p">For Flutter applications:</p>
+          <div class="doc-code-card">
+            <div class="doc-code-header">
+              <span>TERMINAL</span>
+              <button class="cli-copy-btn copy-trigger" data-copy="flutter pub add ultsql">Copy</button>
+            </div>
+            <pre class="doc-code-block">flutter pub add ultsql</pre>
+          </div>
+        </section>
+
+        <section class="doc-article-section" id="quickstart">
+          <h2 class="doc-article-title">Quickstart Guide</h2>
+          <p class="doc-article-p">Create an in-memory database or open an existing single-file `.ultsql` database with automatic WAL recovery:</p>
+
+          <div class="doc-code-card">
+            <div class="doc-code-header">
+              <span>DART (main.dart)</span>
+              <button class="cli-copy-btn copy-trigger" data-copy="import 'package:ultsql/ultsql.dart';
 
 void main() async {
-  final db = Database('./app.db');
-  await db.init();
-  final interpreter = Interpreter(db);
+  final db = await UltSqlDatabase.openFile('app.ultsql');
 
-  await interpreter.executeScript('''
-    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, embedding VECTOR);
-    INSERT INTO users VALUES (1, 'Alice', '[0.12, 0.85, -0.44]');
-    SELECT * FROM users;
+  await db.execute('''
+    CREATE TABLE users (
+      id INT PRIMARY KEY,
+      name VARCHAR(100),
+      embedding VECTOR
+    );
   ''');
-}</code></pre>
-        </div>
-      </section>
 
-      <!-- Storage Modes -->
-      <section class="docs-section" id="storage-modes">
-        <h2>⚖️ Storage Modes</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Switch between in-memory speed and durable disk storage:</p>
-        <div class="bento-grid">
-          <div class="glass-card bento-span-6">
-            <h4>In-Memory Storage Mode</h4>
-            <p style="font-size: 0.88rem; margin: 0.5rem 0;">Ideal for streaming, tests, and temporary caches:</p>
-            <div class="bento-code-snippet">
-final db = Database(':memory:');
-await db.init();</div>
+  await db.execute('''
+    INSERT INTO users VALUES (1, 'Om Patel', '[0.12, 0.88, -0.45]');
+  ''');
+
+  final rows = await db.query('SELECT * FROM users WHERE id = 1;');
+  print(rows);
+}">Copy</button>
+            </div>
+            <pre class="doc-code-block">import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  // 1. Open persistent single-file database
+  final db = await UltSqlDatabase.openFile('app.ultsql');
+
+  // 2. Create multimodal table
+  await db.execute('''
+    CREATE TABLE users (
+      id INT PRIMARY KEY,
+      name VARCHAR(100),
+      embedding VECTOR
+    );
+  ''');
+
+  // 3. Insert record
+  await db.execute('''
+    INSERT INTO users VALUES (1, 'Om Patel', '[0.12, 0.88, -0.45]');
+  ''');
+
+  // 4. Query record
+  final rows = await db.query('SELECT * FROM users WHERE id = 1;');
+  print(rows);
+}</pre>
           </div>
-          <div class="glass-card bento-span-6">
-            <h4>Durable Disk Mode</h4>
-            <p style="font-size: 0.88rem; margin: 0.5rem 0;">ACID slotted-page persistence with WAL crash replay:</p>
-            <div class="bento-code-snippet">
-final db = Database('/path/to/my_data');
-await db.init();</div>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Relational SQL -->
-      <section class="docs-section" id="relational-sql">
-        <h2>📊 Relational SQL Dialect</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Standard DDL, DML, and UPSERT syntax:</p>
-        <div class="glass-card">
-          <pre><code>-- CREATE TABLE with rich data types
-CREATE TABLE IF NOT EXISTS accounts (
-  id UUID PRIMARY KEY,
-  name VARCHAR(100),
-  active BOOL DEFAULT true,
-  balance DECIMAL,
-  created_at TIMESTAMP,
-  metadata JSON,
-  embedding VECTOR
-);
+        <section class="doc-article-section" id="vector-hnsw">
+          <h2 class="doc-article-title">AI Vector Search & RAG (HNSW)</h2>
+          <p class="doc-article-p">
+            Native Hierarchical Navigable Small World (HNSW) graph index in pure Dart. Store high-dimensional embeddings and compute vector similarity with sub-millisecond latencies.
+          </p>
 
--- UPSERT support (PostgreSQL & SQLite syntax)
-INSERT INTO accounts (id, name, balance) VALUES ('uuid-1', 'Alice', 1200.0)
-ON CONFLICT (id) DO UPDATE SET balance = 1500.0;</code></pre>
-        </div>
-      </section>
-
-      <!-- Vector Search -->
-      <section class="docs-section" id="vector-search">
-        <h2>🧠 AI Vector RAG (HNSW)</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Perform approximate nearest-neighbor queries across high-dimensional embeddings:</p>
-        <div class="glass-card">
-          <pre><code>-- Create HNSW graph index on embedding column
-CREATE INDEX idx_products_vector ON products (embedding) USING HNSW;
-
--- Execute similarity search
-SELECT name, vector_distance(embedding, '[0.12, 0.85, -0.44]') AS distance
-FROM products
+          <div class="doc-code-card">
+            <div class="doc-code-header">
+              <span>SQL VECTOR QUERY</span>
+              <button class="cli-copy-btn copy-trigger" data-copy="SELECT title, VECTOR_DISTANCE(embedding, '[0.15, 0.72, -0.30]') AS distance
+FROM knowledge_base
 ORDER BY distance ASC
-LIMIT 5;</code></pre>
-        </div>
-      </section>
+LIMIT 3;">Copy</button>
+            </div>
+            <pre class="doc-code-block">SELECT title, VECTOR_DISTANCE(embedding, '[0.15, 0.72, -0.30]') AS distance
+FROM knowledge_base
+ORDER BY distance ASC
+LIMIT 3;</pre>
+          </div>
+        </section>
 
-      <!-- NoSQL JSON -->
-      <section class="docs-section" id="nosql-json">
-        <h2>📄 NoSQL Dotted JSON Documents</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Direct dotted path navigation inside JSON fields:</p>
-        <div class="glass-card">
-          <pre><code>SELECT title, 
-  JSON_EXTRACT(metadata, 'user.profile.city') AS city,
-  metadata->>'tier' AS tier
-FROM documents
-WHERE metadata->>'tier' = 'Enterprise';</code></pre>
-        </div>
-      </section>
+        <section class="doc-article-section" id="pgwire-server">
+          <h2 class="doc-article-title">Embedded Pgwire Server</h2>
+          <p class="doc-article-p">
+            Start a PostgreSQL wire protocol server inside your Dart process. Standard PostgreSQL clients (psql, DBeaver, TablePlus, Grafana) can connect over TCP socket on port 5432.
+          </p>
 
-      <!-- PL/SQL Scripting -->
-      <section class="docs-section" id="plsql-scripting">
-        <h2>⚡ PL/SQL Procedural Scripting</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Execute procedural routines with loops and conditionals:</p>
-        <div class="glass-card">
-          <pre><code>DECLARE
-  counter INT := 0;
-  total DOUBLE := 0.0;
-BEGIN
-  WHILE counter < 5 LOOP
-    counter := counter + 1;
-    total := total + (counter * 100.0);
-    DBMS_OUTPUT.PUT_LINE('Step ' || counter || ': ' || total);
-  END LOOP;
-END;</code></pre>
-        </div>
-      </section>
+          <div class="doc-code-card">
+            <div class="doc-code-header">
+              <span>DART (pgwire_server.dart)</span>
+              <button class="cli-copy-btn copy-trigger" data-copy="import 'package:ultsql/ultsql.dart';
 
-      <!-- PostgreSQL Wire Daemon -->
-      <section class="docs-section" id="pgwire-server">
-        <h2>🌐 PostgreSQL Wire Protocol Server</h2>
-        <p style="margin-top: 0.5rem; margin-bottom: 1rem;">Connect any PostgreSQL driver or BI tool to ULTSQL on port 5432:</p>
-        <div class="glass-card">
-          <pre><code>// Start the embedded wire server
-final pgServer = PgWireServer(db: db, port: 5432);
-await pgServer.start();
+void main() async {
+  final db = await UltSqlDatabase.openFile('shared.ultsql');
+  final server = PgwireServer(db, port: 5432);
+  await server.start();
+  print('Pgwire listening on 127.0.0.1:5432');
+}">Copy</button>
+            </div>
+            <pre class="doc-code-block">import 'package:ultsql/ultsql.dart';
 
-// Connect via standard psql CLI
-// psql -h localhost -p 5432 -U postgres</code></pre>
-        </div>
-      </section>
-
-      <!-- Known Limitations -->
-      <section class="docs-section" id="limitations">
-        <h2>⚠️ Known Limitations</h2>
-        <div class="glass-panel" style="padding: 1.5rem;">
-          <ul style="padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
-            <li><strong>Single-Node Engine:</strong> ULTSQL is focused on fast embedded and single-node workloads. It does not provide multi-master clustering or distributed consensus.</li>
-            <li><strong>Substring Filters:</strong> Arbitrary wildcards like <code>LIKE '%pattern%'</code> perform sequential page scans unless accompanied by indexed filters.</li>
-            <li><strong>Multi-Process Write Locks:</strong> Multi-process concurrency uses operating system file locking; high write contention is best channeled through the <code>ultsql serve</code> daemon.</li>
-          </ul>
-        </div>
-      </section>
-
-    </article>
+void main() async {
+  final db = await UltSqlDatabase.openFile('shared.ultsql');
+  final server = PgwireServer(db, port: 5432);
+  await server.start();
+  print('Pgwire listening on 127.0.0.1:5432');
+}</pre>
+          </div>
+        </section>
+      </div>
+    </div>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <div>
-        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
-          ULTSQL Database Engine
-        </div>
-        <div style="font-size: 0.85rem; color: var(--text-tertiary);">
-          Licensed under FSL-1.1-MIT &copy; 2026 Om Patel.
-        </div>
+  <!-- COMMAND PALETTE & TOAST -->
+  <div class="cmd-modal-backdrop" id="cmdModal">
+    <div class="cmd-modal-panel">
+      <div class="cmd-search-input-wrapper">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" class="cmd-input" id="cmdInput" placeholder="Type a command or search..." autocomplete="off">
+        <span class="kbd-shortcut">ESC</span>
       </div>
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="features.html">Features</a>
-        <a href="docs.html">Docs</a>
-        <a href="benchmarks.html">Benchmarks</a>
-        <a href="license.html">License & FAQ</a>
+      <ul class="cmd-results-list">
+        <li class="cmd-item" data-action="index.html#playground">
+          <div><span class="cmd-item-icon">⚡</span> <strong>Interactive SQL Playground</strong></div>
+        </li>
+        <li class="cmd-item" data-action="#quickstart">
+          <div><span class="cmd-item-icon">🚀</span> <strong>Quickstart Example</strong></div>
+        </li>
+        <li class="cmd-item" data-action="#vector-hnsw">
+          <div><span class="cmd-item-icon">●</span> <strong>Vector RAG & HNSW</strong></div>
+        </li>
+        <li class="cmd-item" data-action="#pgwire-server">
+          <div><span class="cmd-item-icon">🌐</span> <strong>Embedded Pgwire Server</strong></div>
+        </li>
+        <li class="cmd-item" data-action="theme">
+          <div><span class="cmd-item-icon">🌓</span> <strong>Toggle Theme</strong></div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="toast-bubble" id="toast">
+    <span>✓ Copied</span>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <span>© 2026 Om Patel. Released under FSL-1.1-MIT.</span>
+        <span>Minimal Black & White Documentation</span>
       </div>
     </div>
   </footer>
 
-  <div class="toast-msg" id="toast">Copied to clipboard</div>
-  <script src="app.js?v=1.0.26"></script>
+  <script src="app.js?v=2.1.0"></script>
 </body>
 </html>
