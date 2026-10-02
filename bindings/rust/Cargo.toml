@@ -1,7 +1,8 @@
 [package]
 name = "ultsql"
-version = "1.0.24"
+version = "1.0.26"
 edition = "2021"
+authors = ["Om Patel <om.business3158@gmail.com>"]
 description = "Official asynchronous Rust client for the UltSQL multimodal database engine."
 license = "FSL-1.1-MIT"
 license-file = "LICENSE"

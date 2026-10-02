@@ -66,23 +66,24 @@ abstract class DbValue implements Comparable<DbValue> {
   }
 
   static DbValue fromBytes(ByteData data, int offset, int length) {
-    if (length == 0) return DbNull();
+    if (length == 0) return const DbNull();
     final typeCode = data.getUint8(offset);
     final valOffset = offset + 1;
     final valLen = length - 1;
 
     switch (typeCode) {
       case 0:
-        return DbNull();
+        return const DbNull();
       case 1:
-        if (valLen == 1) {
-          return DbInt(data.getInt8(valOffset));
-        } else if (valLen == 2) {
-          return DbInt(data.getInt16(valOffset));
-        } else if (valLen == 4) {
-          return DbInt(data.getInt32(valOffset));
-        } else if (valLen == 8) {
-          return DbInt(data.getInt64(valOffset));
+        switch (valLen) {
+          case 8:
+            return DbInt(data.getInt64(valOffset));
+          case 4:
+            return DbInt(data.getInt32(valOffset));
+          case 2:
+            return DbInt(data.getInt16(valOffset));
+          case 1:
+            return DbInt(data.getInt8(valOffset));
         }
         throw FormatException('Invalid DbInt length: $valLen');
       case 2:
@@ -92,7 +93,12 @@ abstract class DbValue implements Comparable<DbValue> {
           data.offsetInBytes + valOffset,
           valLen,
         );
-        return DbText(utf8.decode(bytes));
+        for (int i = 0; i < valLen; i++) {
+          if (bytes[i] >= 0x80) {
+            return DbText(utf8.decode(bytes));
+          }
+        }
+        return DbText(String.fromCharCodes(bytes));
       case 4:
         final count = valLen ~/ 8;
         final list = List<double>.generate(
@@ -167,6 +173,8 @@ abstract class DbValue implements Comparable<DbValue> {
 
 /// Represents a SQL NULL value.
 class DbNull extends DbValue {
+  const DbNull();
+
   @override
   DataType get type => DataType.text; // Default fallback
   @override

@@ -13,8 +13,8 @@ export 'crypto_security.dart';
 final Uint8List _sharedFlushBuffer = Uint8List(256 * 4096);
 
 class PageKey {
-  final String filePath;
-  final int pageId;
+  String filePath;
+  int pageId;
 
   PageKey(this.filePath, this.pageId);
 
@@ -22,12 +22,11 @@ class PageKey {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is PageKey &&
-          runtimeType == other.runtimeType &&
           filePath == other.filePath &&
           pageId == other.pageId;
 
   @override
-  int get hashCode => filePath.hashCode ^ pageId.hashCode;
+  int get hashCode => filePath.hashCode ^ (pageId * 397);
 
   @override
   String toString() => 'PageKey($filePath, $pageId)';
@@ -45,6 +44,8 @@ class Pager {
   late final bool _isMemoryMode;
   final Map<int, Uint8List> _memoryPages = {};
   final Map<int, Uint8List> _memoryAuthTags = {};
+  final Map<int, Page> cachedPages = {};
+  Page? lastPage;
 
   Pager(this.filePath, {this.pageSize = 4096}) {
     _isMemoryMode = filePath.startsWith(':memory:') || identical(0, 0.0);
@@ -375,6 +376,8 @@ class Pager {
   }
 
   void closeSync() {
+    cachedPages.clear();
+    lastPage = null;
     if (_isMemoryMode) {
       _memoryPages.clear();
       _memoryAuthTags.clear();
@@ -449,7 +452,6 @@ class PageCache {
   final int pageSize;
   final String? dbDirectory;
   final Map<PageKey, Page> _cache = {};
-  final Set<PageKey> _unpinnedKeys = {};
   Uint8List? encryptionKey;
   Uint8List? authKey;
   AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage;
@@ -495,10 +497,8 @@ class PageCache {
 
   int _timeCounter = 0;
 
-  // Track last pinned page to detect sequential scans for pre-fetching
-  final Map<String, int> _lastPinnedPage = {};
-
   bool _isClosed = false;
+  bool get isClosed => _isClosed;
 
   final List<SessionTxContext> _allContexts = [];
   final SessionTxContext _globalContext = SessionTxContext();
@@ -933,7 +933,6 @@ class PageCache {
         for (final k in keysToRemove) {
           final p = _cache.remove(k);
           if (p != null) p.pinCount = 0;
-          _unpinnedKeys.remove(k);
         }
         pager.truncateToPagesSync(originalCount);
       }
@@ -1042,7 +1041,6 @@ class PageCache {
         for (final k in keysToRemove) {
           final p = _cache.remove(k);
           if (p != null) p.pinCount = 0;
-          _unpinnedKeys.remove(k);
         }
         pager.truncateToPagesSync(originalCount);
       }
@@ -1088,6 +1086,24 @@ class PageCache {
     }
   }
 
+  void clearCachedPagesForFile(String filePath) {
+    final keysToRemove = <PageKey>[];
+    for (final k in _cache.keys) {
+      if (k.filePath == filePath) {
+        keysToRemove.add(k);
+      }
+    }
+    for (final k in keysToRemove) {
+      final p = _cache.remove(k);
+      if (p != null) p.pinCount = 0;
+    }
+    final pager = _pagers[filePath];
+    if (pager != null) {
+      pager.cachedPages.clear();
+      pager.lastPage = null;
+    }
+  }
+
   void evictFile(String filePath) {
     final keysToRemove = <PageKey>[];
     for (final k in _cache.keys) {
@@ -1098,7 +1114,6 @@ class PageCache {
     for (final k in keysToRemove) {
       final p = _cache.remove(k);
       if (p != null) p.pinCount = 0;
-      _unpinnedKeys.remove(k);
     }
     final pager = _pagers.remove(filePath);
     if (pager != null) {
@@ -1111,7 +1126,7 @@ class PageCache {
   void logPageBeforeModifySync(String filePath, int pageId) {
     if (_txState != null) {
       final page = pinPageSync(filePath, pageId);
-      _logPageOriginalData(PageKey(filePath, pageId), page);
+      _logPageOriginalData(page.key as PageKey, page);
       unpinPageSync(filePath, pageId, isDirty: false);
     }
   }
@@ -1150,7 +1165,7 @@ class PageCache {
   }
 
   Page? peekPageSync(String filePath, int pageId) {
-    return _cache[PageKey(filePath, pageId)];
+    return _pagers[filePath]?.cachedPages[pageId];
   }
 
   Pager getOrCreatePager(String filePath) {
@@ -1164,31 +1179,24 @@ class PageCache {
     return pager;
   }
 
-  Page pinPageSync(String filePath, int pageId) {
-    final key = PageKey(filePath, pageId);
-    _timeCounter++;
-
-    final lastPageId = _lastPinnedPage[filePath];
-    _lastPinnedPage[filePath] = pageId;
-
-    if (_txState == null && lastPageId != null && pageId == lastPageId + 1) {
-      _schedulePrefetch(filePath, pageId + 1);
-    }
-
-    if (_cache.containsKey(key)) {
-      final page = _cache[key]!;
+  Page pinPagerPageSync(Pager pager, int pageId) {
+    Page? cachedPage = pager.lastPage?.pageId == pageId
+        ? pager.lastPage
+        : pager.cachedPages[pageId];
+    if (cachedPage != null) {
       if (_txState != null) {
-        _logPageOriginalData(key, page);
+        _logPageOriginalData(cachedPage.key as PageKey, cachedPage);
       }
-      page.pinCount++;
-      page.lastAccessTime = _timeCounter;
-      _unpinnedKeys.remove(key);
-      return page;
+      cachedPage.pinCount++;
+      cachedPage.lastAccessTime = ++_timeCounter;
+      pager.lastPage = cachedPage;
+      return cachedPage;
     }
 
     // Cache miss, read from disk
-    final pager = getOrCreatePager(filePath);
+    final key = PageKey(pager.filePath, pageId);
     final page = Page(pageId, pageSize: pageSize);
+    page.key = key;
     pager.readPageSync(pageId, page.data);
 
     if (_txState != null) {
@@ -1201,68 +1209,40 @@ class PageCache {
     }
 
     page.pinCount = 1;
-    page.lastAccessTime = _timeCounter;
+    page.lastAccessTime = ++_timeCounter;
     _cache[key] = page;
+    pager.cachedPages[pageId] = page;
+    pager.lastPage = page;
     return page;
   }
 
-  void _schedulePrefetch(String filePath, int pageId) {
-    Future.microtask(() {
-      try {
-        if (_isClosed) return;
-        final key = PageKey(filePath, pageId);
-        if (_cache.containsKey(key)) return;
-
-        final pager = getOrCreatePager(filePath);
-        final pageCount = pager.getPageCountSync();
-        if (pageId >= pageCount) return;
-
-        final page = Page(pageId, pageSize: pageSize);
-        pager.readPageSync(pageId, page.data);
-
-        if (_isClosed) {
-          pager.closeSync();
-          return;
-        }
-
-        if (!_cache.containsKey(key)) {
-          if (_cache.length >= maxCapacity) {
-            _evictOnePageSync();
-          }
-          page.pinCount = 0;
-          page.lastAccessTime = _timeCounter;
-          _cache[key] = page;
-          _unpinnedKeys.add(key);
-        }
-      } catch (_) {
-        // Suppress background errors
-      }
-    });
+  Page pinPageSync(String filePath, int pageId) {
+    final pager = getOrCreatePager(filePath);
+    return pinPagerPageSync(pager, pageId);
   }
 
-  void unpinPageSync(String filePath, int pageId, {required bool isDirty}) {
-    final key = PageKey(filePath, pageId);
-    final page = _cache[key];
-    if (page == null) return;
-
+  void unpinPage(Page page, {required bool isDirty}) {
     if (isDirty) {
       page.isDirty = true;
     }
-
     if (page.pinCount > 0) {
       page.pinCount--;
-      if (page.pinCount == 0) {
-        _unpinnedKeys.add(key);
-      }
+    }
+  }
+
+  void unpinPageSync(String filePath, int pageId, {required bool isDirty}) {
+    final pager = _pagers[filePath];
+    final page = pager?.cachedPages[pageId];
+    if (page != null) {
+      unpinPage(page, isDirty: isDirty);
     }
   }
 
   void logPageToWalSync(String filePath, int pageId) {
     if (!useWal) return;
-    final key = PageKey(filePath, pageId);
-    final page = _cache[key];
+    final page = _pagers[filePath]?.cachedPages[pageId];
     if (page != null && page.isDirty) {
-      _writePageToWalBeforeWriteSync(key, page.data);
+      _writePageToWalBeforeWriteSync(page.key as PageKey, page.data);
     }
   }
 
@@ -1283,15 +1263,26 @@ class PageCache {
   }
 
   void _evictOnePageSync() {
-    if (_unpinnedKeys.isEmpty) return;
-    final lruKey = _unpinnedKeys.first;
-    _unpinnedKeys.remove(lruKey);
-    final lruPage = _cache.remove(lruKey);
-    if (lruPage != null && lruPage.isDirty) {
-      final pager = _pagers[lruKey.filePath];
-      if (pager != null) {
-        _writePageToWalBeforeWriteSync(lruKey, lruPage.data);
-        pager.writePageSync(lruPage.pageId, lruPage.data);
+    PageKey? candidateKey;
+    Page? candidatePage;
+    for (final entry in _cache.entries) {
+      if (entry.value.pinCount == 0) {
+        candidateKey = entry.key;
+        candidatePage = entry.value;
+        break;
+      }
+    }
+    if (candidateKey == null || candidatePage == null) return;
+    _cache.remove(candidateKey);
+    final pager = _pagers[candidateKey.filePath];
+    if (pager != null) {
+      pager.cachedPages.remove(candidateKey.pageId);
+      if (pager.lastPage?.pageId == candidateKey.pageId) {
+        pager.lastPage = null;
+      }
+      if (candidatePage.isDirty) {
+        _writePageToWalBeforeWriteSync(candidateKey, candidatePage.data);
+        pager.writePageSync(candidatePage.pageId, candidatePage.data);
       }
     }
   }
@@ -1386,7 +1377,6 @@ class PageCache {
         .toList();
     for (final k in keysToRemove) {
       _cache.remove(k);
-      _unpinnedKeys.remove(k);
     }
     final pager = _pagers.remove(filePath);
     if (pager != null) {
@@ -1398,7 +1388,6 @@ class PageCache {
     _isClosed = true;
     flushAllSync();
     _cache.clear();
-    _unpinnedKeys.clear();
     for (final pager in _pagers.values) {
       pager.closeSync();
     }

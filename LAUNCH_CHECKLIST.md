@@ -10,7 +10,7 @@ Track progress towards a production-ready, credible, and polished release of **U
   - Adopted [FSL-1.1-MIT](https://fsl.software/) in `LICENSE` and `LICENSE.md`.
   - *Why:* Protects against cloud resellers/monetization wrapping while converting to standard open source after 2 years.
 - [x] **Set Explicit Copyright Holder**
-  - Named `Om Patel <ompatel3158@gmail.com>` as copyright holder in `LICENSE`, `LICENSE.md`, and `LICENSE-FAQ.md`.
+  - Named `Om Patel <om.business3158@gmail.com>` as copyright holder in `LICENSE`, `LICENSE.md`, and `LICENSE-FAQ.md`.
 - [x] **Add "License History" Section in `README.md`**
   - Documented:
     - `1.0.0`: MIT

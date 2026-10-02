@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.26
+
+- **Official Contact & Maintainer Email Update**:
+  - Updated primary maintainer & author contact email to `om.business3158@gmail.com` across all package manifests (`pubspec.yaml`, `package.json`, `pyproject.toml`, `setup.py`, `Cargo.toml`), license files, and documentation.
+- **Converged NoSQL JSON Traversal & Operators**:
+  - Validated and streamlined PostgreSQL-standard JSON path extraction operators (`->` for JSON, `->>` for unquoted text) across embedded and browser engines.
+  - Enhanced multi-statement execution handling in the in-browser sandbox and documentation playground.
+- **Bklit Minimalist CAD Architecture HUD & Engine Telemetry**:
+  - Rebuilt web portal hero card with an architectural data-flow pipeline (Pipeline, 4KB Slotted Page, and HNSW Vector Radar).
+  - Wired live query triggers directly to the client-side Pure Dart VM engine (`ultsql_engine.js`) with sub-millisecond execution readouts.
+- **Search Console & Domain Verification**:
+  - Integrated Google Site Verification across portal web pages and static assets.
+
 ## 1.0.24
 
 - **Deterministic Obfuscation (XOR Fast Matching) in SQL Engine**:

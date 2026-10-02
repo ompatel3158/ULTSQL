@@ -206,50 +206,54 @@ class RecordSerializer {
     ToastManager? toastManager,
   ]) {
     final data = ByteData.sublistView(recordBytes);
-    final count = data.getUint16(0);
-    final list = <DbValue>[];
+    return deserializeRowFromView(data, 0, recordBytes.length, expectedColumnCount, toastManager);
+  }
+
+  static List<DbValue> deserializeRowFromView(
+    ByteData data,
+    int startOffsetInBytes,
+    int recordLengthInBytes, [
+    int? expectedColumnCount,
+    ToastManager? toastManager,
+  ]) {
+    final count = data.getUint16(startOffsetInBytes);
+    final totalCols = expectedColumnCount != null && expectedColumnCount > count
+        ? expectedColumnCount
+        : count;
+    final list = List<DbValue>.filled(totalCols, const DbNull());
     for (int i = 0; i < count; i++) {
-      final startOffset = data.getUint16(2 + i * 2);
+      final startOffset = data.getUint16(startOffsetInBytes + 2 + i * 2);
       final endOffset = (i + 1 < count)
-          ? data.getUint16(2 + (i + 1) * 2)
-          : recordBytes.length;
+          ? data.getUint16(startOffsetInBytes + 2 + (i + 1) * 2)
+          : recordLengthInBytes;
       final len = endOffset - startOffset;
       if (len > 0) {
-        final typeCode = data.getUint8(startOffset);
+        final absOffset = startOffsetInBytes + startOffset;
+        final typeCode = data.getUint8(absOffset);
         if (typeCode == 6) {
           if (toastManager != null) {
-            final startPage = data.getUint32(startOffset + 1);
-            final totalSize = data.getUint32(startOffset + 5);
+            final startPage = data.getUint32(absOffset + 1);
+            final totalSize = data.getUint32(absOffset + 5);
             final bytes = toastManager.readDataSync(startPage, totalSize);
-            list.add(DbText(utf8.decode(bytes)));
-          } else {
-            list.add(DbNull());
+            list[i] = DbText(utf8.decode(bytes));
           }
         } else if (typeCode == 7) {
           if (toastManager != null) {
-            final startPage = data.getUint32(startOffset + 1);
-            final totalSize = data.getUint32(startOffset + 5);
+            final startPage = data.getUint32(absOffset + 1);
+            final totalSize = data.getUint32(absOffset + 5);
             final bytes = toastManager.readDataSync(startPage, totalSize);
-            list.add(DbJson.fromBytes(bytes));
-          } else {
-            list.add(DbNull());
+            list[i] = DbJson.fromBytes(bytes);
           }
         } else {
-          list.add(DbValue.fromBytes(data, startOffset, len));
+          list[i] = DbValue.fromBytes(data, absOffset, len);
         }
-      } else {
-        list.add(DbNull());
-      }
-    }
-    if (expectedColumnCount != null && list.length < expectedColumnCount) {
-      while (list.length < expectedColumnCount) {
-        list.add(DbNull());
       }
     }
     return list;
   }
 
   static DbValue deserializeCell(Uint8List recordBytes, int colIndex) {
+    if (recordBytes.length < 2) return DbNull();
     final data = ByteData.sublistView(recordBytes);
     final count = data.getUint16(0);
     if (colIndex >= count) return DbNull();
@@ -260,6 +264,7 @@ class RecordSerializer {
         : recordBytes.length;
 
     final len = endOffset - startOffset;
+    if (len <= 0 || startOffset + len > recordBytes.length) return DbNull();
     return DbValue.fromBytes(data, startOffset, len);
   }
 
@@ -269,6 +274,7 @@ class RecordSerializer {
     int recordLengthInBytes,
     int colIndex,
   ) {
+    if (recordLengthInBytes < 2) return DbNull();
     final count = data.getUint16(startOffsetInBytes);
     if (colIndex >= count) return DbNull();
 
@@ -278,6 +284,7 @@ class RecordSerializer {
         : recordLengthInBytes;
 
     final len = endOffset - startOffset;
+    if (len <= 0 || startOffset + len > recordLengthInBytes) return DbNull();
     return DbValue.fromBytes(data, startOffsetInBytes + startOffset, len);
   }
 }

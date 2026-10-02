@@ -29,9 +29,9 @@ void main() {
     btree.initSync();
 
     // 1. Insert keys to trigger splits.
-    // maxKeys is set to 50 in our btree_index.dart.
-    // Inserting 150 items guarantees at least one leaf node split.
-    for (int i = 1; i <= 150; i++) {
+    // maxKeys is calculated dynamically (~250 for single key).
+    // Inserting 600 items guarantees multiple leaf node splits.
+    for (int i = 1; i <= 600; i++) {
       // Insert key = i, pageId = i * 2, slotId = i
       btree.insertSync([i.toDouble()], i * 2, i);
     }
@@ -40,7 +40,7 @@ void main() {
     cache.flushAllSync();
 
     // 2. Search for the keys and verify correct pointers returned
-    for (int i = 1; i <= 150; i++) {
+    for (int i = 1; i <= 600; i++) {
       final ptr = btree.searchSync([i.toDouble()]);
       expect(ptr, isNotNull, reason: 'Key $i not found in B+ Tree index.');
       expect(ptr!.pageId, i * 2);

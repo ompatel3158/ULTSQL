@@ -283,7 +283,7 @@ class Database {
     String? passphrase,
     AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage,
     bool useWal = true,
-    int maxCapacity = 1000,
+    int maxCapacity = 50000,
   }) {
     config = EngineConfig.defaultConfig();
     catalog = Catalog(directory);
@@ -483,17 +483,363 @@ class Database {
   }
 }
 
+class _FastPointLookupPlan {
+  final TableSchema schema;
+  final RowTableFile rowTable;
+  final Pager rowPager;
+  final BTreeIndex btree;
+  final int colIndex;
+  final int? placeholderParamIndex;
+  final double? literalKey;
+  final List<int> projectedColIndices;
+  final List<String> columnNames;
+  final bool isPrimaryKey;
+  final bool isAllColumns;
+  final bool hasDefaults;
+
+  _FastPointLookupPlan({
+    required this.schema,
+    required this.rowTable,
+    required this.rowPager,
+    required this.btree,
+    required this.colIndex,
+    this.placeholderParamIndex,
+    this.literalKey,
+    required this.projectedColIndices,
+    required this.columnNames,
+    required this.isPrimaryKey,
+    required this.isAllColumns,
+    required this.hasDefaults,
+  });
+}
+
 class PreparedStatement {
   final Database db;
   final ASTNode statement;
   late final Interpreter _interpreter;
+  _FastPointLookupPlan? _pointPlan;
 
   PreparedStatement(this.db, this.statement) {
     _interpreter = Interpreter(db);
+    _pointPlan = _initPointPlan();
   }
 
-  Future<QueryResult> execute(List<DbValue> params) async {
-    JitCompiler.currentParams = params;
+  _FastPointLookupPlan? _initPointPlan() {
+    if (statement is! SelectStmt) return null;
+    final stmt = statement as SelectStmt;
+    if (stmt.join != null ||
+        stmt.withRelationship != null ||
+        stmt.groupBy != null ||
+        stmt.orderBy != null ||
+        stmt.limit != null ||
+        stmt.fromFunction != null ||
+        stmt.whereCondition == null) {
+      return null;
+    }
+    for (final p in stmt.projections) {
+      if (p.expr is FunctionCallExpr) return null;
+    }
+
+    final tableName = stmt.tableName.toLowerCase();
+    final schema = db.catalog.getTableSchema(tableName);
+    if (schema == null || schema.isColumnar) return null;
+
+    final cond = stmt.whereCondition;
+    if (cond is! BinaryExpr || cond.operator != '=') return null;
+
+    VariableExpr? varExpr;
+    Expression? valExpr;
+    if (cond.left is VariableExpr) {
+      varExpr = cond.left as VariableExpr;
+      valExpr = cond.right;
+    } else if (cond.right is VariableExpr) {
+      varExpr = cond.right as VariableExpr;
+      valExpr = cond.left;
+    } else {
+      return null;
+    }
+
+    if (varExpr.path.length > 2) return null;
+    if (varExpr.path.length == 2 && varExpr.path.first.toLowerCase() != tableName) {
+      return null;
+    }
+    final colName = varExpr.path.last.toLowerCase();
+    final cIdx = schema.columnNamesLower.indexOf(colName);
+    if (cIdx == -1) return null;
+
+    final idx = db.catalog.getIndexForColumn(tableName, colName);
+    if (idx == null) return null;
+
+    int? placeholderIdx;
+    double? literalVal;
+    if (valExpr is PlaceholderExpr) {
+      placeholderIdx = valExpr.index ?? 0;
+    } else if (valExpr is LiteralExpr) {
+      final v = valExpr.value;
+      if (v is num) {
+        literalVal = v.toDouble();
+      } else if (v is String) {
+        final parsed = double.tryParse(v);
+        if (parsed != null) {
+          literalVal = parsed;
+        } else {
+          double hash = 0.0;
+          for (int j = 0; j < v.length; j++) {
+            hash = (hash * 31.0 + v.codeUnitAt(j)) % 9007199254740991;
+          }
+          literalVal = hash;
+        }
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
+
+    final projectedIndices = <int>[];
+    final colNames = <String>[];
+
+    if (stmt.projections.length == 1 &&
+        stmt.projections[0].expr is VariableExpr &&
+        (stmt.projections[0].expr as VariableExpr).path.length == 1 &&
+        (stmt.projections[0].expr as VariableExpr).path.first == '*') {
+      for (int i = 0; i < schema.columnNames.length; i++) {
+        projectedIndices.add(i);
+        colNames.add(schema.columnNames[i]);
+      }
+    } else {
+      for (final p in stmt.projections) {
+        if (p.expr is VariableExpr) {
+          final vPath = (p.expr as VariableExpr).path;
+          final pCol = vPath.last.toLowerCase();
+          final pIdx = schema.columnNamesLower.indexOf(pCol);
+          if (pIdx == -1) return null;
+          projectedIndices.add(pIdx);
+          colNames.add(p.alias ?? schema.columnNames[pIdx]);
+        } else {
+          return null;
+        }
+      }
+    }
+
+    final rowTable = _interpreter._rowTableCache.putIfAbsent(
+      tableName,
+      () => RowTableFile(
+        cache: db.cache,
+        tableName: schema.name,
+        dbDirectory: db.directory,
+      ),
+    );
+
+    final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
+    final isPk = cIdx < schema.columnPrimaryKey.length && schema.columnPrimaryKey[cIdx];
+    bool isAllCols = projectedIndices.length == schema.columnNames.length;
+    if (isAllCols) {
+      for (int i = 0; i < projectedIndices.length; i++) {
+        if (projectedIndices[i] != i) {
+          isAllCols = false;
+          break;
+        }
+      }
+    }
+    final hasDefaults = schema.columnDefaultValues.any((d) => d != null);
+
+    final rowPager = db.cache.getOrCreatePager(rowTable.filePath);
+
+    return _FastPointLookupPlan(
+      schema: schema,
+      rowTable: rowTable,
+      rowPager: rowPager,
+      btree: btree,
+      colIndex: cIdx,
+      placeholderParamIndex: placeholderIdx,
+      literalKey: literalVal,
+      projectedColIndices: projectedIndices,
+      columnNames: colNames,
+      isPrimaryKey: isPk,
+      isAllColumns: isAllCols,
+      hasDefaults: hasDefaults,
+    );
+  }
+
+  QueryResult _executePointLookup(List<dynamic> params) {
+    final plan = _pointPlan!;
+    double? dKey = plan.literalKey;
+    if (plan.placeholderParamIndex != null) {
+      final pIdx = plan.placeholderParamIndex!;
+      if (pIdx >= params.length) {
+        return QueryResult(columns: plan.columnNames, rows: [], message: '0 rows selected.');
+      }
+      final pVal = params[pIdx];
+      if (pVal is DbInt) {
+        dKey = pVal.value.toDouble();
+      } else if (pVal is int) {
+        dKey = pVal.toDouble();
+      } else if (pVal is DbDouble) {
+        dKey = pVal.value;
+      } else if (pVal is double) {
+        dKey = pVal;
+      } else if (pVal is num) {
+        dKey = pVal.toDouble();
+      } else if (pVal is DbText) {
+        final str = pVal.value;
+        final parsed = double.tryParse(str);
+        if (parsed != null) {
+          dKey = parsed;
+        } else {
+          double hash = 0.0;
+          for (int j = 0; j < str.length; j++) {
+            hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
+          }
+          dKey = hash;
+        }
+      } else if (pVal is String) {
+        final parsed = double.tryParse(pVal);
+        if (parsed != null) {
+          dKey = parsed;
+        } else {
+          double hash = 0.0;
+          for (int j = 0; j < pVal.length; j++) {
+            hash = (hash * 31.0 + pVal.codeUnitAt(j)) % 9007199254740991;
+          }
+          dKey = hash;
+        }
+      } else {
+        dKey = pVal.hashCode.toDouble();
+      }
+    }
+
+    if (dKey == null) {
+      return QueryResult(columns: plan.columnNames, rows: [], message: '0 rows selected.');
+    }
+
+    final currentTx = db.cache.currentMvccTx;
+    final txManager = db.cache.mvccTxManager;
+    final currentTxId = currentTx?.txId ?? 0;
+    final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+
+    if (plan.isPrimaryKey) {
+      final int packed;
+      if (plan.btree.keyColumns == 1) {
+        packed = plan.btree.searchKey1PackedSync(dKey);
+      } else {
+        final ptr = plan.btree.searchSync([dKey]);
+        packed = ptr != null ? ((ptr.pageId << 16) | ptr.slotId) : -1;
+      }
+      if (packed == -1) {
+        return QueryResult(columns: plan.columnNames, rows: [], message: '0 rows selected.');
+      }
+      final pageId = packed >> 16;
+      final slotId = packed & 0xFFFF;
+
+      final page = db.cache.pinPagerPageSync(plan.rowPager, pageId);
+      try {
+        final data = page.byteData;
+        final slotOffset = SlottedPageHelper.headerSize + slotId * 4;
+        if (slotOffset + 4 <= page.data.length) {
+          final recOffset = data.getUint16(slotOffset);
+          final recLen = data.getUint16(slotOffset + 2);
+          if (recLen >= 12 && recOffset + recLen <= page.data.length) {
+            final xmin = data.getUint32(recOffset);
+            final xmax = data.getUint32(recOffset + 4);
+            final bool isVis = (currentTxId == 0 && activeTxIds.isEmpty && xmin != 0 && xmax == 0 && txManager.txStatusMap.isEmpty) ||
+                txManager.isVisible(xmin, xmax, currentTxId, activeTxIds);
+            if (isVis) {
+              final rowStart = recOffset + 12;
+              final rowLen = recLen - 12;
+              final List<DbValue> row;
+              if (plan.isAllColumns && !plan.hasDefaults) {
+                row = RecordSerializer.deserializeRowFromView(
+                  data,
+                  rowStart,
+                  rowLen,
+                  plan.schema.columnNames.length,
+                );
+              } else {
+                row = List<DbValue>.generate(plan.projectedColIndices.length, (i) {
+                  final cIdx = plan.projectedColIndices[i];
+                  DbValue val = RecordSerializer.deserializeCellFromView(data, rowStart, rowLen, cIdx);
+                  if (val is DbNull &&
+                      cIdx < plan.schema.columnDefaultValues.length &&
+                      plan.schema.columnDefaultValues[cIdx] != null) {
+                    val = evaluateExpression(plan.schema.columnDefaultValues[cIdx]!, {});
+                  }
+                  return val;
+                });
+              }
+              return QueryResult(columns: plan.columnNames, rows: [row], message: '1 row selected.');
+            }
+          }
+        }
+      } finally {
+        db.cache.unpinPage(page, isDirty: false);
+      }
+      return QueryResult(columns: plan.columnNames, rows: [], message: '0 rows selected.');
+    } else {
+      final ptrs = plan.btree.searchRangeSync([dKey], [dKey]);
+      if (ptrs.isEmpty) {
+        return QueryResult(columns: plan.columnNames, rows: [], message: '0 rows selected.');
+      }
+      final rows = <List<DbValue>>[];
+      for (final ptr in ptrs) {
+        final page = db.cache.pinPagerPageSync(plan.rowPager, ptr.pageId);
+        try {
+          final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
+          if (recBytes != null) {
+            int rowStartOffset = 0;
+            if (recBytes.length >= 12) {
+              final bdRec = ByteData.sublistView(recBytes);
+              final xmin = bdRec.getUint32(0);
+              final xmax = bdRec.getUint32(4);
+              if (!txManager.isVisible(xmin, xmax, currentTxId, activeTxIds)) {
+                continue;
+              }
+              rowStartOffset = 12;
+            }
+
+            final Uint8List rowPayload = rowStartOffset == 0
+                ? recBytes
+                : Uint8List.view(
+                    recBytes.buffer,
+                    recBytes.offsetInBytes + rowStartOffset,
+                    recBytes.length - rowStartOffset,
+                  );
+
+            final List<DbValue> row;
+            if (plan.isAllColumns && !plan.hasDefaults) {
+              row = RecordSerializer.deserializeRow(rowPayload, plan.schema.columnNames.length);
+            } else {
+              final bd = ByteData.sublistView(rowPayload);
+              final rowLength = rowPayload.length;
+              row = List<DbValue>.generate(plan.projectedColIndices.length, (i) {
+                final cIdx = plan.projectedColIndices[i];
+                DbValue val = RecordSerializer.deserializeCellFromView(bd, 0, rowLength, cIdx);
+                if (val is DbNull &&
+                    cIdx < plan.schema.columnDefaultValues.length &&
+                    plan.schema.columnDefaultValues[cIdx] != null) {
+                  val = evaluateExpression(plan.schema.columnDefaultValues[cIdx]!, {});
+                }
+                return val;
+              });
+            }
+            rows.add(row);
+          }
+        } finally {
+          db.cache.unpinPage(page, isDirty: false);
+        }
+      }
+      return QueryResult(columns: plan.columnNames, rows: rows, message: '${rows.length} rows selected.');
+    }
+  }
+
+  Future<QueryResult> execute([List<dynamic> params = const []]) async {
+    if (_pointPlan != null) {
+      return _executePointLookup(params);
+    }
+    final List<DbValue> dbParams = params is List<DbValue>
+        ? params
+        : params.map<DbValue>((p) => p is DbValue ? p : DbValue.parseLiteral(p)).toList();
+    JitCompiler.currentParams = dbParams;
     var res = (statement is InsertStmt)
         ? _interpreter._executeInsert(statement as InsertStmt)
         : _interpreter._executeNodeSync(statement);
@@ -514,8 +860,14 @@ class PreparedStatement {
     return QueryResult(columns: [], rows: [], message: res.toString());
   }
 
-  QueryResult executeSync(List<DbValue> params) {
-    JitCompiler.currentParams = params;
+  QueryResult executeSync([List<dynamic> params = const []]) {
+    if (_pointPlan != null) {
+      return _executePointLookup(params);
+    }
+    final List<DbValue> dbParams = params is List<DbValue>
+        ? params
+        : params.map<DbValue>((p) => p is DbValue ? p : DbValue.parseLiteral(p)).toList();
+    JitCompiler.currentParams = dbParams;
     final res = (statement is InsertStmt)
         ? _interpreter._executeInsert(statement as InsertStmt)
         : _interpreter._executeNodeSync(statement);
@@ -4169,107 +4521,158 @@ END;
         stmt.groupBy == null &&
         !_hasAggregate(stmt.projections)) {
       final cond = stmt.whereCondition;
-      if (cond is BinaryExpr &&
-          cond.operator == '=' &&
-          cond.left is VariableExpr) {
-        final varExpr = cond.left as VariableExpr;
-        if (varExpr.path.length == 1 ||
-            varExpr.path.first.toLowerCase() == tableName) {
+      if (cond is BinaryExpr && cond.operator == '=') {
+        VariableExpr? varExpr;
+        Expression? valExpr;
+        if (cond.left is VariableExpr) {
+          varExpr = cond.left as VariableExpr;
+          valExpr = cond.right;
+        } else if (cond.right is VariableExpr) {
+          varExpr = cond.right as VariableExpr;
+          valExpr = cond.left;
+        }
+        if (varExpr != null &&
+            (varExpr.path.length == 1 ||
+             varExpr.path.first.toLowerCase() == tableName)) {
           final colName = varExpr.path.last.toLowerCase();
-
           final idx = db.catalog.getIndexForColumn(tableName, colName);
           if (idx != null) {
-            if (cond.right is LiteralExpr) {
-              final val = (cond.right as LiteralExpr).value;
-              final double? searchKey = val is num ? val.toDouble() : null;
-              if (searchKey != null) {
-                final indexName = idx.name.toLowerCase();
-                final btree = db.getOrInitIndexSync(indexName);
-                final ptr = btree.searchSync([searchKey]);
+            double? searchKey;
+            if (valExpr is LiteralExpr) {
+              final val = valExpr.value;
+              searchKey = val is num ? val.toDouble() : (val is String ? double.tryParse(val) : null);
+            } else if (valExpr is PlaceholderExpr) {
+              final params = JitCompiler.currentParams;
+              final pIdx = valExpr.index ?? 0;
+              if (params != null && pIdx < params.length) {
+                final p = params[pIdx];
+                if (p is DbInt) {
+                  searchKey = p.value.toDouble();
+                } else if (p is DbDouble) {
+                  searchKey = p.value;
+                } else if (p is DbText) {
+                  searchKey = double.tryParse(p.value);
+                }
+              }
+            }
+            if (searchKey != null) {
+              final indexName = idx.name.toLowerCase();
+              final btree = db.getOrInitIndexSync(indexName);
+              final ptr = btree.searchSync([searchKey]);
 
-                if (ptr != null) {
-                  final rowTable = RowTableFile(
+              if (ptr != null) {
+                final rowTable = _rowTableCache.putIfAbsent(
+                  tableName,
+                  () => RowTableFile(
                     cache: db.cache,
                     tableName: schema.name,
                     dbDirectory: db.directory,
-                  );
-                  final page = db.cache.pinPageSync(
-                    rowTable.filePath,
-                    ptr.pageId,
-                  );
-                  final recBytes = SlottedPageHelper.getRecord(
-                    page,
-                    ptr.slotId,
-                  );
+                  ),
+                );
+                final page = db.cache.pinPageSync(
+                  rowTable.filePath,
+                  ptr.pageId,
+                );
+                final recBytes = SlottedPageHelper.getRecord(
+                  page,
+                  ptr.slotId,
+                );
 
-                  final rows = <List<DbValue>>[];
-                  if (recBytes != null) {
-                    List<DbValue>? fullRow;
-                    try {
-                      final mvccRecord = MvccRecord.fromBytes(recBytes);
-                      final currentTx = db.cache.currentMvccTx;
-                      final txManager = db.cache.mvccTxManager;
-                      final currentTxId = currentTx?.txId ?? 0;
-                      final activeTxIds =
-                          currentTx?.activeTxIds ?? const <int>{};
-                      if (txManager.isVisible(
-                        mvccRecord.xmin,
-                        mvccRecord.xmax,
-                        currentTxId,
-                        activeTxIds,
-                      )) {
-                        fullRow = RecordSerializer.deserializeRow(
-                          mvccRecord.rowData,
-                        );
-                      }
-                    } catch (_) {
-                      fullRow = RecordSerializer.deserializeRow(recBytes);
+                final rows = <List<DbValue>>[];
+                if (recBytes != null) {
+                  final currentTx = db.cache.currentMvccTx;
+                  final txManager = db.cache.mvccTxManager;
+                  final currentTxId = currentTx?.txId ?? 0;
+                  final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+
+                  int rowStartOffset = 0;
+                  bool isVis = true;
+                  if (recBytes.length >= 12) {
+                    final bdRec = ByteData.sublistView(recBytes);
+                    final xmin = bdRec.getUint32(0);
+                    final xmax = bdRec.getUint32(4);
+                    if (!txManager.isVisible(xmin, xmax, currentTxId, activeTxIds)) {
+                      isVis = false;
                     }
-                    if (fullRow != null) {
+                    rowStartOffset = 12;
+                  }
+
+                  if (isVis) {
+                    final bd = ByteData.sublistView(recBytes, rowStartOffset);
+                    final rowLength = recBytes.length - rowStartOffset;
+                    bool allSimpleVars = true;
+                    final projectedIndices = <int>[];
+                    final columns = <String>[];
+
+                    if (stmt.projections.length == 1 &&
+                        stmt.projections[0].expr is VariableExpr &&
+                        (stmt.projections[0].expr as VariableExpr).path.length == 1 &&
+                        (stmt.projections[0].expr as VariableExpr).path.first == '*') {
+                      for (int i = 0; i < schema.columnNames.length; i++) {
+                        projectedIndices.add(i);
+                        columns.add(schema.columnNames[i]);
+                      }
+                    } else {
+                      for (final proj in stmt.projections) {
+                        if (proj.expr is VariableExpr) {
+                          final vCol = (proj.expr as VariableExpr).path.last.toLowerCase();
+                          final cIdx = schema.columnNamesLower.indexOf(vCol);
+                          if (cIdx != -1) {
+                            projectedIndices.add(cIdx);
+                            columns.add(proj.alias ?? schema.columnNames[cIdx]);
+                          } else {
+                            allSimpleVars = false;
+                            break;
+                          }
+                        } else {
+                          allSimpleVars = false;
+                          break;
+                        }
+                      }
+                    }
+
+                    if (allSimpleVars) {
+                      final projectedRow = List<DbValue>.generate(projectedIndices.length, (i) {
+                        final cIdx = projectedIndices[i];
+                        DbValue val = RecordSerializer.deserializeCellFromView(bd, 0, rowLength, cIdx);
+                        if (val is DbNull &&
+                            cIdx < schema.columnDefaultValues.length &&
+                            schema.columnDefaultValues[cIdx] != null) {
+                          val = evaluateExpression(schema.columnDefaultValues[cIdx]!, {});
+                        }
+                        return val;
+                      });
+                      rows.add(projectedRow);
+                      db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+                      _applyDataMasking(stmt, columns, rows);
+                      return QueryResult(
+                        columns: columns,
+                        rows: rows,
+                        message: "Index scan completed successfully.",
+                      );
+                    } else {
+                      final fullRow = RecordSerializer.deserializeRow(
+                        rowStartOffset > 0 ? recBytes.sublist(rowStartOffset) : recBytes,
+                      );
                       final rowContext = <String, DbValue>{};
                       for (int i = 0; i < schema.columnNames.length; i++) {
                         DbValue val = (i < fullRow.length) ? fullRow[i] : DbNull();
                         if (val is DbNull &&
                             i < schema.columnDefaultValues.length &&
                             schema.columnDefaultValues[i] != null) {
-                          val = evaluateExpression(
-                            schema.columnDefaultValues[i]!,
-                            {},
-                          );
+                          val = evaluateExpression(schema.columnDefaultValues[i]!, {});
                         }
                         rowContext['${schema.name}.${schema.columnNames[i]}'] = val;
                         rowContext[schema.columnNames[i]] = val;
                       }
-
                       final projectedRow = <DbValue>[];
-                      final columns = <String>[];
-                      var localProjections = stmt.projections;
-                      if (localProjections.length == 1 &&
-                          localProjections[0].expr is VariableExpr &&
-                          (localProjections[0].expr as VariableExpr)
-                                  .path
-                                  .first ==
-                              '*') {
-                        localProjections = schema.columnNames.map((colName) {
-                          return Projection(VariableExpr([colName]), null);
-                        }).toList();
-                      }
-                      for (final proj in localProjections) {
+                      for (final proj in stmt.projections) {
                         final pVal = evaluateExpression(proj.expr, rowContext);
                         projectedRow.add(pVal);
-                        columns.add(
-                          proj.alias ??
-                              (proj.expr is VariableExpr
-                                  ? (proj.expr as VariableExpr).fullName
-                                  : pVal.toString()),
-                        );
+                        columns.add(proj.alias ?? (proj.expr is VariableExpr ? (proj.expr as VariableExpr).fullName : pVal.toString()));
                       }
                       rows.add(projectedRow);
-                      db.cache.unpinPageSync(
-                        rowTable.filePath,
-                        ptr.pageId,
-                        isDirty: false,
-                      );
+                      db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
                       _applyDataMasking(stmt, columns, rows);
                       return QueryResult(
                         columns: columns,
@@ -4278,12 +4681,12 @@ END;
                       );
                     }
                   }
-                  db.cache.unpinPageSync(
-                    rowTable.filePath,
-                    ptr.pageId,
-                    isDirty: false,
-                  );
                 }
+                db.cache.unpinPageSync(
+                  rowTable.filePath,
+                  ptr.pageId,
+                  isDirty: false,
+                );
               }
             }
           }
@@ -4700,6 +5103,7 @@ END;
     var pageIds = Int32List(totalRowCount);
     var slotIds = Int32List(totalRowCount);
 
+    final swScan = Stopwatch()..start();
     int destIdx = 0;
     final schemaLen = schema.columnNames.length;
 
@@ -5005,14 +5409,12 @@ END;
         ? slotIds
         : Int32List.sublistView(slotIds, 0, actualRowCount);
 
-    final indices = Int32List(actualRowCount);
-    for (int i = 0; i < actualRowCount; i++) {
-      indices[i] = i;
-    }
+    swScan.stop();
 
+    final swSort = Stopwatch()..start();
+    Int32List? indices;
     if (K == 1) {
-      _quickSort1(
-        indices,
+      _quickSort1Direct(
         finalKeys,
         finalPageIds,
         finalSlotIds,
@@ -5020,6 +5422,10 @@ END;
         actualRowCount - 1,
       );
     } else {
+      indices = Int32List(actualRowCount);
+      for (int i = 0; i < actualRowCount; i++) {
+        indices[i] = i;
+      }
       _quickSortK(
         indices,
         finalKeys,
@@ -5030,17 +5436,21 @@ END;
         actualRowCount - 1,
       );
     }
+    swSort.stop();
 
     totalRowCount = actualRowCount;
     stats.rowCount = actualRowCount;
 
-    btree.insertSortedBatchSync(
+    final swBuild = Stopwatch()..start();
+    btree.buildBottomUpSync(
       finalKeys,
       finalPageIds,
       finalSlotIds,
-      K,
+      actualRowCount,
+      K: K,
       indices: indices,
     );
+    swBuild.stop();
 
     final cStats = stats.columnStats.putIfAbsent(colName, () => MinMaxStats());
 
@@ -5049,13 +5459,13 @@ END;
       distinctCount = 1;
       if (K == 1) {
         for (int i = 1; i < totalRowCount; i++) {
-          if (finalKeys[indices[i]] != finalKeys[indices[i - 1]]) {
+          if (finalKeys[i] != finalKeys[i - 1]) {
             distinctCount++;
           }
         }
       } else {
         for (int i = 1; i < totalRowCount; i++) {
-          final idxCurr = indices[i];
+          final idxCurr = indices![i];
           final idxPrev = indices[i - 1];
           bool diff = false;
           for (int k = 0; k < K; k++) {
@@ -5073,8 +5483,8 @@ END;
 
     cStats.distinctCount += distinctCount;
     if (totalRowCount > 0) {
-      final minVal = finalKeys[indices[0] * K];
-      final maxVal = finalKeys[indices[totalRowCount - 1] * K];
+      final minVal = K == 1 ? finalKeys[0] : finalKeys[indices![0] * K];
+      final maxVal = K == 1 ? finalKeys[totalRowCount - 1] : finalKeys[indices![totalRowCount - 1] * K];
       if (cStats.min == null || minVal < cStats.min!) cStats.min = minVal;
       if (cStats.max == null || maxVal > cStats.max!) cStats.max = maxVal;
     }
@@ -5948,8 +6358,27 @@ class _DeleteTarget {
   _DeleteTarget(this.pageId, this.slotId, this.rowValues);
 }
 
-void _insertionSort1(
-  Int32List indices,
+void _swapDirect(
+  Float64List keys,
+  Int32List pageIds,
+  Int32List slotIds,
+  int i,
+  int j,
+) {
+  final tKey = keys[i]; keys[i] = keys[j]; keys[j] = tKey;
+  final tPage = pageIds[i]; pageIds[i] = pageIds[j]; pageIds[j] = tPage;
+  final tSlot = slotIds[i]; slotIds[i] = slotIds[j]; slotIds[j] = tSlot;
+}
+
+bool _isGreaterDirect(double k1, int p1, int s1, double k2, int p2, int s2) {
+  if (k1 > k2) return true;
+  if (k1 < k2) return false;
+  if (p1 > p2) return true;
+  if (p1 < p2) return false;
+  return s1 > s2;
+}
+
+void _insertionSort1Direct(
   Float64List keys,
   Int32List pageIds,
   Int32List slotIds,
@@ -5957,40 +6386,40 @@ void _insertionSort1(
   int right,
 ) {
   for (int i = left + 1; i <= right; i++) {
-    final tempIdx = indices[i];
-    final tempKey = keys[tempIdx];
-    final tempPage = pageIds[tempIdx];
-    final tempSlot = slotIds[tempIdx];
+    final tempKey = keys[i];
+    final tempPage = pageIds[i];
+    final tempSlot = slotIds[i];
 
     int j = i - 1;
     while (j >= left) {
-      final idxJ = indices[j];
-      final kJ = keys[idxJ];
-
+      final kJ = keys[j];
       bool isJGreaterThanTemp = false;
       if (kJ > tempKey) {
         isJGreaterThanTemp = true;
       } else if (kJ == tempKey) {
-        final pJ = pageIds[idxJ];
+        final pJ = pageIds[j];
         if (pJ > tempPage) {
           isJGreaterThanTemp = true;
         } else if (pJ == tempPage) {
-          if (slotIds[idxJ] > tempSlot) {
+          if (slotIds[j] > tempSlot) {
             isJGreaterThanTemp = true;
           }
         }
       }
 
       if (!isJGreaterThanTemp) break;
-      indices[j + 1] = indices[j];
+      keys[j + 1] = keys[j];
+      pageIds[j + 1] = pageIds[j];
+      slotIds[j + 1] = slotIds[j];
       j--;
     }
-    indices[j + 1] = tempIdx;
+    keys[j + 1] = tempKey;
+    pageIds[j + 1] = tempPage;
+    slotIds[j + 1] = tempSlot;
   }
 }
 
-void _quickSort1(
-  Int32List indices,
+void _quickSort1Direct(
   Float64List keys,
   Int32List pageIds,
   Int32List slotIds,
@@ -5999,79 +6428,74 @@ void _quickSort1(
 ) {
   if (left >= right) return;
   if (right - left <= 15) {
-    _insertionSort1(indices, keys, pageIds, slotIds, left, right);
+    _insertionSort1Direct(keys, pageIds, slotIds, left, right);
     return;
   }
 
   final center = (left + right) >> 1;
-  if (keys[indices[left]] > keys[indices[center]]) {
-    _swap(indices, left, center);
+  if (_isGreaterDirect(keys[left], pageIds[left], slotIds[left], keys[center], pageIds[center], slotIds[center])) {
+    _swapDirect(keys, pageIds, slotIds, left, center);
   }
-  if (keys[indices[left]] > keys[indices[right]]) {
-    _swap(indices, left, right);
+  if (_isGreaterDirect(keys[left], pageIds[left], slotIds[left], keys[right], pageIds[right], slotIds[right])) {
+    _swapDirect(keys, pageIds, slotIds, left, right);
   }
-  if (keys[indices[center]] > keys[indices[right]]) {
-    _swap(indices, center, right);
+  if (_isGreaterDirect(keys[center], pageIds[center], slotIds[center], keys[right], pageIds[right], slotIds[right])) {
+    _swapDirect(keys, pageIds, slotIds, center, right);
   }
 
-  final pivotIdx = indices[center];
-  final pivotKey = keys[pivotIdx];
-  final pivotPage = pageIds[pivotIdx];
-  final pivotSlot = slotIds[pivotIdx];
+  final pivotKey = keys[center];
+  final pivotPage = pageIds[center];
+  final pivotSlot = slotIds[center];
 
   int i = left;
   int j = right;
   while (i <= j) {
     while (true) {
-      final idx = indices[i];
-      final k = keys[idx];
+      final k = keys[i];
       if (k < pivotKey) {
         i++;
         continue;
       }
       if (k > pivotKey) break;
-      final p = pageIds[idx];
+      final p = pageIds[i];
       if (p < pivotPage) {
         i++;
         continue;
       }
       if (p > pivotPage) break;
-      if (slotIds[idx] < pivotSlot) {
+      if (slotIds[i] < pivotSlot) {
         i++;
         continue;
       }
       break;
     }
     while (true) {
-      final idx = indices[j];
-      final k = keys[idx];
+      final k = keys[j];
       if (k > pivotKey) {
         j--;
         continue;
       }
       if (k < pivotKey) break;
-      final p = pageIds[idx];
+      final p = pageIds[j];
       if (p > pivotPage) {
         j--;
         continue;
       }
       if (p < pivotPage) break;
-      if (slotIds[idx] > pivotSlot) {
+      if (slotIds[j] > pivotSlot) {
         j--;
         continue;
       }
       break;
     }
     if (i <= j) {
-      final temp = indices[i];
-      indices[i] = indices[j];
-      indices[j] = temp;
+      _swapDirect(keys, pageIds, slotIds, i, j);
       i++;
       j--;
     }
   }
-  if (left < j) _quickSort1(indices, keys, pageIds, slotIds, left, j);
-  if (i < right) _quickSort1(indices, keys, pageIds, slotIds, i, right);
+  if (left < j) _quickSort1Direct(keys, pageIds, slotIds, left, j);
+  if (i < right) _quickSort1Direct(keys, pageIds, slotIds, i, right);
 }
 
 void _quickSortK(

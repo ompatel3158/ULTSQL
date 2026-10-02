@@ -6,6 +6,7 @@ class Page {
   late final ByteData byteData;
   bool isDirty = false;
   int pinCount = 0;
+  dynamic key;
 
   // Last access timestamp for LRU eviction
   int lastAccessTime = 0;

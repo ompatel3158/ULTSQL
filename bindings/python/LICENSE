@@ -6,7 +6,7 @@ FSL-1.1-MIT
 
 ## Notice
 
-Copyright 2026 Om Patel <ompatel3158@gmail.com>
+Copyright 2026 Om Patel <om.business3158@gmail.com>
 
 ## Terms and Conditions
 

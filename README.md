@@ -1112,7 +1112,7 @@ ULTSQL is licensed under the **Functional Source License, Version 1.1, MIT Futur
 - **v1.0.1 – v1.0.17**: BSD-3-Clause License
 - **v1.0.18+**: Functional Source License (FSL-1.1-MIT)
 
-**Copyright**: Copyright (c) 2026 Om Patel (`ompatel3158@gmail.com`). All rights reserved.
+**Copyright**: Copyright (c) 2026 Om Patel (`om.business3158@gmail.com`). All rights reserved.
 
 For full legal details and answers to common licensing questions:
 - 📄 [View the Full LICENSE](LICENSE)
