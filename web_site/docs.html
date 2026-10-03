@@ -3,128 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Documentation & API Reference — ULTSQL</title>
-  <meta name="description" content="Comprehensive documentation, quickstart guides, SQL syntax reference, HNSW vector search, and client SDKs for ULTSQL.">
-  <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/docs">
+  <title>Documentation & Complete API Reference — ULTSQL</title>
+  <meta name="description" content="Exhaustive documentation, quickstart guides, SQL dialect reference, NoSQL document collections, Redis-style KV, AI vector search (HNSW), PGWire, REST, and multi-language SDKs for ULTSQL.">
+  <link rel="canonical" href="https://ultsql.vercel.app/docs.html">
   <meta name="google-site-verification" content="s8GoKEfYxYOuxJ97E1Q3lmCldu-tUsGSgPHX17s_GlU">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
+  
   <link rel="stylesheet" href="style.css?v=2.1.0">
-
-  <!-- Anime.js v4 Animation Engine -->
-  <script src="vendor/anime.umd.min.js"></script>
-
-  <style>
-    .docs-layout-grid {
-      display: grid;
-      grid-template-columns: 240px 1fr;
-      gap: 3rem;
-      padding: 3rem 0 6rem;
-    }
-    .docs-sidebar-pane {
-      position: sticky;
-      top: 5.5rem;
-      height: fit-content;
-      max-height: calc(100vh - 7rem);
-      overflow-y: auto;
-      padding: 1.25rem 1rem;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
-      box-shadow: var(--shadow-sm);
-    }
-    .docs-sidebar-group {
-      margin-bottom: 1.5rem;
-    }
-    .docs-sidebar-title {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-tertiary);
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-    .docs-nav-link-item {
-      display: block;
-      font-size: 0.84rem;
-      padding: 0.35rem 0.6rem;
-      color: var(--text-secondary);
-      border-radius: var(--radius-xs);
-      transition: all var(--transition-fast);
-      margin-bottom: 0.15rem;
-    }
-    .docs-nav-link-item:hover {
-      color: var(--text-primary);
-      background: var(--bg-surface-hover);
-    }
-    .docs-nav-link-item.active {
-      color: var(--text-primary);
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
-      font-weight: 600;
-    }
-    .doc-article-section {
-      margin-bottom: 4rem;
-      scroll-margin-top: 6.5rem;
-    }
-    .doc-article-title {
-      font-size: 1.85rem;
-      font-weight: 800;
-      margin-bottom: 0.85rem;
-      letter-spacing: -0.03em;
-    }
-    .doc-article-p {
-      color: var(--text-secondary);
-      font-size: 0.98rem;
-      line-height: 1.7;
-      margin-bottom: 1.25rem;
-    }
-    .doc-code-card {
-      background: var(--bg-base);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-xs);
-      margin-bottom: 1.5rem;
-      overflow: hidden;
-    }
-    .doc-code-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.45rem 0.85rem;
-      background: var(--bg-surface-elevated);
-      border-bottom: 1px solid var(--border-subtle);
-      font-size: 0.72rem;
-      color: var(--text-tertiary);
-      font-family: var(--font-mono);
-    }
-    .doc-code-block {
-      padding: 1.15rem;
-      font-family: var(--font-mono);
-      font-size: 0.84rem;
-      line-height: 1.6;
-      overflow-x: auto;
-      color: var(--text-primary);
-    }
-    .doc-alert-box {
-      padding: 0.85rem 1.15rem;
-      background: var(--bg-surface-elevated);
-      border-left: 2px solid var(--text-primary);
-      border-radius: var(--radius-xs);
-      font-size: 0.88rem;
-      color: var(--text-secondary);
-      margin-bottom: 1.5rem;
-    }
-    @media (max-width: 880px) {
-      .docs-layout-grid {
-        grid-template-columns: 1fr;
-      }
-      .docs-sidebar-pane {
-        display: none;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="docs.css">
 </head>
 <body>
 
@@ -151,269 +38,1052 @@
         <li><a href="features.html" class="nav-item-link">Features</a></li>
         <li><a href="benchmarks.html" class="nav-item-link">Benchmarks</a></li>
         <li><a href="docs.html" class="nav-item-link active">Docs</a></li>
-        <li><a href="license.html" class="nav-item-link">License</a></li>
       </ul>
 
       <div class="nav-actions">
-        <button class="cmd-k-btn cmd-open-btn" title="Open Command Palette (Ctrl+K)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <span>Search</span>
-          <span class="kbd-shortcut">⌘K</span>
-        </button>
-
-        <button class="btn-icon theme-toggle-btn" id="themeToggle" aria-label="Toggle theme">
-          <span class="theme-icon"></span>
-        </button>
-
-        <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.38rem 0.8rem; font-size: 0.78rem;">pub.dev</a>
-        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.38rem 0.9rem; font-size: 0.78rem;">GitHub</a>
-
-        <button class="btn-icon mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle mobile menu">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-        </button>
+        <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" rel="noopener noreferrer" class="btn-primary-compact">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+          GitHub
+        </a>
       </div>
     </nav>
   </header>
 
-  <!-- MOBILE NAV DRAWER -->
-  <div class="mobile-nav-drawer" id="mobileNavDrawer">
-    <div class="mobile-nav-header">
-      <div class="nav-brand">
-        <img src="icon.svg" alt="ULTSQL Logo" width="24" height="24">
-        <span>ULTSQL</span>
-      </div>
-      <button class="btn-icon" id="mobileMenuClose">✕</button>
-    </div>
-    <ul class="mobile-nav-links">
-      <li><a href="index.html" class="mobile-nav-link">Home</a></li>
-      <li><a href="index.html#playground" class="mobile-nav-link">Playground</a></li>
-      <li><a href="features.html" class="mobile-nav-link">Features Matrix</a></li>
-      <li><a href="benchmarks.html" class="mobile-nav-link">Benchmarks</a></li>
-      <li><a href="docs.html" class="mobile-nav-link active">Documentation</a></li>
-      <li><a href="license.html" class="mobile-nav-link">License & FAQ</a></li>
-    </ul>
-  </div>
+  <div class="docs-container">
+    <div class="docs-grid">
 
-  <main class="container">
-    <div class="docs-layout-grid">
-      <!-- SIDEBAR -->
-      <aside class="docs-sidebar-pane">
-        <div class="docs-sidebar-group">
-          <div class="docs-sidebar-title">Getting Started</div>
-          <a href="#introduction" class="docs-nav-link-item active">Introduction</a>
-          <a href="#installation" class="docs-nav-link-item">Installation</a>
-          <a href="#quickstart" class="docs-nav-link-item">Quickstart</a>
+      <!-- LEFT SIDEBAR NAVIGATION -->
+      <aside class="docs-sidebar">
+        <div class="docs-search-box">
+          <input type="text" id="docsSearchInput" class="docs-search-input" placeholder="Search docs..." autocomplete="off">
+          <span class="docs-search-kbd">/</span>
         </div>
 
-        <div class="docs-sidebar-group">
-          <div class="docs-sidebar-title">Relational SQL</div>
-          <a href="#ddl-dml" class="docs-nav-link-item">DDL & DML Syntax</a>
-          <a href="#joins-aggregates" class="docs-nav-link-item">JOINs & Aggregates</a>
-          <a href="#indexes-storage" class="docs-nav-link-item">Slotted Pages</a>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-title">Getting Started</div>
+          <a href="#overview" class="docs-nav-link active">1. System Overview</a>
+          <a href="#installation" class="docs-nav-link">2. Installation & SDKs</a>
+          <a href="#quickstart" class="docs-nav-link">3. Quickstart Guide</a>
+          <a href="#storage-modes" class="docs-nav-link">4. Storage Modes</a>
         </div>
 
-        <div class="docs-sidebar-group">
-          <div class="docs-sidebar-title">AI Vector RAG</div>
-          <a href="#vector-hnsw" class="docs-nav-link-item">HNSW Graphs</a>
-          <a href="#vector-queries" class="docs-nav-link-item">Vector Distance</a>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-title">Relational SQL Core</div>
+          <a href="#sql-reference" class="docs-nav-link">5. SQL & Dialect Reference</a>
+          <a href="#prepared-statements" class="docs-nav-link">6. Prepared Statements</a>
+          <a href="#indexes" class="docs-nav-link">7. B+ Tree Indexes</a>
+          <a href="#transactions" class="docs-nav-link">8. ACID Transactions & MVCC</a>
+          <a href="#durability" class="docs-nav-link">9. ARIES WAL & Durability</a>
         </div>
 
-        <div class="docs-sidebar-group">
-          <div class="docs-sidebar-title">NoSQL & JSON</div>
-          <a href="#json-queries" class="docs-nav-link-item">Dotted Traversal</a>
-          <a href="#json-mutations" class="docs-nav-link-item">Mutations</a>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-title">Converged NoSQL & KV</div>
+          <a href="#nosql-collections" class="docs-nav-link">10. NoSQL Document Collections</a>
+          <a href="#key-value" class="docs-nav-link">11. Redis-Style KV Store</a>
+          <a href="#sql-nosql-bridge" class="docs-nav-link">12. SQL ↔ NoSQL Bridge</a>
         </div>
 
-        <div class="docs-sidebar-group">
-          <div class="docs-sidebar-title">PL/SQL & Server</div>
-          <a href="#plsql-procedural" class="docs-nav-link-item">Procedural Scripts</a>
-          <a href="#pgwire-server" class="docs-nav-link-item">Pgwire Server</a>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-title">AI & Advanced Analytics</div>
+          <a href="#vector-search" class="docs-nav-link">13. AI Vector Search (HNSW)</a>
+          <a href="#security" class="docs-nav-link">14. Security & Envelopes</a>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-title">Networking & Servers</div>
+          <a href="#pgwire-server" class="docs-nav-link">15. PostgreSQL Wire Server</a>
+          <a href="#rest-server" class="docs-nav-link">16. Embedded REST Server</a>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-title">Tooling & Operations</div>
+          <a href="#cli-tooling" class="docs-nav-link">17. CLI & REPL Commands</a>
+          <a href="#language-bindings" class="docs-nav-link">18. Language Bindings</a>
+          <a href="#configuration" class="docs-nav-link">19. Engine Configuration</a>
+          <a href="#errors-troubleshooting" class="docs-nav-link">20. Errors & FAQ</a>
         </div>
       </aside>
 
-      <!-- ARTICLE CONTENT -->
-      <div class="docs-article-body">
-        <section class="doc-article-section" id="introduction">
-          <h1 class="doc-article-title">Introduction to ULTSQL</h1>
-          <p class="doc-article-p">
-            ULTSQL is an embedded, multimodal database engine written in <strong>100% pure Dart</strong>. It uniquely combines a relational SQL execution engine with ACID MVCC guarantees, native HNSW high-dimensional vector search, schema-less JSON document storage, and a procedural PL/SQL runtime into a single lightweight package.
+      <!-- CENTER CONTENT ARTICLE -->
+      <main class="docs-content">
+
+        <!-- HEADER HERO -->
+        <header class="docs-header-hero" data-reveal="fade">
+          <div class="docs-badge-row">
+            <span class="docs-badge">VERSION 1.0.26</span>
+            <span class="docs-badge">100% PURE DART</span>
+            <span class="docs-badge">ZERO C/C++ DEPENDENCIES</span>
+          </div>
+          <h1 class="docs-title">ULTSQL Documentation</h1>
+          <p class="docs-subtitle">
+            Complete technical guide for ULTSQL: the converged multi-model database engine combining Relational SQL, NoSQL Dotted JSON, Redis-style KV caching, and AI Vector RAG Search on a unified slotted-page core.
           </p>
-          <div class="doc-alert-box">
-            <strong>Zero C/C++ Dependencies:</strong> Runs entirely in pure Dart bytecode and Dart WebAssembly. Works identically across iOS, Android, macOS, Windows, Linux, and Web.
+        </header>
+
+        <!-- 1. OVERVIEW -->
+        <section id="overview" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">1. System Architecture & Overview <a href="#overview" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL is an autonomous, converged database engine implemented in 100% pure Dart. Unlike traditional systems that require running separate database daemons for relational queries (PostgreSQL/SQLite), document storage (MongoDB), high-speed key-value caching (Redis), and vector embeddings (Milvus/Pinecone), ULTSQL unifies all four operational models into a single engine binary and single storage container.
+          </p>
+          <div class="doc-callout tip">
+            <div class="doc-callout-title">💡 Pure Dart Architecture</div>
+            ULTSQL compiles ahead-of-time (AOT) to standalone native binaries or runs in Flutter, Dart VM, Node.js, and web browsers with WebAssembly. It requires <strong>zero native C/C++ libraries, zero dynamic link libraries (.so/.dylib/.dll), and zero C-compiler toolchains</strong>.
+          </div>
+          <p class="doc-p">
+            Storage is structured around a slotted-page architecture with an ARIES-compliant Write-Ahead Log (WAL), CRC32 integrity checksums, bottom-up B+ Tree construction, and graph-based HNSW vector indexing.
+          </p>
+        </section>
+
+        <!-- 2. INSTALLATION -->
+        <section id="installation" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">2. Installation & SDKs <a href="#installation" class="anchor-link">#</a></h2>
+          <p class="doc-p">Install ULTSQL in your language environment or install the standalone CLI globally.</p>
+
+          <div class="code-card" data-tabs>
+            <div class="code-header">
+              <div class="code-tabs">
+                <button class="code-tab-btn active" data-lang="dart">Dart / Flutter</button>
+                <button class="code-tab-btn" data-lang="cli">CLI Global</button>
+                <button class="code-tab-btn" data-lang="node">Node.js</button>
+                <button class="code-tab-btn" data-lang="python">Python</button>
+                <button class="code-tab-btn" data-lang="go">Go</button>
+                <button class="code-tab-btn" data-lang="rust">Rust</button>
+                <button class="code-tab-btn" data-lang="docker">Docker</button>
+              </div>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block" data-lang="dart"><code># Add to Dart / Flutter pubspec.yaml
+dart pub add ultsql
+# Or Flutter:
+flutter pub add ultsql</code></pre>
+            <pre class="code-block" data-lang="cli" style="display: none;"><code># Activate interactive CLI binary globally
+dart pub global activate ultsql
+
+# Verify installation
+ultsql --version</code></pre>
+            <pre class="code-block" data-lang="node" style="display: none;"><code># Install Node.js / TypeScript SDK
+npm install ultsql</code></pre>
+            <pre class="code-block" data-lang="python" style="display: none;"><code># Install Python client driver
+pip install ultsql</code></pre>
+            <pre class="code-block" data-lang="go" style="display: none;"><code># Install Go native driver
+go get github.com/ompatel3158/ULTSQL/bindings/go</code></pre>
+            <pre class="code-block" data-lang="rust" style="display: none;"><code># Add to Cargo.toml
+[dependencies]
+ultsql = "1.0.26"</code></pre>
+            <pre class="code-block" data-lang="docker" style="display: none;"><code># Run standalone PGWire server on port 5432
+docker run -d -p 5432:5432 -v $(pwd)/data:/data ompatel/ultsql:latest</code></pre>
           </div>
         </section>
 
-        <section class="doc-article-section" id="installation">
-          <h2 class="doc-article-title">Installation</h2>
-          <p class="doc-article-p">Add ULTSQL to your Dart or Flutter application:</p>
+        <!-- 3. QUICKSTART -->
+        <section id="quickstart" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">3. Quickstart Guide <a href="#quickstart" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Initialize an embedded database instance, create a table with primary key constraints, insert records, and query with high-speed interpreted execution.
+          </p>
+
+          <div class="code-card" data-tabs>
+            <div class="code-header">
+              <div class="code-tabs">
+                <button class="code-tab-btn active" data-lang="dart">Dart</button>
+                <button class="code-tab-btn" data-lang="sql">SQL Script</button>
+                <button class="code-tab-btn" data-lang="node">Node.js</button>
+                <button class="code-tab-btn" data-lang="python">Python</button>
+              </div>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block" data-lang="dart"><code>import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  // 1. Open persistent disk database (or ':memory:' for RAM)
+  final db = Database('./my_database');
+  await db.init();
+  final it = Interpreter(db);
+
+  // 2. Create relational schema
+  await it.executeScript('''
+    CREATE TABLE users (
+      id INT PRIMARY KEY,
+      name TEXT,
+      email TEXT,
+      created_at TEXT
+    );
+  ''');
+
+  // 3. Insert records
+  await it.executeScript('''
+    INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io', '2026-10-01');
+    INSERT INTO users VALUES (2, 'Bob Jones', 'bob@ultsql.io', '2026-10-02');
+  ''');
+
+  // 4. Query with standard SQL
+  final res = await it.executeScript("SELECT name, email FROM users WHERE id = 1;");
+  for (final row in res.rows) {
+    print('User: ${row[0]} <${row[1]}>');
+  }
+
+  // 5. Clean shutdown (flushes cache and closes WAL)
+  await db.close();
+}</code></pre>
+            <pre class="code-block" data-lang="sql" style="display: none;"><code>-- Direct SQL Script execution
+CREATE TABLE users (
+  id INT PRIMARY KEY,
+  name TEXT,
+  email TEXT,
+  created_at TEXT
+);
+
+INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io', '2026-10-01');
+INSERT INTO users VALUES (2, 'Bob Jones', 'bob@ultsql.io', '2026-10-02');
+
+SELECT name, email FROM users WHERE id = 1;</code></pre>
+            <pre class="code-block" data-lang="node" style="display: none;"><code>const { UltSql } = require('ultsql');
+
+async function main() {
+  const db = await UltSql.openFile('./my_database');
+  await db.query(`
+    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, email TEXT);
+    INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io');
+  `);
+
+  const res = await db.query("SELECT * FROM users WHERE id = 1;");
+  console.log('Results:', res.rows);
+  await db.close();
+}
+main();</code></pre>
+            <pre class="code-block" data-lang="python" style="display: none;"><code>import ultsql
+
+# Connect to embedded or PGWire server
+conn = ultsql.connect(database="./my_database")
+cur = conn.cursor()
+
+cur.execute("CREATE TABLE users (id INT PRIMARY KEY, name TEXT, email TEXT);")
+cur.execute("INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io');")
+
+cur.execute("SELECT * FROM users WHERE id = 1;")
+print(cur.fetchall())
+conn.close()</code></pre>
+          </div>
+        </section>
+
+        <!-- 4. STORAGE MODES -->
+        <section id="storage-modes" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">4. Storage Modes <a href="#storage-modes" class="anchor-link">#</a></h2>
+          <p class="doc-p">ULTSQL offers four switchable persistence profiles depending on performance and durability requirements:</p>
           
-          <div class="doc-code-card">
-            <div class="doc-code-header">
-              <span>TERMINAL</span>
-              <button class="cli-copy-btn copy-trigger" data-copy="dart pub add ultsql">Copy</button>
-            </div>
-            <pre class="doc-code-block">dart pub add ultsql</pre>
-          </div>
-
-          <p class="doc-article-p">For Flutter applications:</p>
-          <div class="doc-code-card">
-            <div class="doc-code-header">
-              <span>TERMINAL</span>
-              <button class="cli-copy-btn copy-trigger" data-copy="flutter pub add ultsql">Copy</button>
-            </div>
-            <pre class="doc-code-block">flutter pub add ultsql</pre>
-          </div>
-        </section>
-
-        <section class="doc-article-section" id="quickstart">
-          <h2 class="doc-article-title">Quickstart Guide</h2>
-          <p class="doc-article-p">Create an in-memory database or open an existing single-file `.ultsql` database with automatic WAL recovery:</p>
-
-          <div class="doc-code-card">
-            <div class="doc-code-header">
-              <span>DART (main.dart)</span>
-              <button class="cli-copy-btn copy-trigger" data-copy="import 'package:ultsql/ultsql.dart';
-
-void main() async {
-  final db = await UltSqlDatabase.openFile('app.ultsql');
-
-  await db.execute('''
-    CREATE TABLE users (
-      id INT PRIMARY KEY,
-      name VARCHAR(100),
-      embedding VECTOR
-    );
-  ''');
-
-  await db.execute('''
-    INSERT INTO users VALUES (1, 'Om Patel', '[0.12, 0.88, -0.45]');
-  ''');
-
-  final rows = await db.query('SELECT * FROM users WHERE id = 1;');
-  print(rows);
-}">Copy</button>
-            </div>
-            <pre class="doc-code-block">import 'package:ultsql/ultsql.dart';
-
-void main() async {
-  // 1. Open persistent single-file database
-  final db = await UltSqlDatabase.openFile('app.ultsql');
-
-  // 2. Create multimodal table
-  await db.execute('''
-    CREATE TABLE users (
-      id INT PRIMARY KEY,
-      name VARCHAR(100),
-      embedding VECTOR
-    );
-  ''');
-
-  // 3. Insert record
-  await db.execute('''
-    INSERT INTO users VALUES (1, 'Om Patel', '[0.12, 0.88, -0.45]');
-  ''');
-
-  // 4. Query record
-  final rows = await db.query('SELECT * FROM users WHERE id = 1;');
-  print(rows);
-}</pre>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Storage Mode</th>
+                  <th>Initialization</th>
+                  <th>Throughput (Measured)</th>
+                  <th>Crash Safety</th>
+                  <th>Recommended Use Case</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>⚡ In-Memory</strong></td>
+                  <td><code>Database(':memory:')</code></td>
+                  <td>~140k–200k rows/s</td>
+                  <td>Ephemeral (RAM)</td>
+                  <td>Automated unit tests, fast ephemeral caches, session states</td>
+                </tr>
+                <tr>
+                  <td><strong>💾 Durable Disk</strong></td>
+                  <td><code>Database('./path')</code></td>
+                  <td>~670k–718k rows/s</td>
+                  <td>ACID WAL + CRC32</td>
+                  <td>Production transactional OLTP, embedded applications, microservices</td>
+                </tr>
+                <tr>
+                  <td><strong>🔄 Hybrid Snapshot</strong></td>
+                  <td><code>Database('./path', syncWal: false)</code></td>
+                  <td>~1.2M rows/s</td>
+                  <td>Periodic Snapshots</td>
+                  <td>Time-series ingestion, sensory IoT streams, high-volume event logs</td>
+                </tr>
+                <tr>
+                  <td><strong>⚡ Public Batch API</strong></td>
+                  <td><code>insertBatchRecordsSync()</code></td>
+                  <td><strong>~2.08M rows/s</strong></td>
+                  <td>Slotted-Page Direct Packing</td>
+                  <td>ETL bulk loading, initial data migrations, parquet conversions</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
-        <section class="doc-article-section" id="vector-hnsw">
-          <h2 class="doc-article-title">AI Vector Search & RAG (HNSW)</h2>
-          <p class="doc-article-p">
-            Native Hierarchical Navigable Small World (HNSW) graph index in pure Dart. Store high-dimensional embeddings and compute vector similarity with sub-millisecond latencies.
+        <!-- 5. SQL REFERENCE -->
+        <section id="sql-reference" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">5. SQL & Dialect Reference <a href="#sql-reference" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL supports an ANSI-SQL 92/99 dialect with modern PostgreSQL-style extensions including JSON operators, vector types, and procedural scripting.
           </p>
 
-          <div class="doc-code-card">
-            <div class="doc-code-header">
-              <span>SQL VECTOR QUERY</span>
-              <button class="cli-copy-btn copy-trigger" data-copy="SELECT title, VECTOR_DISTANCE(embedding, '[0.15, 0.72, -0.30]') AS distance
-FROM knowledge_base
-ORDER BY distance ASC
-LIMIT 3;">Copy</button>
+          <h3 class="doc-section-h3">Data Types</h3>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>SQL Type</th>
+                  <th>Dart Representation</th>
+                  <th>Storage Footprint</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>INT</code> / <code>INTEGER</code> / <code>BIGINT</code></td><td><code>DbInt</code> (int)</td><td>8 bytes</td><td>64-bit signed integer</td></tr>
+                <tr><td><code>DOUBLE</code> / <code>FLOAT</code> / <code>REAL</code></td><td><code>DbDouble</code> (double)</td><td>8 bytes</td><td>64-bit IEEE floating point</td></tr>
+                <tr><td><code>TEXT</code> / <code>VARCHAR</code></td><td><code>DbText</code> (String)</td><td>Variable (UTF-8)</td><td>Arbitrary-length text string</td></tr>
+                <tr><td><code>BOOLEAN</code> / <code>BOOL</code></td><td><code>DbBool</code> (bool)</td><td>1 byte</td><td>True or false boolean</td></tr>
+                <tr><td><code>BLOB</code></td><td><code>DbBlob</code> (Uint8List)</td><td>Variable</td><td>Raw binary byte array</td></tr>
+                <tr><td><code>JSON</code></td><td><code>DbJson</code> (Map/List)</td><td>Variable (Structured)</td><td>Dotted schema-less JSON object</td></tr>
+                <tr><td><code>VECTOR</code></td><td><code>DbVector</code> (List&lt;double&gt;)</td><td>4 bytes/dimension</td><td>Fixed-dimension float32 embedding vector</td></tr>
+                <tr><td><code>UUID</code></td><td><code>DbUuid</code> (String)</td><td>16 bytes packed</td><td>Standard RFC 4122 UUID</td></tr>
+                <tr><td><code>DATETIME</code> / <code>TIMESTAMP</code></td><td><code>DbDateTime</code> (DateTime)</td><td>8 bytes (epoch ms)</td><td>ISO 8601 UTC timestamp</td></tr>
+                <tr><td><code>DECIMAL(p, s)</code></td><td><code>DbDecimal</code></td><td>Variable</td><td>Exact fixed-precision decimal arithmetic</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="doc-section-h3">DDL (Data Definition Language)</h3>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">SQL DDL</span>
+              <button class="code-copy-btn">Copy</button>
             </div>
-            <pre class="doc-code-block">SELECT title, VECTOR_DISTANCE(embedding, '[0.15, 0.72, -0.30]') AS distance
-FROM knowledge_base
-ORDER BY distance ASC
-LIMIT 3;</pre>
+            <pre class="code-block"><code>-- Create table with constraints
+CREATE TABLE orders (
+  order_id INT PRIMARY KEY,
+  customer_id INT NOT NULL,
+  amount DOUBLE DEFAULT 0.0,
+  status TEXT,
+  metadata JSON,
+  embedding VECTOR,
+  placed_at DATETIME
+);
+
+-- Modify schema
+ALTER TABLE orders ADD COLUMN discount DOUBLE;
+DROP TABLE IF EXISTS old_orders;
+
+-- Inspect database metadata
+SELECT * FROM information_schema.tables;
+SELECT * FROM information_schema.columns WHERE table_name = 'orders';</code></pre>
+          </div>
+
+          <h3 class="doc-section-h3">DML & Query Capabilities</h3>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">SQL DML</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>-- Multi-row batch insert
+INSERT INTO orders VALUES 
+  (101, 1, 149.99, 'completed', '{"tier": "gold"}', '[0.1, 0.2, 0.3]', '2026-10-01T12:00:00Z'),
+  (102, 2, 89.50, 'pending', '{"tier": "silver"}', '[0.4, 0.5, 0.6]', '2026-10-02T14:30:00Z');
+
+-- UPSERT / REPLACE
+REPLACE INTO orders VALUES (101, 1, 139.99, 'refunded', '{"tier": "gold"}', '[0.1, 0.2, 0.3]', '2026-10-01T12:00:00Z');
+
+-- Aggregations with GROUP BY and HAVING
+SELECT 
+  status, 
+  COUNT(*) AS total_orders, 
+  AVG(amount) AS avg_amount,
+  SUM(amount) AS gross_revenue
+FROM orders
+WHERE amount > 50.0
+GROUP BY status
+HAVING COUNT(*) >= 1
+ORDER BY gross_revenue DESC
+LIMIT 10 OFFSET 0;
+
+-- Query Planner Execution Plan
+EXPLAIN SELECT * FROM orders WHERE order_id = 101;</code></pre>
           </div>
         </section>
 
-        <section class="doc-article-section" id="pgwire-server">
-          <h2 class="doc-article-title">Embedded Pgwire Server</h2>
-          <p class="doc-article-p">
-            Start a PostgreSQL wire protocol server inside your Dart process. Standard PostgreSQL clients (psql, DBeaver, TablePlus, Grafana) can connect over TCP socket on port 5432.
+        <!-- 6. PREPARED STATEMENTS -->
+        <section id="prepared-statements" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">6. Prepared Statements & Batch API <a href="#prepared-statements" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Prepared statements compile the SQL query string into an execution plan once, allowing parameterized parameters to be executed repeatedly without re-parsing overhead.
           </p>
 
-          <div class="doc-code-card">
-            <div class="doc-code-header">
-              <span>DART (pgwire_server.dart)</span>
-              <button class="cli-copy-btn copy-trigger" data-copy="import 'package:ultsql/ultsql.dart';
-
-void main() async {
-  final db = await UltSqlDatabase.openFile('shared.ultsql');
-  final server = PgwireServer(db, port: 5432);
-  await server.start();
-  print('Pgwire listening on 127.0.0.1:5432');
-}">Copy</button>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Dart API</span>
+              <button class="code-copy-btn">Copy</button>
             </div>
-            <pre class="doc-code-block">import 'package:ultsql/ultsql.dart';
+            <pre class="code-block"><code>final stmt = db.prepare('INSERT INTO metrics VALUES (?, ?, ?);');
 
-void main() async {
-  final db = await UltSqlDatabase.openFile('shared.ultsql');
-  final server = PgwireServer(db, port: 5432);
-  await server.start();
-  print('Pgwire listening on 127.0.0.1:5432');
-}</pre>
+// 1. Single parameterized execution (sub-5µs point write)
+stmt.executeSync([DbInt(101), DbText('cpu_load'), DbDouble(0.42)]);
+
+// 2. High-speed synchronized batch insertion (~670k rows/sec)
+final batch = List&lt;List&lt;DbValue&gt;&gt;.generate(50000, (i) {
+  return [DbInt(i), DbText('metric_$i'), DbDouble(i * 0.1)];
+});
+stmt.executeBatchSync(batch);
+
+// 3. Query parameterized prepared statement
+final queryStmt = db.prepare('SELECT val FROM metrics WHERE tag = ?;');
+final result = queryStmt.executeSync([DbText('cpu_load')]);
+print('Metric value: ${result.rows.first.first}');</code></pre>
           </div>
         </section>
-      </div>
-    </div>
-  </main>
 
-  <!-- COMMAND PALETTE & TOAST -->
-  <div class="cmd-modal-backdrop" id="cmdModal">
-    <div class="cmd-modal-panel">
-      <div class="cmd-search-input-wrapper">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" class="cmd-input" id="cmdInput" placeholder="Type a command or search..." autocomplete="off">
-        <span class="kbd-shortcut">ESC</span>
-      </div>
-      <ul class="cmd-results-list">
-        <li class="cmd-item" data-action="index.html#playground">
-          <div><span class="cmd-item-icon">⚡</span> <strong>Interactive SQL Playground</strong></div>
-        </li>
-        <li class="cmd-item" data-action="#quickstart">
-          <div><span class="cmd-item-icon">🚀</span> <strong>Quickstart Example</strong></div>
-        </li>
-        <li class="cmd-item" data-action="#vector-hnsw">
-          <div><span class="cmd-item-icon">●</span> <strong>Vector RAG & HNSW</strong></div>
-        </li>
-        <li class="cmd-item" data-action="#pgwire-server">
-          <div><span class="cmd-item-icon">🌐</span> <strong>Embedded Pgwire Server</strong></div>
-        </li>
-        <li class="cmd-item" data-action="theme">
-          <div><span class="cmd-item-icon">🌓</span> <strong>Toggle Theme</strong></div>
-        </li>
-      </ul>
+        <!-- 7. INDEXES -->
+        <section id="indexes" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">7. B+ Tree Indexes & Bottom-Up Construction <a href="#indexes" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL builds standard B+ Tree indexes on disk with <strong>bottom-up bulk index construction</strong>. Instead of performing <i>N</i> random top-down tree insertions, creating an index on existing tables sorts leaf keys sequentially and constructs upper index layers in a single cache-coherent pass.
+          </p>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">SQL Indexing</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>-- Standard B+ Tree Index on single column
+CREATE INDEX idx_orders_customer ON orders(customer_id);
+
+-- Compound / Multi-column Index
+CREATE INDEX idx_orders_status_amount ON orders(status, amount);
+
+-- Unique Constraint Index
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+
+-- Drop Index
+DROP INDEX idx_orders_customer;</code></pre>
+          </div>
+        </section>
+
+        <!-- 8. TRANSACTIONS & MVCC -->
+        <section id="transactions" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">8. ACID Transactions & MVCC <a href="#transactions" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Transactions in ULTSQL guarantee full ACID semantics:
+          </p>
+          <ul class="doc-list">
+            <li><strong>Atomicity:</strong> Statements executed inside <code>BEGIN...COMMIT</code> either all commit to disk or are completely discarded on <code>ROLLBACK</code>.</li>
+            <li><strong>Consistency:</strong> Schema constraints, unique keys, and primary key requirements are validated before slot assignment.</li>
+            <li><strong>Isolation:</strong> Multi-Version Concurrency Control (MVCC) ensures read operations never block write operations and writes never block reads.</li>
+            <li><strong>Durability:</strong> Changes are recorded sequentially in the Write-Ahead Log before acknowledging commit.</li>
+          </ul>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">SQL Transaction</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>BEGIN TRANSACTION;
+UPDATE accounts SET balance = balance - 100.0 WHERE account_id = 1;
+UPDATE accounts SET balance = balance + 100.0 WHERE account_id = 2;
+-- In case of failure: ROLLBACK;
+COMMIT;</code></pre>
+          </div>
+        </section>
+
+        <!-- 9. DURABILITY & WAL -->
+        <section id="durability" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">9. ARIES WAL, Checkpoints & Crash Recovery <a href="#durability" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL utilizes an ARIES-style Write-Ahead Log (`wal.log`) fortified with CRC32 checksums on every log entry. If the host machine loses power, crashes, or terminates abruptly, the engine automatically engages recovery upon startup during <code>db.init()</code>:
+          </p>
+          <ol class="doc-list">
+            <li><strong>Analysis Phase:</strong> Identifies unwritten dirty pages in the slotted-page cache and locates active uncommitted transactions.</li>
+            <li><strong>Redo Phase:</strong> Replays committed page updates from the log sequentially to recover database state.</li>
+            <li><strong>Undo Phase:</strong> Rolls back operations from transactions that were active during the crash.</li>
+          </ol>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Pragma Tuning</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>-- Checkpoint active WAL into main database table pages
+SET engine_option wal_checkpoint = true;
+
+-- Enable automated autovacuum to reclaim fragmented slots
+SET engine_option enable_autovacuum = true;</code></pre>
+          </div>
+        </section>
+
+        <!-- 10. NOSQL COLLECTIONS -->
+        <section id="nosql-collections" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">10. Converged NoSQL Document Store <a href="#nosql-collections" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Store and query schema-less JSON documents using MongoDB-compatible collection APIs directly inside ULTSQL with zero configuration:
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Dart NoSQL API</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>final users = db.collection('customers');
+
+// 1. Insert single document (auto-generates 24-char unique _id)
+final doc = await users.insertOne({
+  'name': 'Sarah Connor',
+  'email': 'sarah@resistance.org',
+  'profile': {
+    'score': 95000,
+    'tags': ['vip', 'verified'],
+    'location': {'city': 'Los Angeles', 'country': 'USA'}
+  }
+});
+
+// 2. High-speed batch ingestion (~92k docs/sec)
+await users.insertMany([
+  {'name': 'John Connor', 'profile': {'score': 88000, 'tags': ['member']}},
+  {'name': 'Kyle Reese', 'profile': {'score': 72000, 'tags': ['veteran']}},
+]);
+
+// 3. Fast point-read by _id (direct B+ Tree index lookup: ~4µs)
+final found = await users.findOne({'_id': doc.id});
+print('Found user: ${found?.getByPath('name')}');
+
+// 4. Deep nested dotted-path queries with pagination & sorting
+final cursor = users.find({
+  'profile.score': {r'$gte': 80000},
+  'profile.location.country': 'USA',
+})
+.sort({'profile.score': -1})
+.limit(10);
+
+final vips = await cursor.toList();
+
+// 5. In-place atomic mutations ($set, $inc, $unset, $push)
+await users.updateOne(
+  filter: {'_id': doc.id},
+  update: {
+    r'$set': {'profile.location.city': 'San Francisco'},
+    r'$inc': {'profile.score': 500},
+  },
+);
+
+// 6. Delete document
+await users.deleteOne({'name': 'Kyle Reese'});</code></pre>
+          </div>
+
+          <h3 class="doc-section-h3">Supported MongoDB Filter Operators</h3>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Filter Operator</th>
+                  <th>Meaning</th>
+                  <th>Example Syntax</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>$eq</code> / <code>$ne</code></td><td>Equality / Inequality</td><td><code>{'role': {'$eq': 'admin'}}</code></td></tr>
+                <tr><td><code>$gt</code> / <code>$gte</code></td><td>Greater than / Greater or equal</td><td><code>{'profile.score': {'$gte': 90000}}</code></td></tr>
+                <tr><td><code>$lt</code> / <code>$lte</code></td><td>Less than / Less or equal</td><td><code>{'age': {'$lt': 30}}</code></td></tr>
+                <tr><td><code>$in</code> / <code>$nin</code></td><td>Array membership</td><td><code>{'role': {'$in': ['admin', 'dev']}}</code></td></tr>
+                <tr><td><code>$exists</code></td><td>Key existence check</td><td><code>{'profile.location': {'$exists': true}}</code></td></tr>
+                <tr><td><code>$regex</code></td><td>Regular expression match</td><td><code>{'email': {'$regex': r'@domain\.io$'}}</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 11. KEY-VALUE STORE -->
+        <section id="key-value" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">11. Redis-Style Embedded Key-Value Engine <a href="#key-value" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL embeds an ultra-high-throughput Key-Value caching engine with in-memory hot lookups (<strong>876,000+ ops/sec</strong>), atomic WAL persistence, TTL expiration, and atomic counters:
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Dart KV API</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>// 1. Set key with TTL expiration
+await db.kv.set('session:user_101', 'token_xyz123', ttl: const Duration(hours: 2));
+
+// 2. High-speed hot in-memory get (< 1.5 µs latency)
+final token = await db.kv.get('session:user_101');
+
+// 3. Batch set in single WAL transaction (~342k ops/sec)
+await db.kv.mset({
+  'config:timeout': 30,
+  'config:max_conns': 100,
+  'config:endpoint': 'https://api.ultsql.io',
+});
+
+// 4. Multi-key read
+final configs = await db.kv.mget(['config:timeout', 'config:max_conns']);
+
+// 5. Atomic increment and decrement counters
+final views = await db.kv.incr('stats:page_views');      // 1
+final views5 = await db.kv.incr('stats:page_views', 5);   // 6
+final active = await db.kv.decr('stats:page_views', 2);   // 4
+
+// 6. Pattern wildcard key scanning
+final keys = await db.kv.keys(pattern: 'config:*');
+
+// 7. Delete key
+await db.kv.delete('session:user_101');</code></pre>
+          </div>
+        </section>
+
+        <!-- 12. SQL <-> NOSQL BRIDGE -->
+        <section id="sql-nosql-bridge" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">12. Cross-Model SQL ↔ NoSQL Bridge <a href="#sql-nosql-bridge" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Query NoSQL document collections directly from SQL using the <code>collection('name')</code> function and dotted navigation operators (<code>-></code> and <code>->></code>), or join relational SQL tables with schema-less collections in the same query:
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Cross-Model SQL</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>-- Query document collection using relational SQL with dotted navigation
+SELECT 
+  _id,
+  doc->>'serial' AS dev_serial,
+  (doc->'telemetry'->>'battery')::INT AS battery
+FROM collection('devices')
+WHERE (doc->'telemetry'->>'battery')::INT > 80;
+
+-- Join a relational table with a NoSQL document collection
+SELECT 
+  o.order_id,
+  o.amount,
+  u.doc->>'name' AS customer_name,
+  u.doc->>'email' AS customer_email
+FROM orders o
+JOIN collection('customers') u ON o.customer_id = u._id
+WHERE o.amount > 100.0;</code></pre>
+          </div>
+        </section>
+
+        <!-- 13. VECTOR SEARCH -->
+        <section id="vector-search" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">13. AI-Native Vector Search & RAG (HNSW) <a href="#vector-search" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL natively implements Hierarchical Navigable Small World (HNSW) graph indexes directly inside the database engine. There is no need for external vector databases like Pinecone or Milvus. Store high-dimensional embeddings and execute sub-millisecond Approximate Nearest Neighbor (ANN) vector similarity search with full ACID durability.
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Vector SQL & RAG</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>-- 1. Create table with VECTOR column
+CREATE TABLE documents (
+  id INT PRIMARY KEY,
+  title TEXT,
+  content TEXT,
+  embedding VECTOR
+);
+
+-- 2. Insert embeddings
+INSERT INTO documents VALUES 
+  (1, 'Database Engine', 'ULTSQL combines SQL and NoSQL in pure Dart', '[0.12, 0.88, 0.45]'),
+  (2, 'Machine Learning', 'Vector search powers generative AI RAG applications', '[0.15, 0.82, 0.40]'),
+  (3, 'Computer Vision', 'Deep CNNs analyze visual patterns in images', '[-0.85, 0.12, -0.35]');
+
+-- 3. Construct HNSW Vector Index on disk
+CREATE INDEX idx_docs_emb ON documents(embedding) USING HNSW;
+
+-- 4. Execute Top-K Nearest Neighbor Semantic Search
+SELECT 
+  id, 
+  title, 
+  content,
+  vector_distance(embedding, '[0.14, 0.85, 0.42]') AS distance
+FROM documents
+ORDER BY distance ASC
+LIMIT 2;</code></pre>
+          </div>
+          <div class="doc-callout tip">
+            <div class="doc-callout-title">🧠 RAG (Retrieval-Augmented Generation) Architecture</div>
+            By keeping documents, relational metadata, and vector embeddings in the exact same database engine, your application eliminates dual-write synchronization bugs, cross-network latency, and external infrastructure costs.
+          </div>
+        </section>
+
+        <!-- 14. SECURITY -->
+        <section id="security" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">14. Security, Encryption & Envelopes <a href="#security" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL provides enterprise-grade data security at rest and in transit:
+          </p>
+          <ul class="doc-list">
+            <li><strong>AES-256-GCM Authenticated Encryption:</strong> Encrypt database files, pages, and WAL records with military-grade authenticated ciphers.</li>
+            <li><strong>Dual Authenticated Envelopes:</strong> Choose between speed-optimized and security-hardened cryptographic envelope modes.</li>
+            <li><strong>Tamper Traps:</strong> Any unauthorized bit modification on disk triggers active tamper trap detection, raising <code>DatabaseIntegrityException</code>.</li>
+            <li><strong>Zeroization:</strong> Cryptographic keys in memory are automatically zeroized upon database closure.</li>
+          </ul>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Encrypted Storage</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>// Open encrypted database with secret passphrase
+final db = Database(
+  './secure_db',
+  passphrase: 'super_secret_master_key_99',
+);
+await db.init();</code></pre>
+          </div>
+        </section>
+
+        <!-- 15. PGWIRE SERVER -->
+        <section id="pgwire-server" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">15. PostgreSQL Wire Protocol Server <a href="#pgwire-server" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            ULTSQL can run as a standalone or embedded network database daemon implementing the PostgreSQL Wire Protocol v3.0 (port 5432). Connect using existing tools like <code>psql</code>, DBeaver, TablePlus, or native drivers across all languages:
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Dart Server Daemon</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  final db = Database('./production_db');
+  await db.init();
+
+  // Start PGWire TCP server on port 5432
+  final server = PgWireServer(db, port: 5432);
+  await server.start();
+  print('ULTSQL PostgreSQL Wire Server listening on port 5432...');
+}</code></pre>
+          </div>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Connect with psql CLI</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code># Connect using standard PostgreSQL CLI
+psql -h localhost -p 5432 -U postgres -d ultsql
+
+# Output:
+# Welcome to psql 16.2.
+# Connected to: ULTSQL Engine v1.0.26 (Pure Dart)
+# ultsql=> SELECT 1 + 1;</code></pre>
+          </div>
+        </section>
+
+        <!-- 16. REST SERVER -->
+        <section id="rest-server" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">16. Embedded REST Server <a href="#rest-server" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Need HTTP access from web applications or serverless lambdas? Start the built-in REST server:
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Dart REST Daemon</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>final rest = RestServer(db, port: 8080);
+await rest.start();
+print('REST API active on http://localhost:8080');</code></pre>
+          </div>
+
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Route</th>
+                  <th>Payload</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>POST</code></td><td><code>/api/query</code></td><td><code>{"sql": "SELECT * FROM users"}</code></td><td>Executes SQL query and returns JSON rows</td></tr>
+                <tr><td><code>GET</code></td><td><code>/api/health</code></td><td>None</td><td>Returns engine health, uptime, and page cache stats</td></tr>
+                <tr><td><code>GET</code></td><td><code>/api/metrics</code></td><td>None</td><td>Returns Prometheus-compatible telemetry metrics</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 17. CLI TOOLING -->
+        <section id="cli-tooling" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">17. CLI & REPL Commands <a href="#cli-tooling" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            The <code>ultsql</code> CLI provides an interactive REPL with syntax highlighting, autocomplete, dot-commands, and headless CI/CD batch execution:
+          </p>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Terminal Commands</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code># 1. Launch interactive REPL
+ultsql ./app.db
+
+# 2. Interactive dot-commands inside REPL:
+.tables                          # List all tables and row counts
+.schema users                    # Display CREATE TABLE DDL
+.collections                     # List all NoSQL document collections
+.kv list config:*                # Scan KV keys matching pattern
+.mode json                       # Switch output mode (box, json, csv, markdown)
+.quit                            # Exit REPL
+
+# 3. Headless CI/CD execution with JSON output piped to jq
+ultsql ./app.db -m json -c "SELECT * FROM users;" | jq .
+
+# 4. Ingest via MongoDB syntax directly in CLI
+db.users.insertOne({"name": "Diana", "role": "admin"})</code></pre>
+          </div>
+        </section>
+
+        <!-- 18. LANGUAGE BINDINGS -->
+        <section id="language-bindings" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">18. Native Multi-Language SDK Bindings <a href="#language-bindings" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Native client SDKs connect seamlessly to embedded or PGWire ULTSQL instances across all major languages:
+          </p>
+
+          <div class="code-card" data-tabs>
+            <div class="code-header">
+              <div class="code-tabs">
+                <button class="code-tab-btn active" data-lang="node">Node.js / TS</button>
+                <button class="code-tab-btn" data-lang="python">Python</button>
+                <button class="code-tab-btn" data-lang="go">Go</button>
+                <button class="code-tab-btn" data-lang="rust">Rust</button>
+              </div>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block" data-lang="node"><code>import { Client } from 'pg';
+
+const client = new Client({
+  host: 'localhost',
+  port: 5432,
+  user: 'postgres',
+  database: 'ultsql',
+});
+
+await client.connect();
+const res = await client.query('SELECT * FROM users WHERE id = $1', [1]);
+console.log(res.rows);
+await client.end();</code></pre>
+            <pre class="code-block" data-lang="python" style="display: none;"><code>import psycopg2
+
+conn = psycopg2.connect(
+    host="localhost",
+    port=5432,
+    user="postgres",
+    dbname="ultsql"
+)
+cur = conn.cursor()
+cur.execute("SELECT name, email FROM users WHERE id = %s", (1,))
+print(cur.fetchall())
+cur.close()
+conn.close()</code></pre>
+            <pre class="code-block" data-lang="go" style="display: none;"><code>package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/jackc/pgx/v5"
+)
+
+func main() {
+    conn, err := pgx.Connect(context.Background(), "postgres://postgres@localhost:5432/ultsql")
+    if err != nil { panic(err) }
+    defer conn.Close(context.Background())
+
+    var name, email string
+    err = conn.QueryRow(context.Background(), "SELECT name, email FROM users WHERE id=$1", 1).Scan(&name, &email)
+    fmt.Printf("User: %s <%s>\n", name, email)
+}</code></pre>
+            <pre class="code-block" data-lang="rust" style="display: none;"><code>use tokio_postgres::{NoTls, Error};
+
+#[tokio::main]
+async fn main() -> Result&lt;(), Error&gt; {
+    let (client, connection) =
+        tokio_postgres::connect("host=localhost port=5432 user=postgres dbname=ultsql", NoTls).await?;
+
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("connection error: {}", e);
+        }
+    });
+
+    let rows = client.query("SELECT name, email FROM users WHERE id = $1", &[&1i32]).await?;
+    for row in rows {
+        let name: &str = row.get(0);
+        let email: &str = row.get(1);
+        println!("User: {} <{}>", name, email);
+    }
+    Ok(())
+}</code></pre>
+          </div>
+        </section>
+
+        <!-- 19. CONFIGURATION -->
+        <section id="configuration" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">19. Engine Configuration & Pragmas <a href="#configuration" class="anchor-link">#</a></h2>
+          <p class="doc-p">
+            Fine-tune runtime engine parameters via SQL pragmas or Dart constructors:
+          </p>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Default</th>
+                  <th>Values</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>page_size</code></td><td>4096</td><td>1024–65536</td><td>Storage page size in bytes</td></tr>
+                <tr><td><code>cache_capacity</code></td><td>10000</td><td>100–1000000</td><td>Maximum pages retained in hot LRU cache</td></tr>
+                <tr><td><code>wal_synchronous</code></td><td>NORMAL</td><td>OFF, NORMAL, FULL</td><td>WAL fsync flush behavior on commit</td></tr>
+                <tr><td><code>enable_autovacuum</code></td><td>true</td><td>true, false</td><td>Automatic background slot compaction</td></tr>
+                <tr><td><code>auto_create_indexes</code></td><td>false</td><td>true, false</td><td>Autonomous index creation based on query telemetry</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 20. ERRORS & FAQ -->
+        <section id="errors-troubleshooting" class="doc-section" data-reveal="up">
+          <h2 class="doc-section-h2">20. Errors, Troubleshooting & FAQ <a href="#errors-troubleshooting" class="anchor-link">#</a></h2>
+          
+          <h3 class="doc-section-h3">Frequently Encountered Exceptions</h3>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Exception Class</th>
+                  <th>Cause</th>
+                  <th>Resolution</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>DatabaseLockException</code></td>
+                  <td>Another process holds an exclusive lock on the database file.</td>
+                  <td>Ensure only one process opens the database in read-write mode, or use PGWire/REST server for multi-process concurrency.</td>
+                </tr>
+                <tr>
+                  <td><code>DatabaseIntegrityException</code></td>
+                  <td>CRC32 checksum mismatch or disk tampering detected.</td>
+                  <td>Check disk hardware integrity; restore from WAL or backup snapshot.</td>
+                </tr>
+                <tr>
+                  <td><code>TableNotFoundException</code></td>
+                  <td>The referenced table or collection does not exist in the catalog.</td>
+                  <td>Verify spelling or run <code>CREATE TABLE</code> / <code>db.collection('name')</code> before querying.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="doc-section-h3">Frequently Asked Questions</h3>
+          <div class="doc-callout note">
+            <div class="doc-callout-title">Q: Does ULTSQL use SQLite underneath?</div>
+            No. ULTSQL contains <strong>zero lines of SQLite code and zero native C libraries</strong>. The B+ Tree, slotted-page layout, ARIES WAL, query parser, JIT compiler, and HNSW vector index are written 100% in pure Dart.
+          </div>
+          <div class="doc-callout note">
+            <div class="doc-callout-title">Q: Can I use ULTSQL on iOS, Android, macOS, Linux, and Windows?</div>
+            Yes! Because ULTSQL is pure Dart, it compiles natively to ARM64 and x86_64 across iOS, Android, macOS, Linux, and Windows without platform channel bridging or FFI configuration.
+          </div>
+        </section>
+
+      </main>
+
+      <!-- RIGHT TOC (On This Page) -->
+      <aside class="docs-toc">
+        <div class="docs-toc-title">On This Page</div>
+        <ul class="docs-toc-list">
+          <li class="docs-toc-item"><a href="#overview" class="docs-toc-link active">1. Overview</a></li>
+          <li class="docs-toc-item"><a href="#installation" class="docs-toc-link">2. Installation</a></li>
+          <li class="docs-toc-item"><a href="#quickstart" class="docs-toc-link">3. Quickstart</a></li>
+          <li class="docs-toc-item"><a href="#storage-modes" class="docs-toc-link">4. Storage Modes</a></li>
+          <li class="docs-toc-item"><a href="#sql-reference" class="docs-toc-link">5. SQL Reference</a></li>
+          <li class="docs-toc-item"><a href="#prepared-statements" class="docs-toc-link">6. Prepared Statements</a></li>
+          <li class="docs-toc-item"><a href="#indexes" class="docs-toc-link">7. B+ Tree Indexes</a></li>
+          <li class="docs-toc-item"><a href="#transactions" class="docs-toc-link">8. Transactions & MVCC</a></li>
+          <li class="docs-toc-item"><a href="#durability" class="docs-toc-link">9. Durability & WAL</a></li>
+          <li class="docs-toc-item"><a href="#nosql-collections" class="docs-toc-link">10. NoSQL Collections</a></li>
+          <li class="docs-toc-item"><a href="#key-value" class="docs-toc-link">11. Key-Value Store</a></li>
+          <li class="docs-toc-item"><a href="#sql-nosql-bridge" class="docs-toc-link">12. SQL ↔ NoSQL Bridge</a></li>
+          <li class="docs-toc-item"><a href="#vector-search" class="docs-toc-link">13. AI Vector Search</a></li>
+          <li class="docs-toc-item"><a href="#security" class="docs-toc-link">14. Security & Envelopes</a></li>
+          <li class="docs-toc-item"><a href="#pgwire-server" class="docs-toc-link">15. PGWire Server</a></li>
+          <li class="docs-toc-item"><a href="#rest-server" class="docs-toc-link">16. REST Server</a></li>
+          <li class="docs-toc-item"><a href="#cli-tooling" class="docs-toc-link">17. CLI & REPL</a></li>
+          <li class="docs-toc-item"><a href="#language-bindings" class="docs-toc-link">18. Language Bindings</a></li>
+          <li class="docs-toc-item"><a href="#configuration" class="docs-toc-link">19. Configuration</a></li>
+          <li class="docs-toc-item"><a href="#errors-troubleshooting" class="docs-toc-link">20. Errors & FAQ</a></li>
+        </ul>
+      </aside>
+
     </div>
   </div>
 
-  <div class="toast-bubble" id="toast">
-    <span>✓ Copied</span>
-  </div>
-
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-bottom">
-        <span>© 2026 Om Patel. Released under FSL-1.1-MIT.</span>
-        <span>Minimal Black & White Documentation</span>
+  <!-- FOOTER -->
+  <footer class="footer-wrapper">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <img src="icon.svg" alt="ULTSQL Logo" width="20" height="20">
+          <span>ULTSQL</span>
+        </div>
+        <p class="footer-tagline">100% Pure Dart Converged Multimodal Database Engine. Zero C Native Dependencies.</p>
+        <p class="footer-tagline">Created by <a href="https://github.com/ompatel3158" target="_blank" rel="noopener noreferrer" style="color: #22d3ee; text-decoration: underline;">Om Patel</a> &bull; Contact: <a href="mailto:om.business3158@gmail.com" style="color: var(--text-secondary);">om.business3158@gmail.com</a></p>
+      </div>
+      <div class="footer-links-grid">
+        <div class="footer-col">
+          <div class="footer-col-title">Documentation</div>
+          <ul>
+            <li><a href="docs.html#quickstart">Quickstart</a></li>
+            <li><a href="docs.html#sql-reference">SQL Reference</a></li>
+            <li><a href="docs.html#nosql-collections">NoSQL Store</a></li>
+            <li><a href="docs.html#vector-search">Vector Search</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Resources</div>
+          <ul>
+            <li><a href="benchmarks.html">Benchmarks</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="index.html#playground">Playground</a></li>
+            <li><a href="license.html">License</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Community</div>
+          <ul>
+            <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            <li><a href="https://pub.dev/packages/ultsql" target="_blank" rel="noopener noreferrer">pub.dev</a></li>
+            <li><a href="https://www.npmjs.com/package/ultsql" target="_blank" rel="noopener noreferrer">npm</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-bottom-container">
+        <p>&copy; 2026 ULTSQL Team. Open source under the Business Source License (BSL 1.1) transitioning to Apache 2.0.</p>
+        <div class="footer-bottom-badges">
+          <span class="status-indicator"></span>
+          <span>Engine v1.0.26 Production Ready</span>
+        </div>
       </div>
     </div>
   </footer>
 
-  <script src="app.js?v=2.1.0"></script>
+  <script src="motion.js" defer></script>
+  <script src="docs.js" defer></script>
 </body>
 </html>

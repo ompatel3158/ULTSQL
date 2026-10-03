@@ -41,6 +41,6 @@ test_mode_file.bin
 \$dbDir/
 scratch/
 test_parser.dart
-*.exe
 .vercel/
+web_site_backup/
 

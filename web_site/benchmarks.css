@@ -1,0 +1,284 @@
+/* ULTSQL Benchmarks Page Styles */
+
+.bench-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+.bench-hero {
+  text-align: center;
+  max-width: 820px;
+  margin: 0 auto 3rem;
+}
+
+.bench-hero-title {
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  margin-bottom: 0.75rem;
+  color: #fff;
+}
+
+.bench-hero-subtitle {
+  font-size: 1.15rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.65;
+}
+
+/* Hardware Rig Card */
+.bench-rig-card {
+  background: var(--bg-surface, #0f141c);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  border-radius: 12px;
+  padding: 1.75rem 2rem;
+  margin-bottom: 3.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.bench-rig-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.bench-rig-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bench-rig-badge {
+  font-size: 0.72rem;
+  font-family: var(--font-mono, monospace);
+  padding: 0.25rem 0.6rem;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bench-rig-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.bench-rig-item {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.bench-rig-item-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary, #64748b);
+  margin-bottom: 0.35rem;
+}
+
+.bench-rig-item-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+/* Category Filters */
+.bench-filter-bar {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.bench-filter-btn {
+  background: var(--bg-surface, #0f141c);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bench-filter-btn:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.05);
+}
+
+.bench-filter-btn.active {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: #22d3ee;
+  color: #22d3ee;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+}
+
+/* Workload Comparison Cards */
+.bench-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 1.75rem;
+  margin-bottom: 4rem;
+}
+
+.bench-card {
+  background: var(--bg-surface, #0f141c);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  border-radius: 10px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.bench-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.bench-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.bench-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.bench-card-group {
+  font-size: 0.72rem;
+  color: #22d3ee;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+}
+
+.bench-winner-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.tag-ultsql-win {
+  background: rgba(34, 211, 238, 0.15);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  color: #22d3ee;
+}
+
+.tag-sqlite-win {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.tag-standalone {
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #a78bfa;
+}
+
+/* Engine Comparison Bars */
+.bench-bars-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bench-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bench-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.bench-engine-label {
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.bench-engine-val {
+  font-weight: 700;
+}
+
+.bench-bar-track {
+  height: 10px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bench-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 0%;
+}
+
+.fill-ultsql {
+  background: linear-gradient(90deg, #22d3ee, #06b6d4);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.fill-sqlite {
+  background: linear-gradient(90deg, #94a3b8, #64748b);
+}
+
+.bench-card-note {
+  font-size: 0.78rem;
+  color: var(--text-tertiary, #64748b);
+  line-height: 1.5;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Reproduce Box */
+.bench-reproduce-box {
+  background: #080b11;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 4rem;
+}
+
+.bench-reproduce-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .bench-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

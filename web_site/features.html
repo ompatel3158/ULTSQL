@@ -4,57 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Features & Architecture — ULTSQL</title>
-  <meta name="description" content="Explore the deep architecture of ULTSQL: Pure Dart VM, Slotted Pages with CRC32, ARIES WAL, HNSW Vector Graphs, and Pgwire Server.">
-  <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/features">
+  <meta name="description" content="Explore the deep architecture of ULTSQL: Pure Dart VM, Slotted Pages with CRC32, ARIES WAL, HNSW Vector Graphs, NoSQL Documents, Redis KV, and Pgwire Server.">
+  <link rel="canonical" href="https://ultsql.vercel.app/features.html">
   <meta name="google-site-verification" content="s8GoKEfYxYOuxJ97E1Q3lmCldu-tUsGSgPHX17s_GlU">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=2.0.0">
-
-  <!-- Anime.js v4 Animation Engine -->
-  <script src="vendor/anime.umd.min.js"></script>
-
-  <style>
-    .comparison-table-wrapper {
-      margin-top: 3.5rem;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      overflow-x: auto;
-      box-shadow: var(--shadow-md);
-    }
-    .comparison-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-    .comparison-table th, .comparison-table td {
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid var(--border-subtle);
-      text-align: left;
-    }
-    .comparison-table th {
-      background: var(--bg-surface-elevated);
-      color: var(--text-secondary);
-      font-size: 0.78rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .comparison-table td.highlight {
-      background: var(--bg-surface-elevated);
-      font-weight: 700;
-      color: var(--text-primary);
-      border-left: 1px solid var(--border-medium);
-      border-right: 1px solid var(--border-medium);
-    }
-    .comparison-table th.highlight {
-      border-left: 1px solid var(--border-medium);
-      border-right: 1px solid var(--border-medium);
-      color: var(--text-primary);
-    }
-    .check-yes { color: var(--text-primary); font-weight: 700; }
-    .check-no { color: var(--text-tertiary); }
-  </style>
+  
+  <link rel="stylesheet" href="style.css?v=2.1.0">
+  <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="features.css">
 </head>
 <body>
 
@@ -85,203 +42,551 @@
       </ul>
 
       <div class="nav-actions">
-        <button class="cmd-k-btn cmd-open-btn" title="Open Command Palette (Ctrl+K)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <span>Search</span>
-          <span class="kbd-shortcut">⌘K</span>
-        </button>
-
-        <button class="btn-icon theme-toggle-btn" id="themeToggle" aria-label="Toggle theme">
-          <span class="theme-icon"></span>
-        </button>
-
         <a href="https://pub.dev/packages/ultsql" target="_blank" class="btn btn-glass" style="padding: 0.42rem 0.85rem; font-size: 0.8rem;">pub.dev</a>
         <a href="https://github.com/ompatel3158/ULTSQL" target="_blank" class="btn btn-primary" style="padding: 0.42rem 0.95rem; font-size: 0.8rem;">GitHub</a>
-
-        <button class="btn-icon mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle mobile menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-        </button>
       </div>
     </nav>
   </header>
 
-  <!-- MOBILE NAV DRAWER -->
-  <div class="mobile-nav-drawer" id="mobileNavDrawer">
-    <div class="mobile-nav-header">
-      <div class="nav-brand">
-        <img src="icon.svg" alt="ULTSQL Logo" width="26" height="26">
-        <span>ULTSQL</span>
+  <div class="features-container">
+
+    <!-- HERO -->
+    <header class="features-hero" data-reveal="fade">
+      <div style="margin-bottom: 0.75rem;">
+        <span class="feature-status-badge status-stable">17 SIGNATURE ENGINE INNOVATIONS</span>
       </div>
-      <button class="btn-icon" id="mobileMenuClose">✕</button>
+      <h1 class="features-hero-title">Converged Engine Capabilities</h1>
+      <p class="features-hero-subtitle">
+        ULTSQL merges relational tables, schema-less document collections, Redis-style key-value caching, and AI vector embeddings into a unified slotted-page engine written in 100% pure Dart.
+      </p>
+    </header>
+
+    <!-- CATEGORY FILTER CHIPS -->
+    <div class="features-filter-bar" data-reveal="up">
+      <button class="feature-chip-btn active" data-category="all">All Capabilities</button>
+      <button class="feature-chip-btn" data-category="storage">Storage & Durability</button>
+      <button class="feature-chip-btn" data-category="sql">Relational SQL</button>
+      <button class="feature-chip-btn" data-category="nosql">NoSQL & Key-Value</button>
+      <button class="feature-chip-btn" data-category="ai">AI / Vector Search</button>
+      <button class="feature-chip-btn" data-category="networking">Networking & Servers</button>
+      <button class="feature-chip-btn" data-category="security">Security</button>
+      <button class="feature-chip-btn" data-category="tooling">Tooling & SDKs</button>
     </div>
-    <ul class="mobile-nav-links">
-      <li><a href="index.html" class="mobile-nav-link">Home</a></li>
-      <li><a href="index.html#playground" class="mobile-nav-link">Interactive Playground</a></li>
-      <li><a href="features.html" class="mobile-nav-link active">Features Matrix</a></li>
-      <li><a href="benchmarks.html" class="mobile-nav-link">Benchmarks</a></li>
-      <li><a href="docs.html" class="mobile-nav-link">Documentation</a></li>
-      <li><a href="license.html" class="mobile-nav-link">License & FAQ</a></li>
-    </ul>
+
+    <!-- FEATURE GRID -->
+    <div class="features-grid">
+
+      <!-- 1. SLOTTED-PAGE STORAGE -->
+      <article class="feature-card" data-category="storage" data-glow data-reveal="up">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Slotted-Page Storage Engine</h3>
+        <p class="feature-card-desc">
+          Low-level binary slotted pages (4KB/8KB) with zero-copy row deserialization and variable-length record packing directly on disk.
+        </p>
+        <div class="feature-metric-chip" data-metric="insert"></div>
+        <pre class="feature-code-box"><code>final db = Database('./data_dir');
+await db.init(); // Mounts slotted page files</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#storage-modes" class="feature-docs-link">Explore storage modes &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 2. ARIES WAL & CRC32 -->
+      <article class="feature-card" data-category="storage" data-glow data-reveal="up" data-reveal-delay="80">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">ARIES WAL & CRC32 Recovery</h3>
+        <p class="feature-card-desc">
+          Sequential append-only Write-Ahead Log with hardware-grade CRC32 integrity checksums on every transaction block. Autonomous crash recovery on boot.
+        </p>
+        <pre class="feature-code-box"><code>-- Automated background WAL checkpoints
+SET engine_option wal_checkpoint = true;</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#durability" class="feature-docs-link">Read WAL architecture &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 3. BOTTOM-UP B+ TREE -->
+      <article class="feature-card" data-category="sql" data-glow data-reveal="up" data-reveal-delay="160">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v4m-5 4-2-2m14 2 2-2"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Bottom-Up B+ Tree Construction</h3>
+        <p class="feature-card-desc">
+          Bulk-sorts leaf keys to build indexes in a single cache-coherent sequential pass, achieving sub-millisecond index creation even on massive datasets.
+        </p>
+        <div class="feature-metric-chip" data-metric="index"></div>
+        <pre class="feature-code-box"><code>CREATE INDEX idx_users_age ON users(age);
+-- Bottom-up single-pass parent node generation</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#indexes" class="feature-docs-link">Read index reference &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 4. POINT LOOKUP SPEED -->
+      <article class="feature-card" data-category="sql" data-glow data-reveal="up">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Prepared Point Lookups</h3>
+        <p class="feature-card-desc">
+          Direct B+ Tree index traversal bypassing AST and parser overhead. Achieves ultra-low latency point reads on prepared statements.
+        </p>
+        <div class="feature-metric-chip" data-metric="point"></div>
+        <pre class="feature-code-box"><code>final stmt = db.prepare('SELECT * FROM users WHERE id = ?;');
+final res = stmt.executeSync([DbInt(42)]);</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#prepared-statements" class="feature-docs-link">Prepared statements API &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 5. CONVERGED NOSQL DOCUMENTS -->
+      <article class="feature-card" data-category="nosql" data-glow data-reveal="up" data-reveal-delay="80">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Converged NoSQL Document Store</h3>
+        <p class="feature-card-desc">
+          MongoDB-style collections (`db.collection`), dotted JSON path queries, array operations, and in-place atomic mutations ($set, $inc, $push).
+        </p>
+        <div class="feature-metric-chip" data-metric="doc_insert"></div>
+        <pre class="feature-code-box"><code>final users = db.collection('users');
+await users.insertOne({'name': 'Alice', 'score': 95000});
+final docs = await users.find({'score': {r'$gte': 80000}}).toList();</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#nosql-collections" class="feature-docs-link">Explore NoSQL API &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 6. REDIS-STYLE KV STORE -->
+      <article class="feature-card" data-category="nosql" data-glow data-reveal="up" data-reveal-delay="160">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Redis-Style Key-Value Engine</h3>
+        <p class="feature-card-desc">
+          High-throughput embedded Key-Value cache with hot in-memory lookups, atomic WAL persistence, TTL expiration, and atomic numeric counters.
+        </p>
+        <div class="feature-metric-chip" data-metric="kv_get"></div>
+        <pre class="feature-code-box"><code>await db.kv.set('auth:token', 'xyz', ttl: Duration(hours: 1));
+final token = await db.kv.get('auth:token');
+await db.kv.incr('hits:counter', 5);</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#key-value" class="feature-docs-link">Key-Value guide &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 7. SQL <-> NOSQL BRIDGE -->
+      <article class="feature-card" data-category="nosql" data-glow data-reveal="up">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Cross-Model SQL ↔ NoSQL Bridge</h3>
+        <p class="feature-card-desc">
+          Query schema-less collections using standard SQL syntax with dotted path operators (`->>`), or join relational tables with document collections.
+        </p>
+        <pre class="feature-code-box"><code>SELECT _id, doc->>'serial' AS dev_serial
+FROM collection('devices')
+WHERE (doc->'telemetry'->>'battery')::INT > 80;</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#sql-nosql-bridge" class="feature-docs-link">Cross-model bridge docs &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 8. AI VECTOR SEARCH (HNSW) -->
+      <article class="feature-card" data-category="ai" data-glow data-reveal="up" data-reveal-delay="80">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">AI Vector Search & RAG (HNSW)</h3>
+        <p class="feature-card-desc">
+          Integrated Hierarchical Navigable Small World (HNSW) vector graphs. Run sub-millisecond Approximate Nearest Neighbor (ANN) search inside your database.
+        </p>
+        <div class="feature-metric-chip" data-metric="vec_query"></div>
+        <pre class="feature-code-box"><code>CREATE INDEX idx_emb ON docs(embedding) USING HNSW;
+SELECT id, vector_distance(embedding, '[0.1, 0.9]') AS d
+FROM docs ORDER BY d ASC LIMIT 5;</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#vector-search" class="feature-docs-link">HNSW vector search guide &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 9. PGWIRE SERVER -->
+      <article class="feature-card" data-category="networking" data-glow data-reveal="up" data-reveal-delay="160">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">PostgreSQL Wire Protocol Server</h3>
+        <p class="feature-card-desc">
+          Drop-in network database daemon implementing PostgreSQL v3.0 wire protocol on port 5432. Connect via `psql`, Python, Go, Node, or DBeaver.
+        </p>
+        <pre class="feature-code-box"><code>final server = PgWireServer(db, port: 5432);
+await server.start();
+// Connect with: psql -h localhost -p 5432 -U postgres</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#pgwire-server" class="feature-docs-link">PGWire server setup &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 10. REST API SERVER -->
+      <article class="feature-card" data-category="networking" data-glow data-reveal="up">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Embedded REST Server</h3>
+        <p class="feature-card-desc">
+          Built-in HTTP server daemon exposing endpoints for SQL queries, health diagnostics, and Prometheus telemetry metrics.
+        </p>
+        <pre class="feature-code-box"><code>final rest = RestServer(db, port: 8080);
+await rest.start();
+// POST /api/query {"sql": "SELECT * FROM users"}</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#rest-server" class="feature-docs-link">REST endpoints table &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 11. CYBERSECURITY ENCLAVES -->
+      <article class="feature-card" data-category="security" data-glow data-reveal="up" data-reveal-delay="80">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">AES-256-GCM & Tamper Traps</h3>
+        <p class="feature-card-desc">
+          Dual authenticated encryption envelopes with PBKDF2 key derivation. Active tamper traps abort unauthorized bit alterations on disk.
+        </p>
+        <pre class="feature-code-box"><code>final db = Database('./secure_db', passphrase: 'master_key');
+await db.init(); // Enforces authenticated cipher envelopes</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#security" class="feature-docs-link">Security architecture &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 12. CLI & REPL TOOLING -->
+      <article class="feature-card" data-category="tooling" data-glow data-reveal="up" data-reveal-delay="160">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Interactive CLI & REPL</h3>
+        <p class="feature-card-desc">
+          Feature-rich CLI with Unicode box formatting, JSON piping, dot-commands, and interactive Mongo shell syntax execution.
+        </p>
+        <pre class="feature-code-box"><code># Headless CI/CD JSON query execution
+ultsql app.db -m json -c "SELECT * FROM users;" | jq .</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#cli-tooling" class="feature-docs-link">CLI documentation &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 13. SPATIAL & RTREE -->
+      <article class="feature-card" data-category="sql" data-glow data-reveal="up">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          </div>
+          <span class="feature-status-badge status-beta">Beta</span>
+        </div>
+        <h3 class="feature-card-title">R-Tree & H3 Spatial Indexing</h3>
+        <p class="feature-card-desc">
+          Geographic 2D bounding-box spatial indexing and Uber H3 hexagonal spatial binning for geospatial proximity queries.
+        </p>
+        <pre class="feature-code-box"><code>CREATE INDEX idx_locations_geo ON venues(location) USING RTREE;</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#indexes" class="feature-docs-link">Spatial indexing docs &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 14. LWW CRDT -->
+      <article class="feature-card" data-category="storage" data-glow data-reveal="up" data-reveal-delay="80">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </div>
+          <span class="feature-status-badge status-beta">Beta</span>
+        </div>
+        <h3 class="feature-card-title">LWW CRDT State Merging</h3>
+        <p class="feature-card-desc">
+          Last-Write-Wins Conflict-Free Replicated Data Types (CRDT) for multi-master offline synchronization across distributed edge nodes.
+        </p>
+        <pre class="feature-code-box"><code>// Merge remote client state without central locking
+db.mergeCrdtState(incomingRemoteStatePayload);</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#storage-modes" class="feature-docs-link">Read CRDT guide &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 15. RAFT CLUSTERING -->
+      <article class="feature-card" data-category="networking" data-glow data-reveal="up" data-reveal-delay="160">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </div>
+          <span class="feature-status-badge status-experimental">Experimental</span>
+        </div>
+        <h3 class="feature-card-title">Raft Consensus Clustering</h3>
+        <p class="feature-card-desc">
+          Experimental distributed consensus cluster with leader election, term management, and log entry replication across networked peers.
+        </p>
+        <pre class="feature-code-box"><code>final cluster = RaftCluster(db, peerNodes: ['10.0.0.1:5432', '10.0.0.2:5432']);
+await cluster.join();</code></pre>
+        <div class="feature-card-footer">
+          <a href="docs.html#pgwire-server" class="feature-docs-link">Clustering overview &rarr;</a>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- ARCHITECTURE DIAGRAM SECTION -->
+    <section class="features-arch-section" data-reveal="up">
+      <h2 class="features-arch-title">Converged Slotted-Page Architecture</h2>
+      <p class="features-arch-subtitle">
+        How relational queries, JSON document filtering, KV caching, and vector searches funnel through a single cache-coherent engine layer.
+      </p>
+
+      <div class="features-arch-diagram">
+        <svg viewBox="0 0 800 380" width="100%" height="auto" style="overflow: visible;">
+          <defs>
+            <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.8"/>
+            </linearGradient>
+            <linearGradient id="boxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#141a24"/>
+              <stop offset="100%" stop-color="#090d14"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Top Layer: Client Interfaces -->
+          <g>
+            <rect x="50" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
+            <text x="125" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Flutter / Dart SDK</text>
+
+            <rect x="230" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
+            <text x="305" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">PGWire (psql/node/py)</text>
+
+            <rect x="410" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
+            <text x="485" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">REST HTTP API</text>
+
+            <rect x="590" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
+            <text x="665" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Interactive CLI</text>
+          </g>
+
+          <!-- Mid Layer: Converged Models -->
+          <g transform="translate(0, 100)">
+            <rect x="50" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#22d3ee" stroke-width="1.5"/>
+            <text x="125" y="38" fill="#22d3ee" font-size="13" font-weight="700" text-anchor="middle">Relational SQL</text>
+            <text x="125" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">ANSI / PL-SQL / Joins</text>
+
+            <rect x="230" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#34d399" stroke-width="1.5"/>
+            <text x="305" y="38" fill="#34d399" font-size="13" font-weight="700" text-anchor="middle">NoSQL Documents</text>
+            <text x="305" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">db.collection Dotted JSON</text>
+
+            <rect x="410" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#fbbf24" stroke-width="1.5"/>
+            <text x="485" y="38" fill="#fbbf24" font-size="13" font-weight="700" text-anchor="middle">Key-Value Engine</text>
+            <text x="485" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">db.kv Hot RAM Cache</text>
+
+            <rect x="590" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#a78bfa" stroke-width="1.5"/>
+            <text x="665" y="38" fill="#a78bfa" font-size="13" font-weight="700" text-anchor="middle">AI Vector Search</text>
+            <text x="665" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">HNSW Graph RAG</text>
+          </g>
+
+          <!-- Core Engine Layer -->
+          <g transform="translate(0, 200)">
+            <rect x="50" y="10" width="690" height="65" rx="8" fill="url(#boxGrad)" stroke="url(#cyanGrad)" stroke-width="2"/>
+            <text x="395" y="38" fill="#f8fafc" font-size="15" font-weight="700" text-anchor="middle">Unified Storage Engine Core</text>
+            <text x="395" y="58" fill="#94a3b8" font-size="12" text-anchor="middle">4KB/8KB Slotted Pages &bull; ARIES Write-Ahead Log (WAL) &bull; CRC32 Checksums &bull; AES-256 Envelopes</text>
+          </g>
+
+          <!-- Storage Physical Layer -->
+          <g transform="translate(0, 300)">
+            <rect x="180" y="10" width="430" height="50" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.2)"/>
+            <text x="395" y="40" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Durable NVMe Disk Storage / Fast In-Memory RAM</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- CAPABILITY MATRIX -->
+    <section class="features-matrix-section" data-reveal="up">
+      <div style="text-align: center; margin-bottom: 2.5rem;">
+        <h2 style="font-size: 2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">Architectural Capability Matrix</h2>
+        <p style="color: var(--text-secondary); font-size: 1.05rem;">Factual operational comparison of database capabilities across models.</p>
+      </div>
+
+      <div class="comparison-table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature Capability</th>
+              <th class="highlight">ULTSQL</th>
+              <th>SQLite</th>
+              <th>MongoDB</th>
+              <th>Redis</th>
+              <th>Postgres + pgvector</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Pure Dart (Zero C Dependencies)</strong></td>
+              <td class="highlight check-yes">&#10003; Yes (100%)</td>
+              <td class="check-no">&#10007; C FFI</td>
+              <td class="check-no">&#10007; C++</td>
+              <td class="check-no">&#10007; C</td>
+              <td class="check-no">&#10007; C</td>
+            </tr>
+            <tr>
+              <td><strong>Embedded In-Process File Engine</strong></td>
+              <td class="highlight check-yes">&#10003; Yes</td>
+              <td class="check-yes">&#10003; Yes</td>
+              <td class="check-no">&#10007; Daemon Only</td>
+              <td class="check-no">&#10007; Daemon Only</td>
+              <td class="check-no">&#10007; Daemon Only</td>
+            </tr>
+            <tr>
+              <td><strong>Relational SQL & ACID Transactions</strong></td>
+              <td class="highlight check-yes">&#10003; Full ACID</td>
+              <td class="check-yes">&#10003; Full ACID</td>
+              <td class="check-no">&#10007; Multi-doc Limited</td>
+              <td class="check-no">&#10007; Redis Tx</td>
+              <td class="check-yes">&#10003; Full ACID</td>
+            </tr>
+            <tr>
+              <td><strong>Native NoSQL Document API</strong></td>
+              <td class="highlight check-yes">&#10003; Native db.collection</td>
+              <td class="check-no">&#10007; JSON1 Extension</td>
+              <td class="check-yes">&#10003; Native</td>
+              <td class="check-no">&#10007; RedisJSON</td>
+              <td class="check-no">&#10007; JSONB SQL</td>
+            </tr>
+            <tr>
+              <td><strong>Redis-Style KV Engine (TTL & Counters)</strong></td>
+              <td class="highlight check-yes">&#10003; Native db.kv</td>
+              <td class="check-no">&#10007; Manual Table</td>
+              <td class="check-no">&#10007; No</td>
+              <td class="check-yes">&#10003; Native</td>
+              <td class="check-no">&#10007; UNLOGGED table</td>
+            </tr>
+            <tr>
+              <td><strong>Native AI Vector Graph Search (HNSW)</strong></td>
+              <td class="highlight check-yes">&#10003; Built-in HNSW</td>
+              <td class="check-no">&#10007; Requires sqlite-vec</td>
+              <td class="check-no">&#10007; Atlas Cloud Only</td>
+              <td class="check-no">&#10007; RedisSearch</td>
+              <td class="check-yes">&#10003; pgvector extension</td>
+            </tr>
+            <tr>
+              <td><strong>PostgreSQL Wire Protocol Server</strong></td>
+              <td class="highlight check-yes">&#10003; Embedded daemon</td>
+              <td class="check-no">&#10007; No</td>
+              <td class="check-no">&#10007; No</td>
+              <td class="check-no">&#10007; RESP protocol</td>
+              <td class="check-yes">&#10003; Native</td>
+            </tr>
+            <tr>
+              <td><strong>WebAssembly (WASM) & Browser Ingest</strong></td>
+              <td class="highlight check-yes">&#10003; Full in-browser</td>
+              <td class="check-yes">&#10003; via Emscripten</td>
+              <td class="check-no">&#10007; No</td>
+              <td class="check-no">&#10007; No</td>
+              <td class="check-no">&#10007; No</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
   </div>
 
-  <main class="container" style="padding-top: 4rem; padding-bottom: 6rem;">
-    <div class="section-header">
-      <div class="section-pill-tag">Engine Architecture Matrix</div>
-      <h1 class="section-title">Converged Multimodal Architecture</h1>
-      <p class="section-desc">ULTSQL is engineered with zero compromises: real ACID relational storage, high-dimensional vector graphs, JSON document indexes, and PL/SQL procedural loops.</p>
-    </div>
-
-    <div class="feature-matrix-grid">
-      <div class="feature-box">
-        <span class="feature-tag">PURE DART RUNTIME</span>
-        <h3 class="feature-box-title">100% Pure Dart VM & Wasm</h3>
-        <p class="feature-box-desc">Requires zero CMake, NDK, Xcode toolchain bindings, or dynamic `.so` / `.dylib` loading. Compiles cleanly across Flutter iOS, Android, macOS, Windows, Linux, and Web.</p>
+  <!-- FOOTER -->
+  <footer class="footer-wrapper">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <img src="icon.svg" alt="ULTSQL Logo" width="20" height="20">
+          <span>ULTSQL</span>
+        </div>
+        <p class="footer-tagline">100% Pure Dart Converged Multimodal Database Engine. Zero C Native Dependencies.</p>
+        <p class="footer-tagline">Created by <a href="https://github.com/ompatel3158" target="_blank" rel="noopener noreferrer" style="color: #22d3ee; text-decoration: underline;">Om Patel</a> &bull; Contact: <a href="mailto:om.business3158@gmail.com" style="color: var(--text-secondary);">om.business3158@gmail.com</a></p>
       </div>
-
-      <div class="feature-box">
-        <span class="feature-tag">STORAGE KERNEL</span>
-        <h3 class="feature-box-title">Slotted Page Architecture with CRC32</h3>
-        <p class="feature-box-desc">Built with 4KB fixed slotted disk pages with variable-length record slots. Every single page header verifies data integrity using hardware CRC32 checksums on disk read.</p>
-      </div>
-
-      <div class="feature-box">
-        <span class="feature-tag">CONCURRENCY</span>
-        <h3 class="feature-box-title">MVCC Snapshot Isolation</h3>
-        <p class="feature-box-desc">Multi-Version Concurrency Control maintains transaction snapshots. Readers do not block writers, and writers do not block readers, preventing database lock contention.</p>
-      </div>
-
-      <div class="feature-box">
-        <span class="feature-tag">CRASH RECOVERY</span>
-        <h3 class="feature-box-title">ARIES Write-Ahead Logging (WAL)</h3>
-        <p class="feature-box-desc">All mutations are written sequentially to an append-only WAL log before flushing to slotted tables, ensuring zero data loss upon abrupt process termination.</p>
-      </div>
-
-      <div class="feature-box">
-        <span class="feature-tag">AI VECTOR RAG</span>
-        <h3 class="feature-box-title">Native HNSW Vector Indexing</h3>
-        <p class="feature-box-desc">Integrated Hierarchical Navigable Small World vector index supporting Cosine, Euclidean, and Dot Product distance metrics with SIMD-optimized math.</p>
-      </div>
-
-      <div class="feature-box">
-        <span class="feature-tag">WIRE PROTOCOL</span>
-        <h3 class="feature-box-title">PostgreSQL Wire Protocol Server</h3>
-        <p class="feature-box-desc">Embed a Pgwire TCP server directly into your Dart app. Connect standard PostgreSQL tools (psql, DBeaver, TablePlus, Grafana) directly to your local database.</p>
+      <div class="footer-links-grid">
+        <div class="footer-col">
+          <div class="footer-col-title">Documentation</div>
+          <ul>
+            <li><a href="docs.html#quickstart">Quickstart</a></li>
+            <li><a href="docs.html#sql-reference">SQL Reference</a></li>
+            <li><a href="docs.html#nosql-collections">NoSQL Store</a></li>
+            <li><a href="docs.html#vector-search">Vector Search</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Resources</div>
+          <ul>
+            <li><a href="benchmarks.html">Benchmarks</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="index.html#playground">Playground</a></li>
+            <li><a href="license.html">License</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Community</div>
+          <ul>
+            <li><a href="https://github.com/ompatel3158/ULTSQL" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            <li><a href="https://pub.dev/packages/ultsql" target="_blank" rel="noopener noreferrer">pub.dev</a></li>
+            <li><a href="https://www.npmjs.com/package/ultsql" target="_blank" rel="noopener noreferrer">npm</a></li>
+          </ul>
+        </div>
       </div>
     </div>
-
-    <!-- COMPARISON TABLE -->
-    <div class="comparison-table-wrapper">
-      <table class="comparison-table">
-        <thead>
-          <tr>
-            <th>Capability / Feature</th>
-            <th class="highlight">ULTSQL</th>
-            <th>SQLite (C-Native)</th>
-            <th>DuckDB (FFI)</th>
-            <th>Hive (Key-Value)</th>
-            <th>Isar</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Language Implementation</strong></td>
-            <td class="highlight">100% Pure Dart</td>
-            <td>C</td>
-            <td>C++</td>
-            <td>Dart</td>
-            <td>Rust</td>
-          </tr>
-          <tr>
-            <td><strong>Relational SQL Engine</strong></td>
-            <td class="highlight"><span class="check-yes">✓ Full SQL</span></td>
-            <td><span class="check-yes">✓ Full SQL</span></td>
-            <td><span class="check-yes">✓ Full SQL</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ Custom Query</span></td>
-          </tr>
-          <tr>
-            <td><strong>Native HNSW Vector Search</strong></td>
-            <td class="highlight"><span class="check-yes">✓ Built-in (HNSW)</span></td>
-            <td><span class="check-no">✕ Extension only</span></td>
-            <td><span class="check-no">✕ Extension only</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-          </tr>
-          <tr>
-            <td><strong>NoSQL JSON Dotted Extraction</strong></td>
-            <td class="highlight"><span class="check-yes">✓ Native JSON</span></td>
-            <td><span class="check-yes">✓ json1 ext</span></td>
-            <td><span class="check-yes">✓ Native JSON</span></td>
-            <td><span class="check-yes">✓ Key-Value</span></td>
-            <td><span class="check-yes">✓ Document</span></td>
-          </tr>
-          <tr>
-            <td><strong>Procedural PL/SQL Scripts</strong></td>
-            <td class="highlight"><span class="check-yes">✓ Native PL/SQL</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-          </tr>
-          <tr>
-            <td><strong>Embedded Pgwire TCP Server</strong></td>
-            <td class="highlight"><span class="check-yes">✓ Port 5432</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-            <td><span class="check-no">✕ None</span></td>
-          </tr>
-          <tr>
-            <td><strong>Native C/C++ Dependencies</strong></td>
-            <td class="highlight"><span class="check-yes">0 (Pure Dart)</span></td>
-            <td>Requires C Toolchain</td>
-            <td>Requires C++ FFI</td>
-            <td>0</td>
-            <td>Requires Rust FFI</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
-
-  <!-- COMMAND PALETTE & TOAST -->
-  <div class="cmd-modal-backdrop" id="cmdModal">
-    <div class="cmd-modal-panel">
-      <div class="cmd-search-input-wrapper">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" class="cmd-input" id="cmdInput" placeholder="Type a command or search..." autocomplete="off">
-        <span class="kbd-shortcut">ESC</span>
-      </div>
-      <ul class="cmd-results-list">
-        <li class="cmd-item" data-action="index.html#playground">
-          <div><span class="cmd-item-icon">⚡</span> <strong>Interactive Playground</strong></div>
-        </li>
-        <li class="cmd-item" data-action="benchmarks.html">
-          <div><span class="cmd-item-icon">📊</span> <strong>Benchmarks Suite</strong></div>
-        </li>
-        <li class="cmd-item" data-action="docs.html">
-          <div><span class="cmd-item-icon">📖</span> <strong>Documentation</strong></div>
-        </li>
-        <li class="cmd-item" data-action="theme">
-          <div><span class="cmd-item-icon">🌓</span> <strong>Toggle Theme</strong></div>
-        </li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="toast-bubble" id="toast">
-    <span>✓ Copied to clipboard!</span>
-  </div>
-
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-bottom">
-        <span>© 2026 Om Patel. Released under FSL-1.1-MIT.</span>
-        <span>Architecture Engine Powered by Anime.js v4</span>
+    <div class="footer-bottom">
+      <div class="footer-bottom-container">
+        <p>&copy; 2026 ULTSQL Team. Open source under the Business Source License (BSL 1.1) transitioning to Apache 2.0.</p>
+        <div class="footer-bottom-badges">
+          <span class="status-indicator"></span>
+          <span>Engine v1.0.26 Production Ready</span>
+        </div>
       </div>
     </div>
   </footer>
 
-  <script src="app.js?v=2.0.0"></script>
+  <script src="motion.js" defer></script>
+  <script src="features.js" defer></script>
 </body>
 </html>
