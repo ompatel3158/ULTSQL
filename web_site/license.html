@@ -64,10 +64,32 @@
 </head>
 <body>
 
-  <!-- READING PROGRESS BAR -->
+  <!-- BKLIT UI ARCHITECTURAL CAD RULER (UPPER SCALE - FIXED) -->
+  <div class="architectural-ruler-top" id="topCadRuler">
+    <div class="ruler-item">
+      <span class="ruler-dot-indicator"></span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.26</span>
+    </div>
+    <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
+    <div class="ruler-indicator-marker" id="rulerMarker"></div>
+    <div class="ruler-telemetry">
+      <div class="ruler-item">
+        <span>COORD:</span>
+        <span style="color: var(--text-primary); font-family: var(--font-mono);" id="rulerCoordText">X: 0000 | Y: 0000</span>
+      </div>
+      <button class="ruler-toggle-btn" id="toggleCadGuidesBtn" title="Toggle CAD Guide Lines">GUIDES: ON</button>
+      <div class="ruler-item">
+        <span>JITTER:</span>
+        <span style="color: var(--text-primary);" id="rulerFps">0.08ms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- READING PROGRESS BAR (FIXED BENEATH UPPER SCALE) -->
   <div class="scroll-progress-bar" id="scrollProgressBar"></div>
 
-  <!-- BKLIT DOT GRID BACKGROUND -->
+  <!-- BKLIT DUAL-LAYER DOT GRID BACKGROUND -->
+  <div class="bklit-dot-grid-base"></div>
   <div class="bklit-dot-grid"></div>
 
   <!-- FLOATING PILL NAVBAR -->

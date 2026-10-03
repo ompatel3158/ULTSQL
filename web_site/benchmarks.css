@@ -1,9 +1,12 @@
-/* ULTSQL Benchmarks Page Styles */
+/* ULTSQL Benchmarks Page Styles — Minimalist Monochrome (Strictly Black & White)
+   Inspired by Bklit UI & shadcn/ui */
 
 .bench-container {
   max-width: 1360px;
   margin: 0 auto;
-  padding: 3rem 1.5rem 6rem;
+  padding: 6.75rem 1.5rem 6rem;
+  position: relative;
+  z-index: 1;
 }
 
 .bench-hero {
@@ -17,23 +20,23 @@
   font-weight: 800;
   letter-spacing: -0.04em;
   margin-bottom: 0.75rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .bench-hero-subtitle {
   font-size: 1.15rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   line-height: 1.65;
 }
 
 /* Hardware Rig Card */
 .bench-rig-card {
-  background: var(--bg-surface, #0f141c);
-  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   padding: 1.75rem 2rem;
   margin-bottom: 3.5rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-sm);
 }
 
 .bench-rig-header {
@@ -53,12 +56,12 @@
 
 .bench-rig-badge {
   font-size: 0.72rem;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   padding: 0.25rem 0.6rem;
-  background: rgba(52, 211, 153, 0.1);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  color: #34d399;
-  border-radius: 999px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -71,9 +74,9 @@
 }
 
 .bench-rig-item {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 8px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
   padding: 1rem;
 }
 
@@ -81,14 +84,14 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary, #64748b);
+  color: var(--text-tertiary);
   margin-bottom: 0.35rem;
 }
 
 .bench-rig-item-val {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 /* Category Filters */
@@ -101,27 +104,28 @@
 }
 
 .bench-filter-btn {
-  background: var(--bg-surface, #0f141c);
-  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-  color: var(--text-secondary, #94a3b8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
   font-size: 0.85rem;
   padding: 0.45rem 1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .bench-filter-btn:hover {
-  color: #fff;
-  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+  border-color: var(--border-medium);
 }
 
 .bench-filter-btn.active {
-  background: rgba(34, 211, 238, 0.12);
-  border-color: #22d3ee;
-  color: #22d3ee;
-  font-weight: 600;
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Workload Comparison Cards */
@@ -133,18 +137,20 @@
 }
 
 .bench-card {
-  background: var(--bg-surface, #0f141c);
-  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  transition: transform 0.2s, border-color 0.2s;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
 .bench-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(34, 211, 238, 0.3);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-glow);
 }
 
 .bench-card-header {
@@ -158,42 +164,42 @@
 .bench-card-title {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
 .bench-card-group {
   font-size: 0.72rem;
-  color: #22d3ee;
-  font-family: var(--font-mono, monospace);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
   text-transform: uppercase;
 }
 
 .bench-winner-tag {
   font-size: 0.72rem;
   font-weight: 700;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   padding: 0.25rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
 .tag-ultsql-win {
-  background: rgba(34, 211, 238, 0.15);
-  border: 1px solid rgba(34, 211, 238, 0.4);
-  color: #22d3ee;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
 }
 
 .tag-sqlite-win {
-  background: rgba(251, 191, 36, 0.12);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  color: #fbbf24;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
 }
 
 .tag-standalone {
-  background: rgba(167, 139, 250, 0.12);
-  border: 1px solid rgba(167, 139, 250, 0.3);
-  color: #a78bfa;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
 }
 
 /* Engine Comparison Bars */
@@ -214,58 +220,65 @@
   display: flex;
   justify-content: space-between;
   font-size: 0.82rem;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .bench-engine-label {
   font-weight: 600;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 .bench-engine-val {
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .bench-bar-track {
-  height: 10px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 999px;
+  height: 8px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
   overflow: hidden;
   position: relative;
 }
 
 .bench-bar-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
   width: 0%;
 }
 
 .fill-ultsql {
-  background: linear-gradient(90deg, #22d3ee, #06b6d4);
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  background: var(--text-primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="light"] .fill-ultsql {
+  box-shadow: none;
 }
 
 .fill-sqlite {
-  background: linear-gradient(90deg, #94a3b8, #64748b);
+  background: var(--text-tertiary);
 }
 
 .bench-card-note {
   font-size: 0.78rem;
-  color: var(--text-tertiary, #64748b);
+  color: var(--text-tertiary);
   line-height: 1.5;
   margin-top: auto;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255,255,255,0.04);
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* Reproduce Box */
 .bench-reproduce-box {
-  background: #080b11;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   padding: 2rem;
   margin-bottom: 4rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .bench-reproduce-header {
@@ -278,6 +291,9 @@
 }
 
 @media (max-width: 768px) {
+  .bench-container {
+    padding-top: 5rem;
+  }
   .bench-cards-grid {
     grid-template-columns: 1fr;
   }

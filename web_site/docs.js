@@ -14,8 +14,8 @@
           await navigator.clipboard.writeText(codeText);
           const origText = btn.innerHTML;
           btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
-          btn.style.color = '#34d399';
-          btn.style.borderColor = '#34d399';
+          btn.style.color = 'var(--text-primary)';
+          btn.style.borderColor = 'var(--border-strong)';
           setTimeout(() => {
             btn.innerHTML = origText;
             btn.style.color = '';

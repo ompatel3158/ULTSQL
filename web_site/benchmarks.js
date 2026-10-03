@@ -17,7 +17,7 @@
       console.error('Failed to load benchmark data:', e);
       const container = document.getElementById('benchCardsGrid');
       if (container) {
-        container.innerHTML = `<p style="color:#ef4444;text-align:center;grid-column:1/-1;">Could not load benchmarks.json. Run <code>dart run tool/benchmarks/run_all.dart</code> to generate.</p>`;
+        container.innerHTML = `<p style="color:var(--text-secondary);text-align:center;grid-column:1/-1;">Could not load benchmarks.json. Run <code>dart run tool/benchmarks/run_all.dart</code> to generate.</p>`;
       }
     }
   }
@@ -124,8 +124,8 @@
         <div class="bench-bars-container">
           <div class="bench-bar-row">
             <div class="bench-bar-meta">
-              <span class="bench-engine-label" style="color:#22d3ee;">⚡ ULTSQL (Pure Dart)</span>
-              <span class="bench-engine-val" style="color:#22d3ee;">${ult !== null ? formatVal(ult) + ' ' + item.unit : 'N/A'}</span>
+              <span class="bench-engine-label" style="color:var(--text-primary);">⚡ ULTSQL (Pure Dart)</span>
+              <span class="bench-engine-val" style="color:var(--text-primary);">${ult !== null ? formatVal(ult) + ' ' + item.unit : 'N/A'}</span>
             </div>
             <div class="bench-bar-track">
               <div class="bench-bar-fill fill-ultsql" style="width: ${ultFillPct}%;"></div>
@@ -135,8 +135,8 @@
           ${sq !== null ? `
           <div class="bench-bar-row">
             <div class="bench-bar-meta">
-              <span class="bench-engine-label" style="color:#94a3b8;">SQLite (Native C/FFI)</span>
-              <span class="bench-engine-val" style="color:#94a3b8;">${formatVal(sq)} ${item.unit}</span>
+              <span class="bench-engine-label" style="color:var(--text-secondary);">SQLite (Native C/FFI)</span>
+              <span class="bench-engine-val" style="color:var(--text-secondary);">${formatVal(sq)} ${item.unit}</span>
             </div>
             <div class="bench-bar-track">
               <div class="bench-bar-fill fill-sqlite" style="width: ${sqFillPct}%;"></div>
@@ -177,10 +177,10 @@
       }
 
       tr.innerHTML = `
-        <td style="font-weight:600; color:#fff;">${item.label}</td>
+        <td style="font-weight:600; color:var(--text-primary);">${item.label}</td>
         <td><code>${item.unit}</code></td>
-        <td style="color:#22d3ee; font-weight:700; font-family:monospace;">${formatVal(ult)}</td>
-        <td style="color:#94a3b8; font-family:monospace;">${sq !== null ? formatVal(sq) : 'N/A'}</td>
+        <td style="color:var(--text-primary); font-weight:700; font-family:var(--font-mono);">${formatVal(ult)}</td>
+        <td style="color:var(--text-secondary); font-family:var(--font-mono);">${sq !== null ? formatVal(sq) : 'N/A'}</td>
         <td style="font-weight:600;">${winner}</td>
       `;
       tbody.appendChild(tr);

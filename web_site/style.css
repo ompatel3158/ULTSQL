@@ -109,7 +109,7 @@ html {
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
   line-height: 1.6;
   min-height: 100vh;
   position: relative;
@@ -123,12 +123,12 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1.2px, transparent 1.2px);
   background-size: 24px 24px;
 }
 
 [data-theme="light"] .bklit-dot-grid-base {
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1.2px, transparent 1.2px);
 }
 
 .bklit-dot-grid {
@@ -136,14 +136,14 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.35) 1.5px, transparent 1.5px);
   background-size: 24px 24px;
   mask-image: radial-gradient(circle 550px at var(--mouse-x, 50%) var(--mouse-y, 30%), black 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
   -webkit-mask-image: radial-gradient(circle 550px at var(--mouse-x, 50%) var(--mouse-y, 30%), black 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
 }
 
 [data-theme="light"] .bklit-dot-grid {
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.30) 1.5px, transparent 1.5px);
   mask-image: radial-gradient(circle 550px at var(--mouse-x, 50%) var(--mouse-y, 30%), black 0%, rgba(0, 0, 0, 0.3) 60%, transparent 100%);
   -webkit-mask-image: radial-gradient(circle 550px at var(--mouse-x, 50%) var(--mouse-y, 30%), black 0%, rgba(0, 0, 0, 0.3) 60%, transparent 100%);
 }
@@ -192,25 +192,29 @@ code, pre {
 /* Reading Progress Bar (Minimal Monochrome) */
 .scroll-progress-bar {
   position: fixed;
-  top: 0;
+  top: 24px;
   left: 0;
   height: 2px;
   width: 0%;
   background: var(--text-primary);
-  z-index: 1000;
+  z-index: 10002;
   pointer-events: none;
 }
 
-/* Header & Nav (Minimalist Floating Pill) */
+/* Header & Nav (Minimalist Floating Pill - Fixed on Scroll) */
 .header-wrapper {
-  position: sticky;
-  top: 1rem;
-  z-index: 99;
+  position: fixed;
+  top: 32px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   width: 100%;
   padding: 0 1.25rem;
+  pointer-events: none;
 }
 
 .navbar-pill {
+  pointer-events: auto;
   max-width: 1100px;
   margin: 0 auto;
   display: flex;
@@ -1480,7 +1484,7 @@ code, pre {
   top: 0;
   left: 0;
   right: 0;
-  width: 100vw;
+  width: 100%;
   height: 24px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
@@ -1505,8 +1509,9 @@ code, pre {
   display: flex;
   align-items: flex-end;
   pointer-events: none;
-  opacity: 0.35;
+  opacity: 0.45;
   overflow: hidden;
+  background-image: repeating-linear-gradient(to right, transparent, transparent 11px, var(--border-medium) 11px, var(--border-medium) 12px);
 }
 
 .ruler-tick {
@@ -2369,15 +2374,44 @@ body {
   }
 }
 
-@media (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) {
   .custom-cursor-dot,
   .custom-cursor-ring,
-  .custom-cursor-hud,
-  .architectural-ruler-top {
+  .custom-cursor-hud {
     display: none !important;
   }
-  .header-wrapper {
-    top: 1rem !important;
+}
+
+@media (max-width: 640px) {
+  .architectural-ruler-top .ruler-telemetry {
+    display: none !important;
   }
 }
+
+/* Fixed Header Spacing Helpers for all subpages and main */
+.hero-wrapper {
+  padding-top: 5rem;
+}
+
+.docs-container,
+.features-container,
+.bench-container,
+main.license-container,
+main.container {
+  padding-top: 6.75rem !important;
+}
+
+@media (max-width: 768px) {
+  .hero-wrapper {
+    padding-top: 4.5rem;
+  }
+  .docs-container,
+  .features-container,
+  .bench-container,
+  main.license-container,
+  main.container {
+    padding-top: 5rem !important;
+  }
+}
+
 

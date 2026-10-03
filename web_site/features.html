@@ -18,10 +18,32 @@
 </head>
 <body>
 
-  <!-- READING PROGRESS BAR -->
+  <!-- BKLIT UI ARCHITECTURAL CAD RULER (UPPER SCALE - FIXED) -->
+  <div class="architectural-ruler-top" id="topCadRuler">
+    <div class="ruler-item">
+      <span class="ruler-dot-indicator"></span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.26</span>
+    </div>
+    <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
+    <div class="ruler-indicator-marker" id="rulerMarker"></div>
+    <div class="ruler-telemetry">
+      <div class="ruler-item">
+        <span>COORD:</span>
+        <span style="color: var(--text-primary); font-family: var(--font-mono);" id="rulerCoordText">X: 0000 | Y: 0000</span>
+      </div>
+      <button class="ruler-toggle-btn" id="toggleCadGuidesBtn" title="Toggle CAD Guide Lines">GUIDES: ON</button>
+      <div class="ruler-item">
+        <span>JITTER:</span>
+        <span style="color: var(--text-primary);" id="rulerFps">0.08ms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- READING PROGRESS BAR (FIXED BENEATH UPPER SCALE) -->
   <div class="scroll-progress-bar" id="scrollProgressBar"></div>
 
-  <!-- BKLIT DOT GRID BACKGROUND -->
+  <!-- BKLIT DUAL-LAYER DOT GRID BACKGROUND -->
+  <div class="bklit-dot-grid-base"></div>
   <div class="bklit-dot-grid"></div>
 
   <!-- FLOATING PILL NAVBAR -->
@@ -431,61 +453,61 @@ await cluster.join();</code></pre>
       <div class="features-arch-diagram">
         <svg viewBox="0 0 800 380" width="100%" height="auto" style="overflow: visible;">
           <defs>
-            <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.8"/>
-              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.8"/>
+            <linearGradient id="monoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#a1a1aa" stop-opacity="0.8"/>
             </linearGradient>
             <linearGradient id="boxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#141a24"/>
-              <stop offset="100%" stop-color="#090d14"/>
+              <stop offset="0%" stop-color="#141416"/>
+              <stop offset="100%" stop-color="#0a0a0c"/>
             </linearGradient>
           </defs>
 
           <!-- Top Layer: Client Interfaces -->
           <g>
-            <rect x="50" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="125" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Flutter / Dart SDK</text>
+            <rect x="50" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.18)"/>
+            <text x="125" y="50" fill="#ffffff" font-size="13" font-weight="600" text-anchor="middle">Flutter / Dart SDK</text>
 
-            <rect x="230" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="305" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">PGWire (psql/node/py)</text>
+            <rect x="230" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.18)"/>
+            <text x="305" y="50" fill="#ffffff" font-size="13" font-weight="600" text-anchor="middle">PGWire (psql/node/py)</text>
 
-            <rect x="410" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="485" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">REST HTTP API</text>
+            <rect x="410" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.18)"/>
+            <text x="485" y="50" fill="#ffffff" font-size="13" font-weight="600" text-anchor="middle">REST HTTP API</text>
 
-            <rect x="590" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.15)"/>
-            <text x="665" y="50" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Interactive CLI</text>
+            <rect x="590" y="20" width="150" height="48" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.18)"/>
+            <text x="665" y="50" fill="#ffffff" font-size="13" font-weight="600" text-anchor="middle">Interactive CLI</text>
           </g>
 
           <!-- Mid Layer: Converged Models -->
           <g transform="translate(0, 100)">
-            <rect x="50" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#22d3ee" stroke-width="1.5"/>
-            <text x="125" y="38" fill="#22d3ee" font-size="13" font-weight="700" text-anchor="middle">Relational SQL</text>
-            <text x="125" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">ANSI / PL-SQL / Joins</text>
+            <rect x="50" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+            <text x="125" y="38" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">Relational SQL</text>
+            <text x="125" y="55" fill="#a1a1aa" font-size="11" text-anchor="middle">ANSI / PL-SQL / Joins</text>
 
-            <rect x="230" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#34d399" stroke-width="1.5"/>
-            <text x="305" y="38" fill="#34d399" font-size="13" font-weight="700" text-anchor="middle">NoSQL Documents</text>
-            <text x="305" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">db.collection Dotted JSON</text>
+            <rect x="230" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+            <text x="305" y="38" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">NoSQL Documents</text>
+            <text x="305" y="55" fill="#a1a1aa" font-size="11" text-anchor="middle">db.collection Dotted JSON</text>
 
-            <rect x="410" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#fbbf24" stroke-width="1.5"/>
-            <text x="485" y="38" fill="#fbbf24" font-size="13" font-weight="700" text-anchor="middle">Key-Value Engine</text>
-            <text x="485" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">db.kv Hot RAM Cache</text>
+            <rect x="410" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+            <text x="485" y="38" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">Key-Value Engine</text>
+            <text x="485" y="55" fill="#a1a1aa" font-size="11" text-anchor="middle">db.kv Hot RAM Cache</text>
 
-            <rect x="590" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="#a78bfa" stroke-width="1.5"/>
-            <text x="665" y="38" fill="#a78bfa" font-size="13" font-weight="700" text-anchor="middle">AI Vector Search</text>
-            <text x="665" y="55" fill="#94a3b8" font-size="11" text-anchor="middle">HNSW Graph RAG</text>
+            <rect x="590" y="10" width="150" height="60" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+            <text x="665" y="38" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">AI Vector Search</text>
+            <text x="665" y="55" fill="#a1a1aa" font-size="11" text-anchor="middle">HNSW Graph RAG</text>
           </g>
 
           <!-- Core Engine Layer -->
           <g transform="translate(0, 200)">
-            <rect x="50" y="10" width="690" height="65" rx="8" fill="url(#boxGrad)" stroke="url(#cyanGrad)" stroke-width="2"/>
-            <text x="395" y="38" fill="#f8fafc" font-size="15" font-weight="700" text-anchor="middle">Unified Storage Engine Core</text>
-            <text x="395" y="58" fill="#94a3b8" font-size="12" text-anchor="middle">4KB/8KB Slotted Pages &bull; ARIES Write-Ahead Log (WAL) &bull; CRC32 Checksums &bull; AES-256 Envelopes</text>
+            <rect x="50" y="10" width="690" height="65" rx="8" fill="url(#boxGrad)" stroke="url(#monoGrad)" stroke-width="1.5"/>
+            <text x="395" y="38" fill="#ffffff" font-size="15" font-weight="700" text-anchor="middle">Unified Storage Engine Core</text>
+            <text x="395" y="58" fill="#a1a1aa" font-size="12" text-anchor="middle">4KB/8KB Slotted Pages &bull; ARIES Write-Ahead Log (WAL) &bull; CRC32 Checksums &bull; AES-256 Envelopes</text>
           </g>
 
           <!-- Storage Physical Layer -->
           <g transform="translate(0, 300)">
             <rect x="180" y="10" width="430" height="50" rx="8" fill="url(#boxGrad)" stroke="rgba(255,255,255,0.2)"/>
-            <text x="395" y="40" fill="#f8fafc" font-size="13" font-weight="600" text-anchor="middle">Durable NVMe Disk Storage / Fast In-Memory RAM</text>
+            <text x="395" y="40" fill="#ffffff" font-size="13" font-weight="600" text-anchor="middle">Durable NVMe Disk Storage / Fast In-Memory RAM</text>
           </g>
         </svg>
       </div>

@@ -1,9 +1,12 @@
-/* ULTSQL Features Page Styles */
+/* ULTSQL Features Page Styles — Minimalist Monochrome (Strictly Black & White)
+   Inspired by Bklit UI & shadcn/ui */
 
 .features-container {
   max-width: 1360px;
   margin: 0 auto;
-  padding: 3rem 1.5rem 6rem;
+  padding: 6.75rem 1.5rem 6rem;
+  position: relative;
+  z-index: 1;
 }
 
 .features-hero {
@@ -17,12 +20,12 @@
   font-weight: 800;
   letter-spacing: -0.04em;
   margin-bottom: 1rem;
-  color: var(--text-primary, #f8fafc);
+  color: var(--text-primary);
 }
 
 .features-hero-subtitle {
   font-size: 1.15rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   line-height: 1.65;
 }
 
@@ -36,29 +39,29 @@
 }
 
 .feature-chip-btn {
-  background: var(--bg-surface, #0f141c);
-  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-  color: var(--text-secondary, #94a3b8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
   font-size: 0.84rem;
   font-weight: 500;
   padding: 0.45rem 1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .feature-chip-btn:hover {
-  color: #fff;
-  border-color: rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  background: var(--bg-surface-hover);
 }
 
 .feature-chip-btn.active {
-  background: rgba(34, 211, 238, 0.12);
-  border-color: #22d3ee;
-  color: #22d3ee;
-  font-weight: 600;
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Features Grid */
@@ -69,21 +72,22 @@
 }
 
 .feature-card {
-  background: var(--bg-surface, #0f141c);
-  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-  border-radius: var(--radius-sm, 10px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   padding: 1.6rem;
   display: flex;
   flex-direction: column;
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .feature-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(34, 211, 238, 0.4);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-glow);
 }
 
 .feature-card-header {
@@ -94,15 +98,15 @@
 }
 
 .feature-card-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.2);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #22d3ee;
+  color: var(--text-primary);
 }
 
 .feature-status-badge {
@@ -110,40 +114,40 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  font-family: var(--font-mono, monospace);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
 }
 
 .status-stable {
-  background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
 }
 
 .status-beta {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
 }
 
 .status-experimental {
-  background: rgba(244, 114, 182, 0.12);
-  color: #f472b6;
-  border: 1px solid rgba(244, 114, 182, 0.3);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  border: 1px dashed var(--border-subtle);
 }
 
 .feature-card-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
   letter-spacing: -0.01em;
 }
 
 .feature-card-desc {
   font-size: 0.92rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1.25rem;
   flex-grow: 1;
@@ -155,25 +159,25 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.3rem 0.65rem;
-  background: rgba(34, 211, 238, 0.06);
-  border: 1px solid rgba(34, 211, 238, 0.18);
-  border-radius: 6px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
   font-size: 0.78rem;
-  font-family: var(--font-mono, monospace);
-  color: #22d3ee;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
   margin-bottom: 1rem;
 }
 
 /* Mini Code Box */
 .feature-code-box {
-  background: #07090e;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 6px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
   padding: 0.85rem;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1.5;
-  color: #cbd5e1;
+  color: var(--text-primary);
   overflow-x: auto;
   margin-bottom: 1rem;
 }
@@ -183,18 +187,18 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 0.85rem;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .feature-docs-link {
   font-size: 0.84rem;
-  color: #22d3ee;
+  color: var(--text-primary);
   text-decoration: none;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  transition: transform 0.15s;
+  transition: transform var(--transition-fast);
 }
 
 .feature-docs-link:hover {
@@ -206,22 +210,23 @@
 .features-arch-section {
   margin-top: 6rem;
   padding: 4rem 2rem;
-  background: var(--bg-surface, #0f141c);
-  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 
 .features-arch-title {
   font-size: 2rem;
   font-weight: 800;
   margin-bottom: 0.75rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .features-arch-subtitle {
   font-size: 1.05rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   max-width: 700px;
   margin: 0 auto 3rem;
 }
@@ -237,6 +242,9 @@
 }
 
 @media (max-width: 768px) {
+  .features-container {
+    padding-top: 5rem;
+  }
   .features-grid {
     grid-template-columns: 1fr;
   }

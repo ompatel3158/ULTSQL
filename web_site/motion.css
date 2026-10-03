@@ -28,31 +28,40 @@ html.motion-leaving body { opacity: 0; transform: translate3d(0, 6px, 0); transi
   to   { opacity: 1; transform: none; }
 }
 
-/* Scroll progress bar */
+/* Scroll progress bar (Monochrome) */
 .ult-scroll-progress {
   position: fixed;
-  inset: 0 0 auto 0;
+  top: 24px;
+  left: 0;
+  right: 0;
   height: 2px;
-  z-index: 9999;
+  z-index: 10002;
   transform-origin: 0 50%;
   transform: scaleX(0);
-  background: linear-gradient(90deg, #22d3ee, #a78bfa, #f472b6);
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.6);
+  background: var(--text-primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
   pointer-events: none;
 }
 
-/* Spotlight glow that follows the cursor on [data-glow] cards */
+[data-theme="light"] .ult-scroll-progress {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Spotlight glow that follows the cursor on [data-glow] cards (Strictly Monochrome) */
 [data-glow] { position: relative; isolation: isolate; }
 [data-glow]::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(34, 211, 238, 0.12), transparent 45%);
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.08), transparent 45%);
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
   z-index: -1;
+}
+[data-theme="light"] [data-glow]::before {
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(0, 0, 0, 0.05), transparent 45%);
 }
 [data-glow]:hover::before { opacity: 1; }
 

@@ -18,10 +18,32 @@
 </head>
 <body>
 
-  <!-- READING PROGRESS BAR -->
+  <!-- BKLIT UI ARCHITECTURAL CAD RULER (UPPER SCALE - FIXED) -->
+  <div class="architectural-ruler-top" id="topCadRuler">
+    <div class="ruler-item">
+      <span class="ruler-dot-indicator"></span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.26</span>
+    </div>
+    <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
+    <div class="ruler-indicator-marker" id="rulerMarker"></div>
+    <div class="ruler-telemetry">
+      <div class="ruler-item">
+        <span>COORD:</span>
+        <span style="color: var(--text-primary); font-family: var(--font-mono);" id="rulerCoordText">X: 0000 | Y: 0000</span>
+      </div>
+      <button class="ruler-toggle-btn" id="toggleCadGuidesBtn" title="Toggle CAD Guide Lines">GUIDES: ON</button>
+      <div class="ruler-item">
+        <span>JITTER:</span>
+        <span style="color: var(--text-primary);" id="rulerFps">0.08ms</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- READING PROGRESS BAR (FIXED BENEATH UPPER SCALE) -->
   <div class="scroll-progress-bar" id="scrollProgressBar"></div>
 
-  <!-- BKLIT DOT GRID BACKGROUND -->
+  <!-- BKLIT DUAL-LAYER DOT GRID BACKGROUND -->
+  <div class="bklit-dot-grid-base"></div>
   <div class="bklit-dot-grid"></div>
 
   <!-- FLOATING PILL NAVBAR -->
@@ -112,8 +134,8 @@
     <section class="bench-rig-card" data-reveal="up">
       <div class="bench-rig-header">
         <div class="bench-rig-title-group">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-          <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0;">Physical Test Rig Specifications</h2>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;">Physical Test Rig Specifications</h2>
         </div>
         <div>
           <span class="bench-rig-badge">
@@ -126,25 +148,25 @@
         <div class="bench-rig-item">
           <div class="bench-rig-item-label">Processor (CPU)</div>
           <div class="bench-rig-item-val" id="rigCpu">13th Gen Intel Core i7-13650HX</div>
-          <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">14 Cores (6P + 8E), 20 Threads, up to 4.9 GHz</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">14 Cores (6P + 8E), 20 Threads, up to 4.9 GHz</div>
         </div>
 
         <div class="bench-rig-item">
           <div class="bench-rig-item-label">System Memory (RAM)</div>
           <div class="bench-rig-item-val" id="rigRam">16 GB DDR5 (4800 MHz)</div>
-          <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">High-speed dual-channel memory</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">High-speed dual-channel memory</div>
         </div>
 
         <div class="bench-rig-item">
           <div class="bench-rig-item-label">Storage Subsystem</div>
           <div class="bench-rig-item-val" id="rigDisk">Micron 2400 NVMe SSD (PCIe Gen4)</div>
-          <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">Direct file I/O with ARIES Write-Ahead Log</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Direct file I/O with ARIES Write-Ahead Log</div>
         </div>
 
         <div class="bench-rig-item">
           <div class="bench-rig-item-label">Host OS & Toolchain</div>
           <div class="bench-rig-item-val" id="rigOs">Windows 11 Home 64-bit</div>
-          <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">Dart SDK 3.12.2 (Pure Dart Engine)</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Dart SDK 3.12.2 (Pure Dart Engine)</div>
         </div>
       </div>
 
@@ -188,8 +210,8 @@
             <tr>
               <th>Workload Benchmark</th>
               <th>Unit</th>
-              <th style="color: #22d3ee;">⚡ ULTSQL (Pure Dart)</th>
-              <th style="color: #94a3b8;">SQLite (Native C/FFI)</th>
+              <th style="color: var(--text-primary);">⚡ ULTSQL (Pure Dart)</th>
+              <th style="color: var(--text-secondary);">SQLite (Native C/FFI)</th>
               <th>Winner / Speedup</th>
             </tr>
           </thead>
