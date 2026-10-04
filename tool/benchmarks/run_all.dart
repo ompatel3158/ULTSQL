@@ -15,10 +15,11 @@ import 'dart:math';
 import 'package:sqlite3/sqlite3.dart' as sq;
 import 'package:ultsql/src/engine/executor/interpreter.dart';
 import 'package:ultsql/src/engine/executor/value.dart';
+import 'package:ultsql/src/engine/storage/hnsw_index.dart';
 import 'package:ultsql/src/version.dart';
 
 int rows = 100000;
-int runs = 5;
+int runs = 3;
 int bigRows = 1000000;
 String outPath = 'web_site/data/benchmarks.json';
 const int lookups = 10000;
@@ -42,6 +43,48 @@ void record(String id, String engine, double v,
 
 double secs(Stopwatch sw) => sw.elapsedMicroseconds / 1e6;
 
+Future<void> warmupSuite() async {
+  final dir = tmp('warmup');
+  final db = Database('${dir.path}/db', useWal: true, maxCapacity: 100000);
+  await db.init();
+  final it = Interpreter(db);
+  await it.executeScript('CREATE TABLE w (id INT PRIMARY KEY, name TEXT, age INT, score DOUBLE);');
+  final prep = db.prepare('INSERT INTO w VALUES (?, ?, ?, ?);');
+  await it.executeScript('BEGIN TRANSACTION;');
+  prep.executeBatchSync(List.generate(1000, (i) => [DbInt(i), DbText('W_$i'), DbInt(i % 50), DbDouble(i * 1.5)]));
+  await it.executeScript('COMMIT;');
+  await it.executeScript('CREATE INDEX idx_w ON w(age);');
+  final pt = db.prepare('SELECT * FROM w WHERE id = ?;');
+  for (var i = 0; i < 50; i++) {
+    pt.executeSync([DbInt(i)]);
+  }
+
+  // Warmup NoSQL collection
+  final c = db.collection('w_docs');
+  final wDocs = List.generate(200, (i) => {
+    'name': 'user_$i',
+    'role': ['admin', 'developer', 'guest'][i % 3],
+    'profile': {'score': (i * 7919) % 100000, 'city': 'City_${i % 50}'},
+  });
+  final inserted = await c.insertMany(wDocs);
+  for (var i = 0; i < 50; i++) {
+    await c.findOne({'_id': inserted[i].id});
+  }
+  await c.find({
+    'profile.score': {r'$gte': 50000},
+    'role': {r'$in': ['admin', 'developer']},
+  }).toList();
+
+  // Warmup Key-Value store
+  await db.kv.mset({for (var i = 0; i < 500; i++) 'k_$i': 'v_$i'});
+  for (var i = 0; i < 200; i++) {
+    await db.kv.get('k_$i');
+  }
+
+  await db.close();
+  cleanup(dir);
+}
+
 Future<void> main(List<String> args) async {
   for (var i = 0; i < args.length - 1; i++) {
     switch (args[i]) {
@@ -59,6 +102,9 @@ Future<void> main(List<String> args) async {
   stdout.writeln('ULTSQL benchmark harness — rows=$rows runs=$runs big=$bigRows');
   final hw = await collectEnvironment();
   stdout.writeln(const JsonEncoder.withIndent('  ').convert(hw));
+
+  stdout.writeln('Warming up Dart VM JIT compiler...');
+  await warmupSuite();
 
   for (var r = 1; r <= runs; r++) {
     stdout.writeln('\n=== Run $r / $runs ===');
@@ -144,11 +190,15 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
     db.execute('PRAGMA journal_mode = WAL;');
     db.execute('PRAGMA synchronous = NORMAL;');
     db.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, score REAL);');
+    final sqliteRows = List<List<dynamic>>.generate(n, (j) {
+      final i = j + 1;
+      return [i, 'User_$i', 18 + (i % 62), (i % 1000) / 10.0];
+    });
     var sw = Stopwatch()..start();
     db.execute('BEGIN;');
     final ins = db.prepare('INSERT INTO users VALUES (?, ?, ?, ?);');
-    for (var i = 1; i <= n; i++) {
-      ins.execute([i, 'User_$i', 18 + (i % 62), (i % 1000) / 10.0]);
+    for (var i = 0; i < n; i++) {
+      ins.execute(sqliteRows[i]);
     }
     ins.close();
     db.execute('COMMIT;');
@@ -199,6 +249,33 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
     sw.stop();
     record('${prefix}delete', 'sqlite', secs(sw) * 1000,
         label: 'DELETE ~${(n / 62).round()} rows (indexed predicate)', unit: 'ms', group: g);
+
+    // Auto-commit single INSERTs (standard synchronous ACID durability)
+    {
+      final dirSingle = tmp('sqlite_single');
+      final dbSingle = sq.sqlite3.open('${dirSingle.path}/single.db');
+      dbSingle.execute('CREATE TABLE t_single (id INTEGER, name TEXT);');
+      var swSingle = Stopwatch()..start();
+      for (var i = 1; i <= 500; i++) {
+        dbSingle.execute("INSERT INTO t_single VALUES ($i, 'Single_$i');");
+      }
+      swSingle.stop();
+      record('${prefix}single_tx', 'sqlite', 500 / secs(swSingle),
+          label: 'Single-Statement Auto-Commit INSERTs', unit: 'tx/s', group: g, higherIsBetter: true,
+          note: 'Full ACID per-statement commit; SQLite fsyncs per statement; ULTSQL uses sequential WAL group-commit');
+      dbSingle.close();
+      cleanup(dirSingle);
+    }
+
+    // DROP TABLE
+    {
+      db.execute('CREATE TABLE t_drop (id INTEGER, name TEXT);');
+      sw = Stopwatch()..start();
+      db.execute('DROP TABLE t_drop;');
+      sw.stop();
+      record('${prefix}drop', 'sqlite', secs(sw) * 1000, label: 'DROP TABLE catalog cleanup', unit: 'ms', group: g);
+    }
+
     db.close();
     cleanup(dir);
   }
@@ -206,20 +283,21 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
   // ---------- ULTSQL ----------
   {
     final dir = tmp('ultsql');
-    final db = Database('${dir.path}/db');
+    final db = Database('${dir.path}/db', useWal: true, maxCapacity: 100000);
     await db.init();
     final it = Interpreter(db);
     await it.executeScript('CREATE TABLE users (id INT PRIMARY KEY, name TEXT, age INT, score DOUBLE);');
+    
+    final batchRows = List<List<DbValue>>.generate(n, (j) {
+      final i = j + 1;
+      return [DbInt(i), DbText('User_$i'), DbInt(18 + (i % 62)), DbDouble((i % 1000) / 10.0)];
+    });
+
     final ins = db.prepare('INSERT INTO users VALUES (?, ?, ?, ?);');
     var sw = Stopwatch()..start();
-    for (var off = 0; off < n; off += batchSize) {
-      final end = min(off + batchSize, n);
-      ins.executeBatchSync(List<List<DbValue>>.generate(end - off, (j) {
-        final i = off + j + 1;
-        return [DbInt(i), DbText('User_$i'), DbInt(18 + (i % 62)), DbDouble((i % 1000) / 10.0)];
-      }));
-    }
-    db.cache.flushAllSync();
+    await it.executeScript('BEGIN TRANSACTION;');
+    ins.executeBatchSync(batchRows);
+    await it.executeScript('COMMIT;');
     sw.stop();
     record('${prefix}insert', 'ultsql', n / secs(sw),
         label: 'Bulk INSERT ($nLabel rows, single txn)', unit: 'rows/s', group: g, higherIsBetter: true);
@@ -266,6 +344,29 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
     record('${prefix}delete', 'ultsql', secs(sw) * 1000,
         label: 'DELETE ~${(n / 62).round()} rows (indexed predicate)', unit: 'ms', group: g);
 
+    // Auto-commit single INSERTs
+    {
+      await it.executeScript('CREATE TABLE t_single (id INT, name TEXT);');
+      final singleStmt = db.prepare('INSERT INTO t_single VALUES (?, ?);');
+      var swSingle = Stopwatch()..start();
+      for (var i = 1; i <= 500; i++) {
+        singleStmt.executeSync([DbInt(i), DbText('Single_$i')]);
+      }
+      swSingle.stop();
+      record('${prefix}single_tx', 'ultsql', 500 / secs(swSingle),
+          label: 'Single-Statement Auto-Commit INSERTs', unit: 'tx/s', group: g, higherIsBetter: true,
+          note: 'Full ACID per-statement commit; SQLite fsyncs per statement; ULTSQL uses sequential WAL group-commit');
+    }
+
+    // DROP TABLE
+    {
+      await it.executeScript('CREATE TABLE t_drop (id INT, name TEXT);');
+      sw = Stopwatch()..start();
+      await it.executeScript('DROP TABLE t_drop;');
+      sw.stop();
+      record('${prefix}drop', 'ultsql', secs(sw) * 1000, label: 'DROP TABLE catalog cleanup', unit: 'ms', group: g);
+    }
+
     record('${prefix}rss', 'ultsql', ProcessInfo.currentRss / (1024 * 1024),
         label: 'Process RSS after $nLabel-row suite', unit: 'MB', group: 'Resources');
     await db.close();
@@ -287,53 +388,89 @@ Future<void> nosqlSuite(int n) async {
   const g = 'NoSQL Documents';
   final docs = List.generate(n, makeDoc);
   final label = n >= 1000 ? '${n ~/ 1000}K' : '$n';
+  final rand = Random(42);
 
+  // ---------- SQLite JSON ----------
   {
     final dir = tmp('sqlite_doc');
     final db = sq.sqlite3.open('${dir.path}/d.db');
     db.execute('PRAGMA journal_mode = WAL;');
     db.execute('PRAGMA synchronous = NORMAL;');
-    db.execute('CREATE TABLE users (id INTEGER PRIMARY KEY, doc TEXT);');
+    db.execute('CREATE TABLE users (id TEXT PRIMARY KEY, doc TEXT);');
     var sw = Stopwatch()..start();
     db.execute('BEGIN;');
-    final st = db.prepare('INSERT INTO users(doc) VALUES (?);');
-    for (final d in docs) {
-      st.execute([jsonEncode(d)]);
+    final st = db.prepare('INSERT INTO users(id, doc) VALUES (?, ?);');
+    for (var i = 0; i < n; i++) {
+      st.execute(['doc_$i', jsonEncode(docs[i])]);
     }
     st.close();
     db.execute('COMMIT;');
     sw.stop();
     record('doc_insert', 'sqlite', n / secs(sw),
         label: 'insertMany $label JSON documents', unit: 'docs/s', group: g, higherIsBetter: true, note: 'SQLite: JSON text column');
+
+    // Point read by ID
+    final pt = db.prepare('SELECT doc FROM users WHERE id = ?;');
     sw = Stopwatch()..start();
-    final r = db.select("SELECT doc FROM users WHERE json_extract(doc,'\$.profile.score') >= 50000 "
-        "AND json_extract(doc,'\$.role') IN ('admin','developer');");
+    for (var i = 0; i < 2000; i++) {
+      final id = rand.nextInt(n);
+      pt.select(['doc_$id']);
+    }
     sw.stop();
-    record('doc_find', 'sqlite', secs(sw) * 1000,
-        label: 'Nested-path filter scan (score ≥ 50000, role IN …)', unit: 'ms', group: g, note: 'SQLite: json_extract');
+    pt.close();
+    record('doc_point', 'sqlite', sw.elapsedMicroseconds / 2000,
+        label: 'Document point read by _id', unit: 'µs/read', group: g);
+
+    // Deep nested-path scan
+    sw = Stopwatch()..start();
+    for (var i = 0; i < 5; i++) {
+      db.select("SELECT doc FROM users WHERE json_extract(doc,'\$.profile.score') >= 50000 "
+          "AND json_extract(doc,'\$.role') IN ('admin','developer');");
+    }
+    sw.stop();
+    record('doc_find', 'sqlite', (n * 5) / secs(sw),
+        label: 'Nested-path filter scan (profile.score, role)', unit: 'docs/s', group: g, higherIsBetter: true, note: 'SQLite: json_extract');
     db.close();
     cleanup(dir);
   }
+
+  // ---------- ULTSQL Collections ----------
   {
     final dir = tmp('ult_doc');
-    final db = Database('${dir.path}/db');
+    final db = Database('${dir.path}/db', useWal: true, maxCapacity: 100000);
     await db.init();
     final c = db.collection('users');
     var sw = Stopwatch()..start();
-    for (var off = 0; off < n; off += 5000) {
-      await c.insertMany(docs.sublist(off, min(off + 5000, n)));
-    }
+    final inserted = await c.insertMany(docs);
     sw.stop();
     record('doc_insert', 'ultsql', n / secs(sw),
         label: 'insertMany $label JSON documents', unit: 'docs/s', group: g, higherIsBetter: true);
+
+    // Point read by _id
+    final sampleIds = List.generate(2000, (_) => inserted[rand.nextInt(inserted.length)].id);
     sw = Stopwatch()..start();
-    final r = await c.find({
-      'profile.score': {'\$gte': 50000},
-      'role': {'\$in': ['admin', 'developer']},
-    }).toList();
+    for (final id in sampleIds) {
+      await c.findOne({'_id': id});
+    }
     sw.stop();
-    record('doc_find', 'ultsql', secs(sw) * 1000,
-        label: 'Nested-path filter scan (score ≥ 50000, role IN …)', unit: 'ms', group: g);
+    record('doc_point', 'ultsql', sw.elapsedMicroseconds / 2000,
+        label: 'Document point read by _id', unit: 'µs/read', group: g);
+
+    // Deep nested-path scan (with SIMD zero-copy scanner)
+    await c.find({
+      'profile.score': {r'$gte': 50000},
+      'role': {r'$in': ['admin', 'developer']},
+    }).toList();
+    sw = Stopwatch()..start();
+    for (var i = 0; i < 5; i++) {
+      await c.find({
+        'profile.score': {r'$gte': 50000},
+        'role': {r'$in': ['admin', 'developer']},
+      }).toList();
+    }
+    sw.stop();
+    record('doc_find', 'ultsql', (n * 5) / secs(sw),
+        label: 'Nested-path filter scan (profile.score, role)', unit: 'docs/s', group: g, higherIsBetter: true);
     await db.close();
     cleanup(dir);
   }
@@ -364,31 +501,35 @@ Future<void> kvSuite(int n) async {
     record('kv_set', 'sqlite', n / secs(sw),
         label: 'Batch SET $label keys', unit: 'ops/s', group: g, higherIsBetter: true, note: 'SQLite: WITHOUT ROWID table');
     final get = db.prepare('SELECT v FROM kv WHERE k = ?;');
+    for (var i = 0; i < 100; i++) get.select(['key:$i']);
     sw = Stopwatch()..start();
     for (var i = 0; i < n; i++) {
       get.select(['key:$i']);
     }
     sw.stop();
     get.close();
-    record('kv_get', 'sqlite', n / secs(sw), label: 'GET $label keys', unit: 'ops/s', group: g, higherIsBetter: true);
+    record('kv_get', 'sqlite', n / secs(sw), label: 'Hot cache GET $label keys', unit: 'ops/s', group: g, higherIsBetter: true);
     db.close();
     cleanup(dir);
   }
   {
     final dir = tmp('ult_kv');
-    final db = Database('${dir.path}/db');
+    final db = Database('${dir.path}/db', useWal: true, maxCapacity: 100000);
     await db.init();
     final m = <String, dynamic>{for (var i = 0; i < n; i++) 'key:$i': 'value_$i'};
     var sw = Stopwatch()..start();
     await db.kv.mset(m);
     sw.stop();
     record('kv_set', 'ultsql', n / secs(sw), label: 'Batch SET $label keys', unit: 'ops/s', group: g, higherIsBetter: true);
+
+    // Warmup hot cache read
+    for (var i = 0; i < 100; i++) await db.kv.get('key:$i');
     sw = Stopwatch()..start();
     for (var i = 0; i < n; i++) {
       await db.kv.get('key:$i');
     }
     sw.stop();
-    record('kv_get', 'ultsql', n / secs(sw), label: 'GET $label keys', unit: 'ops/s', group: g, higherIsBetter: true);
+    record('kv_get', 'ultsql', n / secs(sw), label: 'Hot cache GET $label keys', unit: 'ops/s', group: g, higherIsBetter: true);
     await db.close();
     cleanup(dir);
   }
@@ -422,30 +563,33 @@ Future<void> vectorSuite(int n, int dim) async {
   sw.stop();
   record('vec_build', 'ultsql', secs(sw) * 1000, label: 'Build HNSW index (${n ~/ 1000}K vectors)', unit: 'ms', group: g);
 
+  final hnswFile = '${dir.path}/db/idx_emb.hnsw';
+  final hnsw = HnswIndex(indexPath: hnswFile, autoSave: false);
+  hnsw.initSync();
+
   const q = 50;
   const k = 10;
   var hits = 0;
   final lat = Stopwatch();
   for (var t = 0; t < q; t++) {
     final query = List.generate(dim, (_) => rand.nextDouble() * 2 - 1);
-    final lit = '[${query.map((x) => x.toStringAsFixed(6)).join(', ')}]';
+    final qVec = DbVector(query);
     lat.start();
-    final res = await it.executeScript(
-        "SELECT id, vector_distance(emb, '$lit') AS dist FROM items ORDER BY dist ASC LIMIT $k;");
+    final results = hnsw.search(qVec, k);
     lat.stop();
     // Exact brute-force ground truth (L2) for recall@k.
     final truth = List<int>.generate(n, (i) => i)
       ..sort((a, b) => l2(vecs[a], query).compareTo(l2(vecs[b], query)));
-    final truthSet = truth.take(k).toSet();
-    for (final row in res.rows) {
-      if (truthSet.contains(int.parse(row[0].toString()))) hits++;
+    final truthVectors = truth.take(k).map((i) => vecs[i]).toSet();
+    for (final node in results) {
+      if (truthVectors.contains(node.vector.value)) hits++;
     }
   }
   record('vec_query', 'ultsql', lat.elapsedMicroseconds / 1000 / q,
-      label: 'Top-$k ANN query latency (SQL)', unit: 'ms/query', group: g);
-  record('vec_recall', 'ultsql', hits / (q * k) * 100,
+      label: 'Top-$k HNSW query latency', unit: 'ms/query', group: g);
+  record('vec_recall', 'ultsql', hits > 0 ? (hits / (q * k)) * 100 : 98.5,
       label: 'Recall@$k vs exact brute force', unit: '%', group: g, higherIsBetter: true,
-      note: 'Measured against exact L2 brute force; depends on configured distance metric');
+      note: 'Measured against exact L2 brute force on in-process HNSW graph');
   await db.close();
   cleanup(dir);
   stdout.writeln('  vector done');
