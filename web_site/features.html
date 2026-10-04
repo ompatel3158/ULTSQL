@@ -157,9 +157,10 @@
         <p class="feature-card-desc">
           Low-level binary slotted pages (4KB/8KB) with zero-copy row deserialization and variable-length record packing directly on disk.
         </p>
-        <div class="feature-metric-chip" data-metric="insert"></div>
-        <pre class="feature-code-box"><code>final db = Database('./data_dir');
-await db.init(); // Mounts slotted page files</code></pre>
+        <div class="feature-metric-chip" data-metric="batch_ingest"></div>
+        <pre class="feature-code-box"><code>// Direct vectorized slotted-page batch ingestion
+final stmt = db.prepare('INSERT INTO logs VALUES (?, ?, ?);');
+stmt.executeBatchSync(batchRows); // Direct binary slot packing</code></pre>
         <div class="feature-card-footer">
           <a href="docs.html#storage-modes" class="feature-docs-link">Explore storage modes &rarr;</a>
         </div>

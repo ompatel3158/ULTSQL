@@ -206,6 +206,23 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
     record('${prefix}insert', 'sqlite', n / secs(sw),
         label: 'Bulk INSERT ($nLabel rows, single txn)', unit: 'rows/s', group: g, higherIsBetter: true);
 
+    // Direct Batch Ingestion baseline (SQLite prepared statement loop)
+    {
+      db.execute('CREATE TABLE t_batch (id INTEGER, name TEXT, age INTEGER, score REAL);');
+      final insBatch = db.prepare('INSERT INTO t_batch VALUES (?, ?, ?, ?);');
+      sw = Stopwatch()..start();
+      db.execute('BEGIN;');
+      for (var i = 0; i < n; i++) {
+        insBatch.execute(sqliteRows[i]);
+      }
+      db.execute('COMMIT;');
+      sw.stop();
+      insBatch.close();
+      record('${prefix}batch_ingest', 'sqlite', n / secs(sw),
+          label: 'Direct Batch Ingestion ($nLabel rows)', unit: 'rows/s', group: g, higherIsBetter: true,
+          note: 'SQLite C/FFI prepared statement loop in single transaction');
+    }
+
     sw = Stopwatch()..start();
     db.execute('CREATE INDEX idx_age ON users(age);');
     sw.stop();
@@ -301,6 +318,18 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
     sw.stop();
     record('${prefix}insert', 'ultsql', n / secs(sw),
         label: 'Bulk INSERT ($nLabel rows, single txn)', unit: 'rows/s', group: g, higherIsBetter: true);
+
+    // Direct Batch Ingestion API (executeBatchSync / slotted pages direct)
+    {
+      await it.executeScript('CREATE TABLE t_batch (id INT, name TEXT, age INT, score DOUBLE);');
+      final insBatch = db.prepare('INSERT INTO t_batch VALUES (?, ?, ?, ?);');
+      sw = Stopwatch()..start();
+      insBatch.executeBatchSync(batchRows);
+      sw.stop();
+      record('${prefix}batch_ingest', 'ultsql', n / secs(sw),
+          label: 'Direct Batch Ingestion ($nLabel rows)', unit: 'rows/s', group: g, higherIsBetter: true,
+          note: 'Vectorized slotted-page binary serialization bypassing SQL parser AST');
+    }
 
     sw = Stopwatch()..start();
     await it.executeScript('CREATE INDEX idx_age ON users(age);');
