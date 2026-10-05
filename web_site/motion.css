@@ -20,12 +20,12 @@
   transform: none;
 }
 
-/* Page enter / leave fade */
-html.motion-ready body { animation: ult-page-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
-html.motion-leaving body { opacity: 0; transform: translate3d(0, 6px, 0); transition: opacity 0.22s ease, transform 0.22s ease; }
+/* Page enter / leave fade (Zero transform on body to preserve position: fixed viewport root) */
+html.motion-ready body { animation: ult-page-in 0.35s ease-out both; }
+html.motion-leaving body { opacity: 0; transition: opacity 0.2s ease; }
 @keyframes ult-page-in {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
-  to   { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Scroll progress bar (Monochrome) */

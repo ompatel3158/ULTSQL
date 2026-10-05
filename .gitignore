@@ -43,4 +43,5 @@ scratch/
 test_parser.dart
 .vercel/
 web_site_backup/
-
+node_modules/
+**/node_modules/

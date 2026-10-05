@@ -1222,15 +1222,26 @@ SELECT * FROM system_audit ORDER BY id ASC;`
         }, 1200);
       }, { passive: true });
 
-      // Smooth RAF lerp loop for the trailing ring
+      // Snappy, high-precision RAF lerp loop for the trailing ring
       function renderCursor() {
-        ringX += (mouseX - ringX) * 0.22;
-        ringY += (mouseY - ringY) * 0.22;
+        ringX += (mouseX - ringX) * 0.45;
+        ringY += (mouseY - ringY) * 0.45;
+        if (Math.abs(mouseX - ringX) < 0.1) ringX = mouseX;
+        if (Math.abs(mouseY - ringY) < 0.1) ringY = mouseY;
         cursorRing.style.left = `${ringX}px`;
         cursorRing.style.top = `${ringY}px`;
         requestAnimationFrame(renderCursor);
       }
       requestAnimationFrame(renderCursor);
+
+      // Keep position synced during window scroll
+      window.addEventListener('scroll', () => {
+        cursorDot.style.left = `${mouseX}px`;
+        cursorDot.style.top = `${mouseY}px`;
+        if (rulerMarker) rulerMarker.style.transform = `translateX(${mouseX}px)`;
+        if (cadGuideV && cadGuidesEnabled) cadGuideV.style.transform = `translateX(${mouseX}px)`;
+        if (cadGuideH && cadGuidesEnabled) cadGuideH.style.transform = `translateY(${mouseY}px)`;
+      }, { passive: true });
 
       // Interactive Hover States
       const interactiveTargets = 'a, button, input, select, textarea, .feature-box, .stat-card, .btn, .terminal-window, .kbd-shortcut, .benchmark-tab-btn, .tab-btn, .cmd-item, .faq-question, .wb-tab-btn, .nosql-key-clickable, .slotted-slot-card';

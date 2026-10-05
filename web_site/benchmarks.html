@@ -5,16 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Empirical Benchmarks & Hardware Rig Audit — ULTSQL</title>
   <meta name="description" content="Transparent, empirical benchmarks of ULTSQL (Pure Dart VM) vs SQLite3 (Native C via FFI) across NVMe bulk inserts, point lookups, B+Tree indexing, NoSQL document filtering, Redis-style KV, and HNSW vector search.">
-  <link rel="canonical" href="https://ultsql.vercel.app/benchmarks.html">
+  <meta name="keywords" content="ultsql benchmarks, sqlite vs ultsql, dart database performance, 1M row benchmark, fast embedded database benchmark">
+  <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/benchmarks">
   <meta name="google-site-verification" content="s8GoKEfYxYOuxJ97E1Q3lmCldu-tUsGSgPHX17s_GlU">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/benchmarks">
+  <meta property="og:title" content="Empirical Benchmarks & Hardware Rig Audit — ULTSQL">
+  <meta property="og:description" content="Empirical benchmarks of ULTSQL (Pure Dart) vs SQLite3 (Native C FFI): Bulk inserts, point lookups, and HNSW vector search.">
+  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
+  <meta property="og:site_name" content="UltSQL">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Empirical Benchmarks & Hardware Rig Audit — ULTSQL">
+  <meta property="twitter:description" content="Empirical benchmarks of ULTSQL (Pure Dart) vs SQLite3 (Native C FFI): Bulk inserts, point lookups, and HNSW vector search.">
+  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
+
+  <!-- Google Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "ULTSQL vs SQLite3 Empirical Database Benchmarks",
+    "description": "Reproducible benchmark audit comparing ULTSQL (Pure Dart) against SQLite3 (Native C/FFI) on an NVMe SSD test rig.",
+    "url": "https://ultsql-engine-docs.vercel.app/benchmarks"
+  }
+  </script>
+
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   
   <link rel="stylesheet" href="style.css?v=2.1.0">
-  <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="motion.css?v=2.1.1">
   <link rel="stylesheet" href="benchmarks.css">
 
   <!-- Anime.js v4 Animation Engine -->
   <script src="vendor/anime.umd.min.js"></script>
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -352,6 +384,6 @@ dart run tool/benchmarks/run_all.dart --rows 50000 --runs 3 --big 200000
 
   <script src="motion.js" defer></script>
   <script src="benchmarks.js" defer></script>
-  <script src="app.js?v=2.1.0" defer></script>
+  <script src="app.js?v=2.1.1" defer></script>
 </body>
 </html>

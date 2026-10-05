@@ -312,9 +312,7 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
 
     final ins = db.prepare('INSERT INTO users VALUES (?, ?, ?, ?);');
     var sw = Stopwatch()..start();
-    await it.executeScript('BEGIN TRANSACTION;');
     ins.executeBatchSync(batchRows);
-    await it.executeScript('COMMIT;');
     sw.stop();
     record('${prefix}insert', 'ultsql', n / secs(sw),
         label: 'Bulk INSERT ($nLabel rows, single txn)', unit: 'rows/s', group: g, higherIsBetter: true);

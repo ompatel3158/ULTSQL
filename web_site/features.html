@@ -5,16 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Features & Architecture — ULTSQL</title>
   <meta name="description" content="Explore the deep architecture of ULTSQL: Pure Dart VM, Slotted Pages with CRC32, ARIES WAL, HNSW Vector Graphs, NoSQL Documents, Redis KV, and Pgwire Server.">
-  <link rel="canonical" href="https://ultsql.vercel.app/features.html">
+  <meta name="keywords" content="ultsql features, slotted pages, aries wal recovery, hnsw vector search, pure dart database architecture, flutter database features">
+  <link rel="canonical" href="https://ultsql-engine-docs.vercel.app/features">
   <meta name="google-site-verification" content="s8GoKEfYxYOuxJ97E1Q3lmCldu-tUsGSgPHX17s_GlU">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ultsql-engine-docs.vercel.app/features">
+  <meta property="og:title" content="Features & Architecture — ULTSQL">
+  <meta property="og:description" content="Explore the deep architecture of ULTSQL: Pure Dart VM, Slotted Pages, ARIES WAL, HNSW Vector Graphs, and NoSQL.">
+  <meta property="og:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
+  <meta property="og:site_name" content="UltSQL">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Features & Architecture — ULTSQL">
+  <meta name="twitter:description" content="Explore the deep architecture of ULTSQL: Pure Dart VM, Slotted Pages, ARIES WAL, HNSW Vector Graphs, and NoSQL.">
+  <meta name="twitter:image" content="https://ultsql-engine-docs.vercel.app/logo.png">
+
+  <!-- Google Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "ULTSQL Architecture & Features",
+    "description": "Deep architectural breakdown of ULTSQL's slotted pages, ARIES WAL, bottom-up B+Tree, HNSW vector search, and NoSQL engine.",
+    "url": "https://ultsql-engine-docs.vercel.app/features"
+  }
+  </script>
+
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   
   <link rel="stylesheet" href="style.css?v=2.1.0">
-  <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="motion.css?v=2.1.1">
   <link rel="stylesheet" href="features.css">
 
   <!-- Anime.js v4 Animation Engine -->
   <script src="vendor/anime.umd.min.js"></script>
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -708,6 +740,6 @@ await cluster.join();</code></pre>
 
   <script src="motion.js" defer></script>
   <script src="features.js" defer></script>
-  <script src="app.js?v=2.1.0" defer></script>
+  <script src="app.js?v=2.1.1" defer></script>
 </body>
 </html>
