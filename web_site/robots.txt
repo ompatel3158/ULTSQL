@@ -1,4 +1,4 @@
-﻿User-agent: *
+User-agent: *
 Allow: /
 
-Sitemap: https://ultsql-engine-docs.vercel.app/sitemap.xml
+Sitemap: https://ultsql.tech/sitemap.xml
