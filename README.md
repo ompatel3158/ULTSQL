@@ -7,13 +7,15 @@
 [![pub package](https://img.shields.io/pub/v/ultsql.svg)](https://pub.dev/packages/ultsql)
 [![Dart SDK](https://img.shields.io/badge/Dart-3.4+-0175C2.svg?logo=dart)](https://dart.dev)
 [![Flutter](https://img.shields.io/badge/Flutter-3.22+-02569B.svg?logo=flutter)](https://flutter.dev)
+[![Wishlist: Early Access](https://img.shields.io/badge/Wishlist-Join%20Early%20Access-orange.svg)](https://forms.gle/bjoo9Pj3Upg7TXPR6)
 [![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](LICENSE)
 [![License FAQ](https://img.shields.io/badge/License-FAQ-green.svg)](LICENSE-FAQ.md)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ompatel3158/ULTSQL/test.yml?branch=main&label=build)](https://github.com/ompatel3158/ULTSQL/actions)
 
 📦 **Package**: [ultsql | pub.dev](https://pub.dev/packages/ultsql)  
 🌐 **Official Website & Docs**: [ultsql.tech](https://ultsql.tech) | [Interactive Docs](https://ultsql.tech/docs) | [Empirical Benchmarks](https://ultsql.tech/benchmarks)  
-📬 **ULTSQL Cloud / Managed Service**: coming soon
+✨ **App & Cloud Database Wishlist**: [Sign up for the Wishlist](https://forms.gle/bjoo9Pj3Upg7TXPR6)  
+📬 **ULTSQL Cloud / Managed Service**: [Join the Waitlist](https://forms.gle/bjoo9Pj3Upg7TXPR6)
 
 ⚡ **Feature Matrix & Customization Guide**: [FEATURES.md](FEATURES.md)
 

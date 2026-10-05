@@ -82,3 +82,11 @@ print("Postgres Client Rows:", rows)
 - **How do I run the UltSQL database?**  
   Use the 1-line auto-installer to install the standalone `ultsql` executable on Windows, Linux, or macOS. Then simply run `ultsql serve` to start the daemon, or use `ultsql import data.csv users` for direct batch ingestion.
 
+---
+
+## ✨ Wishlist & Cloud Early Access
+
+Sign up to join the exclusive wishlist for the upcoming UltSQL app and managed cloud database service:  
+👉 [**Join the UltSQL Wishlist**](https://forms.gle/bjoo9Pj3Upg7TXPR6)
+
+

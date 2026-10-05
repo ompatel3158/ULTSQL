@@ -69,3 +69,11 @@ await client.connect();
 const res = await client.query('SELECT * FROM users');
 console.log('Rows:', res.rows);
 ```
+
+---
+
+## ✨ Wishlist & Cloud Early Access
+
+Sign up to join the exclusive wishlist for the upcoming UltSQL app and managed cloud database service:  
+👉 [**Join the UltSQL Wishlist**](https://forms.gle/bjoo9Pj3Upg7TXPR6)
+
