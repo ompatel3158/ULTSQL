@@ -71,7 +71,7 @@
 
   // ---- Scroll progress ----
   function progressBar() {
-    if (reduce) return;
+    if (reduce || document.getElementById('scrollProgressBar')) return;
     const bar = document.createElement('div');
     bar.className = 'ult-scroll-progress';
     bar.setAttribute('aria-hidden', 'true');
@@ -83,7 +83,6 @@
       ticking = false;
     };
     addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
-    update();
   }
 
   // ---- Spotlight glow ----
