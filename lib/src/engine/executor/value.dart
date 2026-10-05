@@ -410,7 +410,55 @@ class DbVector extends DbValue {
   @override
   DataType get type => DataType.vector;
 
+  Float32List? _f32Cache;
+  Float32x4List? _simdCache;
+  double? _normCache;
+
   DbVector(this.value);
+
+  DbVector.fromFloat32(Float32List f32)
+      : value = f32,
+        _f32Cache = f32;
+
+  Float32List get f32 {
+    if (_f32Cache != null) return _f32Cache!;
+    if (value is Float32List) {
+      return _f32Cache = value as Float32List;
+    }
+    return _f32Cache = Float32List.fromList(value);
+  }
+
+  Float32x4List get simd {
+    if (_simdCache != null) return _simdCache!;
+    final floatList = f32;
+    final count = floatList.length ~/ 4;
+    final simdList = Float32x4List(count);
+    final fView = simdList.buffer.asFloat32List();
+    final totalSimdFloats = count * 4;
+    for (int i = 0; i < totalSimdFloats; i++) {
+      fView[i] = floatList[i];
+    }
+    return _simdCache = simdList;
+  }
+
+  double get norm {
+    if (_normCache != null) return _normCache!;
+    final s = simd;
+    final sLen = s.length;
+    var normAcc = Float32x4.zero();
+    for (int i = 0; i < sLen; i++) {
+      final a = s[i];
+      normAcc += a * a;
+    }
+    double nSum = (normAcc.x + normAcc.y + normAcc.z + normAcc.w).toDouble();
+    final remStart = sLen * 4;
+    final v = value;
+    for (int i = remStart; i < v.length; i++) {
+      final a = v[i];
+      nSum += a * a;
+    }
+    return _normCache = math.sqrt(nSum);
+  }
 
   @override
   Uint8List toBytes() {
@@ -448,17 +496,20 @@ class DbVector extends DbValue {
     final v2 = other.value;
     final len = v1.length;
     if (len != v2.length || len == 0) return 0.0;
-    double sum = 0.0;
-    int i = 0;
-    final limit = len - 3;
-    for (; i < limit; i += 4) {
-      final d0 = v1[i] - v2[i];
-      final d1 = v1[i + 1] - v2[i + 1];
-      final d2 = v1[i + 2] - v2[i + 2];
-      final d3 = v1[i + 3] - v2[i + 3];
-      sum += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3;
+
+    final s1 = simd;
+    final s2 = other.simd;
+    final simdLen = s1.length;
+
+    var acc = Float32x4.zero();
+    for (int i = 0; i < simdLen; i++) {
+      final diff = s1[i] - s2[i];
+      acc += diff * diff;
     }
-    for (; i < len; i++) {
+    double sum = (acc.x + acc.y + acc.z + acc.w).toDouble();
+
+    final remainderStart = simdLen * 4;
+    for (int i = remainderStart; i < len; i++) {
       final diff = v1[i] - v2[i];
       sum += diff * diff;
     }
@@ -470,30 +521,30 @@ class DbVector extends DbValue {
     final v2 = other.value;
     final len = v1.length;
     if (len != v2.length || len == 0) return 1.0;
-    double dotProd = 0.0;
-    double normA = 0.0;
-    double normB = 0.0;
-    int i = 0;
-    final limit = len - 3;
-    for (; i < limit; i += 4) {
-      final a0 = v1[i], b0 = v2[i];
-      final a1 = v1[i + 1], b1 = v2[i + 1];
-      final a2 = v1[i + 2], b2 = v2[i + 2];
-      final a3 = v1[i + 3], b3 = v2[i + 3];
-      dotProd += a0 * b0 + a1 * b1 + a2 * b2 + a3 * b3;
-      normA += a0 * a0 + a1 * a1 + a2 * a2 + a3 * a3;
-      normB += b0 * b0 + b1 * b1 + b2 * b2 + b3 * b3;
-    }
-    for (; i < len; i++) {
-      final a = v1[i], b = v2[i];
-      dotProd += a * b;
-      normA += a * a;
-      normB += b * b;
-    }
-    if (normA == 0.0 || normB == 0.0) return 1.0;
-    final denominator = math.sqrt(normA) * math.sqrt(normB);
+
+    final nA = norm;
+    final nB = other.norm;
+    if (nA == 0.0 || nB == 0.0) return 1.0;
+    final denominator = nA * nB;
     if (denominator == 0.0) return 1.0;
-    return 1.0 - (dotProd / denominator);
+
+    final s1 = simd;
+    final s2 = other.simd;
+    final simdLen = s1.length;
+
+    var dotAcc = Float32x4.zero();
+    for (int i = 0; i < simdLen; i++) {
+      dotAcc += s1[i] * s2[i];
+    }
+    double dotProd = (dotAcc.x + dotAcc.y + dotAcc.z + dotAcc.w).toDouble();
+
+    final remainderStart = simdLen * 4;
+    for (int i = remainderStart; i < len; i++) {
+      dotProd += v1[i] * v2[i];
+    }
+
+    final cosDist = 1.0 - (dotProd / denominator);
+    return cosDist < 0.0 ? 0.0 : cosDist;
   }
 
   double dotProductTo(DbVector other) {
@@ -501,17 +552,19 @@ class DbVector extends DbValue {
     final v2 = other.value;
     final len = v1.length;
     if (len != v2.length || len == 0) return 0.0;
-    double dotProd = 0.0;
-    int i = 0;
-    final limit = len - 3;
-    for (; i < limit; i += 4) {
-      dotProd +=
-          v1[i] * v2[i] +
-          v1[i + 1] * v2[i + 1] +
-          v1[i + 2] * v2[i + 2] +
-          v1[i + 3] * v2[i + 3];
+
+    final s1 = simd;
+    final s2 = other.simd;
+    final simdLen = s1.length;
+
+    var dotAcc = Float32x4.zero();
+    for (int i = 0; i < simdLen; i++) {
+      dotAcc += s1[i] * s2[i];
     }
-    for (; i < len; i++) {
+    double dotProd = (dotAcc.x + dotAcc.y + dotAcc.z + dotAcc.w).toDouble();
+
+    final remainderStart = simdLen * 4;
+    for (int i = remainderStart; i < len; i++) {
       dotProd += v1[i] * v2[i];
     }
     return dotProd;

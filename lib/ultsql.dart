@@ -42,4 +42,6 @@ export 'src/engine/executor/telemetry.dart'
 export 'src/version.dart';
 export 'src/engine/security/zk_crypto.dart' show ZkCryptoEnclave;
 export 'src/services/local_database_service.dart' show LocalDatabaseService;
+export 'src/engine/storage/streaming_importer.dart'
+    show StreamingCsvImporter, StreamingParquetImporter;
 

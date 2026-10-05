@@ -26,6 +26,7 @@ import '../cache/engine_config.dart';
 import '../nosql/collection.dart';
 import '../nosql/kv_store.dart';
 import '../storage/autovacuum.dart';
+import '../storage/streaming_importer.dart';
 
 /// Represents the formatted result set returned by UltSQL query execution.
 class QueryResult {
@@ -160,6 +161,26 @@ class Database {
     return interpreter.insertBatchSync(tableName, rows, columnNames: columnNames);
   }
 
+  /// Turbo Bulk Ingest Mode: Maximum throughput zero-allocation batch ingestion.
+  Future<QueryResult> turboInsertBatch(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columnNames,
+  }) async {
+    final interpreter = Interpreter(this);
+    return interpreter.insertBatch(tableName, rows, columnNames: columnNames);
+  }
+
+  /// Synchronous Turbo Bulk Ingest Mode: Maximum throughput zero-allocation batch ingestion.
+  QueryResult turboInsertBatchSync(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columnNames,
+  }) {
+    final interpreter = Interpreter(this);
+    return interpreter.insertBatchSync(tableName, rows, columnNames: columnNames);
+  }
+
   /// High-throughput public batch insert API accepting record maps.
   Future<QueryResult> insertBatchRecords(
     String tableName,
@@ -176,6 +197,38 @@ class Database {
   ) {
     final interpreter = Interpreter(this);
     return interpreter.insertBatchRecordsSync(tableName, records);
+  }
+
+  /// Streaming high-throughput CSV importer directly into 4KB slotted pages.
+  Future<int> importCsv(
+    String filePath,
+    String tableName, {
+    bool hasHeader = true,
+    String delimiter = ',',
+    int batchSize = 10000,
+  }) async {
+    return StreamingCsvImporter.importFile(
+      this,
+      filePath,
+      tableName,
+      hasHeader: hasHeader,
+      delimiter: delimiter,
+      batchSize: batchSize,
+    );
+  }
+
+  /// High-throughput Parquet file importer directly into 4KB slotted pages.
+  Future<int> importParquet(
+    String filePath,
+    String tableName, {
+    int batchSize = 10000,
+  }) async {
+    return StreamingParquetImporter.importFile(
+      this,
+      filePath,
+      tableName,
+      batchSize: batchSize,
+    );
   }
 
   // --- SQL MACROS REGISTRY ---
@@ -1168,6 +1221,12 @@ class Interpreter {
       bool catalogModified = false;
 
       final lowerSql = sqlScript.toLowerCase();
+      final trimmedSql = sqlScript.trim();
+      final lowerSqlTrimmed = trimmedSql.toLowerCase();
+      if (lowerSqlTrimmed.startsWith('copy ') && lowerSqlTrimmed.contains(' from ')) {
+        return await _executeCopyFrom(trimmedSql);
+      }
+
       if (lowerSql.contains('insert') ||
           lowerSql.contains('update') ||
           lowerSql.contains('delete') ||
@@ -1295,6 +1354,65 @@ class Interpreter {
         rethrow;
       }
     }, zoneValues: {#sessionTxContext: _sessionContext});
+  }
+
+  Future<QueryResult> _executeCopyFrom(String sql) async {
+    final match = RegExp(
+      r"^copy\s+([a-zA-Z0-9_]+)\s+from\s+'([^']+)'(?:\s+with\s*\(([^)]+)\))?;?$",
+      caseSensitive: false,
+    ).firstMatch(sql.trim());
+
+    if (match == null) {
+      throw Exception("Syntax error in COPY statement: '$sql'");
+    }
+
+    final tableName = match.group(1)!;
+    final filePath = match.group(2)!;
+    final withClause = match.group(3) ?? '';
+
+    bool isParquet = filePath.toLowerCase().endsWith('.parquet');
+    bool hasHeader = true;
+    String delimiter = ',';
+
+    if (withClause.isNotEmpty) {
+      final options = withClause.split(',');
+      for (final opt in options) {
+        final pair = opt.trim().split(RegExp(r'\s+'));
+        final key = pair[0].toUpperCase();
+        if (key == 'FORMAT' && pair.length > 1) {
+          final fmt = pair[1].toUpperCase();
+          if (fmt == 'PARQUET') isParquet = true;
+          if (fmt == 'CSV') isParquet = false;
+        } else if (key == 'HEADER') {
+          if (pair.length > 1) {
+            hasHeader = pair[1].toLowerCase() != 'false';
+          } else {
+            hasHeader = true;
+          }
+        } else if (key == 'DELIMITER' && pair.length > 1) {
+          delimiter = pair[1].replaceAll("'", '').replaceAll('"', '');
+        }
+      }
+    }
+
+    int count;
+    if (isParquet) {
+      count = await StreamingParquetImporter.importFile(db, filePath, tableName);
+    } else {
+      count = await StreamingCsvImporter.importFile(
+        db,
+        filePath,
+        tableName,
+        hasHeader: hasHeader,
+        delimiter: delimiter,
+      );
+    }
+
+    return QueryResult(
+      columns: [],
+      rows: [],
+      message: "COPY: $count rows successfully imported into table '$tableName'.",
+    );
   }
 
   dynamic executeNodeSync(ASTNode node) => _executeNodeSync(node);
@@ -2513,6 +2631,117 @@ END;
     final expectedLen = colMap != null ? colMap.length : numCols;
     final colTypes = schema.columnTypes;
     final colNames = schema.columnNames;
+
+    final rowTable = _rowTableCache.putIfAbsent(
+      tName,
+      () => RowTableFile(
+        cache: db.cache,
+        tableName: schema.name,
+        dbDirectory: db.directory,
+      ),
+    );
+
+    final tableIndexes = db.catalog.getIndexesForTable(tName);
+    final needsPointers = tableIndexes.isNotEmpty;
+    final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
+
+    if (colMap == null) {
+      // Turbo Bulk Fast Path: Direct zero-heap-allocation slotted-page writing
+      final pointers = rowTable.turboInsertBatchSync(
+        rows,
+        colTypes,
+        xmin: currentTxId,
+        generatePointers: needsPointers,
+      );
+
+      final stats = db.catalog.getOrCreateStats(tName);
+      stats.rowCount += rows.length;
+
+      if (needsPointers && pointers != null) {
+        final preparedIndexes = tableIndexes.map((idx) {
+          final indexName = _indexFileNameCache.putIfAbsent(
+            idx,
+            () => idx.name.toLowerCase(),
+          );
+          final cols = idx.columnName.split(',');
+          final cIndexes = cols.map((col) {
+            final colClean = col.trim().toLowerCase();
+            return schema.columnNamesLower.indexOf(colClean);
+          }).toList();
+          return (
+            indexName: indexName,
+            columnName: idx.columnName,
+            colIndexes: cIndexes,
+          );
+        }).toList();
+
+        for (int r = 0; r < rows.length; r++) {
+          final rawRow = rows[r];
+          final pointer = pointers[r];
+          for (final pIdx in preparedIndexes) {
+            final compositeKey = List<double>.filled(pIdx.colIndexes.length, 0.0);
+            bool hasAllKeys = true;
+            for (int i = 0; i < pIdx.colIndexes.length; i++) {
+              final cIdx = pIdx.colIndexes[i];
+              if (cIdx == -1 || cIdx >= rawRow.length) {
+                hasAllKeys = false;
+                break;
+              }
+              final rawVal = rawRow[cIdx];
+              double? dKey;
+              if (rawVal is int) {
+                dKey = rawVal.toDouble();
+              } else if (rawVal is double) {
+                dKey = rawVal;
+              } else if (rawVal is DbInt) {
+                dKey = rawVal.value.toDouble();
+              } else if (rawVal is DbDouble) {
+                dKey = rawVal.value;
+              } else if (rawVal is String) {
+                final parsed = double.tryParse(rawVal);
+                if (parsed != null) {
+                  dKey = parsed;
+                } else {
+                  double hash = 0.0;
+                  for (int j = 0; j < rawVal.length; j++) {
+                    hash = (hash * 31.0 + rawVal.codeUnitAt(j)) % 9007199254740991;
+                  }
+                  dKey = hash;
+                }
+              } else if (rawVal is DbText) {
+                final parsed = double.tryParse(rawVal.value);
+                if (parsed != null) {
+                  dKey = parsed;
+                } else {
+                  double hash = 0.0;
+                  for (int j = 0; j < rawVal.value.length; j++) {
+                    hash = (hash * 31.0 + rawVal.value.codeUnitAt(j)) % 9007199254740991;
+                  }
+                  dKey = hash;
+                }
+              }
+              if (dKey == null) {
+                hasAllKeys = false;
+                break;
+              }
+              compositeKey[i] = dKey;
+            }
+            if (hasAllKeys) {
+              final btree = db.getOrInitIndexSync(pIdx.indexName);
+              btree.insertSync(compositeKey, pointer.pageId, pointer.slotId);
+            }
+          }
+        }
+      }
+
+      db.notifyTableMutated(tName);
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message: "${rows.length} rows inserted into table '$tableName'.",
+      );
+    }
+
     final rowsValues = <List<DbValue>>[];
 
     for (int r = 0; r < rows.length; r++) {
@@ -2524,7 +2753,7 @@ END;
       }
       final rowValues = List<DbValue>.filled(numCols, DbNull());
       for (int i = 0; i < rawRow.length; i++) {
-        final targetColIdx = colMap != null ? colMap[i] : i;
+        final targetColIdx = colMap[i];
         final rawVal = rawRow[i];
         DbValue val;
         if (rawVal is DbValue) {
@@ -2554,31 +2783,16 @@ END;
         rowValues[targetColIdx] = val;
       }
 
-      if (colMap != null) {
-        for (int c = 0; c < numCols; c++) {
-          if (rowValues[c] is DbNull && c < schema.columnDefaultValues.length) {
-            final defaultExpr = schema.columnDefaultValues[c];
-            if (defaultExpr != null) {
-              rowValues[c] = JitCompiler.compile(defaultExpr)(_env);
-            }
+      for (int c = 0; c < numCols; c++) {
+        if (rowValues[c] is DbNull && c < schema.columnDefaultValues.length) {
+          final defaultExpr = schema.columnDefaultValues[c];
+          if (defaultExpr != null) {
+            rowValues[c] = JitCompiler.compile(defaultExpr)(_env);
           }
         }
       }
       rowsValues.add(rowValues);
     }
-
-    final rowTable = _rowTableCache.putIfAbsent(
-      tName,
-      () => RowTableFile(
-        cache: db.cache,
-        tableName: schema.name,
-        dbDirectory: db.directory,
-      ),
-    );
-
-    final tableIndexes = db.catalog.getIndexesForTable(tName);
-    final needsPointers = tableIndexes.isNotEmpty;
-    final currentTxId = db.cache.currentMvccTx?.txId ?? 0;
 
     final pointers = rowTable.insertBatchSync(
       rowsValues,

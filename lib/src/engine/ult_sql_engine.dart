@@ -95,6 +95,34 @@ class UltSqlEngine {
     return EngineQueryResult(res);
   }
 
+  /// Turbo Bulk Ingest Mode: Maximum throughput zero-allocation batch ingestion.
+  Future<EngineQueryResult> turboInsertBatch(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columns,
+  }) async {
+    final res = await _interpreter.insertBatch(
+      tableName,
+      rows,
+      columnNames: columns,
+    );
+    return EngineQueryResult(res);
+  }
+
+  /// Synchronous Turbo Bulk Ingest Mode: Maximum throughput zero-allocation batch ingestion.
+  EngineQueryResult turboInsertBatchSync(
+    String tableName,
+    List<List<dynamic>> rows, {
+    List<String>? columns,
+  }) {
+    final res = _interpreter.insertBatchSync(
+      tableName,
+      rows,
+      columnNames: columns,
+    );
+    return EngineQueryResult(res);
+  }
+
   /// High-throughput structured batch insert of record maps through the public engine API.
   Future<EngineQueryResult> insertBatchRecords(
     String tableName,
@@ -112,6 +140,32 @@ class UltSqlEngine {
     final res = _interpreter.insertBatchRecordsSync(tableName, records);
     return EngineQueryResult(res);
   }
+
+  /// Streaming high-throughput CSV importer directly into 4KB slotted pages.
+  Future<int> importCsv(
+    String filePath,
+    String tableName, {
+    bool hasHeader = true,
+    String delimiter = ',',
+    int batchSize = 10000,
+  }) => db.importCsv(
+        filePath,
+        tableName,
+        hasHeader: hasHeader,
+        delimiter: delimiter,
+        batchSize: batchSize,
+      );
+
+  /// High-throughput Parquet file importer directly into 4KB slotted pages.
+  Future<int> importParquet(
+    String filePath,
+    String tableName, {
+    int batchSize = 10000,
+  }) => db.importParquet(
+        filePath,
+        tableName,
+        batchSize: batchSize,
+      );
 
   /// Close the database and release all underlying resources.
   Future<void> close() async {

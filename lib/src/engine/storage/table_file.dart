@@ -6,6 +6,7 @@ import '../executor/value.dart';
 import 'catalog.dart';
 import 'btree_index.dart';
 import 'toast_manager.dart';
+import '../parser/ast.dart';
 
 final Uint8List _sharedTempBuffer = Uint8List(65536);
 final ByteData _sharedTempByteData = ByteData.sublistView(_sharedTempBuffer);
@@ -172,6 +173,180 @@ class RecordSerializer {
         final bytes = val.toBytes();
         dest.setRange(currentOffset, currentOffset + bytes.length, bytes);
         currentOffset += bytes.length;
+      }
+    }
+    return currentOffset;
+  }
+
+  static int serializeRawMvccRowDirect(
+    Uint8List dest,
+    List<dynamic> values,
+    List<DataType> colTypes,
+    int xmin,
+    int xmax,
+    int rollPtr, [
+    ToastManager? toastManager,
+  ]) {
+    final bd = identical(dest, _sharedTempBuffer)
+        ? _sharedTempByteData
+        : ByteData.sublistView(dest);
+    // Write MVCC header
+    bd.setUint32(0, xmin);
+    bd.setUint32(4, xmax);
+    bd.setUint32(8, rollPtr);
+
+    // RowData starts at byte 12
+    final count = values.length;
+    bd.setUint16(12, count);
+
+    int currentOffset = 14 + count * 2;
+    for (int i = 0; i < count; i++) {
+      bd.setUint16(14 + i * 2, currentOffset - 12);
+
+      final val = values[i];
+      if (val == null) {
+        dest[currentOffset] = 0;
+        currentOffset += 1;
+      } else if (val is int) {
+        final expectedType = i < colTypes.length ? colTypes[i] : DataType.integer;
+        if (expectedType == DataType.double || expectedType == DataType.decimal) {
+          dest[currentOffset] = 2;
+          bd.setFloat64(currentOffset + 1, val.toDouble());
+          currentOffset += 9;
+        } else if (expectedType == DataType.boolean) {
+          dest[currentOffset] = 8;
+          dest[currentOffset + 1] = val != 0 ? 1 : 0;
+          currentOffset += 2;
+        } else {
+          dest[currentOffset] = 1;
+          if (val >= -128 && val <= 127) {
+            bd.setInt8(currentOffset + 1, val);
+            currentOffset += 2;
+          } else if (val >= -32768 && val <= 32767) {
+            bd.setInt16(currentOffset + 1, val);
+            currentOffset += 3;
+          } else if (val >= -2147483648 && val <= 2147483647) {
+            bd.setInt32(currentOffset + 1, val);
+            currentOffset += 5;
+          } else {
+            bd.setInt64(currentOffset + 1, val);
+            currentOffset += 9;
+          }
+        }
+      } else if (val is double) {
+        dest[currentOffset] = 2;
+        bd.setFloat64(currentOffset + 1, val);
+        currentOffset += 9;
+      } else if (val is String) {
+        dest[currentOffset] = 3;
+        final strLen = val.length;
+        if (strLen <= 1024) {
+          dest.setRange(
+            currentOffset + 1,
+            currentOffset + 1 + strLen,
+            val.codeUnits,
+          );
+          currentOffset += 1 + strLen;
+        } else {
+          final bytes = utf8.encoder.convert(val);
+          if (toastManager != null) {
+            int startPage = toastManager.writeDataSync(bytes);
+            dest[currentOffset] = 6;
+            bd.setUint32(currentOffset + 1, startPage);
+            bd.setUint32(currentOffset + 5, bytes.length);
+            currentOffset += 9;
+          } else {
+            dest.setRange(
+              currentOffset + 1,
+              currentOffset + 1 + bytes.length,
+              bytes,
+            );
+            currentOffset += 1 + bytes.length;
+          }
+        }
+      } else if (val is bool) {
+        dest[currentOffset] = 8;
+        dest[currentOffset + 1] = val ? 1 : 0;
+        currentOffset += 2;
+      } else if (val is List<double>) {
+        dest[currentOffset] = 4;
+        final vLen = val.length;
+        for (int j = 0; j < vLen; j++) {
+          bd.setFloat64(currentOffset + 1 + j * 8, val[j]);
+        }
+        currentOffset += 1 + vLen * 8;
+      } else if (val is Uint8List) {
+        dest[currentOffset] = 11;
+        dest.setRange(
+          currentOffset + 1,
+          currentOffset + 1 + val.length,
+          val,
+        );
+        currentOffset += 1 + val.length;
+      } else if (val is Map || (val is List && val is! List<double>)) {
+        dest[currentOffset] = 5;
+        final jsonStr = json.encode(val);
+        final bytes = utf8.encoder.convert(jsonStr);
+        if (toastManager != null && bytes.length > 1024) {
+          int startPage = toastManager.writeDataSync(bytes);
+          dest[currentOffset] = 7;
+          bd.setUint32(currentOffset + 1, startPage);
+          bd.setUint32(currentOffset + 5, bytes.length);
+          currentOffset += 9;
+        } else {
+          dest.setRange(
+            currentOffset + 1,
+            currentOffset + 1 + bytes.length,
+            bytes,
+          );
+          currentOffset += 1 + bytes.length;
+        }
+      } else if (val is DbValue) {
+        if (val is DbNull) {
+          dest[currentOffset] = 0;
+          currentOffset += 1;
+        } else if (val is DbInt) {
+          dest[currentOffset] = 1;
+          final v = val.value;
+          if (v >= -128 && v <= 127) {
+            bd.setInt8(currentOffset + 1, v);
+            currentOffset += 2;
+          } else if (v >= -32768 && v <= 32767) {
+            bd.setInt16(currentOffset + 1, v);
+            currentOffset += 3;
+          } else if (v >= -2147483648 && v <= 2147483647) {
+            bd.setInt32(currentOffset + 1, v);
+            currentOffset += 5;
+          } else {
+            bd.setInt64(currentOffset + 1, v);
+            currentOffset += 9;
+          }
+        } else if (val is DbDouble) {
+          dest[currentOffset] = 2;
+          bd.setFloat64(currentOffset + 1, val.value);
+          currentOffset += 9;
+        } else if (val is DbText) {
+          dest[currentOffset] = 3;
+          final str = val.value;
+          final strLen = str.length;
+          if (strLen <= 1024) {
+            dest.setRange(currentOffset + 1, currentOffset + 1 + strLen, str.codeUnits);
+            currentOffset += 1 + strLen;
+          } else {
+            final bytes = utf8.encoder.convert(str);
+            dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
+            currentOffset += 1 + bytes.length;
+          }
+        } else {
+          final bytes = val.toBytes();
+          dest.setRange(currentOffset, currentOffset + bytes.length, bytes);
+          currentOffset += bytes.length;
+        }
+      } else {
+        final str = val.toString();
+        dest[currentOffset] = 3;
+        dest.setRange(currentOffset + 1, currentOffset + 1 + str.length, str.codeUnits);
+        currentOffset += 1 + str.length;
       }
     }
     return currentOffset;
@@ -627,6 +802,92 @@ class RowTableFile {
       final recordLen = RecordSerializer.serializeMvccRowDirect(
         _sharedTempBuffer,
         row,
+        xmin,
+        0,
+        rollPtr,
+        toastManager,
+      );
+
+      final requiredSpace = recordLen + 4;
+      final currentSlotEnd = 5 + rowCount * 4;
+
+      if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
+        data.setUint16(1, rowCount);
+        data.setUint16(3, freeSpaceOffset);
+        page.rowCount = rowCount;
+        page.freeSpaceOffset = freeSpaceOffset;
+        cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
+
+        currentPageId++;
+        page = cache.pinPageSync(filePath, currentPageId);
+        SlottedPageHelper.initPage(page, maxPayloadSize);
+        data = page.byteData;
+        rowCount = 0;
+        freeSpaceOffset = maxPayloadSize;
+        pageDirty = true;
+      }
+
+      final newFreeSpaceOffset = freeSpaceOffset - recordLen;
+      final pageBytes = page.data;
+      pageBytes.setRange(
+        newFreeSpaceOffset,
+        newFreeSpaceOffset + recordLen,
+        _sharedTempBuffer,
+        0,
+      );
+
+      final slotOffset = 5 + rowCount * 4;
+      data.setUint16(slotOffset, newFreeSpaceOffset);
+      data.setUint16(slotOffset + 2, recordLen);
+
+      if (generatePointers) {
+        pointers!.add(BTreePointer(currentPageId, rowCount));
+      }
+
+      rowCount++;
+      freeSpaceOffset = newFreeSpaceOffset;
+      pageDirty = true;
+    }
+
+    // Save final page headers
+    data.setUint16(1, rowCount);
+    data.setUint16(3, freeSpaceOffset);
+    page.rowCount = rowCount;
+    page.freeSpaceOffset = freeSpaceOffset;
+    cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
+    return pointers;
+  }
+
+  List<BTreePointer>? turboInsertBatchSync(
+    List<List<dynamic>> rows,
+    List<DataType> colTypes, {
+    int xmin = 0,
+    int rollPtr = 0,
+    bool generatePointers = true,
+  }) {
+    flushActivePageSync();
+    int pageCount = cache.getActualPageCountSync(filePath);
+
+    final pointers = generatePointers ? <BTreePointer>[] : null;
+    if (rows.isEmpty) return pointers;
+
+    int currentPageId = pageCount > 0 ? pageCount - 1 : 0;
+    Page page = cache.pinPageSync(filePath, currentPageId);
+    if (pageCount == 0) {
+      SlottedPageHelper.initPage(page, maxPayloadSize);
+    }
+
+    ByteData data = page.byteData;
+    int rowCount = data.getUint16(1);
+    int freeSpaceOffset = data.getUint16(3);
+    bool pageDirty = pageCount == 0;
+
+    for (int r = 0; r < rows.length; r++) {
+      final rawRow = rows[r];
+      final recordLen = RecordSerializer.serializeRawMvccRowDirect(
+        _sharedTempBuffer,
+        rawRow,
+        colTypes,
         xmin,
         0,
         rollPtr,

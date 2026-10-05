@@ -99,11 +99,13 @@ class ParquetEngine {
         json.decode(utf8.decode(dataBytes)) as Map<String, dynamic>;
     final columnDataList = (decodedJson['data'] as List).cast<List<dynamic>>();
     final numRows = (decodedJson['metadata']['num_rows'] as int);
+    final metaCols = (decodedJson['metadata']['columns'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final activeCols = schema.columnNames.isNotEmpty ? schema.columnNames : metaCols;
 
     final rows = <List<DbValue>>[];
     for (int r = 0; r < numRows; r++) {
       final row = <DbValue>[];
-      for (int c = 0; c < schema.columnNames.length; c++) {
+      for (int c = 0; c < activeCols.length; c++) {
         if (c < columnDataList.length && r < columnDataList[c].length) {
           row.add(_rawToDbValue(columnDataList[c][r]));
         } else {

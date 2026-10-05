@@ -4,6 +4,7 @@ import '../executor/interpreter.dart';
 import '../executor/value.dart';
 import '../storage/catalog.dart';
 import '../storage/table_file.dart';
+import '../storage/btree_index.dart';
 import '../cache/page_cache.dart';
 import '../parser/ast.dart';
 import 'document.dart';
@@ -84,6 +85,94 @@ class Collection {
     _initialized = true;
   }
 
+  /// Converts a field value to a numeric B+Tree index search key.
+  double? _toIndexKey(dynamic val) {
+    if (val == null) return null;
+    if (val is num) return val.toDouble();
+    final str = val.toString();
+    final parsed = double.tryParse(str);
+    if (parsed != null) return parsed;
+    double hash = 0.0;
+    for (int j = 0; j < str.length; j++) {
+      hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
+    }
+    return hash;
+  }
+
+  BTreePointer? _getPointerForDocId(String targetId) {
+    ensureTableSync();
+    final idxName = 'idx_${tableName}__id';
+    final idx = db.catalog.getIndexForColumn(tableName, '_id') ??
+        (db.catalog.hasIndex(idxName) ? db.catalog.getIndex(idxName) : null);
+    if (idx != null) {
+      final dKey = _toIndexKey(targetId);
+      if (dKey != null) {
+        final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
+        return btree.searchSync([dKey]);
+      }
+    }
+    return null;
+  }
+
+  Document? _fetchDocAtPointer(BTreePointer ptr) {
+    final rowTable = _rowTable ??= RowTableFile(
+      cache: db.cache,
+      tableName: tableName,
+      dbDirectory: db.directory,
+    );
+
+    final page = db.cache.pinPageSync(rowTable.filePath, ptr.pageId);
+    try {
+      final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
+      if (recBytes != null) {
+        List<DbValue>? fullRow;
+        try {
+          final mvccRecord = MvccRecord.fromBytes(recBytes);
+          final currentTx = db.cache.currentMvccTx;
+          final txManager = db.cache.mvccTxManager;
+          final currentTxId = currentTx?.txId ?? 0;
+          final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+          if (txManager.isVisible(
+            mvccRecord.xmin,
+            mvccRecord.xmax,
+            currentTxId,
+            activeTxIds,
+          )) {
+            fullRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+          }
+        } catch (_) {
+          fullRow = RecordSerializer.deserializeRow(recBytes);
+        }
+
+        if (fullRow != null && fullRow.length >= 2) {
+          return _docFromRow(fullRow);
+        }
+      }
+    } finally {
+      db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
+    }
+    return null;
+  }
+
+  BTreeIndex _getOrInitFieldIndex(String fieldPath) {
+    final sanitized = fieldPath.replaceAll('.', '_');
+    final idxName = 'idx_${tableName}_$sanitized';
+    return db.getOrInitIndexSync(idxName);
+  }
+
+  void _updateFieldIndexes(Document doc, BTreePointer ptr) {
+    for (final fieldPath in _indexes.keys) {
+      final val = doc.getByPath(fieldPath);
+      if (val != null) {
+        final dKey = _toIndexKey(val);
+        if (dKey != null) {
+          final btree = _getOrInitFieldIndex(fieldPath);
+          btree.insertSync([dKey], ptr.pageId, ptr.slotId);
+        }
+      }
+    }
+  }
+
   /// Direct low-latency point-lookup on `_id` via hot cache & B+ Tree index.
   Document? _pointLookupById(String targetId) {
     ensureTableSync();
@@ -93,70 +182,14 @@ class Collection {
     if (cached != null) return cached;
 
     // 2. Direct B-Tree Index Search (bypasses SQL parsing, AST, Lexer, Planner)
-    final idxName = 'idx_${tableName}__id';
-    final idx = db.catalog.getIndexForColumn(tableName, '_id') ??
-        (db.catalog.hasIndex(idxName) ? db.catalog.getIndex(idxName) : null);
-
-    if (idx != null) {
-      final parsed = double.tryParse(targetId);
-      double dKey;
-      if (parsed != null) {
-        dKey = parsed;
-      } else {
-        double hash = 0.0;
-        for (int j = 0; j < targetId.length; j++) {
-          hash = (hash * 31.0 + targetId.codeUnitAt(j)) % 9007199254740991;
-        }
-        dKey = hash;
-      }
-
-      final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
-      final ptr = btree.searchSync([dKey]);
-      if (ptr != null) {
-        final rowTable = _rowTable ??= RowTableFile(
-          cache: db.cache,
-          tableName: tableName,
-          dbDirectory: db.directory,
-        );
-
-        final page = db.cache.pinPageSync(rowTable.filePath, ptr.pageId);
-        try {
-          final recBytes = SlottedPageHelper.getRecord(page, ptr.slotId);
-          if (recBytes != null) {
-            List<DbValue>? fullRow;
-            try {
-              final mvccRecord = MvccRecord.fromBytes(recBytes);
-              final currentTx = db.cache.currentMvccTx;
-              final txManager = db.cache.mvccTxManager;
-              final currentTxId = currentTx?.txId ?? 0;
-              final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-              if (txManager.isVisible(
-                mvccRecord.xmin,
-                mvccRecord.xmax,
-                currentTxId,
-                activeTxIds,
-              )) {
-                fullRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
-              }
-            } catch (_) {
-              fullRow = RecordSerializer.deserializeRow(recBytes);
-            }
-
-            if (fullRow != null && fullRow.length >= 2) {
-              final idVal = fullRow[0];
-              if (idVal is DbText && idVal.value == targetId) {
-                final doc = _docFromRow(fullRow);
-                _cacheDoc(doc);
-                return doc;
-              }
-            }
-          }
-        } finally {
-          db.cache.unpinPageSync(rowTable.filePath, ptr.pageId, isDirty: false);
-        }
+    final ptr = _getPointerForDocId(targetId);
+    if (ptr != null) {
+      final doc = _fetchDocAtPointer(ptr);
+      if (doc != null && doc.id == targetId) {
+        _cacheDoc(doc);
+        return doc;
       }
     }
-
     return null;
   }
 
@@ -172,6 +205,12 @@ class Collection {
     final stmt = db.prepare('INSERT INTO $tableName VALUES (?, ?);');
     stmt.executeSync([DbText(doc.id), DbJson(doc.data)]);
     _cacheDoc(doc);
+    if (_indexes.isNotEmpty) {
+      final ptr = _getPointerForDocId(doc.id);
+      if (ptr != null) {
+        _updateFieldIndexes(doc, ptr);
+      }
+    }
     return doc;
   }
 
@@ -197,6 +236,12 @@ class Collection {
     stmt.executeBatchSync(batchParams);
     for (final doc in docs) {
       _cacheDoc(doc);
+      if (_indexes.isNotEmpty) {
+        final ptr = _getPointerForDocId(doc.id);
+        if (ptr != null) {
+          _updateFieldIndexes(doc, ptr);
+        }
+      }
     }
     return docs;
   }
@@ -352,10 +397,42 @@ class Collection {
     return docs.length;
   }
 
-  /// Creates a secondary index on a nested document path (e.g. `'profile.tier'`).
+  /// Creates a secondary B+Tree index on a nested document path (e.g. `'profile.tier'`).
   Future<void> createIndex(String fieldPath, {bool unique = false}) async {
+    createIndexSync(fieldPath, unique: unique);
+  }
+
+  /// Synchronously creates a secondary B+Tree index on a nested document path.
+  void createIndexSync(String fieldPath, {bool unique = false}) {
     ensureTableSync();
     _indexes[fieldPath] = unique;
+    final sanitized = fieldPath.replaceAll('.', '_');
+    final idxName = 'idx_${tableName}_$sanitized';
+    if (!db.catalog.hasIndex(idxName)) {
+      db.catalog.addIndex(
+        IndexSchema(
+          name: idxName,
+          tableName: tableName,
+          columnName: fieldPath,
+        ),
+      );
+    }
+    final btree = db.getOrInitIndexSync(idxName);
+
+    // Populate index with existing documents in collection
+    final allDocs = _fetchRawDocumentsSync();
+    for (final doc in allDocs) {
+      final val = doc.getByPath(fieldPath);
+      if (val != null) {
+        final dKey = _toIndexKey(val);
+        if (dKey != null) {
+          final ptr = _getPointerForDocId(doc.id);
+          if (ptr != null) {
+            btree.insertSync([dKey], ptr.pageId, ptr.slotId);
+          }
+        }
+      }
+    }
   }
 
   /// Returns list of created secondary indexes.
@@ -465,7 +542,36 @@ class DocumentCursor {
 
   /// Synchronously executes query and resolves matching documents into a List.
   List<Document> toListSync() {
-    final allDocs = collection._fetchRawDocumentsSync();
+    List<Document>? candidates;
+    if (filter != null && filter!.isNotEmpty) {
+      for (final entry in filter!.entries) {
+        final path = entry.key;
+        if (!path.startsWith(r'$') && collection._indexes.containsKey(path)) {
+          final filterVal = entry.value;
+          if (filterVal is! Map) {
+            // Point lookup on indexed field
+            final dKey = collection._toIndexKey(filterVal);
+            if (dKey != null) {
+              final btree = collection._getOrInitFieldIndex(path);
+              final ptr = btree.searchSync([dKey]);
+              if (ptr != null) {
+                final doc = collection._fetchDocAtPointer(ptr);
+                if (doc != null) {
+                  candidates = [doc];
+                } else {
+                  candidates = [];
+                }
+              } else {
+                candidates = [];
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    final allDocs = candidates ?? collection._fetchRawDocumentsSync();
     final filtered = <Document>[];
 
     // 1. Filter evaluation
