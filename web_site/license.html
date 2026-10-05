@@ -24,11 +24,17 @@
   <meta name="twitter:image" content="https://ultsql.tech/logo.png">
 
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=2.1.0">
-  <link rel="stylesheet" href="motion.css?v=2.1.1">
+
+  <!-- Preconnect Google Fonts for zero waterfall latency -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+
+  <link rel="stylesheet" href="style.css?v=2.2.0">
+  <link rel="stylesheet" href="motion.css?v=2.2.0">
 
   <!-- Anime.js v4 Animation Engine -->
-  <script src="vendor/anime.umd.min.js"></script>
+  <script src="vendor/anime.umd.min.js" defer></script>
   <!-- Vercel Web Analytics -->
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };

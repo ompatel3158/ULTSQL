@@ -4,8 +4,6 @@
    Powered by Anime.js v4 Kinetic Motion
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
 :root {
   /* Strictly Monochrome Black & White (Dark Default) */
   --bg-base: #000000;
@@ -22,8 +20,8 @@
   --border-glow: rgba(255, 255, 255, 0.25);
 
   --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
   --text-inverse: #000000;
 
   /* Monochrome Chart & Accent Tokens */
@@ -73,8 +71,8 @@
   --border-glow: rgba(0, 0, 0, 0.15);
 
   --text-primary: #000000;
-  --text-secondary: #52525b;
-  --text-tertiary: #a1a1aa;
+  --text-secondary: #374151;
+  --text-tertiary: #4b5563;
   --text-inverse: #ffffff;
 
   --accent-primary: #000000;
@@ -1713,7 +1711,7 @@ code, pre {
 }
 
 .cad-mode-num {
-  opacity: 0.65;
+  opacity: 0.9;
   font-size: 0.58rem;
 }
 

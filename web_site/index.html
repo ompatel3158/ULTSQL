@@ -54,13 +54,17 @@
   </script>
 
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=2.1.0">
-  <link rel="stylesheet" href="motion.css?v=2.1.1">
 
-  <!-- Anime.js v4 Animation Engine -->
-  <script src="vendor/anime.umd.min.js"></script>
-  <!-- In-Browser Pure Dart Engine -->
-  <script src="ultsql_engine.js" defer></script>
+  <!-- Preconnect Google Fonts for zero waterfall latency -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+
+  <link rel="stylesheet" href="style.css?v=2.2.0">
+  <link rel="stylesheet" href="motion.css?v=2.2.0">
+
+  <!-- Anime.js v4 Animation Engine (Non-blocking) -->
+  <script src="vendor/anime.umd.min.js" defer></script>
   <!-- Vercel Web Analytics -->
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -477,7 +481,7 @@
                 <span>SQL QUERY EDITOR</span>
                 <span>CTRL + ENTER TO RUN</span>
               </div>
-              <textarea class="sql-editor-textarea" id="sqlEditor" spellcheck="false">-- 1. Relational SQL: JOIN, Aggregates & Slotted Page Tables
+              <textarea class="sql-editor-textarea" id="sqlEditor" aria-label="SQL Query Editor" spellcheck="false">-- 1. Relational SQL: JOIN, Aggregates & Slotted Page Tables
 DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS users;
 
@@ -666,37 +670,37 @@ ORDER BY total_spent DESC;</textarea>
         <div class="feature-matrix-grid">
           <div class="feature-box">
             <span class="feature-tag">PURE DART VM</span>
-            <h4 class="feature-box-title">Zero Native C/C++ Toolchain</h4>
+            <h3 class="feature-box-title">Zero Native C/C++ Toolchain</h3>
             <p class="feature-box-desc">No CMake, NDK, Xcode toolchain mismatches, or dynamic library linking headaches. Write once, compile deterministically everywhere.</p>
           </div>
 
           <div class="feature-box">
             <span class="feature-tag">STORAGE SYSTEM</span>
-            <h4 class="feature-box-title">4KB Slotted Pages with CRC32</h4>
+            <h3 class="feature-box-title">4KB Slotted Pages with CRC32</h3>
             <p class="feature-box-desc">Slotted page file format with variable-length tuple offsets and hardware-accelerated CRC32 checksums on every disk read.</p>
           </div>
 
           <div class="feature-box">
             <span class="feature-tag">CRASH RESILIENCE</span>
-            <h4 class="feature-box-title">Write-Ahead Logging (WAL)</h4>
+            <h3 class="feature-box-title">Write-Ahead Logging (WAL)</h3>
             <p class="feature-box-desc">Guarantees durability with ARIES-style redo logging and atomic transaction commit markers. Instant recovery on unexpected app termination.</p>
           </div>
 
           <div class="feature-box">
             <span class="feature-tag">WIRE PROTOCOL</span>
-            <h4 class="feature-box-title">PostgreSQL (pgwire) Compatible</h4>
+            <h3 class="feature-box-title">PostgreSQL (pgwire) Compatible</h3>
             <p class="feature-box-desc">Embedded Pgwire server allowing standard clients like psql, DBeaver, and Supabase studio to connect directly to your ULTSQL database.</p>
           </div>
 
           <div class="feature-box">
             <span class="feature-tag">CONCURRENCY</span>
-            <h4 class="feature-box-title">MVCC Snapshot Isolation</h4>
+            <h3 class="feature-box-title">MVCC Snapshot Isolation</h3>
             <p class="feature-box-desc">Multi-Version Concurrency Control ensures readers never block writers, and writers never block readers across concurrent database transactions.</p>
           </div>
 
           <div class="feature-box">
             <span class="feature-tag">PERSISTENCE</span>
-            <h4 class="feature-box-title">Single-File (.ultsql) & In-Memory</h4>
+            <h3 class="feature-box-title">Single-File (.ultsql) & In-Memory</h3>
             <p class="feature-box-desc">Zero external server dependencies. Run completely ephemeral in RAM or persist transparently to a clean single `.ultsql` file on disk.</p>
           </div>
         </div>

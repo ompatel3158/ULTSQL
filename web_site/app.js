@@ -485,9 +485,10 @@ document.addEventListener('DOMContentLoaded', () => {
           ctx.restore();
         }
 
-        requestAnimationFrame(renderRadar);
+        if (laserProgress < 1) {
+          requestAnimationFrame(renderRadar);
+        }
       }
-      renderRadar();
     }
 
     // ------------------------------------------------------------------------
@@ -526,13 +527,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
-  // 5. IN-BROWSER PURE DART ENGINE PLAYGROUND
+  // 5. IN-BROWSER PURE DART ENGINE PLAYGROUND (ON-DEMAND LAZY LOADED)
   // ==========================================================================
   const sqlEditor = document.getElementById('sqlEditor');
   const runBtn = document.getElementById('runBtn');
   const resultStatus = document.getElementById('resultStatus');
   const resultTable = document.getElementById('resultTable');
   const presetTabs = document.querySelectorAll('.preset-tab-btn');
+
+  let engineScriptPromise = null;
+  function loadEngineOnDemand() {
+    if (typeof window.executeUltSQL === 'function') return Promise.resolve();
+    if (engineScriptPromise) return engineScriptPromise;
+    engineScriptPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'ultsql_engine.js';
+      s.defer = true;
+      s.onload = () => resolve();
+      s.onerror = (e) => reject(e);
+      document.head.appendChild(s);
+    });
+    return engineScriptPromise;
+  }
+
+  // Prefetch compiled engine when viewport scrolls within 400px of playground
+  const playgroundSection = document.getElementById('playground');
+  if (playgroundSection && 'IntersectionObserver' in window) {
+    const engineObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        loadEngineOnDemand();
+        engineObserver.disconnect();
+      }
+    }, { rootMargin: '400px' });
+    engineObserver.observe(playgroundSection);
+  }
 
   const presets = {
     sql: `-- 1. Relational SQL: JOIN, Aggregates & Slotted Page Tables
@@ -643,6 +671,11 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       runBtn.disabled = true;
 
       try {
+        if (typeof window.executeUltSQL !== 'function') {
+          runBtn.innerText = 'Initializing...';
+          await loadEngineOnDemand();
+        }
+
         if (typeof window.executeUltSQL === 'function') {
           const rawResult = await window.executeUltSQL(sqlText);
           const res = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
@@ -1049,7 +1082,11 @@ SELECT * FROM system_audit ORDER BY id ASC;`
   // ==========================================================================
   // 12. ARCHITECTURAL CAD RULER, TACTILE CURSOR & TACTILE GRAIN
   // ==========================================================================
-  initTactileCadExperience();
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => initTactileCadExperience(), { timeout: 1000 });
+  } else {
+    setTimeout(initTactileCadExperience, 60);
+  }
 
   function initTactileCadExperience() {
     // 1. Inject Analog Grain Overlay (Imperfection) if not present
@@ -1114,11 +1151,13 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       if (!track) return;
       track.innerHTML = '';
       const tickCount = Math.floor(window.innerWidth / 12);
+      const frag = document.createDocumentFragment();
       for (let i = 0; i < tickCount; i++) {
         const tick = document.createElement('div');
         tick.className = `ruler-tick ${i % 5 === 0 ? 'major' : ''}`;
-        track.appendChild(tick);
+        frag.appendChild(tick);
       }
+      track.appendChild(frag);
     }
     populateTicks();
     window.addEventListener('resize', populateTicks);
@@ -1141,11 +1180,13 @@ SELECT * FROM system_audit ORDER BY id ASC;`
     cards.forEach(card => {
       if (!card.querySelector('.corner-cross')) {
         card.classList.add('with-corners');
+        const frag = document.createDocumentFragment();
         ['tl', 'tr', 'bl', 'br'].forEach(pos => {
           const cross = document.createElement('span');
           cross.className = `corner-cross ${pos}`;
-          card.appendChild(cross);
+          frag.appendChild(cross);
         });
+        card.appendChild(frag);
       }
     });
 
@@ -1216,23 +1257,32 @@ SELECT * FROM system_audit ORDER BY id ASC;`
           rulerCoordText.textContent = `X: ${String(Math.round(mouseX)).padStart(4, '0')} | Y: ${String(Math.round(mouseY)).padStart(4, '0')}`;
         }
 
+        if (!cursorRafId) {
+          cursorRafId = requestAnimationFrame(renderCursor);
+        }
+
         clearTimeout(moveTimeout);
         moveTimeout = setTimeout(() => {
           cursorHud.classList.remove('active');
         }, 1200);
       }, { passive: true });
 
-      // Snappy, high-precision RAF lerp loop for the trailing ring
+      let cursorRafId = null;
       function renderCursor() {
         ringX += (mouseX - ringX) * 0.45;
         ringY += (mouseY - ringY) * 0.45;
-        if (Math.abs(mouseX - ringX) < 0.1) ringX = mouseX;
-        if (Math.abs(mouseY - ringY) < 0.1) ringY = mouseY;
+        if (Math.abs(mouseX - ringX) < 0.25 && Math.abs(mouseY - ringY) < 0.25) {
+          ringX = mouseX;
+          ringY = mouseY;
+          cursorRing.style.left = `${ringX}px`;
+          cursorRing.style.top = `${ringY}px`;
+          cursorRafId = null;
+          return;
+        }
         cursorRing.style.left = `${ringX}px`;
         cursorRing.style.top = `${ringY}px`;
-        requestAnimationFrame(renderCursor);
+        cursorRafId = requestAnimationFrame(renderCursor);
       }
-      requestAnimationFrame(renderCursor);
 
       // Keep position synced during window scroll
       window.addEventListener('scroll', () => {
