@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ULTSQL - One Core. Every Model. (SQL + Vector + NoSQL + PL/SQL)</title>
+  <title>ULTSQL - 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)</title>
   <meta name="description"
-    content="ULTSQL is a 100% Pure Dart converged multimodal database engine combining Relational SQL, HNSW Vector RAG, NoSQL JSON, and PL/SQL with zero native C/C++ dependencies.">
+    content="ULTSQL is an independent 100% Pure Dart multimodal database engine combining Relational SQL, HNSW Vector RAG, and NoSQL JSON with zero native C/C++ dependencies.">
   <meta name="keywords"
     content="ultsql, pure dart database, flutter database, vector database, embedded sql, nosql json, sqlite alternative, hnsw vector search, rag database, ultsql install, pgwire">
   <meta name="author" content="Om Patel">
@@ -17,15 +17,15 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ultsql.tech/">
-  <meta property="og:title" content="ULTSQL - One Core. Every Model.">
+  <meta property="og:title" content="ULTSQL - 100% Pure Dart Multimodal Database">
   <meta property="og:description"
-    content="Converged 4-in-1 database engine in 100% pure Dart: Relational SQL, AI Vector RAG, NoSQL JSON, and PL/SQL.">
+    content="Converged database engine in 100% pure Dart: Relational SQL, AI Vector RAG, NoSQL JSON, and Key-Value caching.">
   <meta property="og:image" content="https://ultsql.tech/logo.png">
   <meta property="og:site_name" content="UltSQL">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ULTSQL - One Core. Every Model. (Pure Dart Database)">
+  <meta name="twitter:title" content="ULTSQL - 100% Pure Dart Multimodal Database">
   <meta name="twitter:description"
     content="Converged multimodal database engine in 100% pure Dart: Relational SQL, HNSW Vector RAG, NoSQL JSON, and PL/SQL.">
   <meta name="twitter:image" content="https://ultsql.tech/logo.png">
@@ -34,26 +34,55 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "ULTSQL",
-    "headline": "100% Pure Dart Multimodal Converged Database Engine",
-    "description": "Converged 4-in-1 database engine written in 100% pure Dart: Relational SQL, HNSW Vector RAG, NoSQL Document Collections, and Redis-style Key-Value store with zero native C/C++ dependencies.",
-    "operatingSystem": "All (Windows, macOS, Linux, iOS, Android, Web)",
-    "applicationCategory": "DeveloperApplication",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "author": {
-      "@type": "Person",
-      "name": "Om Patel"
-    },
-    "softwareVersion": "1.0.28",
-    "url": "https://ultsql.tech/",
-    "sameAs": [
-      "https://github.com/ompatel3158/ULTSQL",
-      "https://pub.dev/packages/ultsql"
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://ultsql.tech/#software",
+        "name": "ULTSQL",
+        "alternateName": ["UltSQL", "ultsql", "ULTSQL Database"],
+        "headline": "100% Pure Dart Multimodal Converged Database Engine",
+        "description": "Independent 100% Pure Dart multimodal database combining Relational SQL, HNSW Vector RAG, NoSQL Collections, and Key-Value caching with zero native C/C++ dependencies.",
+        "operatingSystem": "All (Windows, macOS, Linux, iOS, Android, Web)",
+        "applicationCategory": "DeveloperApplication",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Om Patel"
+        },
+        "softwareVersion": "1.0.28",
+        "url": "https://ultsql.tech/",
+        "sameAs": [
+          "https://github.com/ompatel3158/ULTSQL",
+          "https://pub.dev/packages/ultsql",
+          "https://www.npmjs.com/package/ultsql"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://ultsql.tech/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is ULTSQL?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "ULTSQL is an independent, 100% Pure Dart converged multimodal database engine created by Om Patel. It combines Relational SQL, HNSW Vector RAG, and NoSQL JSON into a single embedded engine with zero native C/C++ dependencies."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is ULTSQL related to Oracle PL/SQL or UTL packages?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. ULTSQL is an independent standalone database engine developed for Dart, Flutter, Node.js, and server environments. It is not an Oracle UTL package or affiliated with Oracle PL/SQL."
+            }
+          }
+        ]
+      }
     ]
   }
   </script>
