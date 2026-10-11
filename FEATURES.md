@@ -1,4 +1,4 @@
-# ⚡ UltSQL — Comprehensive Feature Matrix, Usage & Customization Guide
+# ⚡ UltSQL - Comprehensive Feature Matrix, Usage & Customization Guide
 
 Welcome to the definitive guide for **UltSQL**, the 100% Pure-Dart converged multimodal database engine combining **Relational SQL**, **NoSQL Document Collections**, **Redis-style Key-Value Caching**, **HNSW Vector Search (AI RAG)**, and **PL/SQL Procedural Scripting** with zero native C/C++ dependencies.
 

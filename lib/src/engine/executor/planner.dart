@@ -19,12 +19,42 @@ class QueryPlanner {
   final String dbDirectory;
   final CreateMacroStmt? Function(String)? getMacro;
 
+  final Map<String, BTreeIndex> _indexCache = {};
+  final Map<String, RowTableFile> _rowTableCache = {};
+
   QueryPlanner({
     required this.catalog,
     required this.cache,
     required this.dbDirectory,
     this.getMacro,
   });
+
+  BTreeIndex getOrInitIndexSync(String indexName, int keyColumns) {
+    return _indexCache.putIfAbsent(indexName.toLowerCase(), () {
+      final btree = BTreeIndex(
+        cache: cache,
+        indexPath: '$dbDirectory/$indexName.idx',
+        keyColumns: keyColumns,
+      );
+      btree.initSync();
+      return btree;
+    });
+  }
+
+  RowTableFile getOrInitRowTableSync(String tableName) {
+    return _rowTableCache.putIfAbsent(tableName.toLowerCase(), () {
+      return RowTableFile(
+        cache: cache,
+        tableName: tableName,
+        dbDirectory: dbDirectory,
+      );
+    });
+  }
+
+  void invalidateCaches() {
+    if (_indexCache.isNotEmpty) _indexCache.clear();
+    if (_rowTableCache.isNotEmpty) _rowTableCache.clear();
+  }
 
   (TableSchema, PlanNode)? _tryResolveFileTable(String tableName) {
     final lower = tableName.toLowerCase();
@@ -731,7 +761,7 @@ class QueryPlanner {
                     .split(',')
                     .map((c) => c.trim().toLowerCase())
                     .toSet();
-                bool isPureEquality = false;
+                bool isCoveredByIndex = false;
                 if (stmt.whereCondition is BinaryExpr) {
                   final bin = stmt.whereCondition as BinaryExpr;
                   if (bin.operator == '=' && bin.left is VariableExpr) {
@@ -739,11 +769,17 @@ class QueryPlanner {
                         .toLowerCase()
                         .trim();
                     if (indexColsSet.contains(varCol)) {
-                      isPureEquality = true;
+                      isCoveredByIndex = true;
+                    }
+                  } else {
+                    final rangeCond = _tryExtractRange(stmt.whereCondition!, schema.name);
+                    if (rangeCond != null &&
+                        indexColsSet.contains(rangeCond.colName.toLowerCase().trim())) {
+                      isCoveredByIndex = true;
                     }
                   }
                 }
-                if (!isPureEquality) {
+                if (!isCoveredByIndex) {
                   needFilterNode = true;
                 } else {
                   for (final v in condVars) {
@@ -785,17 +821,11 @@ class QueryPlanner {
           scanNode = ColumnScanNode(colTableFile, schema, neededColIndexes);
         } else if (useIndexScan && targetIndexSchema != null) {
           final indexName = targetIndexSchema.name.toLowerCase();
-          final indexFile = '$dbDirectory/$indexName.idx';
-          final btreeIndex = BTreeIndex(
-            cache: cache,
-            indexPath: indexFile,
-            keyColumns: _getKeyColumnsCount(targetIndexSchema),
+          final btreeIndex = getOrInitIndexSync(
+            indexName,
+            _getKeyColumnsCount(targetIndexSchema),
           );
-          final rowTableFile = RowTableFile(
-            cache: cache,
-            tableName: schema.name,
-            dbDirectory: dbDirectory,
-          );
+          final rowTableFile = getOrInitRowTableSync(schema.name);
           final skipWhere = useIndexScan && !needFilterNode;
           final neededColIndexes = _getReferencedColumnIndexes(
             stmt,
@@ -817,11 +847,7 @@ class QueryPlanner {
             stmt.fromSubquery == null &&
             stmt.fromFunction == null &&
             stmt.tableName.isNotEmpty) {
-          final rowTableFile = RowTableFile(
-            cache: cache,
-            tableName: schema.name,
-            dbDirectory: dbDirectory,
-          );
+          final rowTableFile = getOrInitRowTableSync(schema.name);
           if (schema.isForeign) {
             final dummyStmt = CreateForeignTableStmt(
               schema.name,
@@ -844,8 +870,9 @@ class QueryPlanner {
                 identical(0, 0.0);
 
             // If table is large and not inside an active transaction, run in parallel using workers
+            final parallelThreshold = (stmt.groupBy != null || _hasAggregate(stmt.projections)) ? 10000 : 5000;
             if (!isMemory &&
-                pageCount > 50 &&
+                pageCount > parallelThreshold &&
                 !cache.isTransactionActive &&
                 stmt.join == null &&
                 stmt.withRelationship == null) {
@@ -1668,6 +1695,27 @@ class QueryPlanner {
   IndexRange? planIndexRange(String tableName, Expression condition) {
     final schema = catalog.getTableSchema(tableName);
     if (schema == null) return null;
+
+    if (condition is BinaryExpr && condition.operator == '=') {
+      VariableExpr? varExpr;
+      LiteralExpr? litExpr;
+      if (condition.left is VariableExpr && condition.right is LiteralExpr) {
+        varExpr = condition.left as VariableExpr;
+        litExpr = condition.right as LiteralExpr;
+      } else if (condition.right is VariableExpr && condition.left is LiteralExpr) {
+        varExpr = condition.right as VariableExpr;
+        litExpr = condition.left as LiteralExpr;
+      }
+      if (varExpr != null && litExpr != null && litExpr.value is num) {
+        final colName = varExpr.path.last.toLowerCase();
+        final idx = catalog.getIndexForColumn(tableName, colName);
+        if (idx != null) {
+          final k = (litExpr.value as num).toDouble();
+          return IndexRange(idx, [k], [k]);
+        }
+      }
+    }
+
     final indexes = catalog.getIndexesForTable(tableName);
     IndexSchema? bestIndex;
     List<double>? bestLowKeys;
@@ -1773,13 +1821,7 @@ class QueryPlanner {
   double? _dbValueToDouble(dynamic val) {
     if (val is num) return val.toDouble();
     if (val is String) {
-      final parsed = double.tryParse(val);
-      if (parsed != null) return parsed;
-      double hash = 0.0;
-      for (int i = 0; i < val.length; i++) {
-        hash = (hash * 31.0 + val.codeUnitAt(i)) % 9007199254740991;
-      }
-      return hash;
+      return BTreeIndex.stringToKey(val);
     }
     return null;
   }

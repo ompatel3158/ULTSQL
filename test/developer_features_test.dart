@@ -190,10 +190,12 @@ void main() {
 
     print("\nALL DEVELOPER FEATURES TESTS PASSED SUCCESSFULLY!");
   } finally {
-    db.close();
-    if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
-    }
+    await db.close();
+    try {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    } catch (_) {}
   }
   });
 }

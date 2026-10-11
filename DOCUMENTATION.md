@@ -1,6 +1,6 @@
 # 📘 UltSQL Complete User Manual & Documentation
 
-Welcome to the official user manual for **UltSQL** — the converged 4-in-1 multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
+Welcome to the official user manual for **UltSQL** - the converged 4-in-1 multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
 
 > ⚡ **Looking for the Complete Feature Matrix & Customization Guide?** See [FEATURES.md](FEATURES.md) for full architectural breakdowns, code examples across 5 languages, and deep engine tuning instructions.
 
@@ -14,6 +14,7 @@ Welcome to the official user manual for **UltSQL** — the converged 4-in-1 mult
 5. [PostgreSQL Wire Protocol Connections](#5-postgresql-wire-protocol-connections)
 6. [Standalone Binaries (Windows, Linux, macOS)](#6-standalone-binaries-windows-linux-macos)
 7. [Advanced Multimodal SQL Features](#7-advanced-multimodal-sql-features)
+8. [Model Context Protocol (MCP) Server & Agent Skills](#8-model-context-protocol-mcp-server--agent-skills)
 
 ---
 
@@ -169,3 +170,33 @@ db.createBranch('feature-dev');
 db.switchBranch('feature-dev');
 db.mergeBranch('feature-dev', 'main');
 ```
+
+---
+
+## 8. Model Context Protocol (MCP) Server & Agent Skills
+
+UltSQL provides first-class support for AI agent integrations via the standardized Model Context Protocol (MCP) and agent skills.
+
+### Starting the MCP Server
+
+```bash
+# Standalone CLI
+ultsql mcp
+
+# Dart SDK
+dart run bin/ultsql_mcp_server.dart
+```
+
+### Supported MCP Tools
+
+- **`ultsql_query`**: Run SQL queries or PL/SQL scripts.
+- **`ultsql_describe_schema`**: Introspect tables, columns, indexes, and row counts.
+- **`ultsql_batch_insert`**: Vector-fast batch ingestion directly into 4KB slotted pages.
+- **`ultsql_doc_insert` / `ultsql_doc_find`**: Schema-less NoSQL document storage and filtering.
+- **`ultsql_kv_set` / `ultsql_kv_get`**: High-throughput key-value cache operations with TTL.
+- **`ultsql_vector_search`**: HNSW k-NN vector similarity search (`cosine`, `l2`, `dot`).
+- **`ultsql_explain`**: Physical Volcano iterator execution plan inspector.
+
+### Agent Skill Configuration
+
+The official skill is located at `.agents/skills/ultsql/SKILL.md`. AI coding environments (Antigravity, Cursor, Claude Desktop) automatically discover and use this skill when asked to perform local database or data engineering tasks.

@@ -45,7 +45,40 @@ class Pager {
   final Map<int, Uint8List> _memoryPages = {};
   final Map<int, Uint8List> _memoryAuthTags = {};
   final Map<int, Page> cachedPages = {};
+  final List<Page?> pageTable = List<Page?>.filled(1024, null, growable: true);
   Page? lastPage;
+
+  @pragma('vm:prefer-inline')
+  Page? getCachedPage(int pageId) {
+    return (pageId >= 0 && pageId < pageTable.length) ? pageTable[pageId] : null;
+  }
+
+  void setCachedPage(int pageId, Page? page) {
+    if (page == null) {
+      cachedPages.remove(pageId);
+      if (pageId >= 0 && pageId < pageTable.length) {
+        pageTable[pageId] = null;
+      }
+    } else {
+      cachedPages[pageId] = page;
+      if (pageId >= pageTable.length) {
+        int newLen = pageTable.length * 2;
+        while (newLen <= pageId) newLen *= 2;
+        final oldLen = pageTable.length;
+        pageTable.length = newLen;
+        pageTable.fillRange(oldLen, newLen, null);
+      }
+      pageTable[pageId] = page;
+    }
+  }
+
+  void clearCachedPages() {
+    cachedPages.clear();
+    pageTable.fillRange(0, pageTable.length, null);
+    lastPage = null;
+  }
+
+  bool get hasOpenFile => _file != null || _authFile != null;
 
   Pager(this.filePath, {this.pageSize = 4096}) {
     _isMemoryMode = filePath.startsWith(':memory:') || identical(0, 0.0);
@@ -109,7 +142,18 @@ class Pager {
           : (_memoryPages.keys.reduce((a, b) => a > b ? a : b) + 1);
       return _virtualPageCount;
     }
-    _ensureOpenSync();
+    if (_file == null) {
+      final file = File(filePath);
+      if (!file.existsSync()) {
+        _virtualPageCount = 0;
+        return 0;
+      }
+      try {
+        _file = file.openSync(mode: FileMode.append);
+      } catch (_) {
+        _file = null;
+      }
+    }
     if (_file == null) return 0;
     final len = _file!.lengthSync();
     _virtualPageCount = len ~/ pageSize;
@@ -170,16 +214,13 @@ class Pager {
       }
       return;
     }
-    _ensureOpenSync();
-    if (_file == null) {
+    if (pageId >= getPageCountSync()) {
+      _virtualPageCount = pageId + 1;
       buffer.fillRange(0, buffer.length, 0);
       return;
     }
-    if (_virtualPageCount == -1) {
-      _virtualPageCount = _file!.lengthSync() ~/ pageSize;
-    }
-    if (pageId >= _virtualPageCount) {
-      _virtualPageCount = pageId + 1;
+    _ensureOpenSync();
+    if (_file == null) {
       buffer.fillRange(0, buffer.length, 0);
       return;
     }
@@ -375,9 +416,8 @@ class Pager {
     _authFile?.flushSync();
   }
 
-  void closeSync() {
-    cachedPages.clear();
-    lastPage = null;
+  void closeSync({bool flush = true}) {
+    clearCachedPages();
     if (_isMemoryMode) {
       _memoryPages.clear();
       _memoryAuthTags.clear();
@@ -386,14 +426,18 @@ class Pager {
     }
     if (_file != null) {
       try {
-        _file!.flushSync();
+        if (flush) {
+          _file!.flushSync();
+        }
         _file!.closeSync();
       } catch (_) {}
       _file = null;
     }
     if (_authFile != null) {
       try {
-        _authFile!.flushSync();
+        if (flush) {
+          _authFile!.flushSync();
+        }
         _authFile!.closeSync();
       } catch (_) {}
       _authFile = null;
@@ -411,6 +455,18 @@ class Pager {
     if (_file == null) return;
     final length = pageCount * pageSize;
     _file!.truncateSync(length);
+  }
+
+  void updatePageCountAfterBulkBuildSync(int pageCount) {
+    if (_isMemoryMode) {
+      _memoryPages.removeWhere((k, _) => k >= pageCount);
+      _virtualPageCount = pageCount;
+      return;
+    }
+    if (_file != null && _virtualPageCount > pageCount) {
+      _file!.truncateSync(pageCount * pageSize);
+    }
+    _virtualPageCount = pageCount;
   }
 }
 
@@ -436,9 +492,11 @@ class SavepointState {
 class TransactionState {
   final Map<String, int> originalPageCounts = {};
   final Map<PageKey, PageUndoInfo> originalPages = {};
+  final Set<PageKey> modifiedPages = {};
   final Set<PageKey> loggedPages = {};
   Map<String, dynamic>? catalogBackup;
   final Map<String, SavepointState> savepoints = {};
+  bool startLogged = false;
 }
 
 class SessionTxContext {
@@ -452,6 +510,7 @@ class PageCache {
   final int pageSize;
   final String? dbDirectory;
   final Map<PageKey, Page> _cache = {};
+  final Set<PageKey> _dirtyPages = <PageKey>{};
   Uint8List? encryptionKey;
   Uint8List? authKey;
   AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage;
@@ -512,15 +571,20 @@ class PageCache {
     return ctx;
   }
 
+  SessionTxContext? activeDirectContext;
+
   SessionTxContext get activeContext {
     final ctx = Zone.current[#sessionTxContext] as SessionTxContext?;
-    return ctx ?? _globalContext;
+    return ctx ?? activeDirectContext ?? _globalContext;
   }
 
   TransactionState? get _txState {
     if (_directTxState != null) return _directTxState;
     final zoneCtx = Zone.current[#sessionTxContext] as SessionTxContext?;
     if (zoneCtx != null) return zoneCtx.txState;
+    if (activeDirectContext != null && activeDirectContext!.txState != null) {
+      return activeDirectContext!.txState;
+    }
     for (final ctx in _allContexts) {
       if (ctx.txState != null) return ctx.txState;
     }
@@ -532,6 +596,8 @@ class PageCache {
     final zoneCtx = Zone.current[#sessionTxContext] as SessionTxContext?;
     if (zoneCtx != null) {
       zoneCtx.txState = val;
+    } else if (activeDirectContext != null) {
+      activeDirectContext!.txState = val;
     } else {
       for (final ctx in _allContexts) {
         if (ctx.txState != null) {
@@ -546,6 +612,9 @@ class PageCache {
   RandomAccessFile? get _walFile {
     final zoneCtx = Zone.current[#sessionTxContext] as SessionTxContext?;
     if (zoneCtx != null) return zoneCtx.walFile;
+    if (activeDirectContext != null && activeDirectContext!.walFile != null) {
+      return activeDirectContext!.walFile;
+    }
     for (final ctx in _allContexts) {
       if (ctx.walFile != null) return ctx.walFile;
     }
@@ -556,6 +625,8 @@ class PageCache {
     final zoneCtx = Zone.current[#sessionTxContext] as SessionTxContext?;
     if (zoneCtx != null) {
       zoneCtx.walFile = val;
+    } else if (activeDirectContext != null) {
+      activeDirectContext!.walFile = val;
     } else {
       for (final ctx in _allContexts) {
         if (ctx.walFile != null) {
@@ -570,6 +641,7 @@ class PageCache {
   MvccTransaction? get currentMvccTx {
     final zoneCtx = Zone.current[#sessionTxContext] as SessionTxContext?;
     if (zoneCtx != null) return zoneCtx.currentMvccTx;
+    if (activeDirectContext != null) return activeDirectContext!.currentMvccTx;
     return _globalContext.currentMvccTx;
   }
 
@@ -577,6 +649,8 @@ class PageCache {
     final zoneCtx = Zone.current[#sessionTxContext] as SessionTxContext?;
     if (zoneCtx != null) {
       zoneCtx.currentMvccTx = val;
+    } else if (activeDirectContext != null) {
+      activeDirectContext!.currentMvccTx = val;
     } else {
       _globalContext.currentMvccTx = val;
     }
@@ -611,7 +685,7 @@ class PageCache {
     if (!file.parent.existsSync()) {
       file.parent.createSync(recursive: true);
     }
-    _walFile = file.openSync(mode: FileMode.writeOnlyAppend);
+    _walFile = file.openSync(mode: FileMode.append);
   }
 
   void _appendWalRecordSync(
@@ -659,6 +733,12 @@ class PageCache {
     if (!useWal) return;
     final state = _txState;
     if (state == null || dbDirectory == null) return;
+
+    if (!state.startLogged && state.catalogBackup != null) {
+      _appendWalRecordSync(1, before: state.catalogBackup);
+      state.startLogged = true;
+    }
+
     if (state.loggedPages.contains(key)) return;
 
     final beforeData =
@@ -697,9 +777,8 @@ class PageCache {
       final bytes = walFile.readAsBytesSync();
       int offset = 0;
 
-      String? catalogBackupJson;
-      final List<_WalPageRecord> pageRecords = [];
-      bool isCommitted = false;
+      final List<_RecoverTx> txList = [];
+      _RecoverTx? currentTx;
 
       try {
         while (offset < bytes.length) {
@@ -716,7 +795,9 @@ class PageCache {
             offset += 4;
             final jsonBytes = bytes.sublist(offset, offset + jsonLen);
             offset += jsonLen;
-            catalogBackupJson = utf8.decode(jsonBytes);
+            final catalogBackupJson = utf8.decode(jsonBytes);
+            currentTx = _RecoverTx(catalogBackupJson: catalogBackupJson);
+            txList.add(currentTx);
           } else if (type == 2) {
             // PAGE_RECORD
             final pathLen = ByteData.sublistView(
@@ -747,36 +828,72 @@ class PageCache {
               _cryptPageData(pageId, afterBytes);
             }
 
-            pageRecords.add(
+            currentTx ??= _RecoverTx();
+            if (txList.isEmpty) txList.add(currentTx);
+            currentTx.pageRecords.add(
               _WalPageRecord(filePath, pageId, beforeBytes, afterBytes),
+            );
+          } else if (type == 4) {
+            // REDO_PAGE_RECORD (committed frame, after bytes only)
+            final pathLen = ByteData.sublistView(
+              bytes,
+              offset,
+              offset + 4,
+            ).getUint32(0, Endian.big);
+            offset += 4;
+            final pageId = ByteData.sublistView(
+              bytes,
+              offset,
+              offset + 4,
+            ).getUint32(0, Endian.big);
+            offset += 4;
+            final pathBytes = bytes.sublist(offset, offset + pathLen);
+            offset += pathLen;
+            final filePath = utf8.decode(pathBytes);
+
+            final afterBytes = bytes.sublist(offset, offset + pageSize);
+            offset += pageSize;
+
+            if (encryptionKey != null) {
+              _cryptPageData(pageId, afterBytes);
+            }
+
+            currentTx ??= _RecoverTx();
+            if (txList.isEmpty) txList.add(currentTx);
+            currentTx.pageRecords.add(
+              _WalPageRecord(filePath, pageId, Uint8List(0), afterBytes),
             );
           } else if (type == 3) {
             // COMMIT_TX
-            isCommitted = true;
+            if (currentTx != null) {
+              currentTx.isCommitted = true;
+            }
           }
         }
       } catch (e) {
         print('WAL parsing ended or failed: $e');
       }
 
-      if (isCommitted) {
-        print('Transaction committed. Replaying modifications...');
-        for (final rec in pageRecords) {
-          final pager = getOrCreatePager(rec.filePath);
-          pager.writePageSync(rec.pageId, rec.afterBytes);
-        }
-      } else {
-        print('Transaction was not committed. Reverting modifications...');
-        for (final rec in pageRecords) {
-          final pager = getOrCreatePager(rec.filePath);
-          pager.writePageSync(rec.pageId, rec.beforeBytes);
-        }
-        if (catalogBackupJson != null) {
-          try {
-            final Map<String, dynamic> jsonMap = json.decode(catalogBackupJson);
-            catalog.restoreBackupState(jsonMap);
-            catalog.save();
-          } catch (_) {}
+      for (final tx in txList) {
+        if (tx.isCommitted) {
+          print('Transaction committed. Replaying modifications...');
+          for (final rec in tx.pageRecords) {
+            final pager = getOrCreatePager(rec.filePath);
+            pager.writePageSync(rec.pageId, rec.afterBytes);
+          }
+        } else {
+          print('Transaction was not committed. Reverting modifications...');
+          for (final rec in tx.pageRecords.reversed) {
+            final pager = getOrCreatePager(rec.filePath);
+            pager.writePageSync(rec.pageId, rec.beforeBytes);
+          }
+          if (tx.catalogBackupJson != null) {
+            try {
+              final Map<String, dynamic> jsonMap = json.decode(tx.catalogBackupJson!);
+              catalog.restoreBackupState(jsonMap);
+              catalog.save();
+            } catch (_) {}
+          }
         }
       }
 
@@ -785,10 +902,14 @@ class PageCache {
       }
 
       try {
+        _walFile?.closeSync();
+        _walFile = null;
         walFile.deleteSync();
         print('WAL recovery completed successfully. WAL file deleted.');
       } catch (e) {
-        print('Failed to delete WAL file: $e');
+        try {
+          walFile.writeAsBytesSync([]);
+        } catch (_) {}
       }
     } catch (_) {}
   }
@@ -797,22 +918,6 @@ class PageCache {
     currentMvccTx = mvccTxManager.startTransaction();
     final catalogBackup = catalog.getBackupState();
     _txState = TransactionState()..catalogBackup = catalogBackup;
-
-    if (useWal &&
-        dbDirectory != null &&
-        dbDirectory != ':memory:' &&
-        !identical(0, 0.0)) {
-      final file = File('$dbDirectory/wal.log');
-      if (file.existsSync()) {
-        try {
-          file.deleteSync();
-        } catch (_) {}
-      }
-      _walFile = null;
-      _ensureWalOpenSync();
-      _appendWalRecordSync(1, before: catalogBackup);
-      _walFile?.flushSync();
-    }
   }
 
   void commitTransaction() {
@@ -825,71 +930,62 @@ class PageCache {
           dbDirectory != null &&
           dbDirectory != ':memory:' &&
           !identical(0, 0.0)) {
-        // Write remaining dirty pages to WAL in a single sequential buffer
-        final walBuilder = BytesBuilder(copy: false);
-        for (final entry in _cache.entries) {
-          final key = entry.key;
-          final page = entry.value;
-          if (page.isDirty && !_txState!.loggedPages.contains(key)) {
-            final beforeData =
-                _txState!.originalPages[key]?.originalData ?? Uint8List(pageSize);
-            final afterData = page.data;
-            final Uint8List encBefore;
-            final Uint8List encAfter;
-            if (encryptionKey != null) {
-              encBefore = Uint8List.fromList(beforeData);
-              encAfter = Uint8List.fromList(afterData);
-              _cryptPageData(key.pageId, encBefore);
-              _cryptPageData(key.pageId, encAfter);
-            } else {
-              encBefore = beforeData;
-              encAfter = afterData;
-            }
-
-            final pathBytes = _encodedPathsCache.putIfAbsent(
-              key.filePath,
-              () => Uint8List.fromList(utf8.encode(key.filePath)),
-            );
-            walBuilder.addByte(2); // PAGE_RECORD
-            final header = ByteData(8)
-              ..setUint32(0, pathBytes.length, Endian.big)
-              ..setUint32(4, key.pageId, Endian.big);
+        if (_txState!.modifiedPages.isNotEmpty) {
+          final walBuilder = BytesBuilder(copy: false);
+          if (_txState!.catalogBackup != null && !_txState!.startLogged) {
+            walBuilder.addByte(1); // START_TX (catalog backup)
+            final catalogJson = _txState!.catalogBackup as Map<String, dynamic>;
+            final jsonBytes = utf8.encode(json.encode(catalogJson));
+            final header = ByteData(4)..setUint32(0, jsonBytes.length, Endian.big);
             walBuilder.add(header.buffer.asUint8List());
-            walBuilder.add(pathBytes);
-            walBuilder.add(encBefore);
-            walBuilder.add(encAfter);
-            _txState!.loggedPages.add(key);
+            walBuilder.add(jsonBytes);
+            _txState!.startLogged = true;
           }
-        }
-        walBuilder.addByte(3); // COMMIT_TX
-        _ensureWalOpenSync();
-        if (_walFile != null) {
-          _walFile!.writeFromSync(walBuilder.takeBytes());
+          // Write remaining dirty pages to WAL in a single sequential buffer (REDO-only frame)
+          for (final key in _txState!.modifiedPages) {
+            final page = _cache[key];
+            if (page != null && page.isDirty && !_txState!.loggedPages.contains(key)) {
+              final afterData = page.data;
+              final Uint8List encAfter;
+              if (encryptionKey != null) {
+                encAfter = Uint8List.fromList(afterData);
+                _cryptPageData(key.pageId, encAfter);
+              } else {
+                encAfter = afterData;
+              }
+
+              final pathBytes = _encodedPathsCache.putIfAbsent(
+                key.filePath,
+                () => Uint8List.fromList(utf8.encode(key.filePath)),
+              );
+              walBuilder.addByte(4); // REDO_PAGE_RECORD
+              final header = ByteData(8)
+                ..setUint32(0, pathBytes.length, Endian.big)
+                ..setUint32(4, key.pageId, Endian.big);
+              walBuilder.add(header.buffer.asUint8List());
+              walBuilder.add(pathBytes);
+              walBuilder.add(encAfter);
+              _txState!.loggedPages.add(key);
+            }
+          }
+          walBuilder.addByte(3); // COMMIT_TX
+          _ensureWalOpenSync();
+          if (_walFile != null) {
+            _walFile!.writeFromSync(walBuilder.takeBytes());
+          }
         }
       }
     }
     _txState = null;
 
-    flushAllSync();
-
-    if (useWal && _walFile != null) {
+    if (!useWal || dbDirectory == null || dbDirectory == ':memory:' || identical(0, 0.0)) {
+      flushAllSync();
+    } else if (_dirtyPages.length >= 1000) {
+      flushAllSync();
       try {
-        _walFile!.flushSync();
-        _walFile!.closeSync();
+        _walFile?.setPositionSync(0);
+        _walFile?.truncateSync(0);
       } catch (_) {}
-      _walFile = null;
-    }
-
-    if (useWal &&
-        dbDirectory != null &&
-        dbDirectory != ':memory:' &&
-        !identical(0, 0.0)) {
-      final walFile = File('$dbDirectory/wal.log');
-      if (walFile.existsSync()) {
-        try {
-          walFile.deleteSync();
-        } catch (_) {}
-      }
     }
   }
 
@@ -933,6 +1029,7 @@ class PageCache {
         for (final k in keysToRemove) {
           final p = _cache.remove(k);
           if (p != null) p.pinCount = 0;
+          pager.setCachedPage(k.pageId, null);
         }
         pager.truncateToPagesSync(originalCount);
       }
@@ -949,6 +1046,9 @@ class PageCache {
 
     if (_walFile != null) {
       try {
+        _walFile!.setPositionSync(0);
+        _walFile!.truncateSync(0);
+        _walFile!.flushSync();
         _walFile!.closeSync();
       } catch (_) {}
       _walFile = null;
@@ -961,7 +1061,9 @@ class PageCache {
       final walFile = File('$dbDirectory/wal.log');
       if (walFile.existsSync()) {
         try {
-          walFile.deleteSync();
+          final raf = walFile.openSync(mode: FileMode.write);
+          raf.truncateSync(0);
+          raf.closeSync();
         } catch (_) {}
       }
     }
@@ -1041,6 +1143,7 @@ class PageCache {
         for (final k in keysToRemove) {
           final p = _cache.remove(k);
           if (p != null) p.pinCount = 0;
+          pager.setCachedPage(k.pageId, null);
         }
         pager.truncateToPagesSync(originalCount);
       }
@@ -1087,57 +1190,170 @@ class PageCache {
   }
 
   void clearCachedPagesForFile(String filePath) {
-    final keysToRemove = <PageKey>[];
-    for (final k in _cache.keys) {
-      if (k.filePath == filePath) {
-        keysToRemove.add(k);
-      }
-    }
-    for (final k in keysToRemove) {
-      final p = _cache.remove(k);
-      if (p != null) p.pinCount = 0;
-    }
     final pager = _pagers[filePath];
     if (pager != null) {
-      pager.cachedPages.clear();
-      pager.lastPage = null;
+      evictPagerPages(pager);
+      pager.updatePageCountAfterBulkBuildSync(0);
+    } else {
+      final keysToRemove = <PageKey>[];
+      for (final k in _cache.keys) {
+        if (k.filePath == filePath) {
+          keysToRemove.add(k);
+        }
+      }
+      for (final k in keysToRemove) {
+        final p = _cache.remove(k);
+        if (p != null) p.pinCount = 0;
+        _dirtyPages.remove(k);
+      }
     }
   }
 
-  void evictFile(String filePath) {
-    final keysToRemove = <PageKey>[];
-    for (final k in _cache.keys) {
-      if (k.filePath == filePath) {
-        keysToRemove.add(k);
+  static final List<Page> _freePagePool = [];
+  final List<(Pager?, String, bool)> _deferredDrops = [];
+  Timer? _deferredDropTimer;
+
+  static void prewarmPagePool(int targetCount) {
+    while (_freePagePool.length < targetCount) {
+      _freePagePool.add(Page(0, pageSize: 4096));
+    }
+  }
+
+  void ensureDeferredDropTimer() {
+    _deferredDropTimer ??= Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _flushDeferredDrops(),
+    );
+  }
+
+  void deferDropPager(Pager? pager, String filePath, {required bool checkDisk}) {
+    if (filePath.startsWith(':memory:')) {
+      if (pager != null) {
+        evictPagerPages(pager);
+      }
+      return;
+    }
+    final shouldDelete = checkDisk || (pager != null && pager.hasOpenFile);
+    if (pager != null || shouldDelete) {
+      _deferredDrops.add((pager, filePath, shouldDelete));
+      ensureDeferredDropTimer();
+    }
+  }
+
+  void flushDeferredDropsSync() => _flushDeferredDrops();
+
+  void _flushDeferredDrops() {
+    if (_deferredDrops.isEmpty) return;
+    for (int i = 0; i < _deferredDrops.length; i++) {
+      final item = _deferredDrops[i];
+      final pager = item.$1;
+      final path = item.$2;
+      final deleteFile = item.$3;
+      try {
+        if (pager != null) {
+          evictPagerPages(pager);
+          if (pager.hasOpenFile) {
+            pager.closeSync(flush: false);
+          }
+        }
+        if (deleteFile) {
+          final f = File(path);
+          if (f.existsSync()) f.deleteSync();
+        }
+      } catch (_) {}
+    }
+    _deferredDrops.clear();
+  }
+
+  Page _allocPage(int pageId, {bool zeroData = true}) {
+    if (pageSize == 4096 && _freePagePool.isEmpty && _deferredDrops.isNotEmpty) {
+      _flushDeferredDrops();
+    }
+    if (pageSize == 4096 && _freePagePool.isNotEmpty) {
+      final p = _freePagePool.removeLast();
+      p.pageId = pageId;
+      p.isDirty = false;
+      p.pinCount = 0;
+      p.lastLoggedTxId = -1;
+      p.rowCount = null;
+      p.freeSpaceOffset = null;
+      if (zeroData) {
+        p.data.fillRange(0, pageSize, 0);
+      }
+      return p;
+    }
+    return Page(pageId, pageSize: pageSize);
+  }
+
+  void evictPagerPages(Pager pager) {
+    for (final page in pager.cachedPages.values) {
+      final k = page.key;
+      if (k is PageKey) {
+        _cache.remove(k);
+        if (page.isDirty) _dirtyPages.remove(k);
+      }
+      page.pinCount = 0;
+      page.isDirty = false;
+      page.key = null;
+      if (pageSize == 4096 && _freePagePool.length < 1024) {
+        _freePagePool.add(page);
       }
     }
-    for (final k in keysToRemove) {
-      final p = _cache.remove(k);
-      if (p != null) p.pinCount = 0;
-    }
+    pager.clearCachedPages();
+  }
+
+  Pager? evictFile(String filePath, {bool flush = true, bool closeFile = true}) {
     final pager = _pagers.remove(filePath);
     if (pager != null) {
-      try {
-        pager.closeSync();
-      } catch (_) {}
+      if (!flush && !closeFile && _txState == null) {
+        return pager;
+      }
+      evictPagerPages(pager);
+      if (closeFile) {
+        try {
+          pager.closeSync(flush: flush);
+        } catch (_) {}
+      }
+      return pager;
+    } else {
+      if (!flush && !closeFile && _txState == null) {
+        return null;
+      }
+      final keysToRemove = <PageKey>[];
+      for (final k in _cache.keys) {
+        if (k.filePath == filePath) {
+          keysToRemove.add(k);
+        }
+      }
+      for (final k in keysToRemove) {
+        final p = _cache.remove(k);
+        if (p != null) p.pinCount = 0;
+        _dirtyPages.remove(k);
+      }
+      return null;
     }
   }
 
   void logPageBeforeModifySync(String filePath, int pageId) {
     if (_txState != null) {
-      final page = pinPageSync(filePath, pageId);
-      _logPageOriginalData(page.key as PageKey, page);
-      unpinPageSync(filePath, pageId, isDirty: false);
+      final pager = _pagers[filePath];
+      final cached = pager?.getCachedPage(pageId);
+      if (cached != null) {
+        _logPageOriginalData(cached.key as PageKey, cached);
+      } else {
+        final page = pinPageSync(filePath, pageId);
+        _logPageOriginalData(page.key as PageKey, page);
+        unpinPageSync(filePath, pageId, isDirty: false);
+      }
     }
   }
 
   int getActualPageCountSync(String filePath) {
-    int count = getOrCreatePager(filePath).getPageCountSync();
-    for (final key in _cache.keys) {
-      if (key.filePath == filePath) {
-        if (key.pageId + 1 > count) {
-          count = key.pageId + 1;
-        }
+    final pager = getOrCreatePager(filePath);
+    int count = pager.getPageCountSync();
+    for (final pageId in pager.cachedPages.keys) {
+      if (pageId + 1 > count) {
+        count = pageId + 1;
       }
     }
     return count;
@@ -1162,13 +1378,22 @@ class PageCache {
       }
     }
     page.lastLoggedTxId = txId;
+    state.modifiedPages.add(key);
   }
 
   Page? peekPageSync(String filePath, int pageId) {
-    return _pagers[filePath]?.cachedPages[pageId];
+    return _pagers[filePath]?.getCachedPage(pageId);
   }
 
   Pager getOrCreatePager(String filePath) {
+    if (_deferredDrops.isNotEmpty) {
+      for (int i = 0; i < _deferredDrops.length; i++) {
+        if (_deferredDrops[i].$2 == filePath) {
+          _flushDeferredDrops();
+          break;
+        }
+      }
+    }
     final pager = _pagers.putIfAbsent(
       filePath,
       () => Pager(filePath, pageSize: pageSize),
@@ -1182,7 +1407,7 @@ class PageCache {
   Page pinPagerPageSync(Pager pager, int pageId) {
     Page? cachedPage = pager.lastPage?.pageId == pageId
         ? pager.lastPage
-        : pager.cachedPages[pageId];
+        : pager.getCachedPage(pageId);
     if (cachedPage != null) {
       if (_txState != null) {
         _logPageOriginalData(cachedPage.key as PageKey, cachedPage);
@@ -1195,9 +1420,14 @@ class PageCache {
 
     // Cache miss, read from disk
     final key = PageKey(pager.filePath, pageId);
-    final page = Page(pageId, pageSize: pageSize);
+    final isNewPage = pageId >= pager.getPageCountSync();
+    final page = _allocPage(pageId, zeroData: isNewPage);
     page.key = key;
-    pager.readPageSync(pageId, page.data);
+    if (isNewPage) {
+      pager.updatePageCountAfterBulkBuildSync(pageId + 1);
+    } else {
+      pager.readPageSync(pageId, page.data);
+    }
 
     if (_txState != null) {
       _logPageOriginalData(key, page);
@@ -1211,7 +1441,56 @@ class PageCache {
     page.pinCount = 1;
     page.lastAccessTime = ++_timeCounter;
     _cache[key] = page;
-    pager.cachedPages[pageId] = page;
+    pager.setCachedPage(pageId, page);
+    pager.lastPage = page;
+    return page;
+  }
+
+  void populateCachedPageSync(
+    String filePath,
+    int pageId,
+    Uint8List source, [
+    int sourceOffset = 0,
+    bool isDirty = false,
+  ]) {
+    final pager = getOrCreatePager(filePath);
+    final key = PageKey(filePath, pageId);
+    var page = pager.getCachedPage(pageId);
+    if (page == null) {
+      if (_cache.length >= maxCapacity) {
+        _evictOnePageSync();
+      }
+      page = _allocPage(pageId, zeroData: false);
+      page.key = key;
+      _cache[key] = page;
+      pager.setCachedPage(pageId, page);
+    }
+    page.data.setRange(0, pageSize, source, sourceOffset);
+    page.isDirty = isDirty;
+    if (isDirty) {
+      _dirtyPages.add(key);
+    }
+    page.lastAccessTime = ++_timeCounter;
+    pager.lastPage = page;
+  }
+
+  Page getOrCreateBlankPageSync(Pager pager, int pageId) {
+    final key = PageKey(pager.filePath, pageId);
+    var page = pager.getCachedPage(pageId);
+    if (page == null) {
+      if (_cache.length >= maxCapacity) {
+        _evictOnePageSync();
+      }
+      page = _allocPage(pageId, zeroData: true);
+      page.key = key;
+      _cache[key] = page;
+      pager.setCachedPage(pageId, page);
+    } else {
+      page.data.fillRange(0, pageSize, 0);
+    }
+    page.isDirty = true;
+    _dirtyPages.add(key);
+    page.lastAccessTime = ++_timeCounter;
     pager.lastPage = page;
     return page;
   }
@@ -1224,6 +1503,9 @@ class PageCache {
   void unpinPage(Page page, {required bool isDirty}) {
     if (isDirty) {
       page.isDirty = true;
+      if (page.key is PageKey) {
+        _dirtyPages.add(page.key as PageKey);
+      }
     }
     if (page.pinCount > 0) {
       page.pinCount--;
@@ -1232,7 +1514,7 @@ class PageCache {
 
   void unpinPageSync(String filePath, int pageId, {required bool isDirty}) {
     final pager = _pagers[filePath];
-    final page = pager?.cachedPages[pageId];
+    final page = pager?.getCachedPage(pageId);
     if (page != null) {
       unpinPage(page, isDirty: isDirty);
     }
@@ -1240,7 +1522,7 @@ class PageCache {
 
   void logPageToWalSync(String filePath, int pageId) {
     if (!useWal) return;
-    final page = _pagers[filePath]?.cachedPages[pageId];
+    final page = _pagers[filePath]?.getCachedPage(pageId);
     if (page != null && page.isDirty) {
       _writePageToWalBeforeWriteSync(page.key as PageKey, page.data);
     }
@@ -1252,6 +1534,11 @@ class PageCache {
 
   void logAllDirtyPagesToWalSync() {
     if (!useWal) return;
+    final state = _txState;
+    if (state != null && !state.startLogged && state.catalogBackup != null) {
+      _appendWalRecordSync(1, before: state.catalogBackup);
+      state.startLogged = true;
+    }
     for (final entry in _cache.entries) {
       final key = entry.key;
       final page = entry.value;
@@ -1276,7 +1563,7 @@ class PageCache {
     _cache.remove(candidateKey);
     final pager = _pagers[candidateKey.filePath];
     if (pager != null) {
-      pager.cachedPages.remove(candidateKey.pageId);
+      pager.setCachedPage(candidateKey.pageId, null);
       if (pager.lastPage?.pageId == candidateKey.pageId) {
         pager.lastPage = null;
       }
@@ -1288,12 +1575,15 @@ class PageCache {
   }
 
   void flushAllSync() {
+    if (_dirtyPages.isEmpty) return;
     final dirtyPages = <PageKey, Page>{};
-    for (final entry in _cache.entries) {
-      if (entry.value.isDirty) {
-        dirtyPages[entry.key] = entry.value;
+    for (final key in _dirtyPages) {
+      final page = _cache[key];
+      if (page != null && page.isDirty) {
+        dirtyPages[key] = page;
       }
     }
+    _dirtyPages.clear();
     if (dirtyPages.isEmpty) return;
 
     final sortedKeys = dirtyPages.keys.toList()
@@ -1372,29 +1662,46 @@ class PageCache {
 
   void evictTableSync(String filePath) {
     flushAllSync();
-    final keysToRemove = _cache.keys
-        .where((k) => k.filePath == filePath)
-        .toList();
-    for (final k in keysToRemove) {
-      _cache.remove(k);
-    }
     final pager = _pagers.remove(filePath);
     if (pager != null) {
+      for (final pageId in pager.cachedPages.keys) {
+        final k = PageKey(filePath, pageId);
+        _cache.remove(k);
+        _dirtyPages.remove(k);
+      }
       pager.closeSync();
+    } else {
+      final keysToRemove = _cache.keys
+          .where((k) => k.filePath == filePath)
+          .toList();
+      for (final k in keysToRemove) {
+        _cache.remove(k);
+        _dirtyPages.remove(k);
+      }
     }
   }
 
   void closeAllSync() {
     _isClosed = true;
+    _deferredDropTimer?.cancel();
+    _deferredDropTimer = null;
+    _flushDeferredDrops();
     flushAllSync();
-    _cache.clear();
     for (final pager in _pagers.values) {
+      evictPagerPages(pager);
       pager.closeSync();
     }
+    _cache.clear();
+    _dirtyPages.clear();
     _pagers.clear();
+    final bool canCleanWal = !isTransactionActive;
     for (final ctx in _allContexts) {
       if (ctx.walFile != null) {
         try {
+          if (canCleanWal) {
+            ctx.walFile!.setPositionSync(0);
+            ctx.walFile!.truncateSync(0);
+          }
           ctx.walFile!.closeSync();
         } catch (_) {}
         ctx.walFile = null;
@@ -1403,6 +1710,10 @@ class PageCache {
     _allContexts.clear();
     if (_globalContext.walFile != null) {
       try {
+        if (canCleanWal) {
+          _globalContext.walFile!.setPositionSync(0);
+          _globalContext.walFile!.truncateSync(0);
+        }
         _globalContext.walFile!.closeSync();
       } catch (_) {}
       _globalContext.walFile = null;
@@ -1430,9 +1741,12 @@ class MvccTransactionManager {
   int _nextTxId = 1;
   final Map<int, TxStatus> txStatusMap = {0: TxStatus.committed};
   final Set<int> _activeTxIds = {};
+  int _abortedTxCount = 0;
 
   int get nextTxId => _nextTxId;
   Set<int> get activeTxIds => Set.unmodifiable(_activeTxIds);
+  bool get hasActiveTx => _activeTxIds.isNotEmpty;
+  bool get hasAbortedTx => _abortedTxCount > 0;
 
   MvccTransaction startTransaction() {
     final txId = _nextTxId++;
@@ -1440,6 +1754,12 @@ class MvccTransactionManager {
     final activeSnapshot = Set<int>.from(_activeTxIds);
     _activeTxIds.add(txId);
     return MvccTransaction(txId, activeSnapshot);
+  }
+
+  int allocateCommittedTxId() {
+    final txId = _nextTxId++;
+    txStatusMap[txId] = TxStatus.committed;
+    return txId;
   }
 
   void commitTransaction(int txId) {
@@ -1450,6 +1770,7 @@ class MvccTransactionManager {
   void rollbackTransaction(int txId) {
     txStatusMap[txId] = TxStatus.aborted;
     _activeTxIds.remove(txId);
+    _abortedTxCount++;
   }
 
   bool isVisible(int xmin, int xmax, int currentTxId, Set<int> activeTxIds) {
@@ -1538,4 +1859,11 @@ class MvccRecord {
       rowData: rowData,
     );
   }
+}
+
+class _RecoverTx {
+  final String? catalogBackupJson;
+  final List<_WalPageRecord> pageRecords = [];
+  bool isCommitted = false;
+  _RecoverTx({this.catalogBackupJson});
 }

@@ -22,12 +22,29 @@ class BTreeIndex {
   Page? _cachedRootPage;
   final Map<int, Page> _cachedInteriorPages = {};
 
-  int? _cachedLeafPageId;
-  double? _cachedLeafMinKey;
-  double? _cachedLeafMaxKey;
+  int _cachedLeafPageId = -1;
+  double _cachedLeafMinKey = 0.0;
+  double _cachedLeafMaxKey = -1.0;
 
   int get rootPageId => _rootPageId;
   int get rightmostLeafPageId => _rightmostLeafPageId;
+
+  /// Converts a string into a 53-bit integer hash represented as a double for B+ Tree indexing.
+  /// Uses a djb2 variant with exact 64-bit integer bit shifts, ensuring 0 precision loss in IEEE 754 float64.
+  static double stringToKey(String str) {
+    if (str.isNotEmpty) {
+      final c0 = str.codeUnitAt(0);
+      if ((c0 >= 48 && c0 <= 57) || c0 == 45 || c0 == 43 || c0 == 46) {
+        final parsed = double.tryParse(str);
+        if (parsed != null) return parsed;
+      }
+    }
+    int hash = 5381;
+    for (int j = 0; j < str.length; j++) {
+      hash = ((hash << 5) + hash + str.codeUnitAt(j)) & 0x1FFFFFFFFFFFFF;
+    }
+    return hash.toDouble();
+  }
 
   bool isSafeForBatch(double minNewKey) {
     if (_rightmostLeafPageId == 0) {
@@ -132,9 +149,11 @@ class BTreeIndex {
     }
     _cachedInteriorPages.clear();
     _rootPageId = newRoot;
-    final page0 = cache.pinPageSync(indexPath, 0);
+    final p = pager;
+    final page0 = p.getCachedPage(0) ?? cache.pinPagerPageSync(p, 0);
     page0.byteData.setInt32(rootOffset, newRoot);
     cache.unpinPage(page0, isDirty: true);
+    _cachedRootPage = p.getCachedPage(newRoot);
   }
 
   int _compareKeys(dynamic a, dynamic b) {
@@ -160,23 +179,23 @@ class BTreeIndex {
   }
 
   int searchKey1PackedSync(double searchVal) {
-    if (_cachedLeafPageId != null) {
-      if (searchVal >= _cachedLeafMinKey! && searchVal <= _cachedLeafMaxKey!) {
-        final page = cache.pinPagerPageSync(pager, _cachedLeafPageId!);
+    final p = pager;
+    if (_cachedLeafPageId >= 0) {
+      if (searchVal >= _cachedLeafMinKey && searchVal <= _cachedLeafMaxKey) {
+        final leafId = _cachedLeafPageId;
+        final page = p.getCachedPage(leafId) ?? cache.pinPagerPageSync(p, leafId);
         final bd = page.byteData;
         final keyCount = bd.getUint16(2);
         final idx = _binarySearchVal1Exact(bd, searchVal, keyCount);
         if (idx != -1) {
           final pageId = bd.getInt32(pageIdOffset + idx * 4);
           final slotId = bd.getUint16(slotIdOffset + idx * 2);
-          cache.unpinPage(page, isDirty: false);
           return (pageId << 16) | slotId;
         }
-        cache.unpinPage(page, isDirty: false);
       }
     }
 
-    final rootPage = _cachedRootPage ??= cache.pinPagerPageSync(pager, _rootPageId);
+    final rootPage = _cachedRootPage ??= (p.getCachedPage(_rootPageId) ?? cache.pinPagerPageSync(p, _rootPageId));
     Page currentPage = rootPage;
     int currentPageId = _rootPageId;
 
@@ -195,19 +214,12 @@ class BTreeIndex {
           }
           final pageId = bd.getInt32(pageIdOffset + idx * 4);
           final slotId = bd.getUint16(slotIdOffset + idx * 2);
-          if (currentPageId != _rootPageId && !_cachedInteriorPages.containsKey(currentPageId)) {
-            cache.unpinPage(currentPage, isDirty: false);
-          }
           return (pageId << 16) | slotId;
         }
 
         final siblingId = bd.getInt32(siblingOffset);
-        if (currentPageId != _rootPageId && !_cachedInteriorPages.containsKey(currentPageId)) {
-          cache.unpinPage(currentPage, isDirty: false);
-        }
-
         if (siblingId != -1) {
-          final sibPage = cache.pinPagerPageSync(pager, siblingId);
+          final sibPage = p.getCachedPage(siblingId) ?? cache.pinPagerPageSync(p, siblingId);
           final sibBd = sibPage.byteData;
           final sibKeyCount = sibBd.getUint16(2);
           final sibIdx = _binarySearchVal1Exact(sibBd, searchVal, sibKeyCount);
@@ -219,43 +231,19 @@ class BTreeIndex {
             }
             final pageId = sibBd.getInt32(pageIdOffset + sibIdx * 4);
             final slotId = sibBd.getUint16(slotIdOffset + sibIdx * 2);
-            cache.unpinPage(sibPage, isDirty: false);
             return (pageId << 16) | slotId;
           }
-          cache.unpinPage(sibPage, isDirty: false);
         }
 
         return -1;
       } else {
-        if (keyCount == 0) {
-          if (currentPageId != _rootPageId && !_cachedInteriorPages.containsKey(currentPageId)) {
-            cache.unpinPage(currentPage, isDirty: false);
-          }
-          return -1;
-        }
+        if (keyCount == 0) return -1;
         final idx = _binarySearchInternalVal1(bd, searchVal, keyCount);
         final childPageId = bd.getInt32(pageIdOffset + idx * 4);
-        if (childPageId == currentPageId) {
-          if (currentPageId != _rootPageId && !_cachedInteriorPages.containsKey(currentPageId)) {
-            cache.unpinPage(currentPage, isDirty: false);
-          }
-          return -1;
-        }
-        if (currentPageId != _rootPageId && !_cachedInteriorPages.containsKey(currentPageId)) {
-          cache.unpinPage(currentPage, isDirty: false);
-        }
-        final cached = _cachedInteriorPages[childPageId];
-        if (cached != null) {
-          currentPageId = childPageId;
-          currentPage = cached;
-        } else {
-          final nextPage = cache.pinPagerPageSync(pager, childPageId);
-          if (nextPage.byteData.getUint8(1) == 0) {
-            _cachedInteriorPages[childPageId] = nextPage;
-          }
-          currentPageId = childPageId;
-          currentPage = nextPage;
-        }
+        if (childPageId == currentPageId) return -1;
+
+        currentPage = p.getCachedPage(childPageId) ?? cache.pinPagerPageSync(p, childPageId);
+        currentPageId = childPageId;
       }
     }
   }
@@ -389,18 +377,29 @@ class BTreeIndex {
   }
 
   int findLeafPageId(dynamic key) {
+    final p = pager;
+    if (key is List<double> && key.isEmpty) {
+      int curr = _rootPageId;
+      while (true) {
+        final page = p.getCachedPage(curr) ?? cache.pinPagerPageSync(p, curr);
+        final isLeaf = page.byteData.getUint8(1) == 1;
+        if (isLeaf) {
+          return curr;
+        }
+        final childPageId = page.byteData.getInt32(pageIdOffset);
+        curr = childPageId;
+      }
+    }
     int currentPageId = _rootPageId;
     while (true) {
-      final page = cache.pinPageSync(indexPath, currentPageId);
+      final page = p.getCachedPage(currentPageId) ?? cache.pinPagerPageSync(p, currentPageId);
       final isLeaf = page.byteData.getUint8(1) == 1;
       if (isLeaf) {
-        cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
         return currentPageId;
       }
       final keyCount = page.byteData.getUint16(2);
       int idx = _binarySearchInternal(page, key, keyCount);
       final childPageId = page.byteData.getInt32(pageIdOffset + idx * 4);
-      cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
       currentPageId = childPageId;
     }
   }
@@ -408,7 +407,10 @@ class BTreeIndex {
   List<BTreePointer> searchRangeSync(List<double>? low, List<double>? high) {
     final results = <BTreePointer>[];
     int currentPageId = 0;
-    if (low == null) {
+    final bool hasLow = low != null && low.isNotEmpty;
+    final bool hasHigh = high != null && high.isNotEmpty;
+
+    if (!hasLow) {
       // Find leftmost leaf page
       int curr = _rootPageId;
       while (true) {
@@ -436,15 +438,15 @@ class BTreeIndex {
       for (int i = 0; i < keyCount; i++) {
         if (keyColumns == 1) {
           final val = page.byteData.getFloat64(4 + i * 8);
-          if (low != null && val < low[0]) continue;
-          if (high != null && val > high[0]) {
+          if (hasLow && val < low[0]) continue;
+          if (hasHigh && val > high[0]) {
             cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
             return results;
           }
         } else {
           final k = _getKey(page, i);
-          if (low != null && _compareKeys(k, low) < 0) continue;
-          if (high != null && _compareKeys(k, high) > 0) {
+          if (hasLow && _compareKeys(k, low) < 0) continue;
+          if (hasHigh && _compareKeys(k, high) > 0) {
             cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
             return results;
           }
@@ -462,6 +464,129 @@ class BTreeIndex {
     }
 
     return results;
+  }
+
+  static Uint64List _sharedRangeBuffer = Uint64List(32768);
+
+  Uint64List searchRangePackedSync(List<double>? low, List<double>? high) {
+    Uint64List buffer = _sharedRangeBuffer;
+    int bufferLen = 0;
+    int currentPageId = 0;
+    final bool hasLow = low != null && low.isNotEmpty;
+    final bool hasHigh = high != null && high.isNotEmpty;
+    final p = pager;
+
+    if (!hasLow) {
+      int curr = _rootPageId;
+      while (true) {
+        final page = p.getCachedPage(curr) ?? cache.pinPagerPageSync(p, curr);
+        final isLeaf = page.byteData.getUint8(1) == 1;
+        if (isLeaf) {
+          currentPageId = curr;
+          break;
+        }
+        final childPageId = page.byteData.getInt32(pageIdOffset);
+        curr = childPageId;
+      }
+    } else {
+      currentPageId = findLeafPageId(low);
+    }
+
+    bool isFirstPage = true;
+    final double? lowVal = hasLow && keyColumns == 1 ? low[0] : null;
+    final double? highVal = hasHigh && keyColumns == 1 ? high[0] : null;
+    final pIdOffset = pageIdOffset;
+    final sIdOffset = slotIdOffset;
+
+    while (currentPageId != -1) {
+      final page = p.getCachedPage(currentPageId) ?? cache.pinPagerPageSync(p, currentPageId);
+      final bd = page.byteData;
+      final keyCount = bd.getUint16(2);
+
+      int startIdx = 0;
+      if (isFirstPage) {
+        isFirstPage = false;
+        if (lowVal != null) {
+          int l = 0, r = keyCount - 1;
+          while (l <= r) {
+            final mid = (l + r) >> 1;
+            final midVal = bd.getFloat64(4 + mid * 8);
+            if (midVal >= lowVal) {
+              startIdx = mid;
+              r = mid - 1;
+            } else {
+              l = mid + 1;
+            }
+          }
+          if (l > keyCount - 1 && startIdx == 0 && keyCount > 0 && bd.getFloat64(4 + (keyCount - 1) * 8) < lowVal) {
+            startIdx = keyCount;
+          }
+        }
+      }
+
+      if (keyColumns == 1) {
+        if (startIdx < keyCount) {
+          int endIdx = keyCount;
+          bool reachedEnd = false;
+          if (highVal != null) {
+            if (bd.getFloat64(4 + startIdx * 8) > highVal) {
+              return Uint64List.sublistView(buffer, 0, bufferLen);
+            }
+            if (bd.getFloat64(4 + (keyCount - 1) * 8) > highVal) {
+              reachedEnd = true;
+              int l = startIdx, r = keyCount - 1;
+              while (l <= r) {
+                final mid = (l + r) >> 1;
+                if (bd.getFloat64(4 + mid * 8) <= highVal) {
+                  l = mid + 1;
+                } else {
+                  endIdx = mid;
+                  r = mid - 1;
+                }
+              }
+            }
+          }
+          final countToCopy = endIdx - startIdx;
+          if (bufferLen + countToCopy > buffer.length) {
+            int nextSize = buffer.length * 2;
+            while (nextSize < bufferLen + countToCopy) nextSize *= 2;
+            final next = Uint64List(nextSize);
+            next.setRange(0, bufferLen, buffer);
+            _sharedRangeBuffer = next;
+            buffer = next;
+          }
+          for (int i = startIdx; i < endIdx; i++) {
+            final pageId = bd.getInt32(pIdOffset + i * 4);
+            final slotId = bd.getUint16(sIdOffset + i * 2);
+            buffer[bufferLen++] = (pageId << 32) | slotId;
+          }
+          if (reachedEnd) {
+            return Uint64List.sublistView(buffer, 0, bufferLen);
+          }
+        }
+      } else {
+        for (int i = startIdx; i < keyCount; i++) {
+          final k = _getKey(page, i);
+          if (hasLow && _compareKeys(k, low) < 0) continue;
+          if (hasHigh && _compareKeys(k, high) > 0) {
+            return Uint64List.sublistView(buffer, 0, bufferLen);
+          }
+          final pageId = bd.getInt32(pIdOffset + i * 4);
+          final slotId = bd.getUint16(sIdOffset + i * 2);
+          if (bufferLen == buffer.length) {
+            final next = Uint64List(buffer.length * 2);
+            next.setRange(0, bufferLen, buffer);
+            buffer = next;
+          }
+          buffer[bufferLen++] = (pageId << 32) | slotId;
+        }
+      }
+
+      final nextPageId = bd.getInt32(siblingOffset);
+      currentPageId = nextPageId;
+    }
+
+    return Uint64List.sublistView(buffer, 0, bufferLen);
   }
 
   List<double> _getKeyFromByteData(ByteData bd, int index) {
@@ -501,7 +626,8 @@ class BTreeIndex {
           low.length == 1 &&
           high.length == 1 &&
           low[0] == high[0]) {
-        for (final cs in tableStats.columnStats.values) {
+        for (final entry in tableStats.columnStats.entries) {
+          final cs = entry.value;
           if (cs.min != null &&
               cs.max != null &&
               cs.min == low[0] &&
@@ -512,9 +638,12 @@ class BTreeIndex {
       }
     }
 
+    final bool hasLow = low != null && low.isNotEmpty;
+    final bool hasHigh = high != null && high.isNotEmpty;
+
     int count = 0;
     int currentPageId = 0;
-    if (low == null) {
+    if (!hasLow) {
       // Find leftmost leaf page
       int curr = _rootPageId;
       while (true) {
@@ -551,7 +680,7 @@ class BTreeIndex {
 
       final keyCount = bd.getUint16(2);
 
-      if (keyCount > 0 && low == null && high == null) {
+      if (keyCount > 0 && !hasLow && !hasHigh) {
         count += keyCount;
         currentPageId = bd.getInt32(siblingOffset);
         continue;
@@ -559,8 +688,8 @@ class BTreeIndex {
 
       if (keyCount > 0 &&
           keyColumns == 1 &&
-          low != null &&
-          high != null &&
+          hasLow &&
+          hasHigh &&
           low[0] == high[0]) {
         final targetVal = low[0];
         final firstVal = bd.getFloat64(4);
@@ -575,14 +704,14 @@ class BTreeIndex {
       for (int i = 0; i < keyCount; i++) {
         if (keyColumns == 1) {
           final val = bd.getFloat64(4 + i * 8);
-          if (low != null && val < low[0]) continue;
-          if (high != null && val > high[0]) {
+          if (hasLow && val < low[0]) continue;
+          if (hasHigh && val > high[0]) {
             return count;
           }
         } else {
           final k = _getKeyFromByteData(bd, i);
-          if (low != null && _compareKeys(k, low) < 0) continue;
-          if (high != null && _compareKeys(k, high) > 0) {
+          if (hasLow && _compareKeys(k, low) < 0) continue;
+          if (hasHigh && _compareKeys(k, high) > 0) {
             return count;
           }
         }
@@ -596,7 +725,7 @@ class BTreeIndex {
   }
 
   bool insertSync(List<double> key, int recordPageId, int recordSlotId) {
-    _cachedLeafPageId = null;
+    _cachedLeafPageId = -1;
     if (_rightmostLeafPageId != -1) {
       final rightmostPage = cache.pinPageSync(indexPath, _rightmostLeafPageId);
       final count = rightmostPage.byteData.getUint16(2);
@@ -930,6 +1059,7 @@ class BTreeIndex {
   }
 
   int _binarySearchInternal(Page page, dynamic key, int count) {
+    if (key is List<double> && key.isEmpty) return 0;
     if (keyColumns == 1) {
       final double searchVal = key is double ? key : (key as List<double>)[0];
       int low = 0;
@@ -988,11 +1118,126 @@ class BTreeIndex {
     int K = 1,
   }) {
     if (total <= 0) return;
-    _cachedLeafPageId = null;
+    _cachedLeafPageId = -1;
+    _cachedRootPage = null;
+    _cachedInteriorPages.clear();
 
     // Evict any existing cached pages for this index to guarantee clean state
     cache.clearCachedPagesForFile(indexPath);
-    final pager = cache.getOrCreatePager(indexPath);
+    final p = pager;
+
+    final estimatedPages = (total ~/ maxKeys) + 64;
+    if (estimatedPages <= cache.maxCapacity) {
+      int nextPageId = 0;
+      final leafPageIds = <int>[];
+      final promotedKeys = <List<double>>[];
+      final pIdOff = pageIdOffset;
+      final sIdOff = slotIdOffset;
+      final sibOff = siblingOffset;
+
+      int idx = 0;
+      while (idx < total) {
+        final pageId = nextPageId++;
+        leafPageIds.add(pageId);
+        final page = cache.getOrCreateBlankPageSync(p, pageId);
+        final bd = page.byteData;
+
+        bd.setUint8(0, 2); // pageType = 2
+        bd.setUint8(1, 1); // isLeaf = 1
+
+        final count = (total - idx) < maxKeys ? (total - idx) : maxKeys;
+        bd.setUint16(2, count);
+
+        if (K == 1 && indices == null) {
+          for (int i = 0; i < count; i++) {
+            final realIdx = idx + i;
+            bd.setFloat64(4 + i * 8, keys[realIdx]);
+            bd.setInt32(pIdOff + i * 4, pageIds[realIdx]);
+            bd.setUint16(sIdOff + i * 2, slotIds[realIdx]);
+          }
+        } else {
+          for (int i = 0; i < count; i++) {
+            final realIdx = indices != null ? indices[idx + i] : (idx + i);
+            if (K == 1) {
+              bd.setFloat64(4 + i * 8, keys[realIdx]);
+            } else {
+              for (int c = 0; c < K; c++) {
+                bd.setFloat64(4 + i * keySize + c * 8, keys[realIdx * K + c]);
+              }
+            }
+            bd.setInt32(pIdOff + i * 4, pageIds[realIdx]);
+            bd.setUint16(sIdOff + i * 2, slotIds[realIdx]);
+          }
+        }
+
+        idx += count;
+        final nextSibling = idx < total ? nextPageId : -1;
+        bd.setInt32(sibOff, nextSibling);
+
+        if (leafPageIds.length > 1) {
+          final firstItemIdx = indices != null ? indices[idx - count] : (idx - count);
+          if (K == 1) {
+            promotedKeys.add([keys[firstItemIdx]]);
+          } else {
+            promotedKeys.add(List<double>.generate(K, (c) => keys[firstItemIdx * K + c]));
+          }
+        }
+      }
+
+      _rightmostLeafPageId = leafPageIds.last;
+      if (leafPageIds.length == 1) {
+        p.updatePageCountAfterBulkBuildSync(nextPageId);
+        _updateRootPageIdSync(leafPageIds[0]);
+        return;
+      }
+
+      List<int> currentChildren = leafPageIds;
+      List<List<double>> currentKeys = promotedKeys;
+
+      while (currentChildren.length > 1) {
+        final nextLevelChildren = <int>[];
+        final nextLevelPromotedKeys = <List<double>>[];
+
+        int keyIdx = 0;
+        int childIdx = 0;
+        final numKeys = currentKeys.length;
+
+        while (childIdx < currentChildren.length) {
+          final interiorPageId = nextPageId++;
+          nextLevelChildren.add(interiorPageId);
+          final page = cache.getOrCreateBlankPageSync(p, interiorPageId);
+          final bd = page.byteData;
+
+          bd.setUint8(0, 2); // pageType = 2
+          bd.setUint8(1, 0); // isLeaf = 0 (interior)
+          bd.setInt32(pIdOff, currentChildren[childIdx++]);
+
+          int keysInPage = 0;
+          while (keysInPage < maxKeys && keyIdx < numKeys && childIdx < currentChildren.length) {
+            final k = currentKeys[keyIdx++];
+            for (int c = 0; c < keySize ~/ 8 && c < k.length; c++) {
+              bd.setFloat64(4 + keysInPage * keySize + c * 8, k[c]);
+            }
+            final nextChild = currentChildren[childIdx++];
+            bd.setInt32(pIdOff + (keysInPage + 1) * 4, nextChild);
+            keysInPage++;
+          }
+
+          bd.setUint16(2, keysInPage);
+          if (childIdx < currentChildren.length && keyIdx < numKeys) {
+            nextLevelPromotedKeys.add(currentKeys[keyIdx++]);
+          }
+        }
+
+        currentChildren = nextLevelChildren;
+        currentKeys = nextLevelPromotedKeys;
+      }
+
+      p.updatePageCountAfterBulkBuildSync(nextPageId);
+      _rightmostLeafPageId = leafPageIds.isNotEmpty ? leafPageIds.last : 0;
+      _updateRootPageIdSync(currentChildren[0]);
+      return;
+    }
 
     const int kPagesPerChunk = 256;
     final chunkBuffer = Uint8List(kPagesPerChunk * 4096);
@@ -1001,7 +1246,19 @@ class BTreeIndex {
 
     void flushChunkIfFull(int curPageId) {
       if (curPageId - chunkStartPageId == kPagesPerChunk - 1) {
-        pager.writePagesContiguousSync(chunkStartPageId, chunkBuffer);
+        if (chunkStartPageId + kPagesPerChunk <= cache.maxCapacity) {
+          for (int pg = 0; pg < kPagesPerChunk; pg++) {
+            cache.populateCachedPageSync(
+              indexPath,
+              chunkStartPageId + pg,
+              chunkBuffer,
+              pg * 4096,
+              true,
+            );
+          }
+        } else {
+          p.writePagesContiguousSync(chunkStartPageId, chunkBuffer);
+        }
         chunkStartPageId += kPagesPerChunk;
         chunkBuffer.fillRange(0, chunkBuffer.length, 0);
       }
@@ -1059,13 +1316,24 @@ class BTreeIndex {
     if (leafPageIds.length == 1) {
       if (nextPageId > chunkStartPageId) {
         final remaining = nextPageId - chunkStartPageId;
-        pager.writePagesContiguousSync(
-          chunkStartPageId,
-          Uint8List.sublistView(chunkBuffer, 0, remaining * 4096),
-        );
+        if (chunkStartPageId + remaining <= cache.maxCapacity) {
+          for (int pg = 0; pg < remaining; pg++) {
+            cache.populateCachedPageSync(
+              indexPath,
+              chunkStartPageId + pg,
+              chunkBuffer,
+              pg * 4096,
+              true,
+            );
+          }
+        } else {
+          p.writePagesContiguousSync(
+            chunkStartPageId,
+            Uint8List.sublistView(chunkBuffer, 0, remaining * 4096),
+          );
+        }
       }
-      pager.truncateToPagesSync(nextPageId);
-      pager.flushSync();
+      p.updatePageCountAfterBulkBuildSync(nextPageId);
       _updateRootPageIdSync(leafPageIds[0]);
       return;
     }
@@ -1116,14 +1384,25 @@ class BTreeIndex {
 
     if (nextPageId > chunkStartPageId) {
       final remaining = nextPageId - chunkStartPageId;
-      pager.writePagesContiguousSync(
-        chunkStartPageId,
-        Uint8List.sublistView(chunkBuffer, 0, remaining * 4096),
-      );
+      if (chunkStartPageId + remaining <= cache.maxCapacity) {
+        for (int pg = 0; pg < remaining; pg++) {
+          cache.populateCachedPageSync(
+            indexPath,
+            chunkStartPageId + pg,
+            chunkBuffer,
+            pg * 4096,
+            true,
+          );
+        }
+      } else {
+        p.writePagesContiguousSync(
+          chunkStartPageId,
+          Uint8List.sublistView(chunkBuffer, 0, remaining * 4096),
+        );
+      }
     }
-    pager.truncateToPagesSync(nextPageId);
-    pager.flushSync();
-
+    p.updatePageCountAfterBulkBuildSync(nextPageId);
+    _rightmostLeafPageId = leafPageIds.isNotEmpty ? leafPageIds.last : 0;
     _updateRootPageIdSync(currentChildren[0]);
   }
 
@@ -1153,7 +1432,7 @@ class BTreeIndex {
         }
       }
     }
-    _cachedLeafPageId = null;
+    _cachedLeafPageId = -1;
 
     // Establish the rightmost path of page IDs from root to rightmost leaf.
     final path = <int>[];

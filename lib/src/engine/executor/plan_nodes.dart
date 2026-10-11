@@ -392,6 +392,7 @@ class RowScanNode extends PlanNode {
   late final List<String> _prefixKeys;
   late final List<String> _shortKeys;
   late final Map<String, int> _staticKeyToIndex;
+  late final RowMap _reusedRowMap;
 
   RowScanNode(
     this.tableFile,
@@ -412,6 +413,7 @@ class RowScanNode extends PlanNode {
       _staticKeyToIndex[_prefixKeys[i]] = colIdx;
       _staticKeyToIndex[_shortKeys[i]] = colIdx;
     }
+    _reusedRowMap = RowMap(const [], _staticKeyToIndex);
   }
 
   @override
@@ -435,8 +437,8 @@ class RowScanNode extends PlanNode {
     final hasNext = _iterator!.moveNext();
     if (!hasNext) return null;
 
-    final values = _iterator!.current;
-    return RowMap(values, _staticKeyToIndex);
+    _reusedRowMap.values = _iterator!.current;
+    return _reusedRowMap;
   }
 
   @override
@@ -798,7 +800,7 @@ class IndexScanNode extends PlanNode {
   final List<double>? high;
   final List<int> projectedColIndexes;
 
-  List<BTreePointer>? _pointers;
+  Uint64List? _packedPointers;
   int _cursor = 0;
   Page? _pinnedPage;
   int? _pinnedPageId;
@@ -807,9 +809,17 @@ class IndexScanNode extends PlanNode {
   late final List<String> _prefixKeys;
   late final List<String> _shortKeys;
   late final Map<String, int> _staticKeyToIndex;
-  late final List<DbValue> _reusedRowList;
+  late List<DbValue> _reusedRowList;
+  late final RowMap _reusedRowMap;
 
   final int? asOfTxId;
+
+  int _currentTxId = 0;
+  Set<int> _activeTxIds = const <int>{};
+  late final PageCache _cache;
+  late final MvccTransactionManager _txManager;
+  final Map<int, Page> _pinnedPages = {};
+  late final Pager _pager;
 
   IndexScanNode({
     required this.tableFile,
@@ -820,6 +830,9 @@ class IndexScanNode extends PlanNode {
     required this.projectedColIndexes,
     this.asOfTxId,
   }) {
+    _cache = tableFile.cache;
+    _pager = tableFile.pager;
+    _txManager = _cache.mvccTxManager;
     _prefixKeys = projectedColIndexes
         .map((idx) => '${schema.name}.${schema.columnNames[idx]}')
         .toList();
@@ -833,23 +846,23 @@ class IndexScanNode extends PlanNode {
       _staticKeyToIndex[_shortKeys[i]] = colIdx;
     }
     _reusedRowList = List<DbValue>.filled(schema.columnNames.length, DbNull());
+    _reusedRowMap = RowMap(_reusedRowList, _staticKeyToIndex);
   }
 
   int? getFastCount() {
     if (asOfTxId != null) return null;
-    final currentTx = tableFile.cache.currentMvccTx;
-    final txManager = tableFile.cache.mvccTxManager;
+    final currentTx = _cache.currentMvccTx;
     if (currentTx != null && currentTx.txId != 0) {
-      final status = txManager.txStatusMap[currentTx.txId];
+      final status = _txManager.txStatusMap[currentTx.txId];
       if (status == TxStatus.active) {
         return null;
       }
     }
-    if (txManager.activeTxIds.isNotEmpty) {
+    if (_txManager.activeTxIds.isNotEmpty) {
       return null;
     }
     if (_fastCount != null) return _fastCount;
-    if (_pointers != null) return _pointers!.length;
+    if (_packedPointers != null) return _packedPointers!.length;
     index.initSync();
     _fastCount = index.countRangeSync(low, high);
     return _fastCount;
@@ -858,108 +871,102 @@ class IndexScanNode extends PlanNode {
   @override
   void open() {
     _fastCount = null;
-    _pointers = null;
+    _packedPointers = null;
     _cursor = 0;
     _pinnedPage = null;
     _pinnedPageId = null;
+    if (_pinnedPages.isNotEmpty) {
+      for (final p in _pinnedPages.values) {
+        _cache.unpinPage(p, isDirty: false);
+      }
+      _pinnedPages.clear();
+    }
+    final currentTx = _cache.currentMvccTx;
+    _currentTxId = currentTx?.txId ?? 0;
+    _activeTxIds = currentTx?.activeTxIds ?? const <int>{};
   }
 
-  bool _isRowVisible(RowTableFile tableFile, ByteData bd, int length) {
+  bool _isRowVisibleAt(ByteData bd, int offset, int length) {
     if (length < 12) return true; // Non-MVCC records are always visible
-    final xmin = bd.getUint32(0);
-    final xmax = bd.getUint32(4);
+    final xmin = bd.getUint32(offset);
+    final xmax = bd.getUint32(offset + 4);
     if (asOfTxId != null) {
       return xmin <= asOfTxId! && (xmax == 0 || xmax > asOfTxId!);
     }
-    final currentTx = tableFile.cache.currentMvccTx;
-    final txManager = tableFile.cache.mvccTxManager;
-    final currentTxId = currentTx?.txId ?? 0;
-    final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
-    return txManager.isVisible(xmin, xmax, currentTxId, activeTxIds);
-  }
-
-  DbValue _getVisibleCellValue(
-    RowTableFile tableFile,
-    ByteData bd,
-    int length,
-    int colIndex,
-  ) {
-    DbValue val;
-    if (length < 12) {
-      val = RecordSerializer.deserializeCellFromView(bd, 0, length, colIndex);
-    } else {
-      val = RecordSerializer.deserializeCellFromView(
-        bd,
-        12,
-        length - 12,
-        colIndex,
-      );
+    if (_currentTxId == 0 &&
+        _activeTxIds.isEmpty &&
+        xmin != 0 &&
+        xmax == 0 &&
+        _txManager.txStatusMap.isEmpty) {
+      return true;
     }
-    if (val is DbNull &&
-        colIndex < schema.columnDefaultValues.length &&
-        schema.columnDefaultValues[colIndex] != null) {
-      return evaluateExpression(schema.columnDefaultValues[colIndex]!, {});
-    }
-    return val;
+    return _txManager.isVisible(xmin, xmax, _currentTxId, _activeTxIds);
   }
 
   @override
   Map<String, DbValue>? next() {
-    if (_pointers == null) {
+    if (_packedPointers == null) {
       index.initSync();
-      _pointers = index.searchRangeSync(low, high);
-      if (projectedColIndexes.isNotEmpty && _pointers!.length > 250) {
-        _pointers!.sort((a, b) {
-          final cmp = a.pageId.compareTo(b.pageId);
-          if (cmp != 0) return cmp;
-          return a.slotId.compareTo(b.slotId);
-        });
-      }
+      _packedPointers = index.searchRangePackedSync(low, high);
     }
-    while (_cursor < _pointers!.length) {
-      final ptr = _pointers![_cursor++];
+    final len = _packedPointers!.length;
+    while (_cursor < len) {
+      final packed = _packedPointers![_cursor++];
+      final pageId = packed >> 32;
+      final slotId = packed & 0xFFFFFFFF;
 
-      // Keep page pinned if it is the same page
-      if (_pinnedPageId != ptr.pageId) {
-        if (_pinnedPage != null) {
-          tableFile.cache.unpinPageSync(
-            tableFile.filePath,
-            _pinnedPageId!,
-            isDirty: false,
-          );
+      // Keep page pinned in _pinnedPages map across scan
+      if (_pinnedPageId != pageId) {
+        Page? p = _pinnedPages[pageId];
+        if (p == null) {
+          p = _cache.pinPagerPageSync(_pager, pageId);
+          _pinnedPages[pageId] = p;
         }
-        _pinnedPage = tableFile.cache.pinPageSync(
-          tableFile.filePath,
-          ptr.pageId,
-        );
-        _pinnedPageId = ptr.pageId;
+        _pinnedPage = p;
+        _pinnedPageId = pageId;
       }
 
-      final recBytes = SlottedPageHelper.getRecord(_pinnedPage!, ptr.slotId);
-      if (recBytes != null) {
-        final bd = ByteData.sublistView(recBytes);
-        if (_isRowVisible(tableFile, bd, recBytes.length)) {
-          _reusedRowList.fillRange(0, _reusedRowList.length, DbNull());
-          for (int i = 0; i < projectedColIndexes.length; i++) {
-            final idx = projectedColIndexes[i];
-            _reusedRowList[idx] = _getVisibleCellValue(
-              tableFile,
-              bd,
-              recBytes.length,
-              idx,
+      final page = _pinnedPage!;
+      final pageData = page.byteData;
+      final slotOffset = SlottedPageHelper.headerSize + slotId * 4;
+      if (slotOffset + 4 <= page.data.length) {
+        final recOffset = pageData.getUint16(slotOffset);
+        final recLen = pageData.getUint16(slotOffset + 2);
+        if (recLen > 0 && recOffset + recLen <= page.data.length) {
+          if (_isRowVisibleAt(pageData, recOffset, recLen)) {
+            final rowStart = recLen >= 12 ? recOffset + 12 : recOffset;
+            final rowLen = recLen >= 12 ? recLen - 12 : recLen;
+
+            _reusedRowList = tableFile.deserializePartialRowFromView(
+              pageData,
+              rowStart,
+              rowLen,
+              projectedColIndexes,
+              _reusedRowList,
+              schema.columnNames.length,
             );
+            if (schema.columnDefaultValues.isNotEmpty) {
+              for (int i = 0; i < projectedColIndexes.length; i++) {
+                final idx = projectedColIndexes[i];
+                if (idx < schema.columnDefaultValues.length &&
+                    schema.columnDefaultValues[idx] != null &&
+                    _reusedRowList[idx] is DbNull) {
+                  _reusedRowList[idx] =
+                      evaluateExpression(schema.columnDefaultValues[idx]!, {});
+                }
+              }
+            }
+            return _reusedRowMap;
           }
-          return RowMap(_reusedRowList, _staticKeyToIndex);
         }
       }
     }
 
-    if (_pinnedPage != null) {
-      tableFile.cache.unpinPageSync(
-        tableFile.filePath,
-        _pinnedPageId!,
-        isDirty: false,
-      );
+    if (_pinnedPages.isNotEmpty) {
+      for (final p in _pinnedPages.values) {
+        _cache.unpinPage(p, isDirty: false);
+      }
+      _pinnedPages.clear();
       _pinnedPage = null;
       _pinnedPageId = null;
     }
@@ -968,16 +975,15 @@ class IndexScanNode extends PlanNode {
 
   @override
   void close() {
-    if (_pinnedPage != null) {
-      tableFile.cache.unpinPageSync(
-        tableFile.filePath,
-        _pinnedPageId!,
-        isDirty: false,
-      );
+    if (_pinnedPages.isNotEmpty) {
+      for (final p in _pinnedPages.values) {
+        _cache.unpinPage(p, isDirty: false);
+      }
+      _pinnedPages.clear();
       _pinnedPage = null;
       _pinnedPageId = null;
     }
-    _pointers = null;
+    _packedPointers = null;
   }
 
   @override
@@ -1196,6 +1202,119 @@ class AggregationState {
   }
 }
 
+class FastGroupState {
+  final Map<String, DbValue> groupKeyRow;
+  final Int32List counts;
+  final Float64List sums;
+  final Uint8List sumsIsDouble;
+  final Int32List avgCounts;
+  final Float64List avgSums;
+  final List<DbValue?> mins;
+  final List<DbValue?> maxes;
+  final List<DbValue?> firstVals;
+
+  FastGroupState(int len, this.groupKeyRow)
+      : counts = Int32List(len),
+        sums = Float64List(len),
+        sumsIsDouble = Uint8List(len),
+        avgCounts = Int32List(len),
+        avgSums = Float64List(len),
+        mins = List<DbValue?>.filled(len, null),
+        maxes = List<DbValue?>.filled(len, null),
+        firstVals = List<DbValue?>.filled(len, null);
+
+  void update(
+    Map<String, DbValue> row,
+    int len,
+    Int8List aggTypes,
+    List<JitClosure?> argJitsList, [
+    Int32List? argColIndices,
+    List<DbValue>? rowValues,
+  ]) {
+    for (int i = 0; i < len; i++) {
+      final type = aggTypes[i];
+      if (type == 1) {
+        counts[i]++;
+      } else {
+        final cIdx = (argColIndices != null && i < argColIndices.length)
+            ? argColIndices[i]
+            : -1;
+        final val = (cIdx >= 0 && rowValues != null && cIdx < rowValues.length)
+            ? rowValues[cIdx]
+            : argJitsList[i]!(row);
+        if (val is! DbNull) {
+          if (type == 2) {
+            counts[i]++;
+          } else if (type == 3) {
+            if (val is DbInt) {
+              sums[i] += val.value;
+              counts[i]++;
+            } else if (val is DbDouble) {
+              sums[i] += val.value;
+              sumsIsDouble[i] = 1;
+              counts[i]++;
+            }
+          } else if (type == 4) {
+            if (val is DbInt) {
+              avgCounts[i]++;
+              avgSums[i] += val.value;
+            } else if (val is DbDouble) {
+              avgCounts[i]++;
+              avgSums[i] += val.value;
+            }
+          } else if (type == 5) {
+            final cur = mins[i];
+            if (cur == null || val.compareTo(cur) < 0) mins[i] = val;
+          } else if (type == 6) {
+            final cur = maxes[i];
+            if (cur == null || val.compareTo(cur) > 0) maxes[i] = val;
+          } else if (type == 7) {
+            if (firstVals[i] == null) {
+              firstVals[i] = val;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Map<String, DbValue> finalize(
+    int len,
+    Int8List aggTypes,
+    List<String> aliases,
+  ) {
+    final result = <String, DbValue>{};
+    for (int i = 0; i < len; i++) {
+      final type = aggTypes[i];
+      final alias = aliases[i];
+      if (type == 1 || type == 2) {
+        result[alias] = DbInt(counts[i]);
+      } else if (type == 3) {
+        if (counts[i] == 0) {
+          result[alias] = DbNull();
+        } else {
+          final isDouble = sumsIsDouble[i] == 1;
+          result[alias] = isDouble
+              ? DbDouble(sums[i])
+              : DbInt(sums[i].toInt());
+        }
+      } else if (type == 4) {
+        final count = avgCounts[i];
+        result[alias] = count > 0
+            ? DbDouble(avgSums[i] / count)
+            : DbNull();
+      } else if (type == 5) {
+        result[alias] = mins[i] ?? DbNull();
+      } else if (type == 6) {
+        result[alias] = maxes[i] ?? DbNull();
+      } else {
+        result[alias] = firstVals[i] ?? DbNull();
+      }
+    }
+    return result;
+  }
+}
+
 class GroupByNode extends PlanNode {
   final PlanNode child;
   final Expression groupByExpr;
@@ -1219,7 +1338,718 @@ class GroupByNode extends PlanNode {
     _currentIndex = 0;
   }
 
+  bool _tryFastDirectGroupBy() {
+    if (child is! RowScanNode) return false;
+    final rowScan = child as RowScanNode;
+    if (rowScan.asOfTxId != null) return false;
+    if (havingCondition != null) return false;
+    if (groupByExpr is! VariableExpr) return false;
+
+    final groupColName = (groupByExpr as VariableExpr).path.last.toLowerCase();
+    final groupColIdx = rowScan.schema.columnNames.indexWhere(
+      (c) => c.toLowerCase() == groupColName,
+    );
+    if (groupColIdx == -1) return false;
+    final groupColType = rowScan.schema.columnTypes[groupColIdx];
+    if (groupColType != DataType.integer) return false;
+
+    final len = projections.length;
+    final aliases = List<String>.filled(len, '');
+    final aggTypes = Int8List(len);
+    final aggColIdxs = Int32List(len);
+    final aggColIsDouble = Uint8List(len);
+
+    for (int i = 0; i < len; i++) {
+      final proj = projections[i];
+      final expr = proj.expr;
+      aliases[i] = proj.alias ?? exprToSqlString(expr);
+
+      if (expr is VariableExpr && expr.path.last.toLowerCase() == groupColName) {
+        aggTypes[i] = 0;
+        aggColIdxs[i] = groupColIdx;
+      } else if (expr is FunctionCallExpr) {
+        final fName = expr.name.toLowerCase();
+        if (fName == 'count') {
+          final isCountAll = expr.arguments.isEmpty ||
+              (expr.arguments[0] is VariableExpr &&
+                  (expr.arguments[0] as VariableExpr).path.first == '*') ||
+              (expr.arguments[0] is LiteralExpr &&
+                  (expr.arguments[0] as LiteralExpr).value.toString().contains('*'));
+          if (isCountAll) {
+            aggTypes[i] = 1;
+          } else if (expr.arguments[0] is VariableExpr) {
+            final colName = (expr.arguments[0] as VariableExpr).path.last.toLowerCase();
+            final colIdx = rowScan.schema.columnNames.indexWhere((c) => c.toLowerCase() == colName);
+            if (colIdx == -1) return false;
+            aggTypes[i] = 2;
+            aggColIdxs[i] = colIdx;
+          } else {
+            return false;
+          }
+        } else if (fName == 'sum' || fName == 'avg') {
+          if (expr.arguments.isEmpty || expr.arguments[0] is! VariableExpr) return false;
+          final colName = (expr.arguments[0] as VariableExpr).path.last.toLowerCase();
+          final colIdx = rowScan.schema.columnNames.indexWhere((c) => c.toLowerCase() == colName);
+          if (colIdx == -1) return false;
+          final cType = rowScan.schema.columnTypes[colIdx];
+          if (cType != DataType.integer && cType != DataType.double) {
+            return false;
+          }
+          aggTypes[i] = fName == 'sum' ? 3 : 4;
+          aggColIdxs[i] = colIdx;
+          aggColIsDouble[i] = (cType == DataType.double) ? 1 : 0;
+        } else if (fName == 'min' || fName == 'max') {
+          if (expr.arguments.isEmpty || expr.arguments[0] is! VariableExpr) return false;
+          final colName = (expr.arguments[0] as VariableExpr).path.last.toLowerCase();
+          final colIdx = rowScan.schema.columnNames.indexWhere((c) => c.toLowerCase() == colName);
+          if (colIdx == -1) return false;
+          final cType = rowScan.schema.columnTypes[colIdx];
+          if (cType != DataType.integer && cType != DataType.double) {
+            return false;
+          }
+          aggTypes[i] = fName == 'min' ? 5 : 6;
+          aggColIdxs[i] = colIdx;
+          aggColIsDouble[i] = (cType == DataType.double) ? 1 : 0;
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    final tableFile = rowScan.tableFile;
+    tableFile.flushActivePageSync();
+    final pager = tableFile.pager;
+    final pageCount = pager.getPageCountSync();
+    final currentTx = tableFile.cache.currentMvccTx;
+    final txManager = tableFile.cache.mvccTxManager;
+    final currentTxId = currentTx?.txId ?? 0;
+    final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+    final fastMvcc = (currentTxId == 0 && activeTxIds.isEmpty && !txManager.hasActiveTx && !txManager.hasAbortedTx);
+
+    const maxFastKey = 2048;
+    final present = Uint8List(maxFastKey);
+    final keyList = <int>[];
+
+    if (len == 3 && aggTypes[0] == 0 && aggTypes[1] == 1 && (aggTypes[2] == 3 || aggTypes[2] == 4)) {
+      final countArr1 = Int32List(maxFastKey);
+      final countArr2 = Int32List(maxFastKey);
+      final sumArr2 = Float64List(maxFastKey);
+      final valColIdx = aggColIdxs[2];
+      final schemaLen = rowScan.schema.columnNames.length;
+      final gOffsetInRec = 14 + groupColIdx * 2;
+      final gNextOffsetInRec = 14 + (groupColIdx + 1) * 2;
+      final hasNextGCol = groupColIdx + 1 < schemaLen;
+      final vOffsetInRec = 14 + valColIdx * 2;
+      final vNextOffsetInRec = 14 + (valColIdx + 1) * 2;
+      final hasNextVCol = valColIdx + 1 < schemaLen;
+
+      for (int pId = 0; pId < pageCount; pId++) {
+        final cached = pager.getCachedPage(pId);
+        final page = cached ?? tableFile.cache.pinPagerPageSync(pager, pId);
+        final data = page.byteData;
+        final bytes = page.data;
+        final rowCount = data.getUint16(1);
+
+        for (int sId = 0; sId < rowCount; sId++) {
+          final slotOffset = 5 + sId * 4;
+          final recOffset = data.getUint16(slotOffset);
+          final recLen = data.getUint16(slotOffset + 2);
+          if (recLen < 14 || recOffset >= 4096) continue;
+
+          if (fastMvcc) {
+            if (data.getUint32(recOffset + 4) != 0) continue;
+          } else {
+            final xmin = data.getUint32(recOffset);
+            final xmax = data.getUint32(recOffset + 4);
+            if (!txManager.isVisible(xmin, xmax, currentTxId, activeTxIds)) continue;
+          }
+
+          final gStart = data.getUint16(recOffset + gOffsetInRec);
+          final gEnd = hasNextGCol
+              ? data.getUint16(recOffset + gNextOffsetInRec)
+              : (recLen - 12);
+          final gValLen = gEnd - gStart - 1;
+          if (gValLen <= 0) continue;
+          final absGOffset = recOffset + 12 + gStart;
+          if (bytes[absGOffset] != 1) continue;
+
+          int key;
+          if (gValLen == 1) {
+            final u = bytes[absGOffset + 1];
+            key = u > 127 ? u - 256 : u;
+          } else if (gValLen == 2) {
+            key = data.getInt16(absGOffset + 1);
+          } else if (gValLen == 4) {
+            key = data.getInt32(absGOffset + 1);
+          } else {
+            key = data.getInt64(absGOffset + 1);
+          }
+          if (key < 0 || key >= maxFastKey) continue;
+
+          if (present[key] == 0) {
+            present[key] = 1;
+            keyList.add(key);
+          }
+          countArr1[key]++;
+
+          final vStart = data.getUint16(recOffset + vOffsetInRec);
+          final vEnd = hasNextVCol
+              ? data.getUint16(recOffset + vNextOffsetInRec)
+              : (recLen - 12);
+          final vLen = vEnd - vStart;
+          if (vLen > 1) {
+            final absVOffset = recOffset + 12 + vStart;
+            final vType = bytes[absVOffset];
+            if (vType == 2 && vLen >= 9) {
+              sumArr2[key] += data.getFloat64(absVOffset + 1);
+              countArr2[key]++;
+            } else if (vType == 1) {
+              final vValLen = vLen - 1;
+              double numVal = 0.0;
+              if (vValLen == 1) numVal = data.getInt8(absVOffset + 1).toDouble();
+              else if (vValLen == 2) numVal = data.getInt16(absVOffset + 1).toDouble();
+              else if (vValLen == 4) numVal = data.getInt32(absVOffset + 1).toDouble();
+              else if (vValLen == 8) numVal = data.getInt64(absVOffset + 1).toDouble();
+              sumArr2[key] += numVal;
+              countArr2[key]++;
+            }
+          }
+        }
+        if (cached == null && page.pinCount > 0) page.pinCount--;
+      }
+
+      final alias0 = aliases[0];
+      final alias1 = aliases[1];
+      final alias2 = aliases[2];
+      final isAvg = aggTypes[2] == 4;
+      final isDouble = aggColIsDouble[2] == 1;
+      _aggregatedRows = List<Map<String, DbValue>>.generate(keyList.length, (kIdx) {
+        final key = keyList[kIdx];
+        final c2 = countArr2[key];
+        final DbValue val2 = isAvg
+            ? (c2 > 0 ? DbDouble(sumArr2[key] / c2) : DbNull())
+            : (isDouble ? DbDouble(sumArr2[key]) : DbInt(sumArr2[key].toInt()));
+        return {
+          alias0: DbInt(key),
+          alias1: DbInt(countArr1[key]),
+          alias2: val2,
+        };
+      });
+      return true;
+    }
+
+    final counts = List<Int32List?>.generate(
+      len,
+      (i) => (aggTypes[i] == 1 || aggTypes[i] == 2 || aggTypes[i] == 4)
+          ? Int32List(maxFastKey)
+          : null,
+    );
+    final sums = List<Float64List?>.generate(
+      len,
+      (i) => (aggTypes[i] == 3 || aggTypes[i] == 4)
+          ? Float64List(maxFastKey)
+          : null,
+    );
+    final mins = List<Float64List?>.generate(
+      len,
+      (i) => (aggTypes[i] == 5) ? (Float64List(maxFastKey)..fillRange(0, maxFastKey, double.infinity)) : null,
+    );
+    final maxes = List<Float64List?>.generate(
+      len,
+      (i) => (aggTypes[i] == 6) ? (Float64List(maxFastKey)..fillRange(0, maxFastKey, -double.infinity)) : null,
+    );
+
+    for (int pId = 0; pId < pageCount; pId++) {
+      final page = pager.getCachedPage(pId) ?? tableFile.cache.pinPagerPageSync(pager, pId);
+      final data = page.byteData;
+      final rowCount = SlottedPageHelper.getRowCount(page);
+
+      for (int sId = 0; sId < rowCount; sId++) {
+        final slotOffset = SlottedPageHelper.headerSize + sId * 4;
+        if (slotOffset + 4 > page.data.length) continue;
+        final recOffset = data.getUint16(slotOffset);
+        final recLen = data.getUint16(slotOffset + 2);
+        if (recLen < 12 || recOffset + recLen > page.data.length) continue;
+
+        final xmin = data.getUint32(recOffset);
+        final xmax = data.getUint32(recOffset + 4);
+        final isVisible = (fastMvcc && xmax == 0) ||
+            txManager.isVisible(xmin, xmax, currentTxId, activeTxIds);
+        if (!isVisible) continue;
+
+        final rowStart = recOffset + 12;
+        final colCount = data.getUint16(rowStart);
+        if (groupColIdx >= colCount) continue;
+
+        final gStartOffset = data.getUint16(rowStart + 2 + groupColIdx * 2);
+        final gEndOffset = (groupColIdx + 1 < colCount)
+            ? data.getUint16(rowStart + 2 + (groupColIdx + 1) * 2)
+            : (recLen - 12);
+        final gLen = gEndOffset - gStartOffset;
+        if (gLen <= 1) continue;
+
+        final absGOffset = rowStart + gStartOffset;
+        if (data.getUint8(absGOffset) != 1) continue;
+
+        final valLen = gLen - 1;
+        final valOffset = absGOffset + 1;
+        final int key;
+        if (valLen == 1) {
+          key = data.getInt8(valOffset);
+        } else if (valLen == 2) {
+          key = data.getInt16(valOffset);
+        } else if (valLen == 4) {
+          key = data.getInt32(valOffset);
+        } else if (valLen == 8) {
+          key = data.getInt64(valOffset);
+        } else {
+          continue;
+        }
+
+        if (key < 0 || key >= maxFastKey) continue;
+
+        if (present[key] == 0) {
+          present[key] = 1;
+          keyList.add(key);
+        }
+
+        for (int i = 0; i < len; i++) {
+          final type = aggTypes[i];
+          if (type == 0) {
+            // Group key
+          } else if (type == 1) {
+            counts[i]![key]++;
+          } else {
+            final colIdx = aggColIdxs[i];
+            if (colIdx >= colCount) continue;
+            final cStart = data.getUint16(rowStart + 2 + colIdx * 2);
+            final cEnd = (colIdx + 1 < colCount)
+                ? data.getUint16(rowStart + 2 + (colIdx + 1) * 2)
+                : (recLen - 12);
+            final cLen = cEnd - cStart;
+            if (cLen <= 1) continue;
+
+            final absCOffset = rowStart + cStart;
+            final typeCode = data.getUint8(absCOffset);
+            double numericVal = 0.0;
+            if (typeCode == 1) {
+              final cValLen = cLen - 1;
+              final cValOffset = absCOffset + 1;
+              if (cValLen == 1) numericVal = data.getInt8(cValOffset).toDouble();
+              else if (cValLen == 2) numericVal = data.getInt16(cValOffset).toDouble();
+              else if (cValLen == 4) numericVal = data.getInt32(cValOffset).toDouble();
+              else if (cValLen == 8) numericVal = data.getInt64(cValOffset).toDouble();
+              else continue;
+            } else if (typeCode == 2 && cLen >= 9) {
+              numericVal = data.getFloat64(absCOffset + 1);
+            } else {
+              continue;
+            }
+
+            if (type == 2) {
+              counts[i]![key]++;
+            } else if (type == 3) {
+              sums[i]![key] += numericVal;
+            } else if (type == 4) {
+              sums[i]![key] += numericVal;
+              counts[i]![key]++;
+            } else if (type == 5) {
+              if (numericVal < mins[i]![key]) mins[i]![key] = numericVal;
+            } else if (type == 6) {
+              if (numericVal > maxes[i]![key]) maxes[i]![key] = numericVal;
+            }
+          }
+        }
+      }
+      if (page.pinCount > 0) page.pinCount--;
+    }
+
+    _aggregatedRows = [];
+    for (int kIdx = 0; kIdx < keyList.length; kIdx++) {
+      final key = keyList[kIdx];
+      final row = <String, DbValue>{};
+      for (int i = 0; i < len; i++) {
+        final type = aggTypes[i];
+        final alias = aliases[i];
+        if (type == 0) {
+          row[alias] = DbInt(key);
+        } else if (type == 1 || type == 2) {
+          row[alias] = DbInt(counts[i]![key]);
+        } else if (type == 3) {
+          row[alias] = aggColIsDouble[i] == 1
+              ? DbDouble(sums[i]![key])
+              : DbInt(sums[i]![key].toInt());
+        } else if (type == 4) {
+          final c = counts[i]![key];
+          row[alias] = c > 0 ? DbDouble(sums[i]![key] / c) : DbNull();
+        } else if (type == 5) {
+          final m = mins[i]![key];
+          row[alias] = m.isFinite ? (aggColIsDouble[i] == 1 ? DbDouble(m) : DbInt(m.toInt())) : DbNull();
+        } else if (type == 6) {
+          final m = maxes[i]![key];
+          row[alias] = m.isFinite ? (aggColIsDouble[i] == 1 ? DbDouble(m) : DbInt(m.toInt())) : DbNull();
+        }
+      }
+      _aggregatedRows!.add(row);
+    }
+    return true;
+  }
+
+  bool _tryFastDirectIndexAggregate() {
+    var actualScan = child;
+    if (actualScan is FilterNode) {
+      actualScan = actualScan.child;
+    }
+    if (actualScan is! IndexScanNode) return false;
+    if (havingCondition != null) return false;
+    final indexScan = actualScan;
+    if (indexScan.asOfTxId != null) return false;
+    if (groupByExpr is! LiteralExpr) return false;
+
+    final schema = indexScan.schema;
+    final len = projections.length;
+    final aliases = List<String>.filled(len, '');
+    final aggTypes = Int8List(len);
+    final aggColIdxs = Int32List(len);
+    final aggColIsDouble = Uint8List(len);
+
+    for (int i = 0; i < len; i++) {
+      final proj = projections[i];
+      final expr = proj.expr;
+      aliases[i] = proj.alias ?? exprToSqlString(expr);
+
+      if (expr is FunctionCallExpr) {
+        final fName = expr.name.toLowerCase();
+        if (fName == 'count') {
+          final isCountAll = expr.arguments.isEmpty ||
+              (expr.arguments[0] is VariableExpr &&
+                  (expr.arguments[0] as VariableExpr).path.first == '*') ||
+              (expr.arguments[0] is LiteralExpr &&
+                  (expr.arguments[0] as LiteralExpr).value.toString().contains('*'));
+          if (isCountAll) {
+            aggTypes[i] = 1;
+          } else if (expr.arguments[0] is VariableExpr) {
+            final colName = (expr.arguments[0] as VariableExpr).path.last.toLowerCase();
+            final colIdx = schema.columnNamesLower.indexOf(colName);
+            if (colIdx == -1) return false;
+            aggTypes[i] = 2;
+            aggColIdxs[i] = colIdx;
+          } else {
+            return false;
+          }
+
+        } else if (fName == 'sum' || fName == 'avg') {
+          if (expr.arguments.isEmpty || expr.arguments[0] is! VariableExpr) return false;
+          final colName = (expr.arguments[0] as VariableExpr).path.last.toLowerCase();
+          final colIdx = schema.columnNamesLower.indexOf(colName);
+          if (colIdx == -1) return false;
+          final cType = schema.columnTypes[colIdx];
+          if (cType != DataType.integer && cType != DataType.double) return false;
+          aggTypes[i] = fName == 'sum' ? 3 : 4;
+          aggColIdxs[i] = colIdx;
+          aggColIsDouble[i] = (cType == DataType.double) ? 1 : 0;
+        } else if (fName == 'min' || fName == 'max') {
+          if (expr.arguments.isEmpty || expr.arguments[0] is! VariableExpr) return false;
+          final colName = (expr.arguments[0] as VariableExpr).path.last.toLowerCase();
+          final colIdx = schema.columnNamesLower.indexOf(colName);
+          if (colIdx == -1) return false;
+          final cType = schema.columnTypes[colIdx];
+          if (cType != DataType.integer && cType != DataType.double) return false;
+          aggTypes[i] = fName == 'min' ? 5 : 6;
+          aggColIdxs[i] = colIdx;
+          aggColIsDouble[i] = (cType == DataType.double) ? 1 : 0;
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    if (len == 1 && aggTypes[0] == 1 && child is IndexScanNode) {
+      final fast = (child as IndexScanNode).getFastCount();
+      if (fast != null) {
+        _aggregatedRows = [
+          {aliases[0]: DbInt(fast)},
+        ];
+        return true;
+      }
+    }
+
+    final cache = indexScan.tableFile.cache;
+    final pager = indexScan.tableFile.pager;
+    final currentTx = cache.currentMvccTx;
+    final txManager = cache.mvccTxManager;
+    final currentTxId = currentTx?.txId ?? 0;
+    final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+    final fastMvcc = (currentTxId == 0 && activeTxIds.isEmpty && !txManager.hasActiveTx && !txManager.hasAbortedTx);
+
+    int lastPageId = -1;
+    Page? currentPage;
+    ByteData? curData;
+    Uint8List? curBytes;
+
+    if (len == 2 && aggTypes[0] == 1 && aggTypes[1] == 4 && indexScan.index.keyColumns == 1) {
+      final btree = indexScan.index;
+      final idxPager = btree.pager;
+      final low = indexScan.low;
+      final high = indexScan.high;
+      final bool hasLow = low != null && low.isNotEmpty;
+      final bool hasHigh = high != null && high.isNotEmpty;
+      final double? lowVal = hasLow ? low[0] : null;
+      final double? highVal = hasHigh ? high[0] : null;
+      final pIdOffset = btree.pageIdOffset;
+      final sIdOffset = btree.slotIdOffset;
+      final siblingOffset = btree.siblingOffset;
+
+      int currentLeafId = 0;
+      if (!hasLow) {
+        int curr = btree.rootPageId;
+        while (true) {
+          final page = idxPager.getCachedPage(curr) ?? cache.pinPagerPageSync(idxPager, curr);
+          if (page.byteData.getUint8(1) == 1) {
+            currentLeafId = curr;
+            break;
+          }
+          curr = page.byteData.getInt32(pIdOffset);
+        }
+      } else {
+        currentLeafId = btree.findLeafPageId(low);
+      }
+
+      final colIdx = aggColIdxs[1];
+      final colHeaderOffset = 2 + colIdx * 2;
+      int countAll = 0;
+      double sumVal = 0.0;
+      int countVal = 0;
+      bool isFirstPage = true;
+
+      while (currentLeafId != -1) {
+        final leafPage = idxPager.getCachedPage(currentLeafId) ?? cache.pinPagerPageSync(idxPager, currentLeafId);
+        final leafBd = leafPage.byteData;
+        final keyCount = leafBd.getUint16(2);
+
+        int startIdx = 0;
+        if (isFirstPage) {
+          isFirstPage = false;
+          if (lowVal != null) {
+            int l = 0, r = keyCount - 1;
+            while (l <= r) {
+              final mid = (l + r) >> 1;
+              if (leafBd.getFloat64(4 + mid * 8) >= lowVal) {
+                startIdx = mid;
+                r = mid - 1;
+              } else {
+                l = mid + 1;
+              }
+            }
+            if (l > keyCount - 1 && startIdx == 0 && keyCount > 0 && leafBd.getFloat64(4 + (keyCount - 1) * 8) < lowVal) {
+              startIdx = keyCount;
+            }
+          }
+        }
+
+        if (startIdx < keyCount) {
+          int endIdx = keyCount;
+          bool reachedEnd = false;
+          if (highVal != null) {
+            if (leafBd.getFloat64(4 + startIdx * 8) > highVal) {
+              break;
+            }
+            if (leafBd.getFloat64(4 + (keyCount - 1) * 8) > highVal) {
+              reachedEnd = true;
+              int l = startIdx, r = keyCount - 1;
+              while (l <= r) {
+                final mid = (l + r) >> 1;
+                if (leafBd.getFloat64(4 + mid * 8) <= highVal) {
+                  l = mid + 1;
+                } else {
+                  endIdx = mid;
+                  r = mid - 1;
+                }
+              }
+            }
+          }
+
+          for (int i = startIdx; i < endIdx; i++) {
+            final pageId = leafBd.getInt32(pIdOffset + i * 4);
+            final slotId = leafBd.getUint16(sIdOffset + i * 2);
+
+            if (pageId != lastPageId) {
+              lastPageId = pageId;
+              currentPage = pager.getCachedPage(pageId) ?? cache.pinPagerPageSync(pager, pageId);
+              curData = currentPage.byteData;
+              curBytes = currentPage.data;
+            }
+
+            final data = curData!;
+            final bytes = curBytes!;
+            final slotOffset = 5 + slotId * 4;
+            final recOffset = data.getUint16(slotOffset);
+            final recLen = data.getUint16(slotOffset + 2);
+            if (recLen < 12) continue;
+
+            if (fastMvcc) {
+              if (data.getUint32(recOffset + 4) != 0) continue;
+            } else {
+              final xmin = data.getUint32(recOffset);
+              final xmax = data.getUint32(recOffset + 4);
+              if (!txManager.isVisible(xmin, xmax, currentTxId, activeTxIds)) continue;
+            }
+
+            countAll++;
+
+            final rowStart = recOffset + 12;
+            final cStart = data.getUint16(rowStart + colHeaderOffset);
+            final absCOffset = rowStart + cStart;
+            final typeCode = bytes[absCOffset];
+            if (typeCode == 2) {
+              sumVal += data.getFloat64(absCOffset + 1);
+              countVal++;
+            } else if (typeCode == 1) {
+              final cLen = (colIdx + 1 < data.getUint16(rowStart))
+                  ? data.getUint16(rowStart + 2 + (colIdx + 1) * 2) - cStart
+                  : (recLen - 12 - cStart);
+              final cValLen = cLen - 1;
+              final cValOffset = absCOffset + 1;
+              if (cValLen == 1) sumVal += data.getInt8(cValOffset);
+              else if (cValLen == 2) sumVal += data.getInt16(cValOffset);
+              else if (cValLen == 4) sumVal += data.getInt32(cValOffset);
+              else if (cValLen == 8) sumVal += data.getInt64(cValOffset);
+              countVal++;
+            }
+          }
+
+          if (reachedEnd) break;
+        }
+
+        currentLeafId = leafBd.getInt32(siblingOffset);
+      }
+
+      final row = <String, DbValue>{
+        aliases[0]: DbInt(countAll),
+        aliases[1]: countVal > 0 ? DbDouble(sumVal / countVal) : DbNull(),
+      };
+      _aggregatedRows = [row];
+      return true;
+    }
+
+    final packedPointers = indexScan.index.searchRangePackedSync(indexScan.low, indexScan.high);
+    final countPointers = packedPointers.length;
+
+    final counts = Int32List(len);
+    final sums = Float64List(len);
+    final mins = Float64List(len)..fillRange(0, len, double.infinity);
+    final maxes = Float64List(len)..fillRange(0, len, -double.infinity);
+
+    for (int pIdx = 0; pIdx < countPointers; pIdx++) {
+      final packed = packedPointers[pIdx];
+      final pageId = packed >> 32;
+      final slotId = packed & 0xFFFFFFFF;
+
+      if (pageId != lastPageId) {
+        lastPageId = pageId;
+        currentPage = pager.getCachedPage(pageId) ?? cache.pinPagerPageSync(pager, pageId);
+      }
+
+      final page = currentPage!;
+      final slotOffset = SlottedPageHelper.headerSize + slotId * 4;
+      if (slotOffset + 4 > page.data.length) continue;
+      final data = page.byteData;
+      final recOffset = data.getUint16(slotOffset);
+      final recLen = data.getUint16(slotOffset + 2);
+      if (recLen < 12 || recOffset + recLen > page.data.length) continue;
+
+      final xmin = data.getUint32(recOffset);
+      final xmax = data.getUint32(recOffset + 4);
+      final isVisible = (fastMvcc && xmax == 0) ||
+          txManager.isVisible(xmin, xmax, currentTxId, activeTxIds);
+      if (!isVisible) continue;
+
+      final rowStart = recOffset + 12;
+      final colCount = data.getUint16(rowStart);
+
+      for (int i = 0; i < len; i++) {
+        final type = aggTypes[i];
+        if (type == 1) {
+          counts[i]++;
+        } else {
+          final colIdx = aggColIdxs[i];
+          if (colIdx >= colCount) continue;
+          final cStart = data.getUint16(rowStart + 2 + colIdx * 2);
+          final cEnd = (colIdx + 1 < colCount)
+              ? data.getUint16(rowStart + 2 + (colIdx + 1) * 2)
+              : (recLen - 12);
+          final cLen = cEnd - cStart;
+          if (cLen <= 1) continue;
+
+          final absCOffset = rowStart + cStart;
+          final typeCode = data.getUint8(absCOffset);
+          double numericVal = 0.0;
+          if (typeCode == 1) {
+            final cValLen = cLen - 1;
+            final cValOffset = absCOffset + 1;
+            if (cValLen == 1) numericVal = data.getInt8(cValOffset).toDouble();
+            else if (cValLen == 2) numericVal = data.getInt16(cValOffset).toDouble();
+            else if (cValLen == 4) numericVal = data.getInt32(cValOffset).toDouble();
+            else if (cValLen == 8) numericVal = data.getInt64(cValOffset).toDouble();
+            else continue;
+          } else if (typeCode == 2 && cLen >= 9) {
+            numericVal = data.getFloat64(absCOffset + 1);
+          } else {
+            continue;
+          }
+
+          if (type == 2) {
+            counts[i]++;
+          } else if (type == 3) {
+            sums[i] += numericVal;
+          } else if (type == 4) {
+            sums[i] += numericVal;
+            counts[i]++;
+          } else if (type == 5) {
+            if (numericVal < mins[i]) mins[i] = numericVal;
+          } else if (type == 6) {
+            if (numericVal > maxes[i]) maxes[i] = numericVal;
+          }
+        }
+      }
+    }
+
+    final row = <String, DbValue>{};
+    for (int i = 0; i < len; i++) {
+      final type = aggTypes[i];
+      final alias = aliases[i];
+      if (type == 1 || type == 2) {
+        row[alias] = DbInt(counts[i]);
+      } else if (type == 3) {
+        row[alias] = aggColIsDouble[i] == 1 ? DbDouble(sums[i]) : DbInt(sums[i].toInt());
+      } else if (type == 4) {
+        final c = counts[i];
+        row[alias] = c > 0 ? DbDouble(sums[i] / c) : DbNull();
+      } else if (type == 5) {
+        final m = mins[i];
+        row[alias] = m.isFinite ? (aggColIsDouble[i] == 1 ? DbDouble(m) : DbInt(m.toInt())) : DbNull();
+      } else if (type == 6) {
+        final m = maxes[i];
+        row[alias] = m.isFinite ? (aggColIsDouble[i] == 1 ? DbDouble(m) : DbInt(m.toInt())) : DbNull();
+      }
+    }
+
+    _aggregatedRows = [row];
+    return true;
+  }
+
   void _performAggregation() {
+    if (_tryFastDirectGroupBy()) {
+      return;
+    }
+    if (_tryFastDirectIndexAggregate()) {
+      return;
+    }
+
     // Fast path: Global COUNT(*) aggregation without any GROUP BY columns
     if (groupByExpr is LiteralExpr &&
         projections.length == 1 &&
@@ -1267,6 +2097,7 @@ class GroupByNode extends PlanNode {
       final aggTypes = Int8List(len);
       final argJitsList = List<JitClosure?>.filled(len, null);
       final aliases = List<String>.filled(len, '');
+      final argColNames = List<String?>.filled(len, null);
 
       final counts = Int32List(len);
       final sums = Float64List(len);
@@ -1290,51 +2121,91 @@ class GroupByNode extends PlanNode {
               aggTypes[i] = 1;
             } else {
               aggTypes[i] = 2;
-              argJitsList[i] = JitCompiler.compile(expr.arguments[0]);
+              final arg = expr.arguments[0];
+              if (arg is VariableExpr) argColNames[i] = arg.path.last;
+              argJitsList[i] = JitCompiler.compile(arg);
             }
           } else if (funcName == 'sum') {
             aggTypes[i] = 3;
-            argJitsList[i] = JitCompiler.compile(expr.arguments[0]);
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
           } else if (funcName == 'avg') {
             aggTypes[i] = 4;
-            argJitsList[i] = JitCompiler.compile(expr.arguments[0]);
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
           } else if (funcName == 'min') {
             aggTypes[i] = 5;
-            argJitsList[i] = JitCompiler.compile(expr.arguments[0]);
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
           } else if (funcName == 'max') {
             aggTypes[i] = 6;
-            argJitsList[i] = JitCompiler.compile(expr.arguments[0]);
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
           } else {
             aggTypes[i] = 7;
             if (expr.arguments.isNotEmpty) {
-              argJitsList[i] = JitCompiler.compile(expr.arguments[0]);
+              final arg = expr.arguments[0];
+              if (arg is VariableExpr) argColNames[i] = arg.path.last;
+              argJitsList[i] = JitCompiler.compile(arg);
             }
           }
         } else {
           aggTypes[i] = 7;
+          if (expr is VariableExpr) argColNames[i] = expr.path.last;
           argJitsList[i] = JitCompiler.compile(expr);
         }
       }
 
+      Int32List? argColIndices;
+
       while (true) {
         final row = child.next();
         if (row == null) break;
+
+        List<DbValue>? rowValues;
+        if (row is RowMap) {
+          rowValues = row.values;
+          if (argColIndices == null) {
+            argColIndices = Int32List(len);
+            for (int i = 0; i < len; i++) {
+              final cName = argColNames[i];
+              if (cName != null) {
+                argColIndices[i] = row.keyToIndex[cName] ??
+                    row.keyToIndex[cName.toLowerCase()] ??
+                    -1;
+              } else {
+                argColIndices[i] = -1;
+              }
+            }
+          }
+        }
 
         for (int i = 0; i < len; i++) {
           final type = aggTypes[i];
           if (type == 1) {
             counts[i]++;
           } else {
-            final val = argJitsList[i]!(row);
+            final cIdx = (argColIndices != null && i < argColIndices.length)
+                ? argColIndices[i]
+                : -1;
+            final val = (cIdx >= 0 && rowValues != null && cIdx < rowValues.length)
+                ? rowValues[cIdx]
+                : argJitsList[i]!(row);
             if (val is! DbNull) {
               if (type == 2) {
                 counts[i]++;
               } else if (type == 3) {
                 if (val is DbInt) {
                   sums[i] += val.value;
+                  counts[i]++;
                 } else if (val is DbDouble) {
                   sums[i] += val.value;
                   sumsIsDouble[i] = 1;
+                  counts[i]++;
                 }
               } else if (type == 4) {
                 if (val is DbInt) {
@@ -1453,11 +2324,173 @@ class GroupByNode extends PlanNode {
         ? JitCompiler.compile(havingCondition!)
         : null;
 
+    final isSingleGroupExpr = sets.length == 1 && setJits[0].length == 1;
+    final singleJit = isSingleGroupExpr ? setJits[0][0] : null;
+
+    if (isSingleGroupExpr) {
+      final len = projections.length;
+      final aggTypes = Int8List(len);
+      final argJitsList = List<JitClosure?>.filled(len, null);
+      final aliases = List<String>.filled(len, '');
+      final argColNames = List<String?>.filled(len, null);
+
+      for (int i = 0; i < len; i++) {
+        final proj = projections[i];
+        final expr = proj.expr;
+        aliases[i] = proj.alias ?? exprToSqlString(expr);
+        if (expr is FunctionCallExpr) {
+          final funcName = expr.name.toLowerCase();
+          if (funcName == 'count') {
+            if (expr.arguments.isEmpty ||
+                (expr.arguments[0] is VariableExpr &&
+                    (expr.arguments[0] as VariableExpr).path.first == '*')) {
+              aggTypes[i] = 1;
+            } else {
+              aggTypes[i] = 2;
+              final arg = expr.arguments[0];
+              if (arg is VariableExpr) argColNames[i] = arg.path.last;
+              argJitsList[i] = JitCompiler.compile(arg);
+            }
+          } else if (funcName == 'sum') {
+            aggTypes[i] = 3;
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
+          } else if (funcName == 'avg') {
+            aggTypes[i] = 4;
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
+          } else if (funcName == 'min') {
+            aggTypes[i] = 5;
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
+          } else if (funcName == 'max') {
+            aggTypes[i] = 6;
+            final arg = expr.arguments[0];
+            if (arg is VariableExpr) argColNames[i] = arg.path.last;
+            argJitsList[i] = JitCompiler.compile(arg);
+          } else {
+            aggTypes[i] = 7;
+            if (expr.arguments.isNotEmpty) {
+              final arg = expr.arguments[0];
+              if (arg is VariableExpr) argColNames[i] = arg.path.last;
+              argJitsList[i] = JitCompiler.compile(arg);
+            }
+          }
+        } else {
+          aggTypes[i] = 7;
+          if (expr is VariableExpr) argColNames[i] = expr.path.last;
+          argJitsList[i] = JitCompiler.compile(expr);
+        }
+      }
+
+      String? groupColName;
+      if (groupByExpr is VariableExpr) {
+        groupColName = (groupByExpr as VariableExpr).path.last;
+      }
+
+      final fastIntArray = List<FastGroupState?>.filled(1024, null);
+      final fastIntList = <FastGroupState>[];
+      final fastIntGroups = <int, FastGroupState>{};
+      final fastOtherGroups = <dynamic, FastGroupState>{};
+      Int32List? argColIndices;
+      int groupColIndex = -1;
+
+      final swNext = Stopwatch();
+      final swUpdate = Stopwatch();
+      int rowCount = 0;
+      while (true) {
+        swNext.start();
+        final row = child.next();
+        swNext.stop();
+        if (row == null) break;
+        rowCount++;
+
+        List<DbValue>? rowValues;
+        if (row is RowMap) {
+          rowValues = row.values;
+          if (argColIndices == null) {
+            argColIndices = Int32List(len);
+            for (int i = 0; i < len; i++) {
+              final cName = argColNames[i];
+              if (cName != null) {
+                argColIndices[i] = row.keyToIndex[cName] ??
+                    row.keyToIndex[cName.toLowerCase()] ??
+                    -1;
+              } else {
+                argColIndices[i] = -1;
+              }
+            }
+            if (groupColName != null) {
+              groupColIndex = row.keyToIndex[groupColName] ??
+                  row.keyToIndex[groupColName.toLowerCase()] ??
+                  -1;
+            }
+          }
+        }
+
+        swUpdate.start();
+        final groupVal = (groupColIndex >= 0 && rowValues != null && groupColIndex < rowValues.length)
+            ? rowValues[groupColIndex]
+            : singleJit!(row);
+        FastGroupState? state;
+        if (groupVal is DbInt) {
+          final k = groupVal.value;
+          if (k >= 0 && k < 1024) {
+            state = fastIntArray[k];
+            if (state == null) {
+              state = FastGroupState(len, const <String, DbValue>{});
+              fastIntArray[k] = state;
+              fastIntList.add(state);
+            }
+          } else {
+            state = fastIntGroups[k];
+            if (state == null) {
+              state = FastGroupState(len, const <String, DbValue>{});
+              fastIntGroups[k] = state;
+            }
+          }
+        } else {
+          final k = groupVal.value;
+          state = fastOtherGroups[k];
+          if (state == null) {
+            state = FastGroupState(len, const <String, DbValue>{});
+            fastOtherGroups[k] = state;
+          }
+        }
+        state.update(row, len, aggTypes, argJitsList, argColIndices, rowValues);
+        swUpdate.stop();
+      }
+      final nextUs = swNext.elapsedMicroseconds;
+      final updateUs = swUpdate.elapsedMicroseconds;
+
+      _aggregatedRows = [];
+      final allStates = <FastGroupState>[
+        ...fastIntList,
+        ...fastIntGroups.values,
+        ...fastOtherGroups.values,
+      ];
+      for (final state in allStates) {
+        final projectedRow = state.finalize(len, aggTypes, aliases);
+        if (jitHaving != null) {
+          final pass = jitHaving(projectedRow);
+          if (pass is DbInt && pass.value == 0) continue;
+          if (pass is DbNull) continue;
+        }
+        _aggregatedRows!.add(projectedRow);
+      }
+      print('[GROUPBY PROBE] rows: $rowCount, child.next: ${nextUs}us, state.update: ${updateUs}us, total: ${nextUs + updateUs}us');
+      return;
+    }
+
     while (true) {
       final row = child.next();
       if (row == null) {
         break;
       }
+
       for (int sIdx = 0; sIdx < sets.length; sIdx++) {
         final currentSetJits = setJits[sIdx];
         final currentSetExprs = setExprStrings[sIdx];

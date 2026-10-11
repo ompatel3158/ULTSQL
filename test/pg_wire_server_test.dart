@@ -118,12 +118,14 @@ void main() {
 
     final readyCompleter = Completer<void>();
     final promptCompleter = Completer<void>();
+    var stdoutBuf = '';
 
     proc.stdout.transform(utf8.decoder).listen((text) {
-      if ((text.contains('ultsql') && text.contains('>')) && !promptCompleter.isCompleted) {
+      stdoutBuf += text;
+      if (stdoutBuf.toLowerCase().contains('ultsql') && stdoutBuf.contains('>') && !promptCompleter.isCompleted) {
         promptCompleter.complete();
       }
-      if (text.contains('PostgreSQL Wire Protocol daemon listening') && !readyCompleter.isCompleted) {
+      if (stdoutBuf.contains('PostgreSQL Wire Protocol daemon listening') && !readyCompleter.isCompleted) {
         readyCompleter.complete();
       }
     });

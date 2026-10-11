@@ -811,7 +811,7 @@ class DbJson extends DbValue {
 }
 
 class RowMap extends MapBase<String, DbValue> {
-  final List<DbValue> values;
+  List<DbValue> values;
   final Map<String, int> keyToIndex;
 
   RowMap(this.values, this.keyToIndex);

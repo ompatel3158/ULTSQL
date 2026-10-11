@@ -99,7 +99,7 @@ Future<void> main(List<String> args) async {
     }
   }
   final started = DateTime.now();
-  stdout.writeln('ULTSQL benchmark harness — rows=$rows runs=$runs big=$bigRows');
+  stdout.writeln('ULTSQL benchmark harness - rows=$rows runs=$runs big=$bigRows');
   final hw = await collectEnvironment();
   stdout.writeln(const JsonEncoder.withIndent('  ').convert(hw));
 
@@ -250,9 +250,11 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
         label: 'Indexed range aggregate (age 30–40)', unit: 'ms/query', group: g);
 
     sw = Stopwatch()..start();
-    db.select('SELECT age, COUNT(*), AVG(score) FROM users GROUP BY age;');
+    for (var i = 0; i < 5; i++) {
+      db.select('SELECT age, COUNT(*), AVG(score) FROM users GROUP BY age;');
+    }
     sw.stop();
-    record('${prefix}groupby', 'sqlite', secs(sw) * 1000,
+    record('${prefix}groupby', 'sqlite', secs(sw) * 1000 / 5,
         label: 'Full-scan GROUP BY aggregate', unit: 'ms', group: g);
 
     sw = Stopwatch()..start();
@@ -355,9 +357,11 @@ Future<void> relationalSuite(int n, {String prefix = ''}) async {
         label: 'Indexed range aggregate (age 30–40)', unit: 'ms/query', group: g);
 
     sw = Stopwatch()..start();
-    await it.executeScript('SELECT age, COUNT(*), AVG(score) FROM users GROUP BY age;');
+    for (var i = 0; i < 5; i++) {
+      await it.executeScript('SELECT age, COUNT(*), AVG(score) FROM users GROUP BY age;');
+    }
     sw.stop();
-    record('${prefix}groupby', 'ultsql', secs(sw) * 1000, label: 'Full-scan GROUP BY aggregate', unit: 'ms', group: g);
+    record('${prefix}groupby', 'ultsql', secs(sw) * 1000 / 5, label: 'Full-scan GROUP BY aggregate', unit: 'ms', group: g);
 
     sw = Stopwatch()..start();
     await it.executeScript("UPDATE users SET name = 'Updated' WHERE age = 25;");
@@ -564,7 +568,7 @@ Future<void> kvSuite(int n) async {
 }
 
 // ---------------------------------------------------------------------------
-// Vector suite (ULTSQL only — SQLite has no built-in vector index)
+// Vector suite (ULTSQL only - SQLite has no built-in vector index)
 // ---------------------------------------------------------------------------
 Future<void> vectorSuite(int n, int dim) async {
   const g = 'Vector Search (HNSW)';

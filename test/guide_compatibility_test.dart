@@ -18,7 +18,14 @@ void main() {
     await db.close();
     final d = Directory(dbDir);
     if (d.existsSync()) {
-      d.deleteSync(recursive: true);
+      for (int i = 0; i < 10; i++) {
+        try {
+          d.deleteSync(recursive: true);
+          break;
+        } catch (_) {
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+      }
     }
   });
 

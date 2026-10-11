@@ -1,6 +1,6 @@
 # 🐹 UltSQL Go Client SDK
 
-Official Go client for **UltSQL** — the converged multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
+Official Go client for **UltSQL** - the converged multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
 
 ---
 

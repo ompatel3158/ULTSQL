@@ -8,8 +8,10 @@ import 'btree_index.dart';
 import 'toast_manager.dart';
 import '../parser/ast.dart';
 
-final Uint8List _sharedTempBuffer = Uint8List(65536);
-final ByteData _sharedTempByteData = ByteData.sublistView(_sharedTempBuffer);
+final Uint8List sharedTempBuffer = Uint8List(65536);
+final ByteData sharedTempByteData = ByteData.sublistView(sharedTempBuffer);
+final Uint8List _sharedTempBuffer = sharedTempBuffer;
+final ByteData _sharedTempByteData = sharedTempByteData;
 
 class RecordSerializer {
   static int serializeMvccRowDirect(
@@ -20,8 +22,8 @@ class RecordSerializer {
     int rollPtr, [
     ToastManager? toastManager,
   ]) {
-    final bd = identical(dest, _sharedTempBuffer)
-        ? _sharedTempByteData
+    final bd = identical(dest, sharedTempBuffer)
+        ? sharedTempByteData
         : ByteData.sublistView(dest);
     // Write MVCC header
     bd.setUint32(0, xmin);
@@ -66,11 +68,9 @@ class RecordSerializer {
         final str = val.value;
         final strLen = str.length;
         if (strLen <= 1024) {
-          dest.setRange(
-            currentOffset + 1,
-            currentOffset + 1 + strLen,
-            str.codeUnits,
-          );
+          for (int c = 0; c < strLen; c++) {
+            dest[currentOffset + 1 + c] = str.codeUnitAt(c);
+          }
           currentOffset += 1 + strLen;
         } else {
           final bytes = utf8.encoder.convert(str);
@@ -241,11 +241,9 @@ class RecordSerializer {
         dest[currentOffset] = 3;
         final strLen = val.length;
         if (strLen <= 1024) {
-          dest.setRange(
-            currentOffset + 1,
-            currentOffset + 1 + strLen,
-            val.codeUnits,
-          );
+          for (int c = 0; c < strLen; c++) {
+            dest[currentOffset + 1 + c] = val.codeUnitAt(c);
+          }
           currentOffset += 1 + strLen;
         } else {
           final bytes = utf8.encoder.convert(val);
@@ -352,6 +350,107 @@ class RecordSerializer {
     return currentOffset;
   }
 
+  static Uint8List serializeCell(DbValue val) {
+    if (val is DbNull) return Uint8List.fromList([0]);
+    if (val is DbInt) {
+      final v = val.value;
+      if (v >= -128 && v <= 127) {
+        final b = Uint8List(2);
+        b[0] = 1;
+        ByteData.sublistView(b).setInt8(1, v);
+        return b;
+      } else if (v >= -32768 && v <= 32767) {
+        final b = Uint8List(3);
+        b[0] = 1;
+        ByteData.sublistView(b).setInt16(1, v);
+        return b;
+      } else if (v >= -2147483648 && v <= 2147483647) {
+        final b = Uint8List(5);
+        b[0] = 1;
+        ByteData.sublistView(b).setInt32(1, v);
+        return b;
+      } else {
+        final b = Uint8List(9);
+        b[0] = 1;
+        ByteData.sublistView(b).setInt64(1, v);
+        return b;
+      }
+    } else if (val is DbDouble) {
+      final b = Uint8List(9);
+      b[0] = 2;
+      ByteData.sublistView(b).setFloat64(1, val.value);
+      return b;
+    } else if (val is DbText) {
+      final str = val.value;
+      final strLen = str.length;
+      final b = Uint8List(1 + strLen);
+      b[0] = 3;
+      for (int c = 0; c < strLen; c++) {
+        b[1 + c] = str.codeUnitAt(c);
+      }
+      return b;
+    } else if (val is DbBool) {
+      return Uint8List.fromList([8, val.value ? 1 : 0]);
+    } else {
+      return val.toBytes();
+    }
+  }
+
+  static int patchMvccRowDirect({
+    required Uint8List dest,
+    required ByteData srcData,
+    Uint8List? srcBytes,
+    required int srcOffset,
+    required int srcLen,
+    required int colIndex,
+    required Uint8List newColBytes,
+  }) {
+    final count = srcData.getUint16(srcOffset + 12);
+    if (colIndex >= count) return -1;
+
+    final relOffset = srcData.getUint16(srcOffset + 14 + colIndex * 2);
+    final absOffset = srcOffset + 12 + relOffset;
+    final nextRelOffset = (colIndex + 1 < count)
+        ? srcData.getUint16(srcOffset + 14 + (colIndex + 1) * 2)
+        : (srcLen - 12);
+    final oldCellLen = (srcOffset + 12 + nextRelOffset) - absOffset;
+
+    final bytes = srcBytes ?? srcData.buffer.asUint8List();
+    if (newColBytes.length == oldCellLen) {
+      dest.setRange(0, srcLen, bytes, srcOffset);
+      final destCellOffset = 12 + relOffset;
+      dest.setRange(destCellOffset, destCellOffset + oldCellLen, newColBytes);
+      return srcLen;
+    }
+
+    final destBd = identical(dest, sharedTempBuffer)
+        ? sharedTempByteData
+        : ByteData.sublistView(dest);
+    dest.setRange(0, 12, bytes, srcOffset);
+    destBd.setUint16(12, count);
+
+    int curDestOffset = 14 + count * 2;
+    for (int i = 0; i < count; i++) {
+      destBd.setUint16(14 + i * 2, curDestOffset - 12);
+      if (i == colIndex) {
+        dest.setRange(curDestOffset, curDestOffset + newColBytes.length, newColBytes);
+        curDestOffset += newColBytes.length;
+      } else {
+        final cRel = srcData.getUint16(srcOffset + 14 + i * 2);
+        final cAbs = srcOffset + 12 + cRel;
+        final cNextRel = (i + 1 < count)
+            ? srcData.getUint16(srcOffset + 14 + (i + 1) * 2)
+            : (srcLen - 12);
+        final cLen = (srcOffset + 12 + cNextRel) - cAbs;
+        if (cLen > 0) {
+          dest.setRange(curDestOffset, curDestOffset + cLen, bytes, cAbs);
+          curDestOffset += cLen;
+        }
+      }
+    }
+    return curDestOffset;
+  }
+
   static Uint8List serializeRow(List<DbValue> values) {
     final count = values.length;
     final headerSize = 2 + count * 2;
@@ -405,7 +504,20 @@ class RecordSerializer {
       if (len > 0) {
         final absOffset = startOffsetInBytes + startOffset;
         final typeCode = data.getUint8(absOffset);
-        if (typeCode == 6) {
+        if (typeCode == 1) {
+          final valLen = len - 1;
+          if (valLen == 4) {
+            list[i] = DbInt(data.getInt32(absOffset + 1));
+          } else if (valLen == 1) {
+            list[i] = DbInt(data.getInt8(absOffset + 1));
+          } else if (valLen == 2) {
+            list[i] = DbInt(data.getInt16(absOffset + 1));
+          } else if (valLen == 8) {
+            list[i] = DbInt(data.getInt64(absOffset + 1));
+          }
+        } else if (typeCode == 2) {
+          list[i] = DbDouble(data.getFloat64(absOffset + 1));
+        } else if (typeCode == 6) {
           if (toastManager != null) {
             final startPage = data.getUint32(absOffset + 1);
             final totalSize = data.getUint32(absOffset + 5);
@@ -501,16 +613,17 @@ class SlottedPageHelper {
     final rowCount = getRowCount(page);
     final freeSpaceOffset = getFreeSpaceOffset(page);
     final recordLen = recordBytes.length;
+    final allocLen = (recordLen + 7) & ~7;
 
-    final requiredSpace = recordLen + 4; // record + slot size (4 bytes)
+    final requiredSpace = allocLen + 4; // record + slot size (4 bytes)
     final currentSlotEnd = headerSize + rowCount * 4;
 
     if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
       return false; // Page full
     }
 
-    final newFreeSpaceOffset = freeSpaceOffset - recordLen;
-    page.data.setAll(newFreeSpaceOffset, recordBytes);
+    final newFreeSpaceOffset = freeSpaceOffset - allocLen;
+    page.data.setRange(newFreeSpaceOffset, newFreeSpaceOffset + recordLen, recordBytes);
 
     // Write slot info
     data.setUint16(currentSlotEnd, newFreeSpaceOffset);
@@ -530,15 +643,16 @@ class SlottedPageHelper {
     final data = page.byteData;
     final rowCount = getRowCount(page);
     final freeSpaceOffset = getFreeSpaceOffset(page);
+    final allocLen = (recordLen + 7) & ~7;
 
-    final requiredSpace = recordLen + 4; // record + slot size (4 bytes)
+    final requiredSpace = allocLen + 4; // record + slot size (4 bytes)
     final currentSlotEnd = headerSize + rowCount * 4;
 
     if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
       return false; // Page full
     }
 
-    final newFreeSpaceOffset = freeSpaceOffset - recordLen;
+    final newFreeSpaceOffset = freeSpaceOffset - allocLen;
     page.data.setRange(
       newFreeSpaceOffset,
       newFreeSpaceOffset + recordLen,
@@ -617,13 +731,9 @@ class RowTableFile {
 
   void flushActivePageSync() {
     if (_activeInsertPage != null) {
-      cache.logPageToWalSync(filePath, _activeInsertPageId);
       cache.unpinPageSync(filePath, _activeInsertPageId, isDirty: true);
       _activeInsertPage = null;
       _activeInsertPageId = -1;
-      if (!cache.isTransactionActive) {
-        cache.flushWalSync();
-      }
     }
     _cachedPageCount = null;
   }
@@ -779,23 +889,33 @@ class RowTableFile {
     int xmin = 0,
     int rollPtr = 0,
     bool generatePointers = true,
+    Int32List? outPageIds,
+    Int32List? outSlotIds,
   }) {
     flushActivePageSync();
+    final p = pager;
     int pageCount = cache.getActualPageCountSync(filePath);
 
-    final pointers = generatePointers ? <BTreePointer>[] : null;
+    final pointers = (generatePointers && outPageIds == null) ? <BTreePointer>[] : null;
     if (rows.isEmpty) return pointers;
 
     int currentPageId = pageCount > 0 ? pageCount - 1 : 0;
-    Page page = cache.pinPageSync(filePath, currentPageId);
-    if (pageCount == 0) {
+    Page page;
+    if (pageCount == 0 && !cache.isTransactionActive) {
+      page = cache.getOrCreateBlankPageSync(p, 0);
       SlottedPageHelper.initPage(page, maxPayloadSize);
+    } else {
+      page = cache.pinPagerPageSync(p, currentPageId);
+      if (pageCount == 0) {
+        SlottedPageHelper.initPage(page, maxPayloadSize);
+      }
     }
 
     ByteData data = page.byteData;
     int rowCount = data.getUint16(1);
     int freeSpaceOffset = data.getUint16(3);
     bool pageDirty = pageCount == 0;
+    final isTx = cache.isTransactionActive;
 
     for (int r = 0; r < rows.length; r++) {
       final row = rows[r];
@@ -808,7 +928,8 @@ class RowTableFile {
         toastManager,
       );
 
-      final requiredSpace = recordLen + 4;
+      final allocLen = (recordLen + 7) & ~7;
+      final requiredSpace = allocLen + 4;
       final currentSlotEnd = 5 + rowCount * 4;
 
       if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
@@ -816,10 +937,12 @@ class RowTableFile {
         data.setUint16(3, freeSpaceOffset);
         page.rowCount = rowCount;
         page.freeSpaceOffset = freeSpaceOffset;
-        cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
+        cache.unpinPage(page, isDirty: pageDirty);
 
         currentPageId++;
-        page = cache.pinPageSync(filePath, currentPageId);
+        page = !isTx
+            ? cache.getOrCreateBlankPageSync(p, currentPageId)
+            : cache.pinPagerPageSync(p, currentPageId);
         SlottedPageHelper.initPage(page, maxPayloadSize);
         data = page.byteData;
         rowCount = 0;
@@ -827,7 +950,7 @@ class RowTableFile {
         pageDirty = true;
       }
 
-      final newFreeSpaceOffset = freeSpaceOffset - recordLen;
+      final newFreeSpaceOffset = freeSpaceOffset - allocLen;
       final pageBytes = page.data;
       pageBytes.setRange(
         newFreeSpaceOffset,
@@ -840,7 +963,10 @@ class RowTableFile {
       data.setUint16(slotOffset, newFreeSpaceOffset);
       data.setUint16(slotOffset + 2, recordLen);
 
-      if (generatePointers) {
+      if (outPageIds != null) {
+        outPageIds[r] = currentPageId;
+        outSlotIds![r] = rowCount;
+      } else if (generatePointers) {
         pointers!.add(BTreePointer(currentPageId, rowCount));
       }
 
@@ -854,7 +980,8 @@ class RowTableFile {
     data.setUint16(3, freeSpaceOffset);
     page.rowCount = rowCount;
     page.freeSpaceOffset = freeSpaceOffset;
-    cache.unpinPageSync(filePath, currentPageId, isDirty: pageDirty);
+    cache.unpinPage(page, isDirty: pageDirty);
+    p.updatePageCountAfterBulkBuildSync(currentPageId + 1);
     return pointers;
   }
 
@@ -894,7 +1021,8 @@ class RowTableFile {
         toastManager,
       );
 
-      final requiredSpace = recordLen + 4;
+      final allocLen = (recordLen + 7) & ~7;
+      final requiredSpace = allocLen + 4;
       final currentSlotEnd = 5 + rowCount * 4;
 
       if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
@@ -913,7 +1041,7 @@ class RowTableFile {
         pageDirty = true;
       }
 
-      final newFreeSpaceOffset = freeSpaceOffset - recordLen;
+      final newFreeSpaceOffset = freeSpaceOffset - allocLen;
       final pageBytes = page.data;
       pageBytes.setRange(
         newFreeSpaceOffset,
@@ -960,7 +1088,6 @@ class RowTableFile {
         final slotOffset = SlottedPageHelper.headerSize + slotId * 4;
         final offset = page.byteData.getUint16(slotOffset);
         page.data.setAll(offset, updatedRecord.toBytes());
-        cache.logPageToWalSync(filePath, pageId);
         cache.unpinPageSync(filePath, pageId, isDirty: true);
       } catch (_) {
         cache.unpinPageSync(filePath, pageId, isDirty: false);
@@ -994,6 +1121,86 @@ class RowTableFile {
       expectedColumnCount: expectedColumnCount,
       asOfTxId: asOfTxId,
     );
+  }
+
+  List<DbValue> deserializePartialRow(
+    Uint8List recordBytes,
+    List<int> colIndexes,
+    List<DbValue>? reuseList, [
+    int? expectedColumnCount,
+  ]) =>
+      _deserializePartialRow(
+        recordBytes,
+        colIndexes,
+        reuseList,
+        expectedColumnCount,
+      );
+
+  List<DbValue> deserializePartialRowFromView(
+    ByteData data,
+    int rowStart,
+    int rowLength,
+    List<int> colIndexes,
+    List<DbValue>? reuseList, [
+    int? expectedColumnCount,
+  ]) {
+    if (colIndexes.isEmpty) return const <DbValue>[];
+    final count = data.getUint16(rowStart);
+    final targetCount = expectedColumnCount ?? count;
+    final List<DbValue> list;
+    if (reuseList != null && reuseList.length == targetCount) {
+      list = reuseList;
+    } else {
+      list = List<DbValue>.filled(targetCount, const DbNull());
+    }
+    for (int i = 0; i < colIndexes.length; i++) {
+      final colIdx = colIndexes[i];
+      if (colIdx < count) {
+        final startOffset = data.getUint16(rowStart + 2 + colIdx * 2);
+        final endOffset = (colIdx + 1 < count)
+            ? data.getUint16(rowStart + 2 + (colIdx + 1) * 2)
+            : rowLength;
+        final len = endOffset - startOffset;
+        if (len > 0) {
+          final absOffset = rowStart + startOffset;
+          final typeCode = data.getUint8(absOffset);
+          if (typeCode == 1) {
+            final valLen = len - 1;
+            final valOffset = absOffset + 1;
+            if (valLen == 1) {
+              list[colIdx] = DbInt(data.getInt8(valOffset));
+            } else if (valLen == 2) {
+              list[colIdx] = DbInt(data.getInt16(valOffset));
+            } else if (valLen == 4) {
+              list[colIdx] = DbInt(data.getInt32(valOffset));
+            } else if (valLen == 8) {
+              list[colIdx] = DbInt(data.getInt64(valOffset));
+            } else {
+              list[colIdx] = const DbNull();
+            }
+          } else if (typeCode == 2) {
+            list[colIdx] = DbDouble(data.getFloat64(absOffset + 1));
+          } else if (typeCode == 6) {
+            final startPage = data.getUint32(absOffset + 1);
+            final totalSize = data.getUint32(absOffset + 5);
+            final bytes = toastManager.readDataSync(startPage, totalSize);
+            list[colIdx] = DbText(utf8.decode(bytes));
+          } else if (typeCode == 7) {
+            final startPage = data.getUint32(absOffset + 1);
+            final totalSize = data.getUint32(absOffset + 5);
+            final bytes = toastManager.readDataSync(startPage, totalSize);
+            list[colIdx] = DbJson.fromBytes(bytes);
+          } else {
+            list[colIdx] = DbValue.fromBytes(data, absOffset, len);
+          }
+        } else if (colIdx < targetCount) {
+          list[colIdx] = const DbNull();
+        }
+      } else if (colIdx < targetCount) {
+        list[colIdx] = const DbNull();
+      }
+    }
+    return list;
   }
 
   List<DbValue> _deserializePartialRow(
@@ -1084,6 +1291,10 @@ class RowCursor extends Iterable<List<DbValue>>
   @override
   List<DbValue> get current => _current!;
 
+  int get currentPageId => _currentPageId;
+  int get currentSlotId => _currentSlot - 1;
+  BTreePointer get currentPointer => BTreePointer(_currentPageId, _currentSlot - 1);
+
   @override
   bool moveNext() {
     while (_currentPageId < pageCount) {
@@ -1093,62 +1304,45 @@ class RowCursor extends Iterable<List<DbValue>>
         _currentSlot = 0;
       }
 
+      final page = _currentPage!;
+      final data = page.byteData;
       while (_currentSlot < _currentRowCount) {
-        final recBytes = SlottedPageHelper.getRecord(
-          _currentPage!,
-          _currentSlot++,
-        );
-        if (recBytes != null) {
-          if (recBytes.length >= 12) {
-            final bd = ByteData.sublistView(recBytes);
-            final xmin = bd.getUint32(0);
-            final xmax = bd.getUint32(4);
-            bool isVisible = false;
-            if (asOfTxId != null) {
-              isVisible = xmin <= asOfTxId! && (xmax == 0 || xmax > asOfTxId!);
-            } else {
-              isVisible = mgr.isVisible(xmin, xmax, currentTxId, activeTxIds);
-            }
-            if (isVisible) {
-              final rowData = Uint8List.view(
-                recBytes.buffer,
-                recBytes.offsetInBytes + 12,
-                recBytes.length - 12,
-              );
-              try {
-                if (projectedColIndexes != null) {
-                  _reusedRowList = tableFile._deserializePartialRow(
-                    rowData,
-                    projectedColIndexes!,
-                    _reusedRowList,
-                    expectedColumnCount,
-                  );
-                  _current = _reusedRowList;
-                } else {
-                  _current = RecordSerializer.deserializeRow(
-                    rowData,
-                    expectedColumnCount,
-                    tableFile.toastManager,
-                  );
-                }
-                return true;
-              } catch (_) {
-                continue;
-              }
-            }
+        final slotId = _currentSlot++;
+        final slotOffset = SlottedPageHelper.headerSize + slotId * 4;
+        if (slotOffset + 4 > page.data.length) continue;
+        final recOffset = data.getUint16(slotOffset);
+        final recLen = data.getUint16(slotOffset + 2);
+        if (recLen == 0 || recOffset >= page.data.length || recOffset + recLen > page.data.length) continue;
+
+        if (recLen >= 12) {
+          final xmin = data.getUint32(recOffset);
+          final xmax = data.getUint32(recOffset + 4);
+          bool isVisible = false;
+          if (asOfTxId != null) {
+            isVisible = xmin <= asOfTxId! && (xmax == 0 || xmax > asOfTxId!);
           } else {
+            isVisible = (currentTxId == 0 && activeTxIds.isEmpty && xmin != 0 && xmax == 0 && mgr.txStatusMap.isEmpty) ||
+                mgr.isVisible(xmin, xmax, currentTxId, activeTxIds);
+          }
+          if (isVisible) {
+            final rowStart = recOffset + 12;
+            final rowLen = recLen - 12;
             try {
               if (projectedColIndexes != null) {
-                _reusedRowList = tableFile._deserializePartialRow(
-                  recBytes,
+                _reusedRowList = tableFile.deserializePartialRowFromView(
+                  data,
+                  rowStart,
+                  rowLen,
                   projectedColIndexes!,
                   _reusedRowList,
                   expectedColumnCount,
                 );
                 _current = _reusedRowList;
               } else {
-                _current = RecordSerializer.deserializeRow(
-                  recBytes,
+                _current = RecordSerializer.deserializeRowFromView(
+                  data,
+                  rowStart,
+                  rowLen,
                   expectedColumnCount,
                   tableFile.toastManager,
                 );
@@ -1157,6 +1351,31 @@ class RowCursor extends Iterable<List<DbValue>>
             } catch (_) {
               continue;
             }
+          }
+        } else {
+          try {
+            if (projectedColIndexes != null) {
+              _reusedRowList = tableFile.deserializePartialRowFromView(
+                data,
+                recOffset,
+                recLen,
+                projectedColIndexes!,
+                _reusedRowList,
+                expectedColumnCount,
+              );
+              _current = _reusedRowList;
+            } else {
+              _current = RecordSerializer.deserializeRowFromView(
+                data,
+                recOffset,
+                recLen,
+                expectedColumnCount,
+                tableFile.toastManager,
+              );
+            }
+            return true;
+          } catch (_) {
+            continue;
           }
         }
       }

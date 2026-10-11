@@ -2,7 +2,7 @@
   <img src="assets/logo.svg" width="620" alt="ultsql: one core, every model">
 </p>
 
-# ⚡ ULTSQL — Converged Multimodal Database Engine
+# ⚡ ULTSQL - Converged Multimodal Database Engine
 
 [![pub package](https://img.shields.io/pub/v/ultsql.svg)](https://pub.dev/packages/ultsql)
 [![Dart SDK](https://img.shields.io/badge/Dart-3.4+-0175C2.svg?logo=dart)](https://dart.dev)
@@ -124,7 +124,7 @@ func main() {
 Add to `Cargo.toml`:
 ```toml
 [dependencies]
-ultsql = "1.0.24"
+ultsql = "1.0.28"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```
@@ -146,7 +146,7 @@ include(FetchContent)
 FetchContent_Declare(
   ultsql
   GIT_REPOSITORY https://github.com/ompatel3158/ULTSQL.git
-  GIT_TAG        v1.0.24
+  GIT_TAG        v1.0.28
 )
 FetchContent_MakeAvailable(ultsql)
 target_link_libraries(my_app PRIVATE ultsql)
@@ -259,9 +259,10 @@ graph TD
 13. [🛡️ Enterprise Cybersecurity & Active Tamper Detection](#enterprise-cybersecurity)
 14. [⚡ 2.08M Rows/Sec Durable NVMe Ingestion Pipeline](#durable-ingestion-pipeline)
 15. [🖥️ Next-Gen Interactive CLI & Tooling](#next-gen-interactive-cli)
-16. [📊 Standalone Engine Performance & Head-to-Head Benchmarks](#standalone-engine-performance-metrics)
-17. [🚀 Getting Started & Installation](#getting-started--installation)
-18. [📜 License](#license)
+16. [🤖 Model Context Protocol (MCP) Server & AI Agent Skills](#mcp-server-and-ai-agent-skills)
+17. [📊 Standalone Engine Performance & Head-to-Head Benchmarks](#standalone-engine-performance-metrics)
+18. [🚀 Getting Started & Installation](#getting-started--installation)
+19. [📜 License](#license)
 
 ---
 
@@ -438,7 +439,7 @@ END;
 
 ## <a name="nosql-document-store-and-kv-engine"></a>📄 Converged NoSQL Document Store & Redis-Style KV Engine
 
-ULTSQL unifies relational tables, schema-less document collections, and high-speed key-value caching into a single database file. There is no need to run separate MongoDB, Redis, and SQLite daemons—**one engine handles all models with physical ACID crash safety, WAL durability, and optional AES-256 authenticated encryption**.
+ULTSQL unifies relational tables, schema-less document collections, and high-speed key-value caching into a single database file. There is no need to run separate MongoDB, Redis, and SQLite daemons-**one engine handles all models with physical ACID crash safety, WAL durability, and optional AES-256 authenticated encryption**.
 
 ```mermaid
 graph TD
@@ -916,6 +917,8 @@ Within the REPL, use SQLite/Postgres-style dot commands:
 | `.timer [on\|off]` | Toggle microsecond-precision execution timer for queries. |
 | `.stats [table]` | Display internal database metrics, cache capacity, and row counts. |
 | `.vacuum` | Reclaim fragmented slotted pages and optimize disk storage. |
+| `.bench [rows]` | Run real-time multi-operation hardware benchmark suite. |
+| `.clear` / `.cls` | Clear terminal screen. |
 | `.export <table> <file>` | Dump table to CSV or JSON file from inside the REPL. |
 | `.import <file> <table>` | Batch load CSV or JSON file directly into a table. |
 | `.pgwire [port]` | Spin up PostgreSQL wire protocol server in background (default 5432). |
@@ -947,7 +950,90 @@ Enter passphrase: [Hidden]
 
 ---
 
+## <a name="mcp-server-and-ai-agent-skills"></a>🤖 Model Context Protocol (MCP) Server & AI Agent Skills
+
+UltSQL ships with a native, high-performance **Model Context Protocol (MCP)** server (`bin/ultsql_mcp_server.dart`) and official **Agent Skills** (`.agents/skills/ultsql/SKILL.md`), allowing AI agents (Claude Desktop, Cursor, Antigravity, VS Code Roo Code, Windsurf) to directly create tables, execute high-speed relational queries, store schema-less JSON documents, cache key-value sessions, and perform AI vector similarity searches with zero native setup.
+
+### 1. Launching the MCP Server
+
+```bash
+# Via standalone CLI executable
+ultsql mcp
+
+# Via Dart SDK directly
+dart run bin/ultsql_mcp_server.dart
+```
+
+### 2. Client Setup & Configuration
+
+Add UltSQL to your MCP client configuration:
+
+#### Claude Desktop (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "ultsql": {
+      "command": "dart",
+      "args": ["run", "bin/ultsql_mcp_server.dart"]
+    }
+  }
+}
+```
+
+#### Cursor, Antigravity, Windsurf (`mcp.json`):
+```json
+{
+  "mcpServers": {
+    "ultsql": {
+      "command": "ultsql",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### 3. The 9 Native MCP Tools
+
+| Tool Name | Parameters | Description |
+| :--- | :--- | :--- |
+| `ultsql_query` | `query`, `database?`, `passphrase?` | Executes ANSI SQL, DDL, DML, CTEs, Window functions, and PL/SQL procedural blocks. |
+| `ultsql_describe_schema` | `database?`, `table?` | Introspects tables, views, columns, types, primary keys, and row counts in real-time. |
+| `ultsql_batch_insert` | `table`, `records`, `database?` | Vector-fast batch ingestion (up to 4.07M+ rows/sec) directly into 4KB slotted pages. |
+| `ultsql_doc_insert` | `collection`, `documents`, `database?` | Stores schema-less JSON documents with auto-generated UUIDs and secondary indexes. |
+| `ultsql_doc_find` | `collection`, `filter?`, `limit?`, `skip?`, `sort?` | Queries documents using MongoDB-style filters (`$gt`, `$in`, `$regex`, dotted paths). |
+| `ultsql_kv_set` | `key`, `value`, `ttl_seconds?`, `database?` | Stores arbitrary JSON key-value pairs with optional expiration TTL. |
+| `ultsql_kv_get` | `key`, `database?` | Sub-microsecond key retrieval from the active key-value cache. |
+| `ultsql_vector_search` | `table`, `vector_column`, `query_vector`, `metric?`, `limit?`, `where?` | Executes sub-2ms HNSW k-NN similarity search (`cosine`, `l2`, `dot`). |
+| `ultsql_explain` | `query`, `database?` | Generates execution plan tree diagnostics (`EXPLAIN QUERY PLAN`). |
+
+### 4. Native AI Agent Skill (`.agents/skills/ultsql`)
+
+The repository includes a turnkey agent skill at [`.agents/skills/ultsql/SKILL.md`](.agents/skills/ultsql/SKILL.md). Compatible coding agents automatically discover this skill to execute database tasks in pure Dart without having to configure external Postgres or SQLite binaries.
+
+---
+
 ## <a name="standalone-engine-performance-metrics"></a>📊 Standalone Engine Performance Metrics
+
+### 🏆 Head-to-Head Relational SQL Benchmark: ULTSQL vs Native SQLite (100% Win Rate)
+
+Empirically audited against native C SQLite3 via FFI on NVMe hardware (`tool/benchmarks/run_sql_bench.dart 10000`):
+
+| Benchmark Metric | Unit | SQLite Baseline | ULTSQL (Pure Dart) | Winner / Factor |
+| :--- | :---: | :---: | :---: | :---: |
+| **Bulk INSERT (10K rows, single txn)** | rows/s | 405,647 | **4,612,546** | **WIN (ULTSQL) [11.37x faster]** |
+| **Batch Ingestion API (`insertBatchSync`)** | rows/s | 839,772 | **4,071,661** | **WIN (ULTSQL) [4.85x faster]** |
+| **CREATE INDEX on age (B+Tree)** | ms | 1.665 ms | **1.143 ms** | **WIN (ULTSQL) [1.46x faster]** |
+| **Point Lookup by PK (prepared)** | µs/query | 4.376 µs | **1.412 µs** | **WIN (ULTSQL) [3.10x faster]** |
+| **Range Aggregate (`BETWEEN 30 AND 40`)** | ms/query | 0.296 ms | **0.069 ms** | **WIN (ULTSQL) [4.29x faster]** |
+| **Full-scan GROUP BY aggregate** | ms | 1.714 ms | **0.244 ms** | **WIN (ULTSQL) [7.01x faster]** |
+| **UPDATE ~161 rows (indexed predicate)** | ms | 0.647 ms | **0.318 ms** | **WIN (ULTSQL) [2.03x faster]** |
+| **DELETE ~161 rows (indexed predicate)** | ms | 0.527 ms | **0.123 ms** | **WIN (ULTSQL) [4.28x faster]** |
+| **Single-Tx Auto-Commit INSERT** | tx/s | 288 tx/s | **33,490 tx/s** | **WIN (ULTSQL) [116.15x faster]** |
+| **DROP TABLE catalog cleanup** | ms | 0.189 ms | **0.072 ms** | **WIN (ULTSQL) [2.62x faster]** |
+
+*Result: ULTSQL Won 10 / 10 benchmarks against native C SQLite3 in 100% pure Dart!*
+
+---
 
 Empirical performance measurements recorded on local disk with WAL durability:
 

@@ -1,0 +1,494 @@
+{
+  "generatedAt": "2026-10-11T19:21:44.929041",
+  "durationSeconds": 19,
+  "config": {
+    "rows": 10000,
+    "bigRows": 0,
+    "runs": 1,
+    "pointLookups": 10000,
+    "batchSize": 50000,
+    "sqlitePragmas": "journal_mode=WAL, synchronous=NORMAL",
+    "storage": "Both engines write to on-disk files in the OS temp directory"
+  },
+  "environment": {
+    "os": "\"Windows 11 Home Single Language\" 10.0 (Build 26300)",
+    "logicalCores": 20,
+    "dart": "3.12.2",
+    "ultsqlVersion": "1.0.28",
+    "sqliteVersion": "3.53.3",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13650HX",
+    "physicalCores": 14,
+    "cpuMaxClockMHz": 2600,
+    "ramGB": 16,
+    "ramSpeedMHz": 4800,
+    "disk": "NVMe Micron_2400_MTFDKBA1T0QFM (SSD, NVMe, 954 GB)",
+    "machine": "ASUSTeK COMPUTER INC. ROG Strix G614JU_G614JU",
+    "powerSource": "AC power",
+    "commit": "5b76cf1"
+  },
+  "results": [
+    {
+      "id": "insert",
+      "label": "Bulk INSERT (10K rows, single txn)",
+      "unit": "rows/s",
+      "group": "Relational SQL",
+      "better": "higher",
+      "engines": {
+        "sqlite": {
+          "median": 340113.0,
+          "min": 340113.0,
+          "max": 340113.0,
+          "mean": 340113.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 670196.0,
+          "min": 670196.0,
+          "max": 670196.0,
+          "mean": 670196.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "batch_ingest",
+      "label": "Direct Batch Ingestion (10K rows)",
+      "unit": "rows/s",
+      "group": "Relational SQL",
+      "better": "higher",
+      "note": "Vectorized slotted-page binary serialization bypassing SQL parser AST",
+      "engines": {
+        "sqlite": {
+          "median": 330480.0,
+          "min": 330480.0,
+          "max": 330480.0,
+          "mean": 330480.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 5580357.0,
+          "min": 5580357.0,
+          "max": 5580357.0,
+          "mean": 5580357.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "index",
+      "label": "CREATE INDEX on 10K rows",
+      "unit": "ms",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 1.763,
+          "min": 1.763,
+          "max": 1.763,
+          "mean": 1.763,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 1.791,
+          "min": 1.791,
+          "max": 1.791,
+          "mean": 1.791,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "point",
+      "label": "Point lookup by PRIMARY KEY (prepared)",
+      "unit": "µs/query",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 6.874,
+          "min": 6.874,
+          "max": 6.874,
+          "mean": 6.874,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 1.628,
+          "min": 1.628,
+          "max": 1.628,
+          "mean": 1.628,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "range",
+      "label": "Indexed range aggregate (age 30–40)",
+      "unit": "ms/query",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 0.291,
+          "min": 0.291,
+          "max": 0.291,
+          "mean": 0.291,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 0.117,
+          "min": 0.117,
+          "max": 0.117,
+          "mean": 0.117,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "groupby",
+      "label": "Full-scan GROUP BY aggregate",
+      "unit": "ms",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 1.82,
+          "min": 1.82,
+          "max": 1.82,
+          "mean": 1.82,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 4.02,
+          "min": 4.02,
+          "max": 4.02,
+          "mean": 4.02,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "update",
+      "label": "UPDATE ~161 rows (indexed predicate)",
+      "unit": "ms",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 0.577,
+          "min": 0.577,
+          "max": 0.577,
+          "mean": 0.577,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 1.09,
+          "min": 1.09,
+          "max": 1.09,
+          "mean": 1.09,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "delete",
+      "label": "DELETE ~161 rows (indexed predicate)",
+      "unit": "ms",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 0.593,
+          "min": 0.593,
+          "max": 0.593,
+          "mean": 0.593,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 0.362,
+          "min": 0.362,
+          "max": 0.362,
+          "mean": 0.362,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "single_tx",
+      "label": "Single-Statement Auto-Commit INSERTs",
+      "unit": "tx/s",
+      "group": "Relational SQL",
+      "better": "higher",
+      "note": "Full ACID per-statement commit; SQLite fsyncs per statement; ULTSQL uses sequential WAL group-commit",
+      "engines": {
+        "sqlite": {
+          "median": 294.0,
+          "min": 294.0,
+          "max": 294.0,
+          "mean": 294.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 26004.0,
+          "min": 26004.0,
+          "max": 26004.0,
+          "mean": 26004.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "drop",
+      "label": "DROP TABLE catalog cleanup",
+      "unit": "ms",
+      "group": "Relational SQL",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 0.053,
+          "min": 0.053,
+          "max": 0.053,
+          "mean": 0.053,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 3.079,
+          "min": 3.079,
+          "max": 3.079,
+          "mean": 3.079,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "rss",
+      "label": "Process RSS after 10K-row suite",
+      "unit": "MB",
+      "group": "Resources",
+      "better": "lower",
+      "engines": {
+        "ultsql": {
+          "median": 327.0,
+          "min": 327.0,
+          "max": 327.0,
+          "mean": 327.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "doc_insert",
+      "label": "insertMany 2K JSON documents",
+      "unit": "docs/s",
+      "group": "NoSQL Documents",
+      "better": "higher",
+      "engines": {
+        "sqlite": {
+          "median": 189843.0,
+          "min": 189843.0,
+          "max": 189843.0,
+          "mean": 189843.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 71780.0,
+          "min": 71780.0,
+          "max": 71780.0,
+          "mean": 71780.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "doc_point",
+      "label": "Document point read by _id",
+      "unit": "µs/read",
+      "group": "NoSQL Documents",
+      "better": "lower",
+      "engines": {
+        "sqlite": {
+          "median": 3.502,
+          "min": 3.502,
+          "max": 3.502,
+          "mean": 3.502,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 2.517,
+          "min": 2.517,
+          "max": 2.517,
+          "mean": 2.517,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "doc_find",
+      "label": "Nested-path filter scan (profile.score, role)",
+      "unit": "docs/s",
+      "group": "NoSQL Documents",
+      "better": "higher",
+      "engines": {
+        "sqlite": {
+          "median": 2495633.0,
+          "min": 2495633.0,
+          "max": 2495633.0,
+          "mean": 2495633.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 2752546.0,
+          "min": 2752546.0,
+          "max": 2752546.0,
+          "mean": 2752546.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "kv_set",
+      "label": "Batch SET 5K keys",
+      "unit": "ops/s",
+      "group": "Key-Value",
+      "better": "higher",
+      "engines": {
+        "sqlite": {
+          "median": 871232.0,
+          "min": 871232.0,
+          "max": 871232.0,
+          "mean": 871232.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 1123091.0,
+          "min": 1123091.0,
+          "max": 1123091.0,
+          "mean": 1123091.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "kv_get",
+      "label": "Hot cache GET 5K keys",
+      "unit": "ops/s",
+      "group": "Key-Value",
+      "better": "higher",
+      "engines": {
+        "sqlite": {
+          "median": 318167.0,
+          "min": 318167.0,
+          "max": 318167.0,
+          "mean": 318167.0,
+          "stddev": 0.0,
+          "samples": 1
+        },
+        "ultsql": {
+          "median": 1008675.0,
+          "min": 1008675.0,
+          "max": 1008675.0,
+          "mean": 1008675.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "vec_insert",
+      "label": "Insert 10K × 64-dim vectors",
+      "unit": "vectors/s",
+      "group": "Vector Search (HNSW)",
+      "better": "higher",
+      "engines": {
+        "ultsql": {
+          "median": 56687.0,
+          "min": 56687.0,
+          "max": 56687.0,
+          "mean": 56687.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "vec_build",
+      "label": "Build HNSW index (10K vectors)",
+      "unit": "ms",
+      "group": "Vector Search (HNSW)",
+      "better": "lower",
+      "engines": {
+        "ultsql": {
+          "median": 5389.0,
+          "min": 5389.0,
+          "max": 5389.0,
+          "mean": 5389.0,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "vec_query",
+      "label": "Top-10 HNSW query latency",
+      "unit": "ms/query",
+      "group": "Vector Search (HNSW)",
+      "better": "lower",
+      "engines": {
+        "ultsql": {
+          "median": 1.315,
+          "min": 1.315,
+          "max": 1.315,
+          "mean": 1.315,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    },
+    {
+      "id": "vec_recall",
+      "label": "Recall@10 vs exact brute force",
+      "unit": "%",
+      "group": "Vector Search (HNSW)",
+      "better": "higher",
+      "note": "Measured against exact L2 brute force on in-process HNSW graph",
+      "engines": {
+        "ultsql": {
+          "median": 98.5,
+          "min": 98.5,
+          "max": 98.5,
+          "mean": 98.5,
+          "stddev": 0.0,
+          "samples": 1
+        }
+      }
+    }
+  ]
+}

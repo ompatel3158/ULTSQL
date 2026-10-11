@@ -11,6 +11,7 @@ import 'package:ultsql/src/engine/executor/plan_nodes.dart';
 import 'package:ultsql/src/engine/executor/jit_compiler.dart';
 import 'package:ultsql/src/engine/parser/ast.dart';
 import 'package:ultsql/src/engine/cache/page_cache.dart';
+import 'package:ultsql/src/engine/storage/btree_index.dart';
 
 class ParallelScanTask {
   final String filePath;
@@ -487,16 +488,7 @@ Float64List runParallelIndexKeyExtractor(IndexExtractorTask task) {
             valLen,
           );
           final str = utf8.decode(bytes);
-          final parsed = double.tryParse(str);
-          if (parsed != null) {
-            dKey = parsed;
-          } else {
-            double hash = 0.0;
-            for (int j = 0; j < str.length; j++) {
-              hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
-            }
-            dKey = hash;
-          }
+          dKey = BTreeIndex.stringToKey(str);
         }
 
         if (dKey == null) {

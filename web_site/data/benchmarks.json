@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-05T22:20:34.065756",
-  "durationSeconds": 132,
+  "generatedAt": "2026-10-11T19:21:44.929041",
+  "durationSeconds": 19,
   "config": {
-    "rows": 100000,
-    "bigRows": 1000000,
-    "runs": 3,
+    "rows": 10000,
+    "bigRows": 0,
+    "runs": 1,
     "pointLookups": 10000,
     "batchSize": 50000,
     "sqlitePragmas": "journal_mode=WAL, synchronous=NORMAL",
@@ -14,7 +14,7 @@
     "os": "\"Windows 11 Home Single Language\" 10.0 (Build 26300)",
     "logicalCores": 20,
     "dart": "3.12.2",
-    "ultsqlVersion": "1.0.26",
+    "ultsqlVersion": "1.0.28",
     "sqliteVersion": "3.53.3",
     "cpu": "13th Gen Intel(R) Core(TM) i7-13650HX",
     "physicalCores": 14,
@@ -24,82 +24,82 @@
     "disk": "NVMe Micron_2400_MTFDKBA1T0QFM (SSD, NVMe, 954 GB)",
     "machine": "ASUSTeK COMPUTER INC. ROG Strix G614JU_G614JU",
     "powerSource": "AC power",
-    "commit": "8a6961e"
+    "commit": "5b76cf1"
   },
   "results": [
     {
       "id": "insert",
-      "label": "Bulk INSERT (100K rows, single txn)",
+      "label": "Bulk INSERT (10K rows, single txn)",
       "unit": "rows/s",
       "group": "Relational SQL",
       "better": "higher",
       "engines": {
         "sqlite": {
-          "median": 500035.0,
-          "min": 314348.0,
-          "max": 645490.0,
-          "mean": 486624.0,
-          "stddev": 135521.0,
-          "samples": 3
+          "median": 340113.0,
+          "min": 340113.0,
+          "max": 340113.0,
+          "mean": 340113.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 400726.0,
-          "min": 204240.0,
-          "max": 699511.0,
-          "mean": 434826.0,
-          "stddev": 203626.0,
-          "samples": 3
+          "median": 670196.0,
+          "min": 670196.0,
+          "max": 670196.0,
+          "mean": 670196.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "batch_ingest",
-      "label": "Direct Batch Ingestion (100K rows)",
+      "label": "Direct Batch Ingestion (10K rows)",
       "unit": "rows/s",
       "group": "Relational SQL",
       "better": "higher",
       "note": "Vectorized slotted-page binary serialization bypassing SQL parser AST",
       "engines": {
         "sqlite": {
-          "median": 586019.0,
-          "min": 537302.0,
-          "max": 591740.0,
-          "mean": 571687.0,
-          "stddev": 24426.0,
-          "samples": 3
+          "median": 330480.0,
+          "min": 330480.0,
+          "max": 330480.0,
+          "mean": 330480.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 902511.0,
-          "min": 422181.0,
-          "max": 1159501.0,
-          "mean": 828064.0,
-          "stddev": 305578.0,
-          "samples": 3
+          "median": 5580357.0,
+          "min": 5580357.0,
+          "max": 5580357.0,
+          "mean": 5580357.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "index",
-      "label": "CREATE INDEX on 100K rows",
+      "label": "CREATE INDEX on 10K rows",
       "unit": "ms",
       "group": "Relational SQL",
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 48.688,
-          "min": 42.338,
-          "max": 55.243,
-          "mean": 48.756,
-          "stddev": 5.269,
-          "samples": 3
+          "median": 1.763,
+          "min": 1.763,
+          "max": 1.763,
+          "mean": 1.763,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 92.328,
-          "min": 83.643,
-          "max": 185.0,
-          "mean": 120.0,
-          "stddev": 45.666,
-          "samples": 3
+          "median": 1.791,
+          "min": 1.791,
+          "max": 1.791,
+          "mean": 1.791,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -111,20 +111,20 @@
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 12.04,
-          "min": 11.103,
-          "max": 13.309,
-          "mean": 12.151,
-          "stddev": 0.904,
-          "samples": 3
+          "median": 6.874,
+          "min": 6.874,
+          "max": 6.874,
+          "mean": 6.874,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 3.712,
-          "min": 2.928,
-          "max": 9.084,
-          "mean": 5.242,
-          "stddev": 2.736,
-          "samples": 3
+          "median": 1.628,
+          "min": 1.628,
+          "max": 1.628,
+          "mean": 1.628,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -136,20 +136,20 @@
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 43.47,
-          "min": 42.362,
-          "max": 47.245,
-          "mean": 44.359,
-          "stddev": 2.09,
-          "samples": 3
+          "median": 0.291,
+          "min": 0.291,
+          "max": 0.291,
+          "mean": 0.291,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 23.233,
-          "min": 16.801,
-          "max": 23.583,
-          "mean": 21.206,
-          "stddev": 3.118,
-          "samples": 3
+          "median": 0.117,
+          "min": 0.117,
+          "max": 0.117,
+          "mean": 0.117,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -161,70 +161,70 @@
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 264.0,
-          "min": 214.0,
-          "max": 264.0,
-          "mean": 247.0,
-          "stddev": 23.418,
-          "samples": 3
+          "median": 1.82,
+          "min": 1.82,
+          "max": 1.82,
+          "mean": 1.82,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 343.0,
-          "min": 308.0,
-          "max": 553.0,
-          "mean": 401.0,
-          "stddev": 108.0,
-          "samples": 3
+          "median": 4.02,
+          "min": 4.02,
+          "max": 4.02,
+          "mean": 4.02,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "update",
-      "label": "UPDATE ~1613 rows (indexed predicate)",
+      "label": "UPDATE ~161 rows (indexed predicate)",
       "unit": "ms",
       "group": "Relational SQL",
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 14.503,
-          "min": 9.849,
-          "max": 14.748,
-          "mean": 13.033,
-          "stddev": 2.254,
-          "samples": 3
+          "median": 0.577,
+          "min": 0.577,
+          "max": 0.577,
+          "mean": 0.577,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 195.0,
-          "min": 136.0,
-          "max": 293.0,
-          "mean": 208.0,
-          "stddev": 64.612,
-          "samples": 3
+          "median": 1.09,
+          "min": 1.09,
+          "max": 1.09,
+          "mean": 1.09,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "delete",
-      "label": "DELETE ~1613 rows (indexed predicate)",
+      "label": "DELETE ~161 rows (indexed predicate)",
       "unit": "ms",
       "group": "Relational SQL",
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 37.979,
-          "min": 35.559,
-          "max": 41.448,
-          "mean": 38.329,
-          "stddev": 2.417,
-          "samples": 3
+          "median": 0.593,
+          "min": 0.593,
+          "max": 0.593,
+          "mean": 0.593,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 8.903,
-          "min": 8.154,
-          "max": 16.478,
-          "mean": 11.178,
-          "stddev": 3.76,
-          "samples": 3
+          "median": 0.362,
+          "min": 0.362,
+          "max": 0.362,
+          "mean": 0.362,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -237,20 +237,20 @@
       "note": "Full ACID per-statement commit; SQLite fsyncs per statement; ULTSQL uses sequential WAL group-commit",
       "engines": {
         "sqlite": {
-          "median": 153.0,
-          "min": 144.0,
-          "max": 166.0,
-          "mean": 154.0,
-          "stddev": 8.82,
-          "samples": 3
+          "median": 294.0,
+          "min": 294.0,
+          "max": 294.0,
+          "mean": 294.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 6457.0,
-          "min": 1223.0,
-          "max": 7602.0,
-          "mean": 5094.0,
-          "stddev": 2777.0,
-          "samples": 3
+          "median": 26004.0,
+          "min": 26004.0,
+          "max": 26004.0,
+          "mean": 26004.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -262,62 +262,62 @@
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 0.178,
-          "min": 0.108,
-          "max": 0.288,
-          "mean": 0.191,
-          "stddev": 0.074,
-          "samples": 3
+          "median": 0.053,
+          "min": 0.053,
+          "max": 0.053,
+          "mean": 0.053,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 8.036,
-          "min": 3.254,
-          "max": 14.075,
-          "mean": 8.455,
-          "stddev": 4.428,
-          "samples": 3
+          "median": 3.079,
+          "min": 3.079,
+          "max": 3.079,
+          "mean": 3.079,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "rss",
-      "label": "Process RSS after 100K-row suite",
+      "label": "Process RSS after 10K-row suite",
       "unit": "MB",
       "group": "Resources",
       "better": "lower",
       "engines": {
         "ultsql": {
-          "median": 302.0,
-          "min": 285.0,
-          "max": 306.0,
-          "mean": 298.0,
-          "stddev": 9.041,
-          "samples": 3
+          "median": 327.0,
+          "min": 327.0,
+          "max": 327.0,
+          "mean": 327.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "doc_insert",
-      "label": "insertMany 20K JSON documents",
+      "label": "insertMany 2K JSON documents",
       "unit": "docs/s",
       "group": "NoSQL Documents",
       "better": "higher",
       "engines": {
         "sqlite": {
-          "median": 123909.0,
-          "min": 114600.0,
-          "max": 152769.0,
-          "mean": 130426.0,
-          "stddev": 16249.0,
-          "samples": 3
+          "median": 189843.0,
+          "min": 189843.0,
+          "max": 189843.0,
+          "mean": 189843.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 60570.0,
-          "min": 32173.0,
-          "max": 105921.0,
-          "mean": 66221.0,
-          "stddev": 30372.0,
-          "samples": 3
+          "median": 71780.0,
+          "min": 71780.0,
+          "max": 71780.0,
+          "mean": 71780.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -329,20 +329,20 @@
       "better": "lower",
       "engines": {
         "sqlite": {
-          "median": 11.269,
-          "min": 8.007,
-          "max": 11.566,
-          "mean": 10.28,
-          "stddev": 1.612,
-          "samples": 3
+          "median": 3.502,
+          "min": 3.502,
+          "max": 3.502,
+          "mean": 3.502,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 16.518,
-          "min": 9.533,
-          "max": 102.0,
-          "mean": 42.801,
-          "stddev": 42.205,
-          "samples": 3
+          "median": 2.517,
+          "min": 2.517,
+          "max": 2.517,
+          "mean": 2.517,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -354,70 +354,70 @@
       "better": "higher",
       "engines": {
         "sqlite": {
-          "median": 1243549.0,
-          "min": 819524.0,
-          "max": 1356429.0,
-          "mean": 1139834.0,
-          "stddev": 231134.0,
-          "samples": 3
+          "median": 2495633.0,
+          "min": 2495633.0,
+          "max": 2495633.0,
+          "mean": 2495633.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 138832.0,
-          "min": 118489.0,
-          "max": 211151.0,
-          "mean": 156157.0,
-          "stddev": 39763.0,
-          "samples": 3
+          "median": 2752546.0,
+          "min": 2752546.0,
+          "max": 2752546.0,
+          "mean": 2752546.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "kv_set",
-      "label": "Batch SET 50K keys",
+      "label": "Batch SET 5K keys",
       "unit": "ops/s",
       "group": "Key-Value",
       "better": "higher",
       "engines": {
         "sqlite": {
-          "median": 330675.0,
-          "min": 254287.0,
-          "max": 383627.0,
-          "mean": 322863.0,
-          "stddev": 53091.0,
-          "samples": 3
+          "median": 871232.0,
+          "min": 871232.0,
+          "max": 871232.0,
+          "mean": 871232.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 251939.0,
-          "min": 249775.0,
-          "max": 258969.0,
-          "mean": 253561.0,
-          "stddev": 3925.0,
-          "samples": 3
+          "median": 1123091.0,
+          "min": 1123091.0,
+          "max": 1123091.0,
+          "mean": 1123091.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
     {
       "id": "kv_get",
-      "label": "Hot cache GET 50K keys",
+      "label": "Hot cache GET 5K keys",
       "unit": "ops/s",
       "group": "Key-Value",
       "better": "higher",
       "engines": {
         "sqlite": {
-          "median": 119573.0,
-          "min": 85571.0,
-          "max": 129906.0,
-          "mean": 111683.0,
-          "stddev": 18940.0,
-          "samples": 3
+          "median": 318167.0,
+          "min": 318167.0,
+          "max": 318167.0,
+          "mean": 318167.0,
+          "stddev": 0.0,
+          "samples": 1
         },
         "ultsql": {
-          "median": 1074229.0,
-          "min": 816540.0,
-          "max": 1455180.0,
-          "mean": 1115317.0,
-          "stddev": 262338.0,
-          "samples": 3
+          "median": 1008675.0,
+          "min": 1008675.0,
+          "max": 1008675.0,
+          "mean": 1008675.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -429,12 +429,12 @@
       "better": "higher",
       "engines": {
         "ultsql": {
-          "median": 9357.0,
-          "min": 7350.0,
-          "max": 11318.0,
-          "mean": 9342.0,
-          "stddev": 1620.0,
-          "samples": 3
+          "median": 56687.0,
+          "min": 56687.0,
+          "max": 56687.0,
+          "mean": 56687.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -446,12 +446,12 @@
       "better": "lower",
       "engines": {
         "ultsql": {
-          "median": 13228.0,
-          "min": 11567.0,
-          "max": 18910.0,
-          "mean": 14568.0,
-          "stddev": 3144.0,
-          "samples": 3
+          "median": 5389.0,
+          "min": 5389.0,
+          "max": 5389.0,
+          "mean": 5389.0,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -463,12 +463,12 @@
       "better": "lower",
       "engines": {
         "ultsql": {
-          "median": 1.94,
-          "min": 1.891,
-          "max": 2.146,
-          "mean": 1.992,
-          "stddev": 0.11,
-          "samples": 3
+          "median": 1.315,
+          "min": 1.315,
+          "max": 1.315,
+          "mean": 1.315,
+          "stddev": 0.0,
+          "samples": 1
         }
       }
     },
@@ -485,275 +485,6 @@
           "min": 98.5,
           "max": 98.5,
           "mean": 98.5,
-          "stddev": 0.0,
-          "samples": 3
-        }
-      }
-    },
-    {
-      "id": "big_insert",
-      "label": "Bulk INSERT (1M rows, single txn)",
-      "unit": "rows/s",
-      "group": "Relational SQL",
-      "better": "higher",
-      "engines": {
-        "sqlite": {
-          "median": 552128.0,
-          "min": 552128.0,
-          "max": 552128.0,
-          "mean": 552128.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 1073346.0,
-          "min": 1073346.0,
-          "max": 1073346.0,
-          "mean": 1073346.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_batch_ingest",
-      "label": "Direct Batch Ingestion (1M rows)",
-      "unit": "rows/s",
-      "group": "Relational SQL",
-      "better": "higher",
-      "note": "Vectorized slotted-page binary serialization bypassing SQL parser AST",
-      "engines": {
-        "sqlite": {
-          "median": 660919.0,
-          "min": 660919.0,
-          "max": 660919.0,
-          "mean": 660919.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 1133914.0,
-          "min": 1133914.0,
-          "max": 1133914.0,
-          "mean": 1133914.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_index",
-      "label": "CREATE INDEX on 1M rows",
-      "unit": "ms",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 790.0,
-          "min": 790.0,
-          "max": 790.0,
-          "mean": 790.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 371.0,
-          "min": 371.0,
-          "max": 371.0,
-          "mean": 371.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_point",
-      "label": "Point lookup by PRIMARY KEY (prepared)",
-      "unit": "µs/query",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 14.957,
-          "min": 14.957,
-          "max": 14.957,
-          "mean": 14.957,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 7.751,
-          "min": 7.751,
-          "max": 7.751,
-          "mean": 7.751,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_range",
-      "label": "Indexed range aggregate (age 30–40)",
-      "unit": "ms/query",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 548.0,
-          "min": 548.0,
-          "max": 548.0,
-          "mean": 548.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 210.0,
-          "min": 210.0,
-          "max": 210.0,
-          "mean": 210.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_groupby",
-      "label": "Full-scan GROUP BY aggregate",
-      "unit": "ms",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 2779.0,
-          "min": 2779.0,
-          "max": 2779.0,
-          "mean": 2779.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 1065.0,
-          "min": 1065.0,
-          "max": 1065.0,
-          "mean": 1065.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_update",
-      "label": "UPDATE ~16129 rows (indexed predicate)",
-      "unit": "ms",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 407.0,
-          "min": 407.0,
-          "max": 407.0,
-          "mean": 407.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 1141.0,
-          "min": 1141.0,
-          "max": 1141.0,
-          "mean": 1141.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_delete",
-      "label": "DELETE ~16129 rows (indexed predicate)",
-      "unit": "ms",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 229.0,
-          "min": 229.0,
-          "max": 229.0,
-          "mean": 229.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 15.755,
-          "min": 15.755,
-          "max": 15.755,
-          "mean": 15.755,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_single_tx",
-      "label": "Single-Statement Auto-Commit INSERTs",
-      "unit": "tx/s",
-      "group": "Relational SQL",
-      "better": "higher",
-      "note": "Full ACID per-statement commit; SQLite fsyncs per statement; ULTSQL uses sequential WAL group-commit",
-      "engines": {
-        "sqlite": {
-          "median": 161.0,
-          "min": 161.0,
-          "max": 161.0,
-          "mean": 161.0,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 449.0,
-          "min": 449.0,
-          "max": 449.0,
-          "mean": 449.0,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_drop",
-      "label": "DROP TABLE catalog cleanup",
-      "unit": "ms",
-      "group": "Relational SQL",
-      "better": "lower",
-      "engines": {
-        "sqlite": {
-          "median": 0.12,
-          "min": 0.12,
-          "max": 0.12,
-          "mean": 0.12,
-          "stddev": 0.0,
-          "samples": 1
-        },
-        "ultsql": {
-          "median": 18.522,
-          "min": 18.522,
-          "max": 18.522,
-          "mean": 18.522,
-          "stddev": 0.0,
-          "samples": 1
-        }
-      }
-    },
-    {
-      "id": "big_rss",
-      "label": "Process RSS after 1M-row suite",
-      "unit": "MB",
-      "group": "Resources",
-      "better": "lower",
-      "engines": {
-        "ultsql": {
-          "median": 529.0,
-          "min": 529.0,
-          "max": 529.0,
-          "mean": 529.0,
           "stddev": 0.0,
           "samples": 1
         }

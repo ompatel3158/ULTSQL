@@ -1,4 +1,4 @@
-/* ULTSQL motion system — scroll reveals, counters, page transitions.
+/* ULTSQL motion system - scroll reveals, counters, page transitions.
    Only transform/opacity are animated. Respects prefers-reduced-motion. */
 
 [data-reveal] {

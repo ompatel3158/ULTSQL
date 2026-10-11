@@ -50,7 +50,7 @@ void main() {
     cleanDirectory(dbDir);
   });
 
-  group('Tier 1 — Correctness Tests', () {
+  group('Tier 1 - Correctness Tests', () {
     test('Test 1: WAL Recovery (Uncommitted transaction crashes and yields 0 rows)', () async {
       // 1. Initial setup: create table and write some committed rows
       {
@@ -194,7 +194,7 @@ void main() {
     });
   });
 
-  group('Tier 2 & 3 — Performance & Optimizer Tests', () {
+  group('Tier 2 & 3 - Performance & Optimizer Tests', () {
     test('Test 5 to 11: Scale insertion, Point Lookup, Explain, Stats', () async {
       final db = openDb(dbDir);
       await db.init();
@@ -294,7 +294,7 @@ END;
     });
   });
 
-  group('Tier 4 — Join Tests', () {
+  group('Tier 4 - Join Tests', () {
     test('Test 12 to 14: Hash Join, Aggregation, and Heavy Query Showcase', () async {
       final db = openDb(dbDir);
       await db.init();
@@ -404,7 +404,7 @@ END;
     });
   });
 
-  group('Tier 5 — Vector Engine Tests', () {
+  group('Tier 5 - Vector Engine Tests', () {
     test('Test 15 to 16: HNSW Performance and Search Accuracy', () async {
       final indexFile = '$dbDir/hnsw_test.idx';
       final hnsw = HnswIndex(
@@ -480,7 +480,7 @@ END;
     });
   });
 
-  group('Tier 6 — Enterprise Tests', () {
+  group('Tier 6 - Enterprise Tests', () {
     test('Test 17: WAL Replication (Sync WAL record streams to replica DB)', () async {
       final primaryDir = '$dbDir/primary';
       final replicaDir = '$dbDir/replica';
@@ -514,7 +514,8 @@ BEGIN
 END;
 ''');
 
-      // Before committing on primary, copy the wal.log content
+      // Before committing on primary, log dirty pages to WAL and copy the wal.log content
+      dbPrimary.cache.logAllDirtyPagesToWalSync();
       final walFile = File('$primaryDir/wal.log');
       expect(walFile.existsSync(), isTrue);
       final walBytes = walFile.readAsBytesSync();

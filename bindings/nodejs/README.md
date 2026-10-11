@@ -1,6 +1,6 @@
 # 🟢 UltSQL Node.js & TypeScript Package (`ultsql`)
 
-The official Node.js & TypeScript client for **UltSQL** — the converged multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
+The official Node.js & TypeScript client for **UltSQL** - the converged multimodal database engine combining Relational SQL, NoSQL JSON, HNSW Vector RAG, and PL/SQL.
 
 ---
 

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 class Page {
-  final int pageId;
+  int pageId;
   final Uint8List data;
   late final ByteData byteData;
   bool isDirty = false;

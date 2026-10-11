@@ -54,10 +54,12 @@ void main() {
       print("FLIGHT RECORDER TELEMETRY REPORT TEST PASSED CLEANLY!");
       print("\nSample Markdown Report:\n$md");
     } finally {
-      db.close();
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
+      await db.close();
+      try {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      } catch (_) {}
     }
   });
 }

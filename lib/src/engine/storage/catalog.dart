@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import '../parser/ast.dart';
@@ -521,7 +522,7 @@ class Catalog {
 
   void addProcedure(ProcedureSchema proc, {bool saveToFile = true}) {
     _procedures[proc.name.toLowerCase()] = proc;
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   FunctionSchema? getFunction(String name) => _functions[name.toLowerCase()];
@@ -529,7 +530,7 @@ class Catalog {
 
   void addFunction(FunctionSchema func, {bool saveToFile = true}) {
     _functions[func.name.toLowerCase()] = func;
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   TriggerSchema? getTrigger(String name) => _triggers[name.toLowerCase()];
@@ -537,7 +538,7 @@ class Catalog {
 
   void addTrigger(TriggerSchema trig, {bool saveToFile = true}) {
     _triggers[trig.name.toLowerCase()] = trig;
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   List<TriggerSchema> getTriggersForTable(
@@ -545,6 +546,7 @@ class Catalog {
     String timing,
     String event,
   ) {
+    if (_triggers.isEmpty) return const <TriggerSchema>[];
     final tName = tableName.toLowerCase();
     final tim = timing.toUpperCase();
     final ev = event.toUpperCase();
@@ -738,12 +740,12 @@ class Catalog {
 
   void addTable(TableSchema schema, {bool saveToFile = true}) {
     _tables[schema.name.toLowerCase()] = schema;
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   void removeTable(String name, {bool saveToFile = true}) {
     _tables.remove(name.toLowerCase());
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   RelationshipSchema? getRelationship(String name) =>
@@ -753,7 +755,7 @@ class Catalog {
 
   void addRelationship(RelationshipSchema rel, {bool saveToFile = true}) {
     _relationships[rel.name.toLowerCase()] = rel;
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   IndexSchema? getIndex(String name) => _indexes[name.toLowerCase()];
@@ -762,13 +764,21 @@ class Catalog {
   void addIndex(IndexSchema idx, {bool saveToFile = true}) {
     _indexes[idx.name.toLowerCase()] = idx;
     _tableIndexesCache.clear();
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   void removeIndex(String name, {bool saveToFile = true}) {
     _indexes.remove(name.toLowerCase());
     _tableIndexesCache.clear();
-    if (saveToFile) save();
+    if (saveToFile) scheduleSaveAsync();
+  }
+
+  void removeIndexes(List<IndexSchema> indexes, {bool saveToFile = true}) {
+    for (int i = 0; i < indexes.length; i++) {
+      _indexes.remove(indexes[i].name.toLowerCase());
+    }
+    _tableIndexesCache.clear();
+    if (saveToFile) scheduleSaveAsync();
   }
 
   List<IndexSchema> getIndexesForTable(String tableName) {
@@ -794,13 +804,23 @@ class Catalog {
     return null;
   }
 
+  static final Map<String, Catalog> _dirtyCatalogsByPath = {};
+  bool _hasUnsavedChanges = false;
+  bool loadedFromDisk = false;
+  Timer? _saveTimer;
+
   Future<void> load() async {
     if (basePath == ':memory:' ||
         basePath.startsWith(':memory:') ||
         identical(0, 0.0)) return;
     try {
+      final dirtyPrev = _dirtyCatalogsByPath[_catalogPath];
+      if (dirtyPrev != null && dirtyPrev._hasUnsavedChanges) {
+        dirtyPrev.save();
+      }
       final file = File(_catalogPath);
       if (!await file.exists()) return;
+      loadedFromDisk = true;
       final content = await file.readAsString();
       final Map<String, dynamic> jsonMap = json.decode(content);
       _tableIndexesCache.clear();
@@ -876,7 +896,61 @@ class Catalog {
     }
   }
 
+  Map<String, dynamic> _buildCatalogMap() {
+    final Map<String, dynamic> tablesMap = {};
+    _tables.forEach((key, val) {
+      tablesMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> relsMap = {};
+    _relationships.forEach((key, val) {
+      relsMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> indexesMap = {};
+    _indexes.forEach((key, val) {
+      indexesMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> statsMap = {};
+    _stats.forEach((key, val) {
+      statsMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> permissionsMap = {};
+    _permissions.forEach((user, tables) {
+      final Map<String, dynamic> userMap = {};
+      tables.forEach((table, privs) {
+        userMap[table] = privs;
+      });
+      permissionsMap[user] = userMap;
+    });
+    final Map<String, dynamic> proceduresMap = {};
+    _procedures.forEach((key, val) {
+      proceduresMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> functionsMap = {};
+    _functions.forEach((key, val) {
+      functionsMap[key] = val.toJson();
+    });
+    final Map<String, dynamic> triggersMap = {};
+    _triggers.forEach((key, val) {
+      triggersMap[key] = val.toJson();
+    });
+
+    return {
+      'tables': tablesMap,
+      'relationships': relsMap,
+      'indexes': indexesMap,
+      'stats': statsMap,
+      'permissions': permissionsMap,
+      'procedures': proceduresMap,
+      'functions': functionsMap,
+      'triggers': triggersMap,
+    };
+  }
+
   void save() {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _hasUnsavedChanges = false;
+    _dirtyCatalogsByPath.remove(_catalogPath);
     if (basePath == ':memory:' ||
         basePath.startsWith(':memory:') ||
         identical(0, 0.0)) return;
@@ -885,55 +959,58 @@ class Catalog {
       if (!file.parent.existsSync()) {
         file.parent.createSync(recursive: true);
       }
-      final Map<String, dynamic> tablesMap = {};
-      _tables.forEach((key, val) {
-        tablesMap[key] = val.toJson();
-      });
-      final Map<String, dynamic> relsMap = {};
-      _relationships.forEach((key, val) {
-        relsMap[key] = val.toJson();
-      });
-      final Map<String, dynamic> indexesMap = {};
-      _indexes.forEach((key, val) {
-        indexesMap[key] = val.toJson();
-      });
-      final Map<String, dynamic> statsMap = {};
-      _stats.forEach((key, val) {
-        statsMap[key] = val.toJson();
-      });
-      final Map<String, dynamic> permissionsMap = {};
-      _permissions.forEach((user, tables) {
-        final Map<String, dynamic> userMap = {};
-        tables.forEach((table, privs) {
-          userMap[table] = privs;
-        });
-        permissionsMap[user] = userMap;
-      });
-      final Map<String, dynamic> proceduresMap = {};
-      _procedures.forEach((key, val) {
-        proceduresMap[key] = val.toJson();
-      });
-      final Map<String, dynamic> functionsMap = {};
-      _functions.forEach((key, val) {
-        functionsMap[key] = val.toJson();
-      });
-      final Map<String, dynamic> triggersMap = {};
-      _triggers.forEach((key, val) {
-        triggersMap[key] = val.toJson();
-      });
-
-      final outputMap = {
-        'tables': tablesMap,
-        'relationships': relsMap,
-        'indexes': indexesMap,
-        'stats': statsMap,
-        'permissions': permissionsMap,
-        'procedures': proceduresMap,
-        'functions': functionsMap,
-        'triggers': triggersMap,
-      };
-      file.writeAsStringSync(json.encode(outputMap));
+      final outputMap = _buildCatalogMap();
+      final content = json.encode(outputMap);
+      final tmpFile = File('$_catalogPath.tmp');
+      tmpFile.writeAsStringSync(content, flush: true);
+      try {
+        if (file.existsSync()) file.deleteSync();
+        tmpFile.renameSync(_catalogPath);
+      } catch (_) {
+        file.writeAsStringSync(content, flush: true);
+      }
     } catch (_) {}
+  }
+
+  static Timer? _globalCatalogTimer;
+
+  static void ensureGlobalCatalogTimer() {
+    _globalCatalogTimer ??= Timer.periodic(
+      const Duration(milliseconds: 1000),
+      (_) {
+        if (_dirtyCatalogsByPath.isNotEmpty) {
+          final catalogs = _dirtyCatalogsByPath.values.toList();
+          _dirtyCatalogsByPath.clear();
+          for (final cat in catalogs) {
+            cat.save();
+          }
+        }
+      },
+    );
+  }
+
+  static void stopGlobalCatalogTimerIfClean() {
+    if (_dirtyCatalogsByPath.isEmpty) {
+      _globalCatalogTimer?.cancel();
+      _globalCatalogTimer = null;
+    }
+  }
+
+  void scheduleSaveAsync() {
+    if (basePath == ':memory:' ||
+        basePath.startsWith(':memory:') ||
+        identical(0, 0.0)) return;
+    _hasUnsavedChanges = true;
+    _dirtyCatalogsByPath[_catalogPath] = this;
+    ensureGlobalCatalogTimer();
+  }
+
+  Future<void> flushPendingSave() async {
+    save();
+  }
+
+  Future<void> saveAsync() async {
+    scheduleSaveAsync();
   }
 }
 

@@ -1,6 +1,6 @@
 # 🦀 UltSQL Rust Client Crate
 
-Official asynchronous Rust client for **UltSQL** — the converged multimodal database engine.
+Official asynchronous Rust client for **UltSQL** - the converged multimodal database engine.
 
 ---
 

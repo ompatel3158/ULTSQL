@@ -23,7 +23,7 @@ void main() {
   });
 
   group('🏛️ ULTSQL Enterprise 6-Pillars Core Test Suite', () {
-    test('⚡ Pillar 1: SPEED — Plan Cache LRU, Hit Rates & SIMD Vector Distance', () {
+    test('⚡ Pillar 1: SPEED - Plan Cache LRU, Hit Rates & SIMD Vector Distance', () {
       // 1. PlanCache LRU & Hit-Rate Benchmark
       final planCache = PlanCache(capacity: 5);
       final sqlQuery = 'SELECT * FROM users WHERE id = 42';
@@ -54,7 +54,7 @@ void main() {
       print('⚡ [SPEED] Plan Cache LRU hits (${planCache.hitRate * 100}%) and SIMD-unrolled vector calculations verified successfully.');
     });
 
-    test('🛠️ Pillar 2: CAPABILITY — Point-In-Time Hot Backup, JSON Path & Recovery Manager', () {
+    test('🛠️ Pillar 2: CAPABILITY - Point-In-Time Hot Backup, JSON Path & Recovery Manager', () {
       final srcDir = '$testDir/primary';
       final backupDir = '$testDir/backup';
       final restoreDir = '$testDir/restored';
@@ -85,7 +85,7 @@ void main() {
       print('🛠️ [CAPABILITY] Hot Online Point-In-Time Backup, Checksum Validation & Restore verified successfully.');
     });
 
-    test('🛡️ Pillar 3: DURABILITY — IEEE 802.3 CRC32 Page Checksumming & Checkpointing', () {
+    test('🛡️ Pillar 3: DURABILITY - IEEE 802.3 CRC32 Page Checksumming & Checkpointing', () {
       final buffer1 = Uint8List.fromList([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
       final checksum1 = Crc32.compute(buffer1);
       expect(checksum1, isNotNull);
@@ -102,7 +102,7 @@ void main() {
       print('🛡️ [DURABILITY] High-performance CRC32 page checksumming and bit-rot corruption detection verified.');
     });
 
-    test('🔐 Pillar 4: RELIABILITY — Page Cache Memory Limit, Pinned Locking & Unpinned Eviction', () {
+    test('🔐 Pillar 4: RELIABILITY - Page Cache Memory Limit, Pinned Locking & Unpinned Eviction', () {
       final cache = PageCache(maxCapacity: 50, pageSize: 4096, dbDirectory: testDir);
       expect(cache.maxCapacity, equals(50));
       expect(cache.pageSize, equals(4096));
@@ -116,7 +116,7 @@ void main() {
       print('🔐 [RELIABILITY] Page Cache memory caps, page pinning locks, and unpinned eviction bounds verified.');
     });
 
-    test('💪 Pillar 5: STRENGTH — ACID Transaction Savepoints & Context Isolation', () async {
+    test('💪 Pillar 5: STRENGTH - ACID Transaction Savepoints & Context Isolation', () async {
       final db = Database(testDir);
       await db.init();
       final interpreter = Interpreter(db);
@@ -145,7 +145,7 @@ void main() {
       print('💪 [STRENGTH] Isolated multi-statement ACID transaction commit & rollback execution verified.');
     });
 
-    test('🔄 Pillar 6: RECOVERY — Automatic WAL Crash Recovery Engine & Checkpointing', () {
+    test('🔄 Pillar 6: RECOVERY - Automatic WAL Crash Recovery Engine & Checkpointing', () {
       final dbPath = '$testDir/recovery_db';
       final pageCache = PageCache(maxCapacity: 100, pageSize: 4096, dbDirectory: dbPath);
 

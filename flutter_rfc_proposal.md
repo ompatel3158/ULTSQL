@@ -12,7 +12,7 @@
 Currently, local data persistence in Flutter heavily relies on native C/C++ SQLite wrappers (`sqflite`, `sqlite3`). While SQLite is effective, native C dependencies introduce significant friction into the Flutter development workflow:
 1. **Compilation Friction & Platform Toolchains**: Native C/C++ compilation requires CMake, MSVC, NDK, Xcode, and desktop toolchain setups that frequently fail or complicate CI/CD pipelines.
 2. **Web Platform Incompatibility**: SQLite native C binaries cannot run natively on Web without complex WASM SharedArrayBuffer hacks.
-3. **Monolithic SQL Limitations**: Modern Flutter applications increasingly require multimodal storage—specifically AI Vector RAG embeddings, NoSQL document queries, and PL/SQL procedural execution—requiring developers to stitch together 3 to 4 separate third-party plugins.
+3. **Monolithic SQL Limitations**: Modern Flutter applications increasingly require multimodal storage-specifically AI Vector RAG embeddings, NoSQL document queries, and PL/SQL procedural execution-requiring developers to stitch together 3 to 4 separate third-party plugins.
 
 **UltSQL** (`package:ultsql`) solves these challenges by providing a **100% Pure Dart converged database engine** with **zero C/C++ dependencies**, running seamlessly across **Android, iOS, Windows, macOS, Linux, and Web**.
 

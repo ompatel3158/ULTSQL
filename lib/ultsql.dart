@@ -1,4 +1,4 @@
-/// UltSQL — 100% Pure Dart Multimodal Database Engine.
+/// UltSQL - 100% Pure Dart Multimodal Database Engine.
 ///
 /// Combines Relational SQL, PL/SQL, NoSQL Dotted JSON, and HNSW Vector RAG
 /// with zero C/C++ native dependencies.

@@ -165,7 +165,7 @@
       const ult = item.engines && item.engines.ultsql ? item.engines.ultsql.median : null;
       const sq = item.engines && item.engines.sqlite ? item.engines.sqlite.median : null;
 
-      let winner = '—';
+      let winner = '-';
       if (ult !== null && sq !== null) {
         if (item.better === 'higher') {
           winner = ult >= sq ? '🏆 ULTSQL' : 'SQLite';

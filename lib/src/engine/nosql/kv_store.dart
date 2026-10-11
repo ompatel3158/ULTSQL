@@ -133,18 +133,14 @@ class KVStore {
     final now = DateTime.now().millisecondsSinceEpoch;
     final expiresAt = (ttl != null) ? (now + ttl.inMilliseconds) : 0;
 
-    final batchRecords = <Map<String, dynamic>>[];
+    final rows = List<List<dynamic>>.filled(entries.length, const []);
+    int idx = 0;
     for (final e in entries.entries) {
       _hotCache[e.key] = _KVEntry(value: e.value, expiresAt: expiresAt);
       final (rawVal, typeCode) = _serialize(e.value);
-      batchRecords.add({
-        'kv_key': e.key,
-        'kv_value': rawVal,
-        'expires_at': expiresAt,
-        'type_code': typeCode,
-      });
+      rows[idx++] = [e.key, rawVal, expiresAt, typeCode];
     }
-    db.insertBatchRecordsSync(tableName, batchRecords);
+    db.turboInsertBatchSync(tableName, rows);
   }
 
   /// Returns all active keys, optionally filtered by a glob wildcard [pattern].

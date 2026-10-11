@@ -41,7 +41,7 @@ class Collection {
   final Map<String, bool> _indexes = {};
   RowTableFile? _rowTable;
   final Map<String, Document> _hotCache = <String, Document>{};
-  static const int _maxHotCache = 10000;
+  static const int _maxHotCache = 100000;
 
   Collection(this.name, this.db) {
     tableName = '_coll_${name.toLowerCase()}';
@@ -89,14 +89,7 @@ class Collection {
   double? _toIndexKey(dynamic val) {
     if (val == null) return null;
     if (val is num) return val.toDouble();
-    final str = val.toString();
-    final parsed = double.tryParse(str);
-    if (parsed != null) return parsed;
-    double hash = 0.0;
-    for (int j = 0; j < str.length; j++) {
-      hash = (hash * 31.0 + str.codeUnitAt(j)) % 9007199254740991;
-    }
-    return hash;
+    return BTreeIndex.stringToKey(val.toString());
   }
 
   BTreePointer? _getPointerForDocId(String targetId) {
@@ -224,19 +217,21 @@ class Collection {
     if (docsData.isEmpty) return [];
     ensureTableSync();
 
-    final docs = docsData.map((d) => Document.fromJson(d)).toList();
-    final stmt = db.prepare('INSERT INTO $tableName VALUES (?, ?);');
-    final batchParams = docs.map((doc) {
-      return <DbValue>[
-        DbText(doc.id),
-        DbJson(doc.data),
-      ];
-    }).toList();
+    final docs = <Document>[];
+    final rows = List<List<dynamic>>.generate(docsData.length, (i) {
+      final doc = Document.fromJson(docsData[i]);
+      docs.add(doc);
+      return [doc.id, doc.data];
+    });
 
-    stmt.executeBatchSync(batchParams);
+    db.turboInsertBatchSync(tableName, rows);
     for (final doc in docs) {
-      _cacheDoc(doc);
-      if (_indexes.isNotEmpty) {
+      if (_hotCache.length < _maxHotCache) {
+        _hotCache[doc.id] = doc;
+      }
+    }
+    if (_indexes.isNotEmpty) {
+      for (final doc in docs) {
         final ptr = _getPointerForDocId(doc.id);
         if (ptr != null) {
           _updateFieldIndexes(doc, ptr);
@@ -419,15 +414,29 @@ class Collection {
     }
     final btree = db.getOrInitIndexSync(idxName);
 
-    // Populate index with existing documents in collection
-    final allDocs = _fetchRawDocumentsSync();
-    for (final doc in allDocs) {
-      final val = doc.getByPath(fieldPath);
-      if (val != null) {
-        final dKey = _toIndexKey(val);
-        if (dKey != null) {
-          final ptr = _getPointerForDocId(doc.id);
-          if (ptr != null) {
+    // Populate index directly from row table scan with physical pointers
+    final rowTable = _rowTable ??= RowTableFile(
+      cache: db.cache,
+      tableName: tableName,
+      dbDirectory: db.directory,
+    );
+
+    final currentTx = db.cache.currentMvccTx;
+    final cursor = rowTable.scanSync(
+      currentTxId: currentTx?.txId ?? 0,
+      activeTxIds: currentTx?.activeTxIds,
+      txManager: db.cache.mvccTxManager,
+      expectedColumnCount: 2,
+    );
+
+    for (final row in cursor) {
+      if (row.length >= 2) {
+        final doc = _docFromRow(row);
+        final val = doc.getByPath(fieldPath);
+        if (val != null) {
+          final dKey = _toIndexKey(val);
+          if (dKey != null) {
+            final ptr = cursor.currentPointer;
             btree.insertSync([dKey], ptr.pageId, ptr.slotId);
           }
         }
@@ -456,6 +465,10 @@ class Collection {
 
   List<Document> _fetchRawDocumentsSync() {
     ensureTableSync();
+    final stats = db.catalog.getOrCreateStats(tableName);
+    if (_hotCache.length == stats.rowCount && stats.rowCount > 0) {
+      return _hotCache.values.toList();
+    }
     final rowTable = _rowTable ??= RowTableFile(
       cache: db.cache,
       tableName: tableName,
@@ -480,8 +493,60 @@ class Collection {
     return list;
   }
 
+  List<Document> _fetchFilteredDocumentsSync(Map<String, dynamic>? filter) {
+    if (filter == null || filter.isEmpty) return _fetchRawDocumentsSync();
+    ensureTableSync();
+    final compiled = QueryFilter.compile(filter);
+    final stats = db.catalog.getOrCreateStats(tableName);
+    if (_hotCache.length == stats.rowCount && stats.rowCount > 0) {
+      final list = <Document>[];
+      for (final doc in _hotCache.values) {
+        if (compiled.matches(doc)) {
+          list.add(doc);
+        }
+      }
+      return list;
+    }
+    final rowTable = _rowTable ??= RowTableFile(
+      cache: db.cache,
+      tableName: tableName,
+      dbDirectory: db.directory,
+    );
+
+    final schema = db.catalog.getTableSchema(tableName);
+    final currentTx = db.cache.currentMvccTx;
+    final cursor = rowTable.scanSync(
+      currentTxId: currentTx?.txId ?? 0,
+      activeTxIds: currentTx?.activeTxIds,
+      txManager: db.cache.mvccTxManager,
+      expectedColumnCount: schema?.columnNames.length ?? 2,
+    );
+
+    final list = <Document>[];
+    for (final row in cursor) {
+      if (row.length >= 2) {
+        final id = row[0] is DbText ? (row[0] as DbText).value : row[0].toString();
+        final cached = _hotCache[id];
+        if (cached != null) {
+          if (compiled.matches(cached)) {
+            list.add(cached);
+          }
+          continue;
+        }
+        final docVal = row[1];
+        if (!compiled.matchesRaw(id, docVal)) {
+          continue;
+        }
+        list.add(_docFromRow(row));
+      }
+    }
+    return list;
+  }
+
   Document _docFromRow(List<DbValue> row) {
     final id = row[0].toString();
+    final cached = _hotCache[id];
+    if (cached != null) return cached;
     final docVal = row[1];
     Map<String, dynamic> map;
     if (docVal is DbJson) {
@@ -494,7 +559,9 @@ class Collection {
       }
     }
     map['_id'] = id;
-    return Document(id: id, data: map);
+    final doc = Document(id: id, data: map);
+    _cacheDoc(doc);
+    return doc;
   }
 
   String _escapeSql(String s) => s.replaceAll("'", "''");
@@ -553,16 +620,13 @@ class DocumentCursor {
             final dKey = collection._toIndexKey(filterVal);
             if (dKey != null) {
               final btree = collection._getOrInitFieldIndex(path);
-              final ptr = btree.searchSync([dKey]);
-              if (ptr != null) {
+              final ptrs = btree.searchRangeSync([dKey], [dKey]);
+              candidates = [];
+              for (final ptr in ptrs) {
                 final doc = collection._fetchDocAtPointer(ptr);
                 if (doc != null) {
-                  candidates = [doc];
-                } else {
-                  candidates = [];
+                  candidates.add(doc);
                 }
-              } else {
-                candidates = [];
               }
               break;
             }
@@ -571,15 +635,10 @@ class DocumentCursor {
       }
     }
 
-    final allDocs = candidates ?? collection._fetchRawDocumentsSync();
-    final filtered = <Document>[];
-
-    // 1. Filter evaluation
-    for (final doc in allDocs) {
-      if (QueryFilter.matches(doc, filter)) {
-        filtered.add(doc);
-      }
-    }
+    final allDocs = candidates ?? collection._fetchFilteredDocumentsSync(filter);
+    final filtered = candidates != null
+        ? allDocs.where((doc) => QueryFilter.matches(doc, filter)).toList()
+        : allDocs;
 
     // 2. Sorting
     if (_sortSpec != null && _sortSpec!.isNotEmpty) {

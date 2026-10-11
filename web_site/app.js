@@ -1,5 +1,5 @@
 /**
- * ULTSQL — Minimalist Monochrome Portal (Strictly Black & White)
+ * ULTSQL - Minimalist Monochrome Portal (Strictly Black & White)
  * Inspired by Bklit UI & shadcn/ui
  * Powered by Anime.js v4
  */
