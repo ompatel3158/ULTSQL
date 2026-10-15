@@ -1059,25 +1059,46 @@ SELECT * FROM system_audit ORDER BY id ASC;`
   });
 
   // ==========================================================================
-  // 11. MOBILE MENU DRAWER
+  // MOBILE HAMBURGER MENU TOGGLE
   // ==========================================================================
-  const mobileToggle = document.getElementById('mobileMenuToggle');
-  const mobileDrawer = document.getElementById('mobileNavDrawer');
-  const mobileClose = document.getElementById('mobileMenuClose');
+  const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+  const mobileMenuClose = document.getElementById('mobileMenuClose');
+  const mobileNavDrawer = document.getElementById('mobileNavDrawer');
 
-  if (mobileToggle && mobileDrawer) {
-    mobileToggle.addEventListener('click', () => {
-      mobileDrawer.classList.add('open');
-    });
-
-    if (mobileClose) {
-      mobileClose.addEventListener('click', () => mobileDrawer.classList.remove('open'));
-    }
-
-    mobileDrawer.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => mobileDrawer.classList.remove('open'));
+  if (mobileMenuToggle && mobileNavDrawer) {
+    mobileMenuToggle.addEventListener('click', () => {
+      mobileNavDrawer.classList.add('open');
+      document.body.style.overflow = 'hidden';
     });
   }
+
+  if (mobileMenuClose && mobileNavDrawer) {
+    mobileMenuClose.addEventListener('click', () => {
+      mobileNavDrawer.classList.remove('open');
+      document.body.style.overflow = '';
+    });
+  }
+
+  // Close mobile drawer on link click
+  const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+  mobileNavLinks.forEach(link => {
+    link.addEventListener('click', () => {
+      if (mobileNavDrawer) {
+        mobileNavDrawer.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+  });
+
+  // Close drawer on backdrop click (outside drawer)
+  document.addEventListener('click', (e) => {
+    if (mobileNavDrawer && mobileNavDrawer.classList.contains('open')) {
+      if (!mobileNavDrawer.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+        mobileNavDrawer.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+  });
 
   // ==========================================================================
   // 12. ARCHITECTURAL CAD RULER, TACTILE CURSOR & TACTILE GRAIN
@@ -1173,22 +1194,25 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       });
     }
 
-    // 5. Inject Corner Crosshairs (+) on cards
-    const cards = document.querySelectorAll(
-      '.feature-box, .benchmarks-card, .terminal-window, .stat-card, .comparison-table-wrapper, .faq-item, .hero-visual-card, .doc-code-card'
-    );
-    cards.forEach(card => {
-      if (!card.querySelector('.corner-cross')) {
-        card.classList.add('with-corners');
-        const frag = document.createDocumentFragment();
-        ['tl', 'tr', 'bl', 'br'].forEach(pos => {
-          const cross = document.createElement('span');
-          cross.className = `corner-cross ${pos}`;
-          frag.appendChild(cross);
-        });
-        card.appendChild(frag);
-      }
-    });
+    // 5. Inject Corner Crosshairs (+) on cards across all pages
+    window.injectCornerCrosshairs = function(root = document) {
+      const cards = root.querySelectorAll(
+        '.feature-box, .feature-card, .benchmarks-card, .bench-card, .bench-rig-card, .bench-reproduce-box, .terminal-window, .stat-card, .comparison-table-wrapper, .doc-table-wrapper, .doc-callout, .docs-sidebar, .features-arch-section, .faq-item, .hero-visual-card, .doc-code-card'
+      );
+      cards.forEach(card => {
+        if (!card.querySelector('.corner-cross')) {
+          card.classList.add('with-corners');
+          const frag = document.createDocumentFragment();
+          ['tl', 'tr', 'bl', 'br'].forEach(pos => {
+            const cross = document.createElement('span');
+            cross.className = `corner-cross ${pos}`;
+            frag.appendChild(cross);
+          });
+          card.appendChild(frag);
+        }
+      });
+    };
+    window.injectCornerCrosshairs();
 
     // 6. Inject Custom Kinetic Cursor Elements (Desktop only)
     if (window.matchMedia('(pointer: fine)').matches) {

@@ -45,3 +45,12 @@ test_parser.dart
 web_site_backup/
 node_modules/
 **/node_modules/
+dist/
+**/dist/
+*.egg-info/
+**/*.egg-info/
+*.whl
+bindings/python/build/
+bindings/python/src/ultsql/bin/
+bindings/nodejs/npm/*/bin/
+bindings/nodejs/bin/

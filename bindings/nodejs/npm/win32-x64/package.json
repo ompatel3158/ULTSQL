@@ -1,0 +1,19 @@
+{
+  "name": "@ultsql/win32-x64",
+  "version": "1.0.29",
+  "description": "Windows x64 native binary for the UltSQL database engine.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ompatel3158/ULTSQL.git"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/ultsql.exe"
+  ]
+}

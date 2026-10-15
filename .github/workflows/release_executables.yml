@@ -1,17 +1,34 @@
-name: Release Standalone Binaries
+name: Release Standalone Binaries, PyPI & NPM
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-binaries:
-    name: Build Standalone Executables
+    name: Compile Binary (${{ matrix.os }} - ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            arch: x64
+            artifact_name: ultsql-windows-x64.exe
+          - os: ubuntu-latest
+            arch: x64
+            artifact_name: ultsql-linux-x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            artifact_name: ultsql-linux-arm64
+          - os: macos-13
+            arch: x64
+            artifact_name: ultsql-macos-x64
+          - os: macos-latest
+            arch: arm64
+            artifact_name: ultsql-macos-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -24,19 +41,17 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Compile Executable (Linux/macOS)
-        if: matrix.os != 'windows-latest'
-        run: dart compile exe bin/ultsql_cli.dart -o ultsql-${{ matrix.os }}
-
-      - name: Compile Executable (Windows)
-        if: matrix.os == 'windows-latest'
-        run: dart compile exe bin/ultsql_cli.dart -o ultsql-windows.exe
+      - name: Compile Standalone Executable
+        shell: bash
+        run: |
+          mkdir -p build/bin
+          dart compile exe bin/ultsql_cli.dart -o build/bin/${{ matrix.artifact_name }}
 
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ultsql-${{ matrix.os }}
-          path: ultsql*
+          name: ${{ matrix.artifact_name }}
+          path: build/bin/${{ matrix.artifact_name }}
 
   create-github-release:
     name: Create GitHub Release
@@ -48,10 +63,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download all compiled binaries
         uses: actions/download-artifact@v4
         with:
           path: binaries
+          pattern: ultsql-*
+          merge-multiple: true
+
+      - name: Create Aliases and Checksums
+        shell: bash
+        run: |
+          cd binaries
+          # Provide legacy alias names for existing install scripts
+          if [ -f "ultsql-windows-x64.exe" ]; then
+            cp ultsql-windows-x64.exe ultsql-windows.exe
+          fi
+          if [ -f "ultsql-linux-x64" ]; then
+            cp ultsql-linux-x64 ultsql-ubuntu-latest
+          fi
+          if [ -f "ultsql-macos-arm64" ]; then
+            cp ultsql-macos-arm64 ultsql-macos-latest
+          elif [ -f "ultsql-macos-x64" ]; then
+            cp ultsql-macos-x64 ultsql-macos-latest
+          fi
+          sha256sum * > SHA256SUMS.txt
+          ls -la
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -60,17 +96,109 @@ jobs:
           body: |
             ## 🚀 UltSQL Release ${{ github.ref_name }}
             
-            Zero-dependency standalone native executable binaries for Windows, Linux, and macOS.
+            Zero-dependency native standalone executable binaries for Windows, Linux, and macOS (x64 and ARM64).
+            
+            ### Native Binaries Included
+            - `ultsql-windows-x64.exe` (Windows x64)
+            - `ultsql-linux-x64` (Linux x86_64)
+            - `ultsql-linux-arm64` (Linux ARM64 / AArch64)
+            - `ultsql-macos-x64` (macOS Intel x86_64)
+            - `ultsql-macos-arm64` (macOS Apple Silicon ARM64)
+            - `SHA256SUMS.txt` (Cryptographic verification checksums)
             
             ### Quickstart
             ```bash
             # Windows
-            .\ultsql-windows.exe serve --port 8080 --db ./my_db
+            .\ultsql-windows-x64.exe serve --port 8080 --db ./my_db
 
             # Linux / macOS
-            ./ultsql-ubuntu-latest serve --port 8080 --db ./my_db
+            chmod +x ./ultsql-linux-x64
+            ./ultsql-linux-x64 serve --port 8080 --db ./my_db
             ```
           files: |
-            binaries/**/*
+            binaries/*
           draft: false
           prerelease: false
+
+  publish-pypi:
+    name: Build & Publish Python Platform Wheels to PyPI
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all compiled binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          pattern: ultsql-*
+          merge-multiple: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel twine
+
+      - name: Build Platform Wheels & Sdist
+        run: |
+          cd bindings/python
+          python build_wheels.py --all-from ../../binaries --build-sdist --out-dir dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: bindings/python/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
+
+  publish-npm:
+    name: Build & Publish Node.js Platform Packages to NPM
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all compiled binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          pattern: ultsql-*
+          merge-multiple: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Stage Platform Binaries into NPM Packages
+        run: |
+          node bindings/nodejs/build_packages.js --all-from binaries
+
+      - name: Publish Platform Packages to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for dir in bindings/nodejs/npm/*; do
+            if [ -d "$dir" ]; then
+              echo "Publishing $dir..."
+              npm publish "$dir" --access public || echo "Notice: $dir already published or NPM_TOKEN pending."
+            fi
+          done
+
+      - name: Publish Main NPM Package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish bindings/nodejs --access public || echo "Notice: main package already published or NPM_TOKEN pending."

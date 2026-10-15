@@ -1,11 +1,11 @@
 {
   "name": "ultsql",
-  "version": "1.0.28",
-  "description": "Universal Node.js client for the UltSQL 100% Pure-Dart multimodal database engine.",
+  "version": "1.0.29",
+  "description": "Universal Node.js client and embedded engine for the UltSQL multimodal database.",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "node index.js"
+    "test": "node -e \"const ultsql = require('.'); console.log('Resolved binary:', ultsql.getBinaryPath());\""
   },
   "keywords": [
     "ultsql",
@@ -26,5 +26,12 @@
   "bugs": {
     "url": "https://github.com/ompatel3158/ULTSQL/issues"
   },
-  "homepage": "https://github.com/ompatel3158/ULTSQL#readme"
+  "homepage": "https://github.com/ompatel3158/ULTSQL#readme",
+  "optionalDependencies": {
+    "@ultsql/darwin-arm64": "1.0.29",
+    "@ultsql/darwin-x64": "1.0.29",
+    "@ultsql/linux-arm64": "1.0.29",
+    "@ultsql/linux-x64": "1.0.29",
+    "@ultsql/win32-x64": "1.0.29"
+  }
 }

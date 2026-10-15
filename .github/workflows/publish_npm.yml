@@ -1,15 +1,12 @@
 name: Publish to NPM
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 jobs:
   npm-publish:
     name: Build and publish Node.js package to NPM
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
 
@@ -28,4 +25,3 @@ jobs:
         working-directory: bindings/nodejs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-

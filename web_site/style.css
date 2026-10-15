@@ -207,6 +207,8 @@ code, pre {
   right: 0;
   z-index: 1000;
   width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
   padding: 0 1.25rem;
   pointer-events: none;
 }
@@ -214,6 +216,8 @@ code, pre {
 .navbar-pill {
   pointer-events: auto;
   max-width: 1100px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -415,7 +419,7 @@ code, pre {
 .hero-section {
   position: relative;
   z-index: 1;
-  padding: 5rem 0 5.5rem;
+  padding: 7.5rem 0 5.5rem;
   overflow: hidden;
 }
 
@@ -1395,12 +1399,13 @@ code, pre {
   position: fixed;
   top: 0;
   right: 0;
-  width: 260px;
+  width: 280px;
+  max-width: 85vw;
   height: 100vh;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-lg);
-  z-index: 1000;
+  z-index: 10005;
   display: flex;
   flex-direction: column;
   padding: 1.75rem 1.25rem;
@@ -1447,9 +1452,6 @@ code, pre {
   .hero-grid {
     grid-template-columns: 1fr;
     gap: 2.5rem;
-  }
-  .hero-visual-card {
-    order: -1;
   }
 }
 
@@ -2396,20 +2398,693 @@ body {
 .bench-container,
 main.license-container,
 main.container {
-  padding-top: 6.75rem !important;
+  padding-top: 8rem !important;
 }
 
 @media (max-width: 768px) {
   .hero-wrapper {
-    padding-top: 4.5rem;
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem);
   }
   .docs-container,
   .features-container,
   .bench-container,
   main.license-container,
   main.container {
-    padding-top: 5rem !important;
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-wrapper {
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.25rem);
+  }
+  .docs-container,
+  .features-container,
+  .bench-container,
+  main.license-container,
+  main.container {
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.25rem) !important;
   }
 }
 
 
+
+/* ==========================================================================
+   COMPREHENSIVE MOBILE RESPONSIVE OVERRIDES
+   ========================================================================== */
+
+/* --- Mobile Nav: Hide desktop-only elements at 860px --- */
+@media (max-width: 860px) {
+  .header-wrapper {
+    padding: 0 0.75rem;
+  }
+
+  .nav-actions .btn-glass,
+  .nav-actions .btn-primary:not(.mobile-menu-btn) {
+    display: none !important;
+  }
+
+  .navbar-pill {
+    padding: 0.4rem 0.65rem;
+    gap: 0.5rem;
+  }
+
+  .nav-actions {
+    gap: 0.35rem;
+  }
+
+  .nav-version-badge {
+    display: none !important;
+  }
+}
+
+/* --- Tablet & Small Desktop (max-width: 768px) --- */
+@media (max-width: 768px) {
+  /* Hide CAD ruler on mobile for cleaner UX */
+  .architectural-ruler-top {
+    display: none !important;
+  }
+
+  .scroll-progress-bar {
+    top: 0;
+  }
+
+  /* Reposition header with proper top margin so it doesn't touch the screen edge */
+  .header-wrapper {
+    top: max(0.85rem, env(safe-area-inset-top, 0.85rem)) !important;
+    padding: 0 0.75rem !important;
+  }
+
+  .navbar-pill {
+    padding: 0.4rem 0.65rem;
+    gap: 0.5rem;
+  }
+
+  .nav-brand {
+    gap: 0.4rem;
+    font-size: 0.92rem;
+  }
+
+  .nav-brand img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Container padding */
+  .container {
+    padding: 0 1rem;
+  }
+
+  /* Hero section - generous top margin & padding so floating navbar does not cover content */
+  .hero-section {
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem);
+    padding-bottom: 3.5rem;
+  }
+
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  .hero-content {
+    order: 1;
+  }
+
+  .hero-visual-card {
+    order: 2;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 8vw, 2.8rem);
+  }
+
+  .hero-subtitle {
+    font-size: 0.98rem;
+    max-width: 100%;
+  }
+
+  .hero-cta-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .hero-cli-install {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .hero-specs-row {
+    flex-wrap: wrap;
+    gap: 1.25rem;
+  }
+
+  .spec-item {
+    min-width: calc(50% - 0.75rem);
+  }
+
+  /* CAD HUD Pipeline - make flow vertical */
+  .cad-flow-track {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .cad-flow-connector {
+    width: 100%;
+    height: 18px;
+    flex-direction: row;
+  }
+
+  .cad-laser-beam {
+    width: 2px;
+    height: 100%;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .cad-connector-arrow {
+    transform: rotate(90deg);
+  }
+
+  .cad-hud-top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .cad-hud-mode-selector {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cad-pipeline-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cad-model-chips {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+  }
+
+  .cad-console-line {
+    font-size: 0.58rem;
+  }
+
+  .cad-hud-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+
+  /* Slotted page records - make single column on small screens */
+  .slotted-rec-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem;
+  }
+
+  .slotted-memory-strip {
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  .mem-block {
+    min-height: 24px;
+    flex: 1 1 auto;
+  }
+
+  .mem-header {
+    width: auto;
+    min-width: 60px;
+  }
+
+  .mem-slots {
+    width: auto;
+    min-width: 60px;
+  }
+
+  .mem-tuples {
+    width: auto;
+    min-width: 100px;
+  }
+
+  /* Vector Radar */
+  .vector-radar-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .radar-readout-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  /* Section spacing */
+  .section-wrapper {
+    padding: 3.5rem 0;
+  }
+
+  .section-header {
+    margin-bottom: 2.5rem;
+  }
+
+  .section-title {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+  }
+
+  .section-desc {
+    font-size: 0.92rem;
+  }
+
+  /* Playground */
+  .playground-nav-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.5rem 0.85rem;
+  }
+
+  .preset-tabs-group {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+  }
+
+  .preset-tab-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.65rem;
+  }
+
+  .playground-split {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .editor-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .sql-editor-textarea {
+    min-height: 220px;
+    font-size: 0.78rem;
+  }
+
+  .results-body {
+    min-height: 200px;
+  }
+
+  .results-table {
+    font-size: 0.72rem;
+  }
+
+  .results-table th,
+  .results-table td {
+    padding: 0.4rem 0.5rem;
+  }
+
+  /* Pillars grid */
+  .pillars-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Benchmarks */
+  .benchmarks-card {
+    padding: 1.25rem;
+  }
+
+  .benchmark-controls-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .benchmark-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .benchmark-tab-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+  }
+
+  /* Feature matrix & Subpage Cards */
+  .feature-matrix-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-table-wrapper,
+  .doc-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin: 1.25rem 0;
+  }
+
+  .comparison-table,
+  .doc-table {
+    min-width: 580px;
+  }
+
+  /* Install section */
+  .install-tab-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .install-tabs-nav {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .install-code-box {
+    font-size: 0.78rem;
+    padding: 1rem;
+  }
+
+  .install-code-box + div pre {
+    font-size: 0.72rem;
+  }
+
+  /* Footer */
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  /* Command Palette */
+  .cmd-modal-panel {
+    width: 95%;
+  }
+
+  .cmd-modal-backdrop {
+    padding-top: 10vh;
+  }
+
+  /* Mobile drawer full width on mobile/tablet */
+  .mobile-nav-drawer {
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* Toast */
+  .toast-bubble {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+/* --- Small Mobile (max-width: 480px) --- */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.75rem;
+  }
+
+  .hero-section {
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.25rem);
+    padding-bottom: 2.5rem;
+  }
+
+  .hero-title {
+    font-size: 1.85rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .hero-pill-badge {
+    font-size: 0.68rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .hero-pill-badge span:last-child {
+    display: inline;
+    font-size: 0.65rem;
+  }
+
+  .spec-value {
+    font-size: 1.1rem;
+  }
+
+  .spec-label {
+    font-size: 0.65rem;
+  }
+
+  .hero-visual-card {
+    padding: 0.85rem;
+  }
+
+  .cad-hud-stage {
+    min-height: 260px;
+  }
+
+  .cad-view {
+    min-height: 260px;
+    padding: 0.5rem;
+  }
+
+  .cad-node-title {
+    font-size: 0.6rem;
+  }
+
+  .cad-node-sub {
+    font-size: 0.5rem;
+  }
+
+  .cad-node-badge {
+    font-size: 0.48rem;
+  }
+
+  .section-title {
+    font-size: 1.45rem;
+  }
+
+  .pillar-card {
+    padding: 1.25rem;
+  }
+
+  .pillar-title {
+    font-size: 1.08rem;
+  }
+
+  .pillar-description {
+    font-size: 0.82rem;
+  }
+
+  .pillar-code-snippet {
+    font-size: 0.68rem;
+  }
+
+  .feature-box,
+  .feature-card,
+  .bench-card {
+    padding: 1.15rem;
+  }
+
+  .benchmarks-card,
+  .bench-rig-card {
+    padding: 1rem;
+  }
+
+  /* Slotted page - stack fully */
+  .slotted-rec-row {
+    grid-template-columns: 1fr;
+  }
+
+  .slotted-page-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .slotted-actions-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .slotted-status-msg {
+    margin-left: 0;
+  }
+
+  /* Mobile nav drawer full width */
+  .mobile-nav-drawer {
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* Top bar margin and iPhone 16 dynamic island adaptation */
+  .header-wrapper {
+    top: max(0.85rem, env(safe-area-inset-top, 0.85rem)) !important;
+    padding: 0 0.5rem !important;
+  }
+
+  .navbar-pill {
+    padding: 0.35rem 0.6rem;
+    gap: 0.35rem;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .nav-brand {
+    font-size: 0.88rem;
+    gap: 0.35rem;
+  }
+
+  .nav-brand img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .hero-cli-install {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.72rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .hero-cli-install code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .spec-item {
+    min-width: 100%;
+  }
+
+  /* Editor */
+  .editor-header,
+  .results-header {
+    font-size: 0.65rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .editor-footer {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .editor-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* --- Landscape phone orientation fix --- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero-section {
+    padding: 2rem 0;
+  }
+
+  .architectural-ruler-top {
+    display: none !important;
+  }
+
+  .header-wrapper {
+    top: 0.5rem !important;
+  }
+}
+
+/* --- Touch device optimizations --- */
+@media (hover: none) and (pointer: coarse) {
+  /* Disable hover transforms on touch devices (prevent sticky hovers) */
+  .pillar-card:hover,
+  .feature-box:hover {
+    transform: none;
+  }
+
+  .btn-primary:hover {
+    transform: none;
+  }
+
+  .btn-secondary:hover {
+    transform: none;
+  }
+
+  /* Larger tap targets for touch */
+  .nav-item-link {
+    padding: 0.5rem 0.85rem;
+  }
+
+  .mobile-nav-link {
+    padding: 0.65rem 0;
+    font-size: 1.1rem;
+  }
+
+  .preset-tab-btn {
+    padding: 0.4rem 0.85rem;
+    min-height: 36px;
+  }
+
+  .benchmark-tab-btn {
+    padding: 0.45rem 1rem;
+    min-height: 36px;
+  }
+
+  .install-tab-btn {
+    padding: 0.45rem 0.95rem;
+    min-height: 36px;
+  }
+
+  .cad-mode-btn {
+    padding: 0.35rem 0.75rem;
+    min-height: 34px;
+  }
+
+  .cad-chip {
+    padding: 0.3rem 0.6rem;
+    min-height: 32px;
+  }
+}
+
+/* --- Safe area insets (notch / dynamic island) --- */
+@supports (padding: max(0px)) {
+  .header-wrapper {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+
+  .mobile-nav-drawer {
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .site-footer {
+    padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+  }
+}

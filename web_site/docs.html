@@ -260,10 +260,8 @@
             four operational models into a single engine binary and single storage container.
           </p>
           <div class="doc-callout tip">
-            <div class="doc-callout-title">💡 Pure Dart Architecture</div>
-            ULTSQL compiles ahead-of-time (AOT) to standalone native binaries or runs in Flutter, Dart VM, Node.js, and
-            web browsers with WebAssembly. It requires <strong>zero native C/C++ libraries, zero dynamic link libraries
-              (.so/.dylib/.dll), and zero C-compiler toolchains</strong>.
+            <div class="doc-callout-title">💡 Architecture & SDK Availability</div>
+            The core ULTSQL storage engine, SQL parser, WAL, and HNSW graph are written in 100% pure Dart. When using client bindings in Python (<code>pip install ultsql</code>) or Node.js (<code>npm install ultsql</code>), a small bundled engine process starts automatically on a free port and manages lifecycle cleanly—no external services, background daemons, or C-compiler toolchains required. On pub.dev, <code>package:ultsql</code> currently bundles Flutter dev-tooling &amp; UI services (compatible with all Flutter platforms). For standalone CLI usage, install the native binary via <code>install.sh</code> / <code>install.ps1</code> or deploy the official Docker container.
           </div>
           <p class="doc-p">
             Storage is structured around a slotted-page architecture with an ARIES-compliant Write-Ahead Log (WAL),
@@ -327,6 +325,8 @@ docker run -d -p 5432:5432 -v $(pwd)/data:/data ompatel/ultsql:latest</code></pr
                 <button class="code-tab-btn" data-lang="sql">SQL Script</button>
                 <button class="code-tab-btn" data-lang="node">Node.js</button>
                 <button class="code-tab-btn" data-lang="python">Python</button>
+                <button class="code-tab-btn" data-lang="go">Go</button>
+                <button class="code-tab-btn" data-lang="rust">Rust</button>
               </div>
               <button class="code-copy-btn">Copy</button>
             </div>
@@ -375,32 +375,88 @@ INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io', '2026-10-01');
 INSERT INTO users VALUES (2, 'Bob Jones', 'bob@ultsql.io', '2026-10-02');
 
 SELECT name, email FROM users WHERE id = 1;</code></pre>
-            <pre class="code-block" data-lang="node" style="display: none;"><code>const { UltSql } = require('ultsql');
+            <pre class="code-block" data-lang="node" style="display: none;"><code>const ultsql = require('ultsql');
 
 async function main() {
-  const db = await UltSql.openFile('./my_database');
-  await db.query(`
+  // Starts a small bundled engine process automatically on a free port
+  const db = await ultsql.open('app.db');
+
+  await db.sql(`
     CREATE TABLE users (id INT PRIMARY KEY, name TEXT, email TEXT);
     INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io');
   `);
 
-  const res = await db.query("SELECT * FROM users WHERE id = 1;");
+  const res = await db.sql("SELECT * FROM users WHERE id = 1;");
   console.log('Results:', res.rows);
-  await db.close();
+
+  // Clean shutdown
+  db.close();
 }
 main();</code></pre>
             <pre class="code-block" data-lang="python" style="display: none;"><code>import ultsql
 
-# Connect to embedded or PGWire server
-conn = ultsql.connect(database="./my_database")
-cur = conn.cursor()
+# Starts a small bundled engine process automatically on a free port
+db = ultsql.open("app.db")
 
-cur.execute("CREATE TABLE users (id INT PRIMARY KEY, name TEXT, email TEXT);")
-cur.execute("INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io');")
+db.sql("""
+    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, email TEXT);
+    INSERT INTO users VALUES (1, 'Alice Smith', 'alice@ultsql.io');
+""")
 
-cur.execute("SELECT * FROM users WHERE id = 1;")
-print(cur.fetchall())
-conn.close()</code></pre>
+res = db.sql("SELECT * FROM users WHERE id = 1;")
+print("Results:", res["rows"])
+
+# Auto-cleaned on exit, or call explicitly:
+db.close()</code></pre>
+            <pre class="code-block" data-lang="go" style="display: none;"><code>package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"github.com/ompatel3158/ULTSQL/bindings/go"
+)
+
+func main() {
+	// Starts a small bundled engine process automatically on a free port
+	db, err := ultsql.Open("app.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// High-speed batch insert
+	db.InsertBatch(ctx, "users", []map[string]interface{}{
+		{"id": 1, "name": "Alice Smith", "score": 98.5},
+	})
+
+	// Query
+	res, err := db.Query(ctx, "SELECT * FROM users WHERE score >= 90;")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Rows: %v\n", res.Rows)
+}</code></pre>
+            <pre class="code-block" data-lang="rust" style="display: none;"><code>use ultsql::UltSqlClient;
+use serde_json::json;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Starts a small bundled engine process automatically on a free port
+    let db = UltSqlClient::open("app.db").await?;
+
+    // High-speed batch insert
+    db.insert_batch("users", &[
+        json!({"id": 1, "name": "Alice Smith", "score": 98.5}),
+    ]).await?;
+
+    // Query
+    let res = db.query("SELECT * FROM users;").await?;
+    println!("Rows: {:?}", res.rows);
+    Ok(())
+}</code></pre>
           </div>
         </section>
 

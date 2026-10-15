@@ -1,0 +1,19 @@
+{
+  "name": "@ultsql/linux-x64",
+  "version": "1.0.29",
+  "description": "Linux x64 native binary for the UltSQL database engine.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ompatel3158/ULTSQL.git"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/ultsql"
+  ]
+}

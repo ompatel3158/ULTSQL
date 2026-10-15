@@ -292,9 +292,94 @@
 
 @media (max-width: 768px) {
   .bench-container {
-    padding-top: 5rem;
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem) !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
+
+  .bench-hero-title {
+    font-size: 2rem;
+  }
+
+  .bench-hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .bench-filter-bar {
+    gap: 0.35rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding-bottom: 0.5rem;
+    width: 100%;
+  }
+
+  .bench-filter-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.8rem;
+  }
+
+  .bench-rig-card {
+    padding: 1.25rem;
+  }
+
+  .bench-rig-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
   .bench-cards-grid {
     grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-bottom: 3rem;
+  }
+
+  .bench-card {
+    padding: 1.15rem;
+  }
+
+  .bench-reproduce-box {
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .bench-container {
+    padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.25rem) !important;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .bench-hero-title {
+    font-size: 1.65rem;
+  }
+
+  .bench-hero-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .bench-rig-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bench-rig-card {
+    padding: 1rem;
+  }
+
+  .bench-card {
+    padding: 1rem;
+  }
+
+  .bench-card-title {
+    font-size: 1rem;
+  }
+
+  .bench-filter-btn {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.65rem;
   }
 }

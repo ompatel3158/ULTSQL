@@ -1,0 +1,19 @@
+{
+  "name": "@ultsql/darwin-arm64",
+  "version": "1.0.29",
+  "description": "macOS arm64 native binary for the UltSQL database engine.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ompatel3158/ULTSQL.git"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/ultsql"
+  ]
+}

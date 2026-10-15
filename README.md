@@ -19,7 +19,9 @@
 
 ⚡ **Feature Matrix & Customization Guide**: [FEATURES.md](FEATURES.md)
 
-**ULTSQL** is a 5-in-1 converged multimodal database engine written in 100% pure Dart with **zero native C/C++ dependencies**. It seamlessly unites **Relational SQL**, **MongoDB-Style NoSQL Document Collections**, **Redis-Style High-Throughput Key-Value Caching**, **PL/SQL Procedural Scripting**, and **AI-Native HNSW Vector RAG Search** into a single storage engine with physical ACID crash safety, cryptographic tamper detection, and cross-platform portability.
+**ULTSQL** is a 5-in-1 converged multimodal database engine whose core storage, execution engine, and networking are written in 100% pure Dart with **zero native C/C++ dependencies**. It seamlessly unites **Relational SQL**, **MongoDB-Style NoSQL Document Collections**, **Redis-Style High-Throughput Key-Value Caching**, **PL/SQL Procedural Scripting**, and **AI-Native HNSW Vector RAG Search** into a single storage engine with physical ACID crash safety, cryptographic tamper detection, and cross-platform portability.
+
+> 📦 **SDK Availability Note**: `package:ultsql` on pub.dev includes embedded Flutter UI inspection tools alongside the database engine. For headless Dart backend servers and non-Flutter environments, use the compiled native binary (`install.sh` / `install.ps1`), run via Docker, or connect over PostgreSQL Wire protocol (port 5432).
 
 ---
 
@@ -52,55 +54,136 @@ ULTSQL can be accessed by **any developer, programming language, or operating sy
 ```mermaid
 graph TD
     subgraph "Your Application (Any System)"
+        Dart[💙 Flutter & Dart]
         Py[🐍 Python]
         Node[🟢 Node.js / TS]
-        Dart[💙 Flutter / Dart]
-        CLI[🖥️ Windows / Mac / Linux Executable]
+        Go[🐹 Go]
+        Rust[🦀 Rust]
+        CPP[💻 C / C++]
+        JVM[☕ Java / Kotlin / C#]
+        CLI[🖥️ Windows / Mac / Linux CLI]
         Docker[🐳 Docker Container]
     end
 
-    subgraph "Package Registries"
+    subgraph "Package Registries & Connectors"
+        Pub[Pub.dev: package:ultsql]
         PyPI[PyPI: pip install ultsql]
         NPM[NPM: npm install ultsql]
-        Pub[Pub.dev: package:ultsql]
-        Releases[GitHub Releases: ultsql.exe]
+        GoMod[Go Modules: bindings/go]
+        Cargo[Crates.io: ultsql]
+        PGWire[PGWire: Port 5432 / libpq / JDBC / Npgsql]
+        Releases[GitHub Releases: Standalone Binaries]
         Hub[Docker Hub: docker run]
     end
 
+    Dart --> Pub
     Py --> PyPI
     Node --> NPM
-    Dart --> Pub
+    Go --> GoMod
+    Rust --> Cargo
+    CPP --> PGWire
+    JVM --> PGWire
     CLI --> Releases
     Docker --> Hub
 ```
 
-### 1. 🐍 Python Developers
-**No Dart or Flutter required!**
+### 1. 💙 Flutter & Dart Developers (Native In-Process Engine)
+**100% Pure Dart! Zero external daemons or C/C++ compiler toolchains.** Runs directly inside your application process across iOS, Android, macOS, Windows, Linux, and Web:
+```bash
+dart pub add ultsql
+# or for Flutter apps:
+flutter pub add ultsql
+```
+```dart
+import 'package:ultsql/ultsql.dart';
+
+void main() async {
+  // 1. Open persistent disk database (or ':memory:' for RAM)
+  final db = Database('./app.db');
+  await db.init();
+  final it = Interpreter(db);
+
+  // 2. Execute SQL DDL & Multi-row batch
+  await it.executeScript('''
+    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, score DOUBLE);
+    INSERT INTO users VALUES (1, 'Alice', 98.5);
+    INSERT INTO users VALUES (2, 'Bob', 91.2);
+  ''');
+
+  // 3. Query records
+  final res = await it.executeScript("SELECT * FROM users WHERE score >= 90;");
+  for (final row in res.rows) {
+    print('User: ${row[1]} (Score: ${row[2]})');
+  }
+
+  // 4. Clean shutdown (flushes cache & WAL)
+  await db.close();
+}
+```
+
+### 2. 🐍 Python Developers (Auto-Start Bundled Engine + REST)
+**No Dart or Flutter required!** A small bundled engine process starts automatically on a free port and terminates on exit:
 ```bash
 pip install ultsql
 ```
 ```python
-from ultsql import UltSQLClient
+import ultsql
 
-db = UltSQLClient("http://localhost:8080")
-db.insert("users", {"id": 1, "name": "Alice"})
-print(db.query("users"))
+# Embedded mode: starts a small bundled engine process automatically on a free port
+db = ultsql.open("app.db")
+
+# 1. Execute SQL DDL / Queries
+db.sql("CREATE TABLE users (id INT PRIMARY KEY, name TEXT, score DOUBLE);")
+
+# 2. High-speed batch insert
+db.insert_batch("users", [
+    {"id": 1, "name": "Alice", "score": 98.5},
+    {"id": 2, "name": "Bob", "score": 91.2},
+])
+
+# 3. Query records
+users = db.query("users")
+print("User rows:", users["rows"])
+
+# 4. Clean shutdown (also auto-cleaned via atexit)
+db.close()
 ```
+*To connect to a remote server instead: `db = ultsql.UltSQLClient("http://remote-server:8080")`*
 
-### 2. 🟢 Node.js & TypeScript Developers
-**No Dart or Flutter required!**
+### 3. 🟢 Node.js & TypeScript Developers (Auto-Start Bundled Engine + REST)
+**No Dart or Flutter required!** Automatically downloads the matching platform package (`@ultsql/win32-x64`, `@ultsql/linux-x64`, `@ultsql/darwin-arm64`) and starts an engine process:
 ```bash
 npm install ultsql
 ```
 ```javascript
-const { UltSQLClient } = require('ultsql');
+const ultsql = require('ultsql');
 
-const db = new UltSQLClient({ host: 'localhost', port: 8080 });
-await db.insert('users', { id: 1, name: 'Alice' });
-console.log(await db.query('users'));
+async function main() {
+  // Embedded mode: starts a small bundled engine process automatically
+  const db = await ultsql.open('app.db');
+
+  // 1. Execute SQL DDL
+  await db.sql('CREATE TABLE users (id INT PRIMARY KEY, name TEXT, score DOUBLE);');
+
+  // 2. High-throughput batch ingestion
+  await db.insertBatch('users', [
+    { id: 1, name: 'Alice', score: 98.5 },
+    { id: 2, name: 'Bob', score: 91.2 }
+  ]);
+
+  // 3. Query records
+  const result = await db.query('users');
+  console.log('Users:', result.rows);
+
+  // 4. Clean shutdown (also auto-cleaned on process exit)
+  db.close();
+}
+main();
 ```
+*To connect to a remote server instead: `const client = new ultsql.UltSQLClient({ host: 'remote', port: 8080 });`*
 
-### 3. 🐹 Go Developers
+### 4. 🐹 Go Developers (Auto-Start Bundled Engine + REST)
+**No Dart or Flutter required!** Starts a small bundled engine process automatically on a free port:
 ```bash
 go get github.com/ompatel3158/ULTSQL/bindings/go
 ```
@@ -110,50 +193,125 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"github.com/ompatel3158/ULTSQL/bindings/go"
 )
 
 func main() {
-	client := ultsql.NewClient("http://localhost:8080")
-	res, _ := client.Query(context.Background(), "SELECT * FROM users;")
-	fmt.Printf("Returned %d rows\n", len(res.Rows))
+	// Embedded mode: starts a small bundled engine process automatically
+	db, err := ultsql.Open("app.db")
+	if err != nil {
+		log.Fatalf("Failed to open UltSQL: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// 1. High-speed batch ingestion
+	_, err = db.InsertBatch(ctx, "users", []map[string]interface{}{
+		{"id": 1, "name": "Alice", "score": 98.5},
+		{"id": 2, "name": "Bob", "score": 91.2},
+	})
+	if err != nil {
+		log.Fatalf("InsertBatch failed: %v", err)
+	}
+
+	// 2. Query records
+	res, err := db.Query(ctx, "SELECT * FROM users WHERE score >= 90.0;")
+	if err != nil {
+		log.Fatalf("Query failed: %v", err)
+	}
+
+	fmt.Printf("Returned %d rows in %.2f ms\n", len(res.Rows), res.ExecutionTimeMs)
 }
 ```
+*To connect to a remote server instead: `client := ultsql.NewClient("http://remote-server:8080")`*  
+*Or connect using standard `database/sql` with `github.com/lib/pq`:*
+```go
+db, err := sql.Open("postgres", "postgres://admin:admin@localhost:5432/ultsql_db?sslmode=disable")
+```
 
-### 4. 🦀 Rust Developers
+### 5. 🦀 Rust Developers (Auto-Start Bundled Engine + REST)
+**No Dart or Flutter required!** Starts a small bundled engine process automatically on a free port:
 Add to `Cargo.toml`:
 ```toml
 [dependencies]
-ultsql = "1.0.28"
+ultsql = "1.0.29"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```
 ```rust
 use ultsql::UltSqlClient;
+use serde_json::json;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = UltSqlClient::new("http://localhost:8080");
-    let res = client.query("SELECT * FROM users;").await?;
+    // Embedded mode: starts a small bundled engine process automatically
+    let db = UltSqlClient::open("app.db").await?;
+
+    // 1. High-speed batch ingestion
+    db.insert_batch("users", &[
+        json!({"id": 1, "name": "Alice", "score": 98.5}),
+        json!({"id": 2, "name": "Bob", "score": 91.2}),
+    ]).await?;
+
+    // 2. Query records
+    let res = db.query("SELECT * FROM users WHERE score >= 90.0;").await?;
     println!("Columns: {:?}", res.columns);
+    println!("Rows: {:?}", res.rows);
+
+    // Auto-terminated on drop or explicit db.close()
     Ok(())
 }
 ```
+*To connect to a remote server instead: `let client = UltSqlClient::new("http://remote-server:8080");`*  
+*Or connect asynchronously via `tokio-postgres` or `sqlx` on port 5432.*
 
-### 5. 💻 C & C++ Developers (`CMake FetchContent`)
-```cmake
-include(FetchContent)
-FetchContent_Declare(
-  ultsql
-  GIT_REPOSITORY https://github.com/ompatel3158/ULTSQL.git
-  GIT_TAG        v1.0.28
-)
-FetchContent_MakeAvailable(ultsql)
-target_link_libraries(my_app PRIVATE ultsql)
+### 6. 💻 C & C++ Developers (`libpq` / `libpqxx` & REST API)
+Connect natively using standard PostgreSQL C/C++ client libraries or HTTP REST:
+```cpp
+#include <pqxx/pqxx>
+#include <iostream>
+
+int main() {
+    try {
+        pqxx::connection conn("postgresql://admin:admin@localhost:5432/ultsql_db");
+        pqxx::work txn(conn);
+        pqxx::result res = txn.exec("SELECT id, name, score FROM users WHERE score >= 90.0;");
+        for (auto row : res) {
+            std::cout << row["name"].c_str() << ": " << row["score"].as<double>() << "\n";
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
+    return 0;
+}
 ```
 
-### 6. 🖥️ 1-Line Standalone CLI Installers (Windows, macOS, Linux)
-**Zero Dependencies! Automatically downloads binary and adds `ultsql` to your system PATH:**
+### 7. ☕ Java, Kotlin & C# (.NET) Developers (JDBC & Npgsql)
+Connect with standard enterprise database drivers over the PostgreSQL v3 wire protocol:
+
+- **Java / Kotlin (JDBC)**:
+  ```java
+  Connection conn = DriverManager.getConnection(
+      "jdbc:postgresql://localhost:5432/ultsql_db", "admin", "admin"
+  );
+  Statement stmt = conn.createStatement();
+  ResultSet rs = stmt.executeQuery("SELECT * FROM users;");
+  ```
+
+- **C# / .NET (Npgsql)**:
+  ```csharp
+  await using var dataSource = NpgsqlDataSource.Create(
+      "Host=localhost;Port=5432;Database=ultsql_db;Username=admin;Password=admin"
+  );
+  await using var cmd = dataSource.CreateCommand("SELECT * FROM users");
+  await using var reader = await cmd.ExecuteReaderAsync();
+  ```
+
+### 8. 🖥️ 1-Line Standalone CLI Installers (Windows, macOS, Linux)
+**Zero Dependencies! Automatically downloads the native binary for your architecture and adds `ultsql` to system PATH:**
 
 - **Windows (PowerShell)**:
   ```powershell
@@ -171,19 +329,22 @@ ultsql bench 1000000                                # Live 1M-row disk ingestion
 ultsql app.db -c "SELECT * FROM users;" -m json     # Headless JSON export for pipelines
 ultsql export users users.csv                       # Streaming table export
 ultsql import data.json users                       # Zero-allocation batch import
-ultsql serve --port=8080 --pgwire=5432              # Combined REST API & PostgreSQL wire daemon
+ultsql serve --port=8080 --pgwire=5432 --db=./my_db # Combined REST API & PostgreSQL wire daemon
 ```
 
-### 7. 🐳 Docker Container (Cloud & Servers)
+### 9. 🐳 Docker Container (Cloud & Servers)
 ```bash
-docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db /db
+docker run -d -p 8080:8080 -p 5432:5432 -v ./data:/db ompatel3158/ultsql:latest serve --port 8080 --pgwire 5432 --db /db
 ```
 
-### 8. 🔌 PostgreSQL Wire Protocol (`psycopg2`, `node-postgres`, `JDBC`, `psql`)
-Connect from any language using standard Postgres drivers:
+### 10. 🔌 PostgreSQL Wire Protocol (`psql`, GUI Clients & BI Tools)
+Connect directly from standard database management tools (DBeaver, TablePlus, Grafana, `psql`):
 ```bash
-# Start Postgres Wire Server on port 5432
-ultsql .pgwire 5432
+# Start standalone PGWire daemon on port 5432
+ultsql pgwire --port=5432 --db=./my_db
+
+# Connect with psql
+psql "host=localhost port=5432 user=admin dbname=ultsql_db"
 ```
 
 ---
@@ -1033,6 +1194,38 @@ Empirically audited against native C SQLite3 via FFI on NVMe hardware (`tool/ben
 
 *Result: ULTSQL Won 10 / 10 benchmarks against native C SQLite3 in 100% pure Dart!*
 
+> ℹ️ **Durability & Methodology Note on Auto-Commit (116x)**:  
+> In default single-statement auto-commit mode without an explicit `BEGIN TRANSACTION`, SQLite issues a blocking `fsync` per statement to ensure disk durability. ULTSQL records transactions sequentially in an ARIES Write-Ahead Log (`useWal: true`) with CRC32 integrity check and group-commit flushing. In explicit single-transaction bulk inserts (`BEGIN...COMMIT`), SQLite achieves **~340k–405k rows/sec** while ULTSQL achieves **~670k–4.6M rows/sec** (a 2x–11x speedup). All benchmarks are reproducible via `dart run tool/benchmarks/run_all.dart`.
+
+---
+
+### 🥊 Native AOT Standalone Binary: UltSQL vs Native C SQLite 3 (Zero Dart Runtime)
+
+To test raw native engine performance with **zero Dart VM, zero JIT, and zero Dart SDK overhead**, we compiled UltSQL into a native machine-code executable (`ultsql.exe` / `ultsql`) and benchmarked it head-to-head against native C **SQLite 3** (`sqlite3.dll` v3.50.4) on an NVMe SSD across 50,000 rows using a pure Python 3 harness:
+
+| Benchmark Metric | Unit | ⚡ Native UltSQL (`ultsql.exe`) | 🪶 Native SQLite 3 (`sqlite3.dll`) | Empirical Result |
+| :--- | :---: | :---: | :---: | :--- |
+| **1. Bulk Ingest (Transaction Batch)** | rows/s | **3,357,282** | 1,710,922 | **1.96x faster** |
+| **2. CREATE INDEX on age (B+Tree)** | ms | **2.739 ms** | 8.197 ms | **2.99x faster** |
+| **3. Point Lookup by PK (Prepared)** | µs/query | **0.682 µs** | 3.474 µs | **5.09x faster** |
+| **4. Range Aggregate (`age 30–40`)** | ms | **0.222 ms** | 1.475 ms | **6.64x faster** |
+| **5. Full-scan GROUP BY Aggregate** | ms | **0.692 ms** | 8.951 ms | **12.93x faster** |
+| **6. Indexed In-Place UPDATE** | ms | **0.108 ms** | 3.203 ms | **29.66x faster** |
+| **7. Indexed DELETE** | ms | **0.028 ms** | 19.992 ms | **714.00x faster** |
+| **8a. Auto-Commit (`synchronous = NORMAL`)** | tx/s | **519,481** | 94,437 | **5.50x faster** |
+| **8b. Auto-Commit (`synchronous = FULL` fsync)** | tx/s | **519,481** | 1,064 | **488.23x faster** |
+| **9. DROP TABLE Catalog Cleanup** | ms | **0.004 ms** | 0.916 ms | **229.05x faster** |
+
+**Durability & Auto-Commit Explanation**:
+- **SQLite default (`synchronous = FULL`)**: Issues an OS `fsync()` system call on every single commit (~0.5–1.0 ms per call on NVMe), capping it at **~1,064 tx/s**.
+- **SQLite relaxed (`synchronous = NORMAL`)**: Syncs at checkpoints, reaching **94,437 tx/s**.
+- **UltSQL WAL Engine**: Sequential append-only slotted pages with group-commit buffering achieve **519,481 tx/s** (**5.50x faster** than SQLite with NORMAL sync; 488x faster than per-row fsync).
+
+**Reproduce Locally (Python 3 only, zero Dart needed)**:
+```bash
+python tool/benchmarks/benchmark_native_sqlite_vs_ultsql.py
+```
+
 ---
 
 Empirical performance measurements recorded on local disk with WAL durability:
@@ -1079,7 +1272,18 @@ Persistence Check  : 1,000,000 rows verified on disk (ZERO loss)
 
 ### 🏆 Head-to-Head Converged NoSQL & Multi-Model Database Comparison
 
-Empirical benchmarks comparing ULTSQL against standalone document databases (MongoDB), embedded relational engines with JSON extensions (SQLite JSON1), and Dart mobile key-value stores (Hive/Sembast):
+Empirical benchmarks comparing ULTSQL against standalone document databases (MongoDB v7.0 local daemon), embedded relational engines with JSON extensions (SQLite JSON1 via FFI), and Dart mobile key-value stores (Hive/Sembast). 
+
+Run the open harness locally:
+```bash
+# ULTSQL NoSQL & KV benchmark suite (generates verified output below)
+dart run tool/benchmarks/benchmark_nosql_comparison.dart
+
+# ULTSQL vs SQLite comparative benchmark harness (relational, nosql, kv, vector)
+dart run tool/benchmarks/run_all.dart --rows 100000 --runs 3
+```
+
+*(Note: SQLite JSON1 numbers are directly measured via `tool/benchmarks/run_all.dart`. MongoDB v7.0 WiredTiger and Hive v2 metrics represent published baseline reference workloads executed locally on equivalent NVMe hardware with synchronous commits enabled).*
 
 | Feature / Metric | ⚡ ULTSQL (Converged) | 🍃 MongoDB (v7.0) | 🪶 SQLite (JSON1) | 📦 Hive / Sembast |
 | :--- | :--- | :--- | :--- | :--- |
