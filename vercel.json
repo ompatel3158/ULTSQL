@@ -7,6 +7,7 @@
     { "src": "/benchmarks", "dest": "/benchmarks.html" },
     { "src": "/license", "dest": "/license.html" },
     { "src": "/privacy", "dest": "/privacy.html" },
+    { "src": "/delete-account", "dest": "/delete-account.html" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }
