@@ -2430,6 +2430,93 @@ main.container {
 
 
 /* ==========================================================================
+   UNIVERSAL DATA TABLES & GRIDS (BKLIT CAD MINIMALIST DESIGN)
+   ========================================================================== */
+
+.doc-table-wrapper {
+  overflow-x: auto;
+  margin: 1.5rem 0 2.5rem;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  -webkit-overflow-scrolling: touch;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+  border: none;
+}
+
+.doc-table thead {
+  background: var(--bg-surface-elevated);
+}
+
+.doc-table th {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.9rem 1.15rem;
+  border-bottom: 2px solid var(--border-medium);
+  border-right: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.doc-table th:last-child {
+  border-right: none;
+}
+
+.doc-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.doc-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.doc-table td {
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+.doc-table td:last-child {
+  border-right: none;
+}
+
+.doc-table tbody tr:hover {
+  background: var(--bg-surface-hover);
+}
+
+.doc-table tbody tr:hover td {
+  color: var(--text-primary);
+}
+
+.doc-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.doc-table code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
    COMPREHENSIVE MOBILE RESPONSIVE OVERRIDES
    ========================================================================== */
 
