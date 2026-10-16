@@ -35,7 +35,7 @@
     if (ramEl) ramEl.textContent = `${env.ramGB || 16} GB DDR5 (${env.ramSpeedMHz || 4800} MHz)`;
     if (diskEl) diskEl.textContent = env.disk || 'NVMe SSD';
     if (osEl) osEl.textContent = `${env.os} (${env.logicalCores} threads)`;
-    if (enginesEl) enginesEl.textContent = `ULTSQL v${env.ultsqlVersion} (Pure Dart) vs SQLite ${env.sqliteVersion} (C/FFI)`;
+    if (enginesEl) enginesEl.textContent = `ULTSQL v${env.ultsqlVersion} (Pure Dart & Standalone AOT) vs SQLite ${env.sqliteVersion} (Native C/FFI)`;
     if (timestampEl) {
       const d = dateStr ? new Date(dateStr) : new Date();
       timestampEl.textContent = `Measured on ${d.toLocaleDateString()} ${d.toLocaleTimeString()} (Commit: ${env.commit || 'c9f05ca'})`;
@@ -79,11 +79,12 @@
       const higherBetter = item.better === 'higher';
 
       if (ult !== null && sq !== null) {
-        if (higherBetter) {
-          const maxVal = Math.max(ult, sq);
-          ultFillPct = maxVal > 0 ? (ult / maxVal) * 100 : 0;
-          sqFillPct = maxVal > 0 ? (sq / maxVal) * 100 : 0;
+        const maxVal = Math.max(ult, sq);
+        // Bar length is strictly proportional to the number displayed next to it
+        ultFillPct = maxVal > 0 ? Math.max(Math.round((ult / maxVal) * 100), 4) : 0;
+        sqFillPct = maxVal > 0 ? Math.max(Math.round((sq / maxVal) * 100), 4) : 0;
 
+        if (higherBetter) {
           if (ult >= sq) {
             const ratio = (ult / sq).toFixed(2);
             winnerTag = `<span class="bench-winner-tag tag-ultsql-win">🏆 ULTSQL ${ratio}x FASTER</span>`;
@@ -92,13 +93,7 @@
             winnerTag = `<span class="bench-winner-tag tag-sqlite-win">SQLite +${delta}%</span>`;
           }
         } else {
-          // Lower is better (latency in ms or µs)
-          const minVal = Math.min(ult, sq);
-          const maxVal = Math.max(ult, sq);
-          // Invert for progress bar visual (lower latency = longer green bar)
-          ultFillPct = maxVal > 0 ? (minVal / ult) * 100 : 0;
-          sqFillPct = maxVal > 0 ? (minVal / sq) * 100 : 0;
-
+          // Lower is better (latency in ms or µs: shorter bar is faster / winner)
           if (ult <= sq) {
             const ratio = (sq / ult).toFixed(2);
             winnerTag = `<span class="bench-winner-tag tag-ultsql-win">🏆 ULTSQL ${ratio}x LOWER LATENCY</span>`;

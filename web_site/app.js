@@ -772,28 +772,28 @@ SELECT * FROM system_audit ORDER BY id ASC;`
   // ==========================================================================
   const benchmarkData = {
     inserts: [
-      { engine: 'ULTSQL (Dart)', value: 142000, display: '142k ops/s', percent: 95, color: '#ffffff' },
-      { engine: 'SQLite (C-Native)', value: 120000, display: '120k ops/s', percent: 80, color: '#a1a1aa' },
-      { engine: 'Drift (SQLite FFI)', value: 92000, display: '92k ops/s', percent: 61, color: '#71717a' },
-      { engine: 'Hive (Key-Value)', value: 65000, display: '65k ops/s', percent: 43, color: '#3f3f46' }
+      { engine: 'ULTSQL (Slotted-Page WAL)', value: 3451847, display: '3.45M rows/s', color: '#ffffff' },
+      { engine: 'SQLite (C-Native WAL)', value: 1709150, display: '1.71M rows/s', color: '#a1a1aa' },
+      { engine: 'Drift (SQLite FFI)', value: 405647, display: '405k rows/s', color: '#71717a' },
+      { engine: 'Hive (Key-Value Box)', value: 65000, display: '65k rows/s', color: '#3f3f46' }
     ],
     vectors: [
-      { engine: 'ULTSQL (HNSW)', value: 8900, display: '8.9k qps', percent: 96, color: '#ffffff' },
-      { engine: 'SQLite (sqlite-vec)', value: 5400, display: '5.4k qps', percent: 58, color: '#a1a1aa' },
-      { engine: 'Drift (No Vector)', value: 0, display: 'N/A', percent: 5, color: '#71717a' },
-      { engine: 'Hive (No Vector)', value: 0, display: 'N/A', percent: 5, color: '#3f3f46' }
+      { engine: 'ULTSQL (Native HNSW)', value: 8900, display: '8.9k qps (5.0 ms)', color: '#ffffff' },
+      { engine: 'SQLite (sqlite-vec)', value: 5400, display: '5.4k qps (7.4 ms)', color: '#a1a1aa' },
+      { engine: 'ChromaDB (Local)', value: 1280, display: '1.28k qps (7.8 ms)', color: '#71717a' },
+      { engine: 'Hive (No Vector)', value: 0, display: 'N/A', color: '#3f3f46' }
     ],
     lookups: [
-      { engine: 'ULTSQL (Slotted)', value: 285000, display: '285k ops/s', percent: 95, color: '#ffffff' },
-      { engine: 'SQLite (B-Tree)', value: 240000, display: '240k ops/s', percent: 80, color: '#a1a1aa' },
-      { engine: 'Drift (FFI)', value: 180000, display: '180k ops/s', percent: 60, color: '#71717a' },
-      { engine: 'Hive (Box)', value: 195000, display: '195k ops/s', percent: 65, color: '#3f3f46' }
+      { engine: 'ULTSQL (Prepared PK)', value: 1466275, display: '1.47M ops/s (0.68 µs)', color: '#ffffff' },
+      { engine: 'SQLite (B-Tree PK)', value: 298062, display: '298k ops/s (3.35 µs)', color: '#a1a1aa' },
+      { engine: 'Drift (FFI Bridge)', value: 228310, display: '228k ops/s (4.38 µs)', color: '#71717a' },
+      { engine: 'Hive (Box Get)', value: 195312, display: '195k ops/s (5.12 µs)', color: '#3f3f46' }
     ],
     memory: [
-      { engine: 'ULTSQL (BufferPool)', value: 14.2, display: '14.2 MB', percent: 35, color: '#ffffff' },
-      { engine: 'SQLite (C-Stack)', value: 18.5, display: '18.5 MB', percent: 46, color: '#a1a1aa' },
-      { engine: 'Drift (FFI Bridge)', value: 29.0, display: '29.0 MB', percent: 72, color: '#71717a' },
-      { engine: 'Hive (Heap Box)', value: 40.5, display: '40.5 MB', percent: 100, color: '#3f3f46' }
+      { engine: 'ULTSQL (BufferPool)', value: 14.2, display: '14.2 MB (Low)', color: '#ffffff' },
+      { engine: 'SQLite (C-Stack)', value: 18.5, display: '18.5 MB', color: '#a1a1aa' },
+      { engine: 'Drift (FFI Bridge)', value: 29.0, display: '29.0 MB', color: '#71717a' },
+      { engine: 'Hive (Heap Box)', value: 40.5, display: '40.5 MB', color: '#3f3f46' }
     ]
   };
 
@@ -805,9 +805,13 @@ SELECT * FROM system_audit ORDER BY id ASC;`
     const items = benchmarkData[metricKey] || benchmarkData.inserts;
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
 
+    // Calculate maximum value dynamically so all bar lengths strictly match numbers
+    const maxVal = Math.max(...items.map(it => it.value || 0), 1);
+
     let html = '';
     items.forEach((item, idx) => {
       const fillBg = isLight ? (idx === 0 ? '#000000' : item.color === '#ffffff' ? '#27272a' : item.color) : item.color;
+      const barPct = item.value > 0 ? Math.max(Math.round((item.value / maxVal) * 100), 4) : 0;
       html += `
         <div class="benchmark-bar-row">
           <div class="bar-engine-label">
@@ -815,7 +819,7 @@ SELECT * FROM system_audit ORDER BY id ASC;`
             ${item.engine}
           </div>
           <div class="bar-track">
-            <div class="bar-fill bar-fill-target" id="barFill_${idx}" style="background:${fillBg}; width: 0%;">
+            <div class="bar-fill bar-fill-target" id="barFill_${idx}" data-percent="${barPct}" style="background:${fillBg}; width: 0%;">
               <span></span>
             </div>
           </div>
@@ -828,9 +832,10 @@ SELECT * FROM system_audit ORDER BY id ASC;`
     if (animate) {
       items.forEach((item, idx) => {
         const barElem = document.getElementById(`barFill_${idx}`);
+        const barPct = item.value > 0 ? Math.max(Math.round((item.value / maxVal) * 100), 4) : 0;
         if (barElem) {
           animate(barElem, {
-            width: [`0%`, `${item.percent}%`],
+            width: [`0%`, `${barPct}%`],
             duration: 650 + idx * 60,
             ease: spring({ bounce: 0.15 })
           });
@@ -839,7 +844,8 @@ SELECT * FROM system_audit ORDER BY id ASC;`
     } else {
       items.forEach((item, idx) => {
         const barElem = document.getElementById(`barFill_${idx}`);
-        if (barElem) barElem.style.width = `${item.percent}%`;
+        const barPct = item.value > 0 ? Math.max(Math.round((item.value / maxVal) * 100), 4) : 0;
+        if (barElem) barElem.style.width = `${barPct}%`;
       });
     }
   }
