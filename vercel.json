@@ -6,6 +6,7 @@
     { "src": "/features", "dest": "/features.html" },
     { "src": "/benchmarks", "dest": "/benchmarks.html" },
     { "src": "/license", "dest": "/license.html" },
+    { "src": "/privacy", "dest": "/privacy.html" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }

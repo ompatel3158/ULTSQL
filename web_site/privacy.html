@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy | ULTSQL Studio App - ultsql.tech</title>
+  <meta name="description" content="Official Privacy Policy for ULTSQL Studio Mobile App and ultsql.tech web services. Learn how we handle your local database, voice prompts, and privacy rights.">
+  <link rel="canonical" href="https://ultsql.tech/privacy">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-secondary: #d1d5db;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.15);
+      --accent: #818cf8;
+      --success: #34d399;
+      --code-bg: #1e293b;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 0;
+    }
+    nav {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 1rem 1.5rem;
+    }
+    .nav-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .brand span {
+      color: var(--primary);
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover {
+      color: var(--primary);
+    }
+    .container {
+      max-width: 900px;
+      margin: 2.5rem auto 4rem;
+      padding: 0 1.5rem;
+    }
+    .header-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .header-box::before {
+      content: "";
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--primary-glow);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.03em;
+    }
+    .meta {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+    .highlight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+    .highlight-card {
+      background: rgba(31, 41, 55, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .highlight-card h3 {
+      font-size: 1rem;
+      color: var(--primary);
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .highlight-card p {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 0;
+    }
+    .content-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2.5rem;
+    }
+    h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 2.25rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    h2:first-of-type {
+      margin-top: 0;
+    }
+    h3 {
+      font-size: 1.12rem;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      color: var(--text-secondary);
+      margin-bottom: 1.15rem;
+      font-size: 0.98rem;
+    }
+    ul, ol {
+      margin-bottom: 1.25rem;
+      padding-left: 1.5rem;
+      color: var(--text-secondary);
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    li strong {
+      color: #ffffff;
+    }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--code-bg);
+      color: var(--primary);
+      padding: 0.15rem 0.4rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    a:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
+    .contact-card {
+      background: rgba(56, 189, 248, 0.05);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      background: var(--bg);
+    }
+    footer a {
+      color: var(--text-muted);
+    }
+    footer a:hover {
+      color: var(--primary);
+    }
+    @media (max-width: 640px) {
+      .header-box, .content-box {
+        padding: 1.5rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+      }
+      h2 {
+        font-size: 1.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <a href="https://ultsql.tech" class="brand">
+        ULTSQL<span>.tech</span>
+      </a>
+      <div class="nav-links">
+        <a href="https://ultsql.tech">Home</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="header-box">
+      <div class="badge">Google Play Store & Regulatory Compliance</div>
+      <h1>Privacy Policy</h1>
+      <div class="meta">
+        <div><strong>Application:</strong> ULTSQL Studio App (<code>com.ultsql.app</code>)</div>
+        <div><strong>Domain:</strong> <a href="https://ultsql.tech">ultsql.tech</a></div>
+        <div><strong>Effective Date:</strong> October 14, 2026</div>
+      </div>
+
+      <div class="highlight-grid">
+        <div class="highlight-card">
+          <h3>🔒 Local-First Core</h3>
+          <p>Your SQL tables, NoSQL collections, and vector search databases remain on your device by default.</p>
+        </div>
+        <div class="highlight-card">
+          <h3>🎙️ Ephemeral Voice Input</h3>
+          <p>Microphone audio used for Sofy AI voice queries is transcribed in real-time and never permanently stored or sold.</p>
+        </div>
+        <div class="highlight-card">
+          <h3>🚫 Zero Ad Tracking</h3>
+          <p>We do not serve advertisements, utilize tracking cookies, or sell personal information to brokers.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-box">
+      <h2>1. Introduction & Scope</h2>
+      <p>
+        Welcome to <strong>ULTSQL Studio</strong>, accessible at <a href="https://ultsql.tech">ultsql.tech</a> and via the official mobile application (<code>com.ultsql.app</code>) distributed on the Google Play Store. This Privacy Policy outlines our transparent data practices, detailing what information we process, how it is handled, and the strict controls you retain over your personal and database assets.
+      </p>
+
+      <h2>2. Local-First Database Architecture</h2>
+      <p>
+        ULTSQL Studio is engineered with an uncompromising <strong>local-first philosophy</strong>. When you create relational SQL tables, execute queries, store NoSQL document collections, or generate high-dimensional vector embeddings, this data is saved directly in the sandboxed local storage of your device.
+      </p>
+      <ul>
+        <li><strong>No Telemetry on Data:</strong> We never log, collect, inspect, or transmit the contents of your local database tables to our servers.</li>
+        <li><strong>Offline Capability:</strong> Core database features operate fully offline without requiring any active internet connection.</li>
+      </ul>
+
+      <h2>3. Specific Permissions & Data We Process</h2>
+      
+      <h3>A. Microphone & Audio (Voice Queries for Sofy AI)</h3>
+      <p>
+        When you activate the microphone button in the Sofy AI chat interface, the app requests permission to record audio (<code>android.permission.RECORD_AUDIO</code>).
+      </p>
+      <ul>
+        <li><strong>Purpose:</strong> To transcribe spoken natural language prompts (e.g., <em>"Show me all tables ordered by date"</em>) into text for database operations.</li>
+        <li><strong>Ephemeral Processing:</strong> Audio captures are converted to text and immediately discarded. Audio files are <strong>never permanently retained</strong> on external servers, are <strong>never used for voice profiling</strong>, and are <strong>never shared with third-party advertisers</strong>.</li>
+        <li><strong>Granular Control:</strong> Microphone access is strictly optional. You can deny microphone access and use the text-based chat interface at all times.</li>
+      </ul>
+
+      <h3>B. Storage & File Management</h3>
+      <p>
+        The app interacts with device storage strictly to fulfill user-initiated actions:
+      </p>
+      <ul>
+        <li>Exporting database backups (SQL dump files, CSV tables, JSON records).</li>
+        <li>Importing existing database files or schema definitions that you explicitly select.</li>
+      </ul>
+
+      <h3>C. User Account Information (Optional)</h3>
+      <p>
+        If you choose to create an account or authenticate using Google Sign-In:
+      </p>
+      <ul>
+        <li>We process basic profile details (email address, display name, and unique authentication identifier) via Firebase Authentication and Supabase.</li>
+        <li>This is used solely to authenticate your session and enable optional peer-to-peer cloud collaboration and database synchronization across your personal devices.</li>
+      </ul>
+
+      <h3>D. AI Assistant Interactions</h3>
+      <p>
+        When you submit questions to the Sofy AI assistant, the text prompt and minimal table schema metadata necessary to formulate the SQL query are transmitted securely via TLS 1.3 / HTTPS to authorized inference engines (OpenRouter or Google Gemini API). Your queries are not used to train public foundation models.
+      </p>
+
+      <h2>4. Third-Party Infrastructure</h2>
+      <p>
+        To ensure dependable synchronization and authentication, ULTSQL Studio integrates with trusted developer infrastructure:
+      </p>
+      <ul>
+        <li><strong>Google Play Services & Firebase:</strong> Authentication, Google Play licensing, and application distribution. (<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>)</li>
+        <li><strong>Supabase:</strong> Scalable backend infrastructure for optional cloud synchronization. (<a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase Privacy Policy</a>)</li>
+      </ul>
+
+      <h2>5. Security Safeguards</h2>
+      <p>
+        We employ industry-leading protocols to protect your information:
+      </p>
+      <ul>
+        <li><strong>End-to-End Transport Security:</strong> All remote communications (authentication, AI generation, Forge cloud sync) are strictly enforced over encrypted <strong>TLS 1.3 / HTTPS</strong> channels.</li>
+        <li><strong>Sandboxed Android Storage:</strong> Application databases are stored in private internal Android storage, inaccessible to other apps without root permissions.</li>
+        <li><strong>Secure Key Vaults:</strong> User-supplied API keys for AI providers remain encrypted in local device storage.</li>
+      </ul>
+
+      <h2>6. Your Data Rights & Deletion Options</h2>
+      <p>You maintain complete sovereignty over your information:</p>
+      <ul>
+        <li><strong>Local Data Wipe:</strong> You can completely erase all local tables, databases, and cached data at any time through Android Settings &gt; Apps &gt; ULTSQL &gt; Storage &gt; Clear Storage.</li>
+        <li><strong>Account Deletion:</strong> You can request full account deletion inside the App Settings or by contacting our engineering team. Upon request, all remote authentication credentials and sync records are irreversibly deleted.</li>
+      </ul>
+
+      <h2>7. Children's Privacy</h2>
+      <p>
+        ULTSQL Studio is designed for developers, students, and database administrators. We do not knowingly solicit or collect personal identifiable information from children under the age of 13.
+      </p>
+
+      <h2>8. Policy Revisions</h2>
+      <p>
+        We may update our Privacy Policy periodically to reflect enhancements in technology or regulatory requirements. Any revisions will be published on this page (<a href="https://ultsql.tech/privacy">ultsql.tech/privacy</a>) with a refreshed effective date.
+      </p>
+
+      <h2>9. Contact Us</h2>
+      <div class="contact-card">
+        <p>If you have any questions, compliance inquiries, or data requests regarding ULTSQL Studio:</p>
+        <p>
+          <strong>Engineering & Data Controller:</strong> Om Patel<br>
+          <strong>Domain:</strong> <a href="https://ultsql.tech">https://ultsql.tech</a><br>
+          <strong>Email:</strong> <a href="mailto:support@ultsql.tech">support@ultsql.tech</a> / <a href="mailto:ompatel3158@gmail.com">ompatel3158@gmail.com</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="nav-container" style="justify-content: center; flex-direction: column; gap: 0.5rem;">
+      <div>&copy; 2026 ULTSQL. All rights reserved.</div>
+      <div><a href="https://ultsql.tech">ultsql.tech</a> &bull; <a href="https://ultsql.tech/privacy">Privacy Policy</a></div>
+    </div>
+  </footer>
+</body>
+</html>
