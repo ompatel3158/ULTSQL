@@ -55,4 +55,4 @@ To ensure full transparency across versions:
 
 ## Who holds the copyright?
 
-Copyright (c) 2026 Om Patel (`om.business3158@gmail.com`). All rights reserved.
+Copyright (c) 2026 Om Patel (`support@ultsql.tech`). All rights reserved.
