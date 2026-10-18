@@ -354,7 +354,7 @@ psql "host=localhost port=5432 user=admin dbname=ultsql_db"
 | Capability / Benchmark | UltSQL Performance | Feature Status |
 | :--- | :--- | :--- |
 | **Durable Disk Ingestion Pipeline (`executeBatchSync`)** | **2,087,683 rows/sec (2.08M rows/sec)** | ⚡ Real NVMe Physical Storage, Slotted Pages, Sequential WAL Flush, Zero Data Loss Verified |
-| **Converged NoSQL Point Read Latency (`findOne`)** | **25.77 µs** (Direct B+ Tree + Micro-Cache) | ⚡ 17.5x Acceleration, Crushes MongoDB (182.4 µs) & SQLite (118.6 µs) |
+| **Converged NoSQL Point Read Latency (`findOne`)** | **3.61 µs** (Direct B+ Tree + Micro-Cache) | ⚡ 32.8x Acceleration, Crushes MongoDB (182.4 µs) & SQLite (118.6 µs) |
 | **In-Memory KV Cache Read (`kv.get`)** | **1,282,051 ops/sec (1.28M ops/sec)** | 🔑 Zero-Latency Pure Dart In-Memory Hot Store with TTL & Disk Persistence |
 | **Enterprise Cybersecurity & Tamper Detection** | **AES-256-CTR + HMAC-SHA256** | 🛡️ Active Bit-Tamper Trapping, Dual Envelopes (`inPage`/`companion`), PBKDF2 (10,000 rounds), Memory Zeroization |
 | **Direct Slotted-Page Vector Ingestion** | **5,580,357 rows/sec (5.58M rows/sec)** | ⚡ Vectorized Slotted-Page Binary Serialization Bypassing SQL AST |
@@ -656,11 +656,11 @@ await users.insertMany([
   {'name': 'Charlie', 'role': 'designer', 'profile': {'score': 74000}},
 ]);
 
-// Point read by ID (25.77 µs)
+// Point read by ID (3.61 µs)
 final found = await users.findOne({'_id': doc.id});
 print('Found: ${found?['name']}');
 
-// Deep nested dotted-path queries with pagination & sorting (193,798 docs/sec scanned)
+// Deep nested dotted-path queries with pagination & sorting (2,500,000 docs/sec scanned)
 final cursor = users.find({
   'profile.score': {'$gte': 80000},
   'role': {'$in': ['admin', 'developer']},
@@ -1321,11 +1321,11 @@ dart run tool/benchmarks/run_all.dart --rows 100000 --runs 3
 | **Primary Architecture** | **Slotted Page + Sequential WAL** | WiredTiger B-Tree | B-Tree + JSON Extension | Append-Only / In-Memory Map |
 | **Runtime Environment** | **100% Pure Multiplatform Dart** | C++ Native Daemon | C Native Library | Pure Dart / FFI |
 | **Zero-Dependency Mobile/Flutter** | **✅ YES (Runs everywhere)** | ❌ NO (Remote server only) | ❌ NO (Requires native FFI) | ✅ YES |
-| **100K Document Batch Ingestion** | **51,073 docs/sec** | 41,850 docs/sec | 27,620 docs/sec | 34,500 docs/sec |
-| **Point Read Latency (`_id`)** | **25.77 µs (Sub-26 µs)** | 182.40 µs | 118.60 µs | 84.30 µs |
-| **Deep Dotted-Path Scan (100K)** | **193,798 docs/sec (0.82 ms)**| 94,200 docs/sec | 58,740 docs/sec (3.40 ms)| 39,600 docs/sec |
-| **In-Memory KV Cache Read** | **1,282,051 ops/sec** | N/A (Requires Redis) | 380,000 ops/sec | 91,240 ops/sec |
-| **KV Batch Ingestion (`mset`)** | **1,123,091 ops/sec (Native)** | N/A (Requires Redis) | 420,000 ops/sec | 45,820 ops/sec |
+| **100K Document Batch Ingestion** | **134,953 docs/sec** | 41,850 docs/sec | 27,620 docs/sec | 34,500 docs/sec |
+| **Point Read Latency (`_id`)** | **3.61 µs (277,778 reads/s)** | 182.40 µs | 118.60 µs | 84.30 µs |
+| **Deep Dotted-Path Scan (100K)** | **2,500,000 docs/sec scanned** | 94,200 docs/sec | 58,740 docs/sec (3.40 ms)| 39,600 docs/sec |
+| **In-Memory KV Cache Read** | **500,000 ops/sec** | N/A (Requires Redis) | 380,000 ops/sec | 91,240 ops/sec |
+| **KV Batch Ingestion (`mset`)** | **253,807 ops/sec** | N/A (Requires Redis) | 420,000 ops/sec | 45,820 ops/sec |
 | **Cross-Model SQL ↔ NoSQL Join** | **✅ YES (First-Class Bridge)** | ❌ NO | ⚠️ Limited SQL queries | ❌ NO |
 | **Integrated Vector Search (HNSW)** | **✅ YES (5.0 ms, 100% Recall@10)** | ⚠️ Atlas Cloud only | ❌ NO (Requires sqlite-vec) | ❌ NO |
 | **PL/SQL Stored Procedures** | **✅ YES (Turing-complete)** | ❌ NO (JS aggregation only) | ❌ NO | ❌ NO |
@@ -1341,26 +1341,27 @@ dart run tool/benchmarks/run_all.dart --rows 100000 --runs 3
 💾 Storage Mode       : Slotted-Page Engine + WAL Sequential Persistence
 🔒 Engine Core        : 100% Pure Multiplatform Dart (Zero Native Dependencies)
 
+Generating 100000 structured JSON documents in memory...
 🚀 Ingesting 100000 documents via collection.insertMany()...
-✔ Inserted 100000 documents in 1958 ms (51073 docs/sec)
+✔ Inserted 100000 documents in 741 ms (134953 docs/sec)
 
 🔍 Executing 10000 point reads by _id via collection.findOne()...
-✔ Verified 9996/10000 point reads: avg latency 25.77 µs (38911 reads/sec)
+✔ Verified 10000/10000 point reads: avg latency 3.61 µs (277778 reads/sec)
 
 ⚡ Executing deep nested filter query: profile.score > 95000...
-✔ Filter matched 4999 documents in 516 ms (193798 docs/sec scanned)
+✔ Filter matched 4999 documents in 40 ms (2500000 docs/sec scanned)
 
 🔄 Executing 100 atomic in-place updates ($inc, $set)...
-✔ Completed 100/100 atomic updates in 223 ms (448 updates/sec)
+✔ Completed 100/100 atomic updates in 55 ms (1818 updates/sec)
 
 🔑 Ingesting 50000 Key-Value pairs with TTL via db.kv.mset()...
-✔ KV Batch Ingestion (mset): 73314 ops/sec (682 ms)
+✔ KV Batch Ingestion (mset): 253807 ops/sec (197 ms)
 
 🔑 Reading 50000 keys from Hot Cache via db.kv.get()...
-✔ KV Get Throughput: 1282051 ops/sec (found 50000/50000 in 39 ms)
+✔ KV Get Throughput: 500000 ops/sec (found 50000/50000 in 100 ms)
 
 🔑 Executing 100 atomic counter increments via db.kv.incr()...
-✔ KV Incr Latency: 2.93 ms/op (341 ops/sec, counter = 100)
+✔ KV Incr Latency: 0.21 ms/op (4762 ops/sec, counter = 100)
 
 🔒 Flushing buffers and closing database...
 🔍 Reopening database to verify physical zero-loss persistence...
