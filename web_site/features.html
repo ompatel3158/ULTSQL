@@ -66,7 +66,7 @@
   <div class="architectural-ruler-top" id="topCadRuler">
     <div class="ruler-item">
       <span class="ruler-dot-indicator"></span>
-      <span>CAD-SYS // ULTSQL-KERNEL v1.0.28</span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.29</span>
     </div>
     <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
     <div class="ruler-indicator-marker" id="rulerMarker"></div>
@@ -99,7 +99,7 @@
           <img src="icon.svg" alt="ULTSQL Pinwheel Logo" width="24" height="24">
         </div>
         <span>ULTSQL</span>
-        <span class="nav-version-badge">v1.0.28</span>
+        <span class="nav-version-badge">v1.0.29</span>
       </a>
 
       <ul class="nav-links">
@@ -516,7 +516,7 @@ ultsql app.db -m json -c "SELECT * FROM users;" | jq .</code></pre>
         </div>
       </article>
 
-      <!-- 14. LWW CRDT -->
+      <!-- 14. DELTA-CRDT & HLC -->
       <article class="feature-card" data-category="storage" data-glow data-reveal="up" data-reveal-delay="80">
         <div class="feature-card-header">
           <div class="feature-card-icon">
@@ -525,21 +525,21 @@ ultsql app.db -m json -c "SELECT * FROM users;" | jq .</code></pre>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
           </div>
-          <span class="feature-status-badge status-beta">Beta</span>
+          <span class="feature-status-badge status-stable">Stable</span>
         </div>
-        <h3 class="feature-card-title">LWW CRDT State Merging</h3>
+        <h3 class="feature-card-title">Delta-CRDT & Hybrid Logical Clocks</h3>
         <p class="feature-card-desc">
-          Last-Write-Wins Conflict-Free Replicated Data Types (CRDT) for multi-master offline synchronization across
-          distributed edge nodes.
+          State-of-the-art Delta-CRDT offline synchronization with Hybrid Logical Clocks (HLC) and tombstone deletions
+          for deterministic multi-master peer replication without central coordinator locks.
         </p>
-        <pre class="feature-code-box"><code>// Merge remote client state without central locking
-db.mergeCrdtState(incomingRemoteStatePayload);</code></pre>
+        <pre class="feature-code-box"><code>final delta = p2pNode.extractDeltaSince(lastSyncHlc);
+await p2pNode.applyDelta(delta); // Deterministic causal merging</code></pre>
         <div class="feature-card-footer">
-          <a href="/docs#storage-modes" class="feature-docs-link">Read CRDT guide &rarr;</a>
+          <a href="/docs#storage-modes" class="feature-docs-link">Read Delta-CRDT guide &rarr;</a>
         </div>
       </article>
 
-      <!-- 15. RAFT CLUSTERING -->
+      <!-- 15. RAFT CONSENSUS CLUSTERING -->
       <article class="feature-card" data-category="networking" data-glow data-reveal="up" data-reveal-delay="160">
         <div class="feature-card-header">
           <div class="feature-card-icon">
@@ -551,17 +551,87 @@ db.mergeCrdtState(incomingRemoteStatePayload);</code></pre>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
             </svg>
           </div>
-          <span class="feature-status-badge status-experimental">Experimental</span>
+          <span class="feature-status-badge status-stable">Stable</span>
         </div>
-        <h3 class="feature-card-title">Raft Consensus Clustering</h3>
+        <h3 class="feature-card-title">Distributed Raft Consensus Engine</h3>
         <p class="feature-card-desc">
-          Experimental distributed consensus cluster with leader election, term management, and log entry replication
-          across networked peers.
+          Production multi-node Raft consensus cluster featuring randomized election timers (150-300ms), term leases,
+          heartbeat loops, and Quorum Log Replication with state machine callbacks.
         </p>
-        <pre class="feature-code-box"><code>final cluster = RaftCluster(db, peerNodes: ['10.0.0.1:5432', '10.0.0.2:5432']);
-await cluster.join();</code></pre>
+        <pre class="feature-code-box"><code>final cluster = RaftCluster('node-1', peerNodes: ['node-2', 'node-3']);
+await cluster.start(); // Quorum consensus replicated state</code></pre>
         <div class="feature-card-footer">
           <a href="/docs#pgwire-server" class="feature-docs-link">Clustering overview &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 16. TRIGRAM SUBSTRING INDEXING -->
+      <article class="feature-card" data-category="sql" data-glow data-reveal="up">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Trigram Substring Indexing</h3>
+        <p class="feature-card-desc">
+          Accelerate wildcard searches (`LIKE '%text%'`) with inverted 3-character n-gram posting lists and fast
+          set intersections, completely eliminating sequential table scans.
+        </p>
+        <pre class="feature-code-box"><code>CREATE INDEX idx_products_name ON products(name) USING TRIGRAM;
+SELECT * FROM products WHERE name LIKE '%quantum%';</code></pre>
+        <div class="feature-card-footer">
+          <a href="/docs#indexes" class="feature-docs-link">Trigram index reference &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 17. MULTI-PROCESS CONCURRENCY & SHARED LOCKS -->
+      <article class="feature-card" data-category="storage" data-glow data-reveal="up" data-reveal-delay="80">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Multi-Process Shared Read Locks</h3>
+        <p class="feature-card-desc">
+          Concurrent read-only access across separate OS processes and VM isolates via shared file locking (`readOnly: true`),
+          coordinated lock handover, and configurable retry timeouts.
+        </p>
+        <pre class="feature-code-box"><code>// Concurrent read-only database instance
+final db = Database('./app.ultsql', readOnly: true, lockTimeout: Duration(seconds: 5));
+await db.init(); // Acquires shared lock without blocking other readers</code></pre>
+        <div class="feature-card-footer">
+          <a href="/docs#transactions" class="feature-docs-link">Concurrency & locking guide &rarr;</a>
+        </div>
+      </article>
+
+      <!-- 18. OPT-IN CLIENT SDKS & PROCESS REUSE -->
+      <article class="feature-card" data-category="tooling" data-glow data-reveal="up" data-reveal-delay="160">
+        <div class="feature-card-header">
+          <div class="feature-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 18l6-6-6-6" />
+              <path d="M8 6l-6 6 6 6" />
+            </svg>
+          </div>
+          <span class="feature-status-badge status-stable">Stable</span>
+        </div>
+        <h3 class="feature-card-title">Opt-in Client SDKs & 'ultsql dev'</h3>
+        <p class="feature-card-desc">
+          Python and Node.js SDKs with opt-in `auto_start`, strict loopback binding (`127.0.0.1`), dynamic port allocation,
+          transparent process reuse, and `ultsql dev` for live local development.
+        </p>
+        <pre class="feature-code-box"><code># Python: db = ultsql.open("./app.ultsql", auto_start=True)
+# CLI:    ultsql dev --db ./app.ultsql (live logs on 127.0.0.1:8080)</code></pre>
+        <div class="feature-card-footer">
+          <a href="/docs#language-bindings" class="feature-docs-link">SDK & dev workflow docs &rarr;</a>
         </div>
       </article>
 

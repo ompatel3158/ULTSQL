@@ -124,13 +124,20 @@ void main() async {
 ### 2. 🐍 Python Developers (Client SDK & Opt-in Local Helper Engine)
 **No Dart or Flutter required!** Ships pre-compiled native platform wheels via `pip`.
 
+#### Architecture Overview
 ```text
-Python Application  →  UltSQL Client SDK  →  local UltSQL engine (127.0.0.1)  →  database file
+Python / Node.js Application
+           ↓
+   UltSQL Client SDK
+           ↓
+Local UltSQL Server Engine (127.0.0.1 loopback)
+           ↓
+     Database File (.ultsql)
 ```
 
 Two operating modes:
-- **Local Mode (Opt-in `auto_start=True`)**: Automatically starts a loopback helper engine on a free port (`127.0.0.1`), reuses running processes for the same database file, and terminates cleanly upon exit.
-- **Client Mode**: Connects directly to an existing local or remote server (`auto_start=False`).
+- **Local Helper Mode (Opt-in `auto_start=True`)**: Automatically starts a loopback helper engine on a free port (`127.0.0.1`), reuses running processes for the same database file, and terminates cleanly upon application exit.
+- **Client Mode (`auto_start=False`)**: Connects directly to an existing local or remote server instance (e.g. started explicitly with `ultsql dev` or `ultsql serve`).
 
 ```bash
 pip install ultsql
@@ -264,7 +271,7 @@ db, err := sql.Open("postgres", "postgres://admin:admin@localhost:5432/ultsql_db
 Add to `Cargo.toml`:
 ```toml
 [dependencies]
-ultsql = "1.0.28"
+ultsql = "1.0.29"
 tokio = { version = "1.0", features = ["full"] }
 serde_json = "1.0"
 ```
@@ -1238,7 +1245,7 @@ python tool/benchmarks/benchmark_native_sqlite_vs_ultsql.py
 
 ### 📊 Summary Scorecard (Multimodal & Cross-Engine)
 
-| Workload / Benchmark Metric | ⚡ UltSQL (`v1.0.28`) | 🪶 SQLite 3 | 🦆 DuckDB | 🧬 ChromaDB (Vector) |
+| Workload / Benchmark Metric | ⚡ UltSQL (`v1.0.29`) | 🪶 SQLite 3 | 🦆 DuckDB | 🧬 ChromaDB (Vector) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Bulk Batch Ingestion (50K Rows, NVMe WAL)** | **3,451,847 rows/s** | 1,709,150 rows/s | 650,000 rows/s | N/A |
 | **Direct Slotted-Page Vector Ingestion** | **5,580,357 rows/s** | 839,772 rows/s | N/A | N/A |

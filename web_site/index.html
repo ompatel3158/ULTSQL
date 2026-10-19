@@ -53,7 +53,7 @@
           "@type": "Person",
           "name": "Om Patel"
         },
-        "softwareVersion": "1.0.28",
+        "softwareVersion": "1.0.29",
         "url": "https://ultsql.tech/",
         "sameAs": [
           "https://github.com/ompatel3158/ULTSQL",
@@ -113,7 +113,7 @@
   <div class="architectural-ruler-top" id="topCadRuler">
     <div class="ruler-item">
       <span class="ruler-dot-indicator"></span>
-      <span>CAD-SYS // ULTSQL-KERNEL v1.0.28</span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.29</span>
     </div>
     <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
     <div class="ruler-indicator-marker" id="rulerMarker"></div>
@@ -146,7 +146,7 @@
           <img src="icon.svg" alt="ULTSQL Pinwheel Logo" width="24" height="24">
         </div>
         <span>ULTSQL</span>
-        <span class="nav-version-badge">v1.0.28</span>
+        <span class="nav-version-badge">v1.0.29</span>
       </a>
 
       <ul class="nav-links">
@@ -288,7 +288,7 @@
               <div class="cad-hud-title-group">
                 <span class="cad-hud-pulse-dot"></span>
                 <span class="cad-hud-title">ARCH // UNIFIED MULTIMODAL CORE</span>
-                <span class="cad-hud-version">v1.0.28</span>
+                <span class="cad-hud-version">v1.0.29</span>
               </div>
               <div class="cad-hud-mode-selector">
                 <button class="cad-mode-btn active" data-hud-mode="pipeline">
@@ -796,9 +796,8 @@ ORDER BY total_spent DESC;</textarea>
 
           <div class="feature-box">
             <span class="feature-tag">CONCURRENCY</span>
-            <h3 class="feature-box-title">MVCC Snapshot Isolation</h3>
-            <p class="feature-box-desc">Multi-Version Concurrency Control ensures readers never block writers, and
-              writers never block readers across concurrent database transactions.</p>
+            <h3 class="feature-box-title">MVCC Snapshot & Shared Read Locks</h3>
+            <p class="feature-box-desc">Multi-Version Concurrency Control plus shared file lock escalation (`readOnly: true`), allowing multiple processes to execute concurrent reads without lock contention.</p>
           </div>
 
           <div class="feature-box">
@@ -806,6 +805,24 @@ ORDER BY total_spent DESC;</textarea>
             <h3 class="feature-box-title">Single-File (.ultsql) & In-Memory</h3>
             <p class="feature-box-desc">Zero external server dependencies. Run completely ephemeral in RAM or persist
               transparently to a clean single `.ultsql` file on disk.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">WILDCARD INDEXING</span>
+            <h3 class="feature-box-title">Trigram Indexes (USING TRIGRAM)</h3>
+            <p class="feature-box-desc">Accelerate `LIKE '%substring%'` searches with inverted 3-gram posting lists and set intersections, avoiding full table page scans.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">DISTRIBUTED CLUSTERING</span>
+            <h3 class="feature-box-title">Raft Consensus & Delta-CRDT</h3>
+            <p class="feature-box-desc">Production-grade multi-node Raft consensus clustering with quorum log replication, alongside Hybrid Logical Clock (HLC) Delta-CRDT offline synchronization.</p>
+          </div>
+
+          <div class="feature-box">
+            <span class="feature-tag">DEVELOPER TOOLING</span>
+            <h3 class="feature-box-title">Opt-in SDKs & 'ultsql dev'</h3>
+            <p class="feature-box-desc">Python & Node.js client SDKs with opt-in `auto_start`, loopback security (`127.0.0.1`), process reuse, and `ultsql dev` for live local development servers.</p>
           </div>
         </div>
       </div>

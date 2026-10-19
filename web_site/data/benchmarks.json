@@ -14,7 +14,7 @@
     "os": "Windows 11 Home 64-bit",
     "logicalCores": 20,
     "dart": "3.12.2",
-    "ultsqlVersion": "1.0.28",
+    "ultsqlVersion": "1.0.29",
     "sqliteVersion": "3.50.4",
     "cpu": "13th Gen Intel(R) Core(TM) i7-13650HX",
     "physicalCores": 14,

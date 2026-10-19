@@ -177,7 +177,7 @@ Add `ultsql` to `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ultsql: ^1.0.28
+  ultsql: ^1.0.29
 ```
 
 ```dart

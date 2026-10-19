@@ -20,17 +20,9 @@ jobs:
           - os: ubuntu-latest
             arch: x64
             artifact_name: ultsql-linux-x64
-          - os: ubuntu-24.04-arm
-            arch: arm64
-            artifact_name: ultsql-linux-arm64
-            experimental: true
-          - os: macos-13
-            arch: x64
-            artifact_name: ultsql-macos-x64
           - os: macos-latest
             arch: arm64
             artifact_name: ultsql-macos-arm64
-    continue-on-error: ${{ matrix.experimental || false }}
 
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +50,6 @@ jobs:
   create-github-release:
     name: Create GitHub Release
     needs: build-binaries
-    if: always() && !cancelled() && needs.build-binaries.result != 'failure' && needs.build-binaries.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -126,7 +117,6 @@ jobs:
   publish-pypi:
     name: Build & Publish Python Platform Wheels to PyPI
     needs: build-binaries
-    if: always() && !cancelled() && needs.build-binaries.result != 'failure' && needs.build-binaries.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -166,7 +156,6 @@ jobs:
   publish-npm:
     name: Build & Publish Node.js Platform Packages to NPM
     needs: build-binaries
-    if: always() && !cancelled() && needs.build-binaries.result != 'failure' && needs.build-binaries.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -196,9 +185,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for dir in bindings/nodejs/npm/*; do
-            if [ -d "$dir" ]; then
+            if [ -d "$dir" ] && ([ -f "$dir/bin/ultsql" ] || [ -f "$dir/bin/ultsql.exe" ]); then
               echo "Publishing $dir..."
               npm publish "$dir" --access public || echo "Notice: $dir already published or NPM_TOKEN pending."
+            else
+              echo "Skipping $dir (no binary staged)"
             fi
           done
 

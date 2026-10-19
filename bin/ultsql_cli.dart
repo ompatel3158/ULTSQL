@@ -674,7 +674,7 @@ Future<void> _runBenchmark(int rowCount, String dbDir, bool useWal, {bool fullSu
   final dropMs = swDrop.elapsedMicroseconds / 1000.0;
 
   print('┌───────────────────────────────────────┬────────────┬───────────────────┐');
-  print('│ Benchmark Metric                      │ Unit       │ ULTSQL v1.0.28    │');
+  print('│ Benchmark Metric                      │ Unit       │ ULTSQL v1.0.29    │');
   print('├───────────────────────────────────────┼────────────┼───────────────────┤');
   print('│ 1. Bulk Ingest (batch prepared)       │ rows/s     │ ${insertRowsPerSec.toString().padRight(17)} │');
   print('│ 2. CREATE INDEX on age (B+Tree)       │ ms         │ ${indexMs.toStringAsFixed(3).padRight(17)} │');

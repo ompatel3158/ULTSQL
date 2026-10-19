@@ -70,7 +70,7 @@
   <div class="architectural-ruler-top" id="topCadRuler">
     <div class="ruler-item">
       <span class="ruler-dot-indicator"></span>
-      <span>CAD-SYS // ULTSQL-KERNEL v1.0.28</span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.29</span>
     </div>
     <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
     <div class="ruler-indicator-marker" id="rulerMarker"></div>
@@ -103,7 +103,7 @@
           <img src="icon.svg" alt="ULTSQL Pinwheel Logo" width="24" height="24">
         </div>
         <span>ULTSQL</span>
-        <span class="nav-version-badge">v1.0.28</span>
+        <span class="nav-version-badge">v1.0.29</span>
       </a>
 
       <ul class="nav-links">
@@ -238,7 +238,7 @@
         <!-- HEADER HERO -->
         <header class="docs-header-hero" data-reveal="fade">
           <div class="docs-badge-row">
-            <span class="docs-badge">VERSION 1.0.28</span>
+            <span class="docs-badge">VERSION 1.0.29</span>
             <span class="docs-badge">100% PURE DART</span>
             <span class="docs-badge">ZERO C/C++ DEPENDENCIES</span>
           </div>
@@ -304,7 +304,7 @@ pip install ultsql</code></pre>
 go get github.com/ompatel3158/ULTSQL/bindings/go</code></pre>
             <pre class="code-block" data-lang="rust" style="display: none;"><code># Add to Cargo.toml
 [dependencies]
-ultsql = "1.0.28"</code></pre>
+ultsql = "1.0.29"</code></pre>
             <pre class="code-block" data-lang="docker" style="display: none;"><code># Run standalone PGWire server on port 5432
 docker run -d -p 5432:5432 -v $(pwd)/data:/data ompatel/ultsql:latest</code></pre>
           </div>
@@ -708,6 +708,10 @@ CREATE INDEX idx_orders_status_amount ON orders(status, amount);
 -- Unique Constraint Index
 CREATE UNIQUE INDEX idx_users_email ON users(email);
 
+-- Trigram Substring & Wildcard Index (Accelerates LIKE '%pattern%')
+CREATE INDEX idx_products_name ON products(name) USING TRIGRAM;
+SELECT * FROM products WHERE name LIKE '%quantum%';
+
 -- Drop Index
 DROP INDEX idx_orders_customer;</code></pre>
           </div>
@@ -740,6 +744,23 @@ UPDATE accounts SET balance = balance - 100.0 WHERE account_id = 1;
 UPDATE accounts SET balance = balance + 100.0 WHERE account_id = 2;
 -- In case of failure: ROLLBACK;
 COMMIT;</code></pre>
+          </div>
+
+          <h3 class="doc-section-h3">Multi-Process Concurrency & Shared Read Locks</h3>
+          <p class="doc-p">
+            In addition to in-process MVCC, ULTSQL provides OS-level shared file locks (<code>FileLock.shared</code>) when opening a database with <code>readOnly: true</code>. Multiple separate OS processes and background isolates can read and query the same database file simultaneously without lock collisions, with configurable <code>lockTimeout</code> retry escalation.
+          </p>
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Dart Shared Read Lock</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>final readerDb = Database(
+  './production.ultsql',
+  readOnly: true,
+  lockTimeout: Duration(seconds: 5),
+);
+await readerDb.init(); // Acquires shared lock, allowing other processes to read concurrently</code></pre>
           </div>
         </section>
 
@@ -1077,8 +1098,26 @@ psql -h localhost -p 5432 -U postgres -d ultsql
 
 # Output:
 # Welcome to psql 16.2.
-# Connected to: ULTSQL Engine v1.0.28 (Pure Dart)
+# Connected to: ULTSQL Engine v1.0.29 (Pure Dart)
 # ultsql=> SELECT 1 + 1;</code></pre>
+          </div>
+
+          <h3 class="doc-section-h3">Distributed Raft Consensus & Delta-CRDT Replication</h3>
+          <p class="doc-p">
+            ULTSQL includes production-grade clustering and synchronization:
+          </p>
+          <ul class="doc-list">
+            <li><strong>Raft Consensus Engine:</strong> Multi-node clustering with leader election, randomized election timers (150–300ms), term leases, heartbeat loops, and Quorum Log Replication with state machine callbacks.</li>
+            <li><strong>Delta-CRDT with Hybrid Logical Clocks (HLC):</strong> Offline peer-to-peer state merging with causal ordering and tombstone deletion propagation.</li>
+          </ul>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span class="code-tab-btn active">Raft Cluster Setup</span>
+              <button class="code-copy-btn">Copy</button>
+            </div>
+            <pre class="code-block"><code>final cluster = RaftCluster('node-1', peerNodes: ['node-2', 'node-3']);
+await cluster.start(); // Initiates leader election and quorum replication</code></pre>
           </div>
         </section>
 
@@ -1094,9 +1133,12 @@ psql -h localhost -p 5432 -U postgres -d ultsql
               <span class="code-tab-btn active">Dart REST Daemon</span>
               <button class="code-copy-btn">Copy</button>
             </div>
-            <pre class="code-block"><code>final rest = RestServer(db, port: 8080);
+            <pre class="code-block"><code>// Defaults to strictly 127.0.0.1 for local network security
+final rest = RestServer(db, host: '127.0.0.1', port: 8080);
 await rest.start();
-print('REST API active on http://localhost:8080');</code></pre>
+print('REST API active on http://127.0.0.1:8080');
+
+// Or launch from terminal via: ultsql dev --db ./app.ultsql</code></pre>
           </div>
 
           <div class="doc-table-wrapper">
@@ -1147,9 +1189,15 @@ print('REST API active on http://localhost:8080');</code></pre>
               <button class="code-copy-btn">Copy</button>
             </div>
             <pre class="code-block"><code># 1. Launch interactive REPL
-ultsql ./app.db
+ultsql ./app.ultsql
 
-# 2. Interactive dot-commands inside REPL:
+# 2. Local development server on 127.0.0.1:8080 with live logs
+ultsql dev --db ./app.ultsql
+
+# 3. Production REST & OpenAPI daemon
+ultsql serve --host 127.0.0.1 --port 8080 --db ./app.ultsql
+
+# 4. Interactive dot-commands inside REPL:
 .tables                          # List all tables and row counts
 .schema users                    # Display CREATE TABLE DDL
 .collections                     # List all NoSQL document collections
@@ -1157,10 +1205,10 @@ ultsql ./app.db
 .mode json                       # Switch output mode (box, json, csv, markdown)
 .quit                            # Exit REPL
 
-# 3. Headless CI/CD execution with JSON output piped to jq
-ultsql ./app.db -m json -c "SELECT * FROM users;" | jq .
+# 5. Headless CI/CD execution with JSON output piped to jq
+ultsql ./app.ultsql -m json -c "SELECT * FROM users;" | jq .
 
-# 4. Ingest via MongoDB syntax directly in CLI
+# 6. Ingest via MongoDB syntax directly in CLI
 db.users.insertOne({"name": "Diana", "role": "admin"})</code></pre>
           </div>
         </section>
@@ -1170,8 +1218,10 @@ db.users.insertOne({"name": "Diana", "role": "admin"})</code></pre>
           <h2 class="doc-section-h2">18. Native Multi-Language SDK Bindings <a href="#language-bindings"
               class="anchor-link">#</a></h2>
           <p class="doc-p">
-            Native client SDKs connect seamlessly to embedded or PGWire ULTSQL instances across all major languages:
+            Native client SDKs connect seamlessly to embedded or remote ULTSQL instances. For Python and Node.js, the package operates as a <strong>Client SDK</strong> that connects to a server or manages an opt-in local engine helper process on loopback (<code>127.0.0.1</code>) with automatic process reuse and clean exit hooks:
           </p>
+
+          <pre class="code-block" style="margin-bottom: 1.5rem; color: var(--text-tertiary); font-size: 0.75rem;"><code>Python / Node.js Application  →  UltSQL Client SDK  →  local UltSQL engine (127.0.0.1)  →  database file</code></pre>
 
           <div class="code-card" data-tabs>
             <div class="code-header">
@@ -1183,32 +1233,39 @@ db.users.insertOne({"name": "Diana", "role": "admin"})</code></pre>
               </div>
               <button class="code-copy-btn">Copy</button>
             </div>
-            <pre class="code-block" data-lang="node"><code>import { Client } from 'pg';
+            <pre class="code-block" data-lang="node"><code>const { UltSQL, UltSQLClient } = require('ultsql');
 
-const client = new Client({
-  host: 'localhost',
-  port: 5432,
-  user: 'postgres',
-  database: 'ultsql',
-});
+// Mode 1: Convenient Local Mode (auto-starts engine on 127.0.0.1 with dynamic port)
+const db = await UltSQL.open('./app.ultsql', { auto_start: true });
+console.log(await db.status()); // { status: 'online', host: '127.0.0.1', port: 54321, pid: ... }
 
-await client.connect();
-const res = await client.query('SELECT * FROM users WHERE id = $1', [1]);
+await db.sql('CREATE TABLE users (id INT PRIMARY KEY, name TEXT);');
+await db.insert('users', { id: 1, name: 'Alice' });
+const res = await db.query('users');
 console.log(res.rows);
-await client.end();</code></pre>
-            <pre class="code-block" data-lang="python" style="display: none;"><code>import psycopg2
 
-conn = psycopg2.connect(
-    host="localhost",
-    port=5432,
-    user="postgres",
-    dbname="ultsql"
-)
-cur = conn.cursor()
-cur.execute("SELECT name, email FROM users WHERE id = %s", (1,))
-print(cur.fetchall())
-cur.close()
-conn.close()</code></pre>
+// Clean shutdown (also auto-cleaned on process exit)
+db.close();
+
+// Mode 2: Client Mode (connecting to existing server)
+const remote = new UltSQLClient('http://127.0.0.1:8080');</code></pre>
+            <pre class="code-block" data-lang="python" style="display: none;"><code>import ultsql
+from ultsql import UltSQLClient
+
+# Mode 1: Convenient Local Mode (auto-starts engine on 127.0.0.1 with dynamic port)
+db = ultsql.open("./app.ultsql", auto_start=True)
+print(db.status()) # {'status': 'online', 'host': '127.0.0.1', 'port': 54321, 'pid': ...}
+
+db.sql("CREATE TABLE users (id INT PRIMARY KEY, name TEXT);")
+db.insert("users", {"id": 1, "name": "Alice"})
+res = db.query("users")
+print(res["rows"])
+
+# Clean shutdown (also registered via atexit automatically)
+db.close()
+
+# Mode 2: Client Mode (connecting to existing server)
+remote = UltSQLClient("http://127.0.0.1:8080")</code></pre>
             <pre class="code-block" data-lang="go" style="display: none;"><code>package main
 
 import (
