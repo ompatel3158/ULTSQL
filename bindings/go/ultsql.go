@@ -91,15 +91,39 @@ func findFreePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
+// Options specifies runtime configuration for the UltSQL client and local launcher.
+type Options struct {
+	AutoStart bool
+	Host      string
+	Port      int
+	Timeout   time.Duration
+}
+
+// DefaultOptions returns the default secure client options (loopback 127.0.0.1, auto_start=true).
+func DefaultOptions() Options {
+	return Options{
+		AutoStart: true,
+		Host:      "127.0.0.1",
+		Port:      0,
+		Timeout:   10 * time.Second,
+	}
+}
+
 // LocalClient wraps a Client connected to a locally spawned UltSQL engine process.
 type LocalClient struct {
 	*Client
 	cmd    *exec.Cmd
 	Port   int
+	Host   string
 	DBPath string
 	mu     sync.Mutex
 	closed bool
 }
+
+var (
+	processRegistry = make(map[string]*LocalClient)
+	registryMu      sync.Mutex
+)
 
 // Close gracefully terminates the spawned UltSQL engine process.
 func (lc *LocalClient) Close() error {
@@ -109,41 +133,92 @@ func (lc *LocalClient) Close() error {
 		return nil
 	}
 	lc.closed = true
+
+	registryMu.Lock()
+	if abs, err := filepath.Abs(lc.DBPath); err == nil {
+		delete(processRegistry, abs)
+	}
+	registryMu.Unlock()
+
 	if lc.cmd != nil && lc.cmd.Process != nil {
 		return lc.cmd.Process.Kill()
 	}
 	return nil
 }
 
+// Stop terminates the running server process (alias for Close).
+func (lc *LocalClient) Stop() error {
+	return lc.Close()
+}
+
 // Open launches a bundled UltSQL engine process on a free port, waits until it's healthy,
-// and returns a ready-to-use LocalClient.
+// and returns a ready-to-use LocalClient using DefaultOptions.
 func Open(dbPath string) (*LocalClient, error) {
+	return OpenWithOptions(dbPath, DefaultOptions())
+}
+
+// OpenWithOptions launches a bundled UltSQL engine process with custom Options.
+func OpenWithOptions(dbPath string, opts Options) (*LocalClient, error) {
+	if !opts.AutoStart {
+		return nil, fmt.Errorf("ultsql: client is configured for local database path %q with AutoStart=false. Explicitly set AutoStart=true or connect via NewClient(\"http://127.0.0.1:8080\")", dbPath)
+	}
+
+	absPath, err := filepath.Abs(dbPath)
+	if err != nil {
+		absPath = dbPath
+	}
+
+	// Reuse existing process for the same database if already running
+	registryMu.Lock()
+	if existing, ok := processRegistry[absPath]; ok && !existing.closed {
+		registryMu.Unlock()
+		return existing, nil
+	}
+	registryMu.Unlock()
+
 	binPath, err := FindEngineBinary()
 	if err != nil {
 		return nil, err
 	}
 
-	port, err := findFreePort()
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate free port: %w", err)
+	host := opts.Host
+	if host == "" {
+		host = "127.0.0.1"
 	}
 
-	cmd := exec.Command(binPath, "serve", "--db", dbPath, "--port", fmt.Sprintf("%d", port))
+	port := opts.Port
+	if port == 0 {
+		allocated, err := findFreePort()
+		if err != nil {
+			return nil, fmt.Errorf("failed to allocate free port: %w", err)
+		}
+		port = allocated
+	}
+
+	cmd := exec.Command(binPath, "serve", "--host", host, "--port", fmt.Sprintf("%d", port), "--db", dbPath)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start ultsql process: %w", err)
 	}
 
-	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	fmt.Printf("UltSQL local server started on %s:%d\n", host, port)
+
+	baseURL := fmt.Sprintf("http://%s:%d", host, port)
 	client := NewClient(baseURL)
 	lc := &LocalClient{
 		Client: client,
 		cmd:    cmd,
 		Port:   port,
+		Host:   host,
 		DBPath: dbPath,
 	}
 
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+
 	// Poll health check until online
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(timeout)
 	healthy := false
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(baseURL + "/")
@@ -163,8 +238,12 @@ func Open(dbPath string) (*LocalClient, error) {
 
 	if !healthy {
 		_ = lc.Close()
-		return nil, fmt.Errorf("ultsql engine failed to become healthy within 10s on port %d", port)
+		return nil, fmt.Errorf("ultsql engine failed to become healthy within %v on port %d", timeout, port)
 	}
+
+	registryMu.Lock()
+	processRegistry[absPath] = lc
+	registryMu.Unlock()
 
 	return lc, nil
 }
@@ -276,4 +355,23 @@ func OpenPgWire(host string, port int, user, password, dbname string) (*sql.DB, 
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
 	return sql.Open("postgres", connStr)
+}
+
+// Status checks the health and returns telemetry metadata from the running engine.
+func (c *Client) Status(ctx context.Context) (map[string]interface{}, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create status request: %w", err)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch status from UltSQL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var res map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("failed to decode status response: %w", err)
+	}
+	return res, nil
 }

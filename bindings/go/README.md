@@ -69,16 +69,31 @@ func main() {
 	}
 
 	fmt.Printf("Returned %d rows in %.2f ms\n", len(res.Rows), res.ExecutionTimeMs)
+
+	// 3. Inspect health & telemetry
+	status, _ := db.Status(ctx)
+	fmt.Printf("Engine Status: %v\n", status)
 }
 ```
 
-### Method B: Connect to a Remote UltSQL Instance
+### Method B: Custom Startup Options (Loopback Host & Port)
+```go
+opts := ultsql.Options{
+	AutoStart: true,
+	Host:      "127.0.0.1",
+	Port:      0, // random available port
+	Timeout:   10 * time.Second,
+}
+db, err := ultsql.OpenWithOptions("app.db", opts)
+```
+
+### Method C: Connect to a Remote UltSQL Instance
 ```go
 client := ultsql.NewClient("http://remote-server:8080")
 res, err := client.Query(context.Background(), "SELECT * FROM users;")
 ```
 
-### Method C: Standard Go `database/sql` over PostgreSQL Wire Protocol
+### Method D: Standard Go `database/sql` over PostgreSQL Wire Protocol
 ```go
 import (
 	"database/sql"

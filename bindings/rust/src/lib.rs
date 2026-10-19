@@ -65,11 +65,32 @@ pub fn find_engine_binary() -> Option<PathBuf> {
     None
 }
 
+/// Options configuring the local UltSQL engine launcher.
+#[derive(Debug, Clone)]
+pub struct OpenOptions {
+    pub auto_start: bool,
+    pub host: String,
+    pub port: u16,
+    pub timeout: Duration,
+}
+
+impl Default for OpenOptions {
+    fn default() -> Self {
+        Self {
+            auto_start: true,
+            host: "127.0.0.1".into(),
+            port: 0,
+            timeout: Duration::from_secs(10),
+        }
+    }
+}
+
 /// Client managing a locally spawned UltSQL engine process.
 pub struct LocalUltSqlClient {
     client: UltSqlClient,
     child: Arc<Mutex<Option<Child>>>,
     pub port: u16,
+    pub host: String,
     pub db_path: String,
 }
 
@@ -95,6 +116,18 @@ impl LocalUltSqlClient {
             }
         }
     }
+
+    /// Stops the running local engine process (alias for close).
+    pub fn stop(&self) {
+        self.close();
+    }
+
+    /// Queries the engine's health status and metadata.
+    pub async fn status(&self) -> Result<serde_json::Value, UltSqlError> {
+        let resp = self.client.http.get(&self.client.base_url).send().await?;
+        let json: serde_json::Value = resp.json().await?;
+        Ok(json)
+    }
 }
 
 #[derive(Clone)]
@@ -115,36 +148,67 @@ impl UltSqlClient {
     /// Launches a local UltSQL engine process on a free port, waits until healthy,
     /// and returns a managed `LocalUltSqlClient`. Automatically terminates on drop.
     pub async fn open(db_path: &str) -> Result<LocalUltSqlClient, UltSqlError> {
+        Self::open_with_options(db_path, OpenOptions::default()).await
+    }
+
+    /// Launches a local UltSQL engine process with customized `OpenOptions`.
+    pub async fn open_with_options(db_path: &str, opts: OpenOptions) -> Result<LocalUltSqlClient, UltSqlError> {
+        if !opts.auto_start {
+            return Err(UltSqlError::Database {
+                status: 400,
+                message: format!(
+                    "UltSQL: Client configured for local database '{}' with auto_start=false. Explicitly set auto_start=true or connect via UltSqlClient::new(\"http://127.0.0.1:8080\")",
+                    db_path
+                ),
+            });
+        }
+
         let binary = find_engine_binary().ok_or_else(|| UltSqlError::Database {
             status: 500,
             message: "Could not locate ultsql binary. Ensure it is installed or set ULTSQL_BINARY_PATH.".into(),
         })?;
 
-        let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| UltSqlError::Database {
-            status: 500,
-            message: format!("Failed to find free port: {}", e),
-        })?;
-        let port = listener
-            .local_addr()
-            .map_err(|e| UltSqlError::Database {
+        let host = if opts.host.is_empty() { "127.0.0.1".to_string() } else { opts.host };
+        let port = if opts.port == 0 {
+            let listener = TcpListener::bind(format!("{}:0", host)).map_err(|e| UltSqlError::Database {
                 status: 500,
-                message: format!("Failed to read local addr: {}", e),
-            })?
-            .port();
-        drop(listener);
+                message: format!("Failed to find free port: {}", e),
+            })?;
+            let p = listener
+                .local_addr()
+                .map_err(|e| UltSqlError::Database {
+                    status: 500,
+                    message: format!("Failed to read local addr: {}", e),
+                })?
+                .port();
+            drop(listener);
+            p
+        } else {
+            opts.port
+        };
 
         let child = Command::new(&binary)
-            .args(["serve", "--db", db_path, "--port", &port.to_string()])
+            .args([
+                "serve",
+                "--host",
+                &host,
+                "--port",
+                &port.to_string(),
+                "--db",
+                db_path,
+            ])
             .spawn()
             .map_err(|e| UltSqlError::Database {
                 status: 500,
                 message: format!("Failed to spawn ultsql engine: {}", e),
             })?;
 
-        let base_url = format!("http://127.0.0.1:{}", port);
+        println!("UltSQL local server started on {}:{}", host, port);
+
+        let base_url = format!("http://{}:{}", host, port);
         let client = UltSqlClient::new(&base_url);
         let start = Instant::now();
-        let timeout = Duration::from_secs(10);
+        let timeout = opts.timeout;
         let mut healthy = false;
 
         while start.elapsed() < timeout {
@@ -162,7 +226,7 @@ impl UltSqlClient {
             let _ = c.kill();
             return Err(UltSqlError::Database {
                 status: 500,
-                message: format!("UltSQL engine on port {} failed to become healthy within 10s", port),
+                message: format!("UltSQL engine on {}:{} failed to become healthy within {:?}", host, port, timeout),
             });
         }
 
@@ -170,6 +234,7 @@ impl UltSqlClient {
             client,
             child: Arc::new(Mutex::new(Some(child))),
             port,
+            host,
             db_path: db_path.to_string(),
         })
     }

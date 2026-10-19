@@ -57,17 +57,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Columns: {:?}", result.columns);
     println!("Rows: {:?}", result.rows);
 
+    // 3. Telemetry status
+    let status = db.status().await?;
+    println!("Status: {:?}", status);
+
+    // 4. Clean shutdown (also automated on drop)
+    db.stop();
+
     Ok(())
 }
 ```
 
-### Method B: Connect to a Remote UltSQL Instance
+### Method B: Custom Startup Options (Loopback Host & Port)
+```rust
+let opts = ultsql::OpenOptions {
+    auto_start: true,
+    host: "127.0.0.1".to_string(),
+    port: 0, // dynamic free port
+    timeout: std::time::Duration::from_secs(10),
+};
+let db = UltSqlClient::open_with_options("app.db", opts).await?;
+```
+
+### Method C: Connect to a Remote UltSQL Instance
 ```rust
 let client = UltSqlClient::new("http://remote-server:8080");
 let result = client.query("SELECT * FROM users;").await?;
 ```
 
-### Method C: PostgreSQL Wire Protocol over TCP (Port 5432)
+### Method D: PostgreSQL Wire Protocol over TCP (Port 5432)
 ```rust
 // Using tokio-postgres or sqlx
 let (client, connection) =
