@@ -171,6 +171,52 @@ db.switchBranch('feature-dev');
 db.mergeBranch('feature-dev', 'main');
 ```
 
+### Trigram Substring Indexes (`USING TRIGRAM`)
+Accelerate wildcard searches (`LIKE '%keyword%'` / `ILIKE`) without full table page scans:
+```sql
+CREATE INDEX idx_products_name ON products(name) USING TRIGRAM;
+SELECT * FROM products WHERE name LIKE '%quantum%';
+```
+
+### Multi-Process Concurrency & Shared Read Locks
+Allow unlimited concurrent processes to read simultaneously while serializing writers:
+```dart
+// Concurrent reader process
+final readerDb = Database('./app.db', readOnly: true);
+await readerDb.init();
+
+// Writer with backoff retry
+final writerDb = Database('./app.db', lockTimeout: Duration(seconds: 3));
+await writerDb.init();
+```
+
+### Distributed Multi-Node Raft Consensus
+Replicate write operations across distributed cluster nodes via Raft consensus:
+```dart
+final transport = InMemoryRaftTransport();
+final node1 = RaftClusterNode('node-1', clusterNodes: ['node-1', 'node-2', 'node-3'], transport: transport);
+final node2 = RaftClusterNode('node-2', clusterNodes: ['node-1', 'node-2', 'node-3'], transport: transport);
+final node3 = RaftClusterNode('node-3', clusterNodes: ['node-1', 'node-2', 'node-3'], transport: transport);
+
+await node1.start();
+await node2.start();
+await node3.start();
+
+// Propose a replicated state change
+await node1.propose("INSERT INTO users VALUES (1, 'Alice');");
+```
+
+### P2P Offline Sync & Delta-CRDT
+Synchronize databases across edge devices with Hybrid Logical Clocks (HLC) and tombstones:
+```dart
+final nodeA = P2pSyncNode('mobile-device-1');
+nodeA.set('user:101', {'name': 'Alice', 'role': 'admin'});
+
+// Generate delta changeset since last sync
+final delta = nodeA.localState.getDeltaSince(lastSyncMillis);
+remoteNode.mergePeerState(delta);
+```
+
 ---
 
 ## 8. Model Context Protocol (MCP) Server & Agent Skills

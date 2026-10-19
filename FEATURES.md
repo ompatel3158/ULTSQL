@@ -17,6 +17,7 @@ Welcome to the definitive guide for **UltSQL**, the 100% Pure-Dart converged mul
    - [Pillar 7: PL/SQL Procedural Scripting & Reactive Streams](#pillar-7-plsql-procedural-scripting--reactive-streams)
    - [Pillar 8: Enterprise Cybersecurity, Dual Envelopes & Deterministic Obfuscation](#pillar-8-enterprise-cybersecurity-dual-envelopes--deterministic-obfuscation)
    - [Pillar 9: Universal Wire Protocols & Standalone Toolchain](#pillar-9-universal-wire-protocols--standalone-toolchain)
+   - [Pillar 10: Distributed Raft Consensus & P2P Synchronization](#pillar-10-distributed-raft-consensus--p2p-synchronization)
 3. [How to Use UltSQL (Exhaustive Usage Guide)](#3-how-to-use-ultsql)
    - [3.1 Embedded Dart & Flutter Applications](#31-embedded-dart--flutter-applications)
    - [3.2 NoSQL Document Operations (`db.collection`)](#32-nosql-document-operations-dbcollection)
@@ -107,6 +108,7 @@ flowchart TD
 * **Common Table Expressions (CTEs)**: Non-recursive and recursive CTE support via `WITH ... AS (...) SELECT ...`.
 * **Subqueries**: Scalar subqueries, correlated subqueries, `IN (SELECT ...)`, `EXISTS (SELECT ...)`.
 * **Full-Text Search (FTS)**: Native inverted index search using `CREATE INDEX ... USING FTS` and `MATCH(column, 'keyword')`.
+* **Trigram Substring Indexing**: Substring search acceleration (`LIKE '%query%'` / `ILIKE`) using `CREATE INDEX ... USING TRIGRAM;`, routing queries via 3-gram inverted posting lists directly to candidate slotted pages without table scans.
 * **Aggregations & Grouping**: `GROUP BY`, `HAVING`, `DISTINCT`, with multi-column aggregations.
 * **Foreign Key Constraints**: Automatic validation and cascading deletions (`ON DELETE CASCADE`).
 * **Triggers**: Declarative triggers (`BEFORE INSERT`, `AFTER INSERT`, `BEFORE UPDATE`, `AFTER UPDATE`, `BEFORE DELETE`, `AFTER DELETE`) with row-level scope (`FOR EACH ROW`).
@@ -116,6 +118,7 @@ flowchart TD
 * **Slotted-Page Architecture**: High-density 4,096-byte (4 KB) page format with byte-aligned slot directories.
 * **Multi-Version Concurrency Control (MVCC)**: Full snapshot isolation via transaction markers (`xmin`, `xmax`); readers never block writers, and writers never block readers.
 * **Write-Ahead Logging (WAL)**: Append-only transaction logging guaranteeing ACID crash durability and fast recovery upon restart.
+* **Multi-Process Concurrency & Shared Locks**: Multi-process shared read locks (`FileLock.shared` via `readOnly: true`) alongside exclusive writer locks with configurable backoff timeout (`lockTimeout: Duration(seconds: 3)`).
 * **Point Read Latency**: Ultra-low **25.77 µs** point lookups bypassing query planner overhead.
 * **Durable Ingestion**: Benchmarked at **2,082,899 rows/sec** (2.08M rows/sec) batch insertion throughput.
 * **B+ Tree Indexing**: Multi-level clustered and secondary B+ Tree indexes with sub-millisecond point lookups and fast range scans.
@@ -177,6 +180,13 @@ flowchart TD
   * Node.js / TypeScript: `npmjs.com/package/ultsql`
   * Rust: `crates.io/crates/ultsql`
   * C / C++: CMake `FetchContent`
+
+### Pillar 10: Distributed Raft Consensus & P2P Synchronization
+* **Raft State Machine Replication (SMR)**: 100% pure-Dart distributed consensus (`RaftClusterNode`) with randomized election timers (150ms–300ms), leader heartbeats, and quorum log replication (`(N/2)+1`).
+* **Deterministic Write Commit Callbacks**: Commits replicate state machine logs across nodes and trigger `onStateCommitted` hooks into ULTSQL databases.
+* **P2P Delta-CRDT Synchronization**: Offline-first multi-master synchronization (`P2pSyncNode`) with Hybrid Logical Clocks (`HlcTimestamp`) and deletion tombstones.
+* **Delta State Extraction**: `localState.getDeltaSince(timestamp)` sends only incremental mutations over the wire for bandwidth efficiency.
+* **Streaming RFC 4180 Foreign Data Wrappers (FDW)**: Zero-copy streaming querying of external CSV and JSON/NDJSON files (`CREATE FOREIGN TABLE ... SERVER csv_fdw`) with quoted commas and escaped quotes support.
 
 ---
 
@@ -796,17 +806,32 @@ SELECT id, title, calculate_discount(price, 0.20) AS sale_price FROM items;
 
 ---
 
-### 4.9 Multi-Process Concurrency & File Lock Recovery
+### 4.9 Multi-Process Concurrency, Shared Read Locks & Lock Timeout Escalation
 
-UltSQL uses kernel-level file locks (`database.lock`) to prevent concurrent writer data corruption:
+UltSQL uses OS kernel-level file locks (`ultsql.lock`) alongside in-process isolate tracking to prevent concurrent writer corruption while maximizing concurrency:
 
 ```dart
+// 1. Concurrent Shared Read-Only Access (Unlimited reader processes)
+final readerDb = Database('./my_db', readOnly: true);
+await readerDb.init();
+final it = Interpreter(readerDb);
+final results = await it.executeScript('SELECT * FROM users;');
+await readerDb.close();
+
+// 2. Coordinated Writer with Lock Timeout Backoff
+// (Retries with exponential backoff rather than failing immediately under write contention)
+final writerDb = Database(
+  './my_db',
+  lockTimeout: const Duration(seconds: 3),
+);
+
 try {
-  final db = Database('./my_db');
-  await db.init();
+  await writerDb.init();
+  // Safe exclusive writer operations
 } on DatabaseLockException catch (e) {
-  print('Database is locked by another process: ${e.message}');
-  // Graceful fallback or retry strategy
+  print('Could not acquire database lock within timeout: ${e.message}');
+} finally {
+  await writerDb.close();
 }
 ```
 

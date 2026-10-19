@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.29
+
+- **Inverted 3-Gram (Trigram) Substring Indexing Engine**:
+  - Implemented `TrigramIndex` (`USING TRIGRAM`) for substring and text search, creating inverted posting lists of 3-character n-grams pointing to `(pageId, slotId)`.
+  - Added query planner integration (`TrigramScanNode`) to automatically intercept and accelerate `LIKE '%substring%'` and `ILIKE` queries, eliminating sequential table page scans.
+  - Added in-memory registry caching for `:memory:` ephemeral databases.
+- **Multi-Process Concurrency & File Lock Escalation**:
+  - Added `readOnly: bool` and `lockTimeout: Duration` parameters to `Database`.
+  - Fast synchronous lock acquisition when `lockTimeout == Duration.zero` for zero overhead and full backward compatibility.
+  - Added `FileLock.shared` support for concurrent multi-process read queries without writer lock contention.
+  - Added exponential backoff retry loop when `lockTimeout > Duration.zero` for smooth lock handover under concurrent writes.
+  - Added in-process lock table for multi-isolate coordination within the same Dart VM.
+- **Production P2P Delta-CRDT & Streaming RFC 4180 FDW**:
+  - Upgraded P2P sync (`p2p_sync.dart`) with Hybrid Logical Clocks (`HlcTimestamp`) and deterministic tombstones for delete propagation across offline multi-master devices.
+  - Added delta state extraction (`getDeltaSince`) for efficient bandwidth-saving synchronization.
+  - Implemented streaming RFC 4180 CSV parser in `FdwManager` and `UniversalFileAdapter` supporting quoted commas, escaped quotes (`""`), and streaming row emission without loading whole files into memory.
+- **Distributed Multi-Node Raft Consensus Engine**:
+  - Implemented full Raft state machine replication (`raft_cluster.dart`) with randomized election timers (150ms–300ms), leader heartbeats, and Quorum log replication (`(N/2)+1`).
+  - Added State Machine Replication (SMR) callback (`onStateCommitted`) to replicate committed writes directly into ULTSQL database instances.
+
 ## 1.0.28
 
 - **10/10 Simultaneous Performance Victory Over SQLite (100% Win Rate)**:

@@ -4,7 +4,7 @@ description: >-
   Use this skill whenever an agent needs high-performance, embedded database capabilities combining Relational SQL, NoSQL JSON document collections, Redis-style Key-Value caching, or AI Vector embeddings (HNSW RAG) with zero external native C/C++ dependencies using UltSQL or its MCP server.
 ---
 
-# UltSQL Skill Guide for AI Agents (v1.0.28)
+# UltSQL Skill Guide for AI Agents (v1.0.29)
 
 **UltSQL** is a 100% pure-Dart converged multimodal database engine combining **Relational SQL**, **NoSQL Document Collections**, **Redis-style Key-Value Caching**, and **Native HNSW Vector RAG** with zero C/C++ compiler or dynamic library dependencies.
 
@@ -21,7 +21,9 @@ Use UltSQL when you need:
 4. **Fast In-Memory / WAL Key-Value Store**: Sub-microsecond key-value caching (over **1M+ ops/sec**) with TTL and atomic counters.
 5. **AI Vector RAG Similarity Search**: Vector embeddings stored in native `VECTOR` columns with sub-2ms HNSW approximate nearest-neighbor search (`cosine`, `l2`, `dot`).
 6. **WARP In-Place Record Patching**: Slotted-page sliding shifts and byte-level updates without row relocation or index rebuilding.
-7. **Zero Dynamic Link Errors**: Pure Dart execution on Windows, Linux, macOS, iOS, Android, and WebAssembly.
+7. **Trigram Substring Indexing**: Substring and wildcard pattern search (`LIKE '%query%'` / `ILIKE`) using `CREATE INDEX ... USING TRIGRAM;` to bypass sequential scans.
+8. **Multi-Process Concurrency & Distributed Consensus**: Shared read locks (`FileLock.shared`), configurable backoff lock timeout, P2P Delta-CRDT sync, and distributed multi-node Raft consensus.
+9. **Zero Dynamic Link Errors**: Pure Dart execution on Windows, Linux, macOS, iOS, Android, and WebAssembly.
 
 ---
 
