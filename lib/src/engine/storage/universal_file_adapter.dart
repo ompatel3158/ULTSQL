@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:ultsql/src/engine/executor/value.dart';
+import '../fdw/fdw_manager.dart';
 
 /// Universal Native File System SQL Adapter: Query raw CSV, JSON & LOG files directly via SQL
 class UniversalFileAdapter {
@@ -27,7 +28,7 @@ class UniversalFileAdapter {
     for (int i = 1; i < lines.length; i++) {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
-      final cols = line.split(',');
+      final cols = Rfc4180Parser.parseLine(line);
 
       if (whereValue.isEmpty ||
           line.toLowerCase().contains(whereValue.toLowerCase())) {

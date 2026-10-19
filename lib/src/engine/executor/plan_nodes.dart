@@ -11,6 +11,7 @@ import 'value.dart';
 import 'jit_compiler.dart';
 import '../storage/hnsw_index.dart';
 import '../storage/fts_index.dart';
+import '../storage/trigram_index.dart';
 import '../storage/ivf_flat_index.dart';
 
 /// Abstract base class for Volcano-iterator physical execution plan nodes.
@@ -3222,6 +3223,133 @@ class FtsScanNode extends PlanNode {
   String getPlanString([int indent = 0]) {
     final padding = '  ' * indent;
     return '${padding}FtsScanNode(table: $tableName, column: $columnName, query: "$searchQuery")';
+  }
+}
+
+class TrigramScanNode extends PlanNode {
+  final String tableName;
+  final String columnName;
+  final String pattern;
+  final String dbDirectory;
+  final PageCache cache;
+  final Catalog catalog;
+  final bool isCaseInsensitive;
+
+  List<Map<String, DbValue>>? _matchingRows;
+  int _currentIndex = 0;
+
+  TrigramScanNode({
+    required this.tableName,
+    required this.columnName,
+    required this.pattern,
+    required this.dbDirectory,
+    required this.cache,
+    required this.catalog,
+    this.isCaseInsensitive = true,
+  });
+
+  @override
+  void open() {
+    _matchingRows = null;
+    _currentIndex = 0;
+  }
+
+  void _executeTrigramScan() {
+    _matchingRows = [];
+    IndexSchema? idxSchema;
+    for (final idx in catalog.getIndexesForTable(tableName)) {
+      if ((idx.usingMethod?.toLowerCase() ?? '') == 'trigram' &&
+          idx.columnName.toLowerCase() == columnName.toLowerCase()) {
+        idxSchema = idx;
+        break;
+      }
+    }
+    final indexPath =
+        '$dbDirectory/${idxSchema?.name.toLowerCase() ?? "trgm_${tableName}_$columnName"}.trgm';
+    final trgmIndex = TrigramIndex(indexPath: indexPath);
+    trgmIndex.initSync();
+
+    final cleanPattern = pattern.replaceAll("'", "").replaceAll('"', '');
+    final postings = trgmIndex.searchSync(cleanPattern);
+    if (postings == null || postings.isEmpty) {
+      return;
+    }
+
+    final schema = catalog.getTableSchema(tableName.toLowerCase());
+    if (schema == null) return;
+
+    final rowTable = RowTableFile(
+      cache: cache,
+      tableName: schema.name,
+      dbDirectory: dbDirectory,
+    );
+    rowTable.flushActivePageSync();
+
+    final colIdx = schema.columnNamesLower.indexOf(columnName.toLowerCase());
+
+    for (final posting in postings) {
+      final page = cache.pinPageSync(rowTable.filePath, posting.pageId);
+      final recBytes = SlottedPageHelper.getRecord(page, posting.slotId);
+      if (recBytes != null) {
+        List<DbValue>? rowValues;
+        try {
+          final mvccRecord = MvccRecord.fromBytes(recBytes);
+          final currentTx = cache.currentMvccTx;
+          final txManager = cache.mvccTxManager;
+          final currentTxId = currentTx?.txId ?? 0;
+          final activeTxIds = currentTx?.activeTxIds ?? const <int>{};
+          if (txManager.isVisible(
+            mvccRecord.xmin,
+            mvccRecord.xmax,
+            currentTxId,
+            activeTxIds,
+          )) {
+            rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+          }
+        } catch (_) {
+          rowValues = RecordSerializer.deserializeRow(recBytes);
+        }
+        if (rowValues != null) {
+          bool matches = true;
+          if (colIdx != -1 && colIdx < rowValues.length) {
+            final colVal = rowValues[colIdx].toString();
+            matches = matchLike(colVal, cleanPattern);
+          }
+          if (matches) {
+            final rowMap = <String, DbValue>{};
+            for (int i = 0; i < schema.columnNames.length; i++) {
+              rowMap['${schema.name.toLowerCase()}.${schema.columnNamesLower[i]}'] =
+                  rowValues[i];
+              rowMap[schema.columnNamesLower[i]] = rowValues[i];
+            }
+            _matchingRows!.add(rowMap);
+          }
+        }
+      }
+      cache.unpinPageSync(rowTable.filePath, posting.pageId, isDirty: false);
+    }
+  }
+
+  @override
+  Map<String, DbValue>? next() {
+    if (_matchingRows == null) {
+      _executeTrigramScan();
+    }
+    if (_currentIndex >= _matchingRows!.length) {
+      return null;
+    }
+    return _matchingRows![_currentIndex++];
+  }
+
+  @override
+  void close() {
+    _matchingRows = null;
+  }
+
+  @override
+  String getPlanString([int indent = 0]) {
+    final padding = '  ' * indent;
+    return '${padding}TrigramScanNode(table: $tableName, column: $columnName, pattern: "$pattern")';
   }
 }
 

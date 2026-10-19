@@ -44,4 +44,21 @@ export 'src/engine/security/zk_crypto.dart' show ZkCryptoEnclave;
 export 'src/services/local_database_service.dart' show LocalDatabaseService;
 export 'src/engine/storage/streaming_importer.dart'
     show StreamingCsvImporter, StreamingParquetImporter;
+export 'src/engine/storage/trigram_index.dart'
+    show TrigramIndex, TrigramPosting;
+export 'src/engine/network/p2p_sync.dart'
+    show HlcTimestamp, CrdtState, P2pSyncNode;
+export 'src/engine/fdw/fdw_manager.dart'
+    show FdwManager, Rfc4180Parser;
+export 'src/engine/storage/universal_file_adapter.dart'
+    show UniversalFileAdapter;
+export 'src/engine/network/raft_cluster.dart'
+    show
+        RaftClusterNode,
+        RaftNodeRole,
+        RaftLogEntry,
+        RaftTransport,
+        InMemoryRaftTransport,
+        TwoPhaseCommitCoordinator;
+
 

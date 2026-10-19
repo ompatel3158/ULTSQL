@@ -16,6 +16,7 @@ import '../storage/btree_index.dart';
 import '../storage/audit_logger.dart';
 import '../storage/hnsw_index.dart';
 import '../storage/fts_index.dart';
+import '../storage/trigram_index.dart';
 import '../storage/ivf_flat_index.dart';
 import 'value.dart';
 import 'plan_nodes.dart';
@@ -341,12 +342,17 @@ class Database {
   /// Returns the persistent Key-Value store instance for this database.
   KVStore get kv => _kvStore ??= KVStore(this);
 
+  final bool readOnly;
+  final Duration lockTimeout;
+
   Database(
     this.directory, {
     String? passphrase,
     AuthEnvelopeMode authEnvelopeMode = AuthEnvelopeMode.inPage,
     bool useWal = true,
     int maxCapacity = 50000,
+    this.readOnly = false,
+    this.lockTimeout = Duration.zero,
   }) {
     config = EngineConfig.defaultConfig();
     catalog = Catalog(directory);
@@ -457,25 +463,106 @@ class Database {
     }
   }
 
+  static final Map<String, int> _inProcessExclusiveLocks = {};
+  static final Map<String, int> _inProcessSharedLocks = {};
+
   Future<void> init() async {
     if (directory != ':memory:' && !identical(0, 0.0)) {
       final lockPath = '$directory/ultsql.lock';
-      try {
-        final lockFile = File(lockPath);
-        if (!lockFile.existsSync()) {
+      final normKey =
+          File(lockPath).absolute.path.replaceAll('/', '\\').toLowerCase();
+      final lockFile = File(lockPath);
+      if (!lockFile.existsSync()) {
+        try {
           lockFile.parent.createSync(recursive: true);
           lockFile.createSync();
-        }
-        _lockFile = lockFile.openSync(mode: FileMode.write);
-        _lockFile!.lockSync(FileLock.exclusive);
-      } catch (e) {
-        try {
-          _lockFile?.closeSync();
         } catch (_) {}
-        _lockFile = null;
-        throw DatabaseLockException(
-          "Database at '$directory' is locked by another process.",
-        );
+      }
+
+      final lockType = readOnly ? FileLock.shared : FileLock.exclusive;
+      final openMode = readOnly ? FileMode.read : FileMode.write;
+
+      if (lockTimeout == Duration.zero) {
+        final hasExclusiveInProcess =
+            (_inProcessExclusiveLocks[normKey] ?? 0) > 0;
+        final hasSharedInProcess = (_inProcessSharedLocks[normKey] ?? 0) > 0;
+        if (readOnly ? hasExclusiveInProcess : (hasExclusiveInProcess || hasSharedInProcess)) {
+          throw DatabaseLockException(
+            "Database at '$directory' is locked by another process.",
+          );
+        }
+        try {
+          _lockFile = lockFile.openSync(mode: openMode);
+          _lockFile!.lockSync(lockType);
+          if (readOnly) {
+            _inProcessSharedLocks[normKey] =
+                (_inProcessSharedLocks[normKey] ?? 0) + 1;
+          } else {
+            _inProcessExclusiveLocks[normKey] = 1;
+          }
+        } catch (_) {
+          try {
+            _lockFile?.closeSync();
+          } catch (_) {}
+          _lockFile = null;
+          throw DatabaseLockException(
+            "Database at '$directory' is locked by another process.",
+          );
+        }
+      } else {
+        final sw = Stopwatch()..start();
+        bool lockAcquired = false;
+        int backoffMs = 25;
+
+        while (sw.elapsed < lockTimeout) {
+          final hasExclusiveInProcess =
+              (_inProcessExclusiveLocks[normKey] ?? 0) > 0;
+          final hasSharedInProcess = (_inProcessSharedLocks[normKey] ?? 0) > 0;
+
+          if (readOnly) {
+            if (hasExclusiveInProcess) {
+              await Future.delayed(Duration(milliseconds: backoffMs));
+              backoffMs = (backoffMs * 1.5).toInt().clamp(25, 250);
+              continue;
+            }
+          } else {
+            if (hasExclusiveInProcess || hasSharedInProcess) {
+              await Future.delayed(Duration(milliseconds: backoffMs));
+              backoffMs = (backoffMs * 1.5).toInt().clamp(25, 250);
+              continue;
+            }
+          }
+
+          try {
+            _lockFile = lockFile.openSync(mode: openMode);
+            _lockFile!.lockSync(lockType);
+            if (readOnly) {
+              _inProcessSharedLocks[normKey] =
+                  (_inProcessSharedLocks[normKey] ?? 0) + 1;
+            } else {
+              _inProcessExclusiveLocks[normKey] = 1;
+            }
+            lockAcquired = true;
+            break;
+          } catch (_) {
+            try {
+              _lockFile?.closeSync();
+            } catch (_) {}
+            _lockFile = null;
+            await Future.delayed(Duration(milliseconds: backoffMs));
+            backoffMs = (backoffMs * 1.5).toInt().clamp(25, 250);
+          }
+        }
+
+        if (!lockAcquired) {
+          try {
+            _lockFile?.closeSync();
+          } catch (_) {}
+          _lockFile = null;
+          throw DatabaseLockException(
+            "Database at '$directory' is locked by another process (timed out after ${lockTimeout.inMilliseconds}ms).",
+          );
+        }
       }
     }
     await catalog.load();
@@ -688,12 +775,28 @@ class Database {
     _indexCache.clear();
     cache.closeAllSync();
     cache.wipeCryptoKeys();
+    final hadLock = _lockFile != null;
     if (_lockFile != null) {
       try {
         _lockFile!.unlockSync();
         _lockFile!.closeSync();
       } catch (_) {}
       _lockFile = null;
+    }
+    if (hadLock && directory != ':memory:' && !identical(0, 0.0)) {
+      final lockPath = '$directory/ultsql.lock';
+      final normKey =
+          File(lockPath).absolute.path.replaceAll('/', '\\').toLowerCase();
+      if (readOnly) {
+        final cur = _inProcessSharedLocks[normKey] ?? 0;
+        if (cur <= 1) {
+          _inProcessSharedLocks.remove(normKey);
+        } else {
+          _inProcessSharedLocks[normKey] = cur - 1;
+        }
+      } else {
+        _inProcessExclusiveLocks.remove(normKey);
+      }
     }
   }
 
@@ -3389,6 +3492,7 @@ END;
       final tableIndexes = db.catalog.getIndexesForTable(tName);
       final hasComplexIndex = tableIndexes.any((idx) =>
           idx.usingMethod == 'fts' ||
+          idx.usingMethod == 'trigram' ||
           idx.usingMethod == 'hnsw' ||
           (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivf' ||
           (idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') == 'ivfflat');
@@ -4190,6 +4294,19 @@ END;
             final fts = FtsIndex(indexPath: ftsFile);
             fts.initSync();
             fts.addDocumentSync(val.value, recordPageId, recordSlotId);
+          }
+        }
+      } else if (idx.usingMethod == 'trigram') {
+        final cIdx = schema.columnNamesLower.indexOf(
+          idx.columnName.toLowerCase(),
+        );
+        if (cIdx != -1 && cIdx < rowValues.length) {
+          final val = rowValues[cIdx];
+          if (val is DbText) {
+            final trgmFile = '${db.directory}/${idx.name.toLowerCase()}.trgm';
+            final trgm = TrigramIndex(indexPath: trgmFile);
+            trgm.initSync();
+            trgm.addDocumentSync(val.value, recordPageId, recordSlotId);
           }
         }
       } else if ((idx.usingMethod?.replaceAll('_', '').toLowerCase() ?? '') ==
@@ -6458,6 +6575,57 @@ END;
         columns: [],
         rows: [],
         message: "HNSW Vector Index '$indexName' created successfully.",
+      );
+    }
+
+    if (stmt.usingMethod?.toLowerCase() == 'trigram') {
+      final indexFile = '${db.directory}/$indexName.trgm';
+      final trgm = TrigramIndex(indexPath: indexFile, autoSave: false);
+      final colIdx = colIndexes.isNotEmpty ? colIndexes[0] : 0;
+      final rowTable = _rowTableCache.putIfAbsent(
+        tableName,
+        () => RowTableFile(
+          cache: db.cache,
+          tableName: schema.name,
+          dbDirectory: db.directory,
+        ),
+      );
+      rowTable.flushActivePageSync();
+      final pageCount = db.cache.getActualPageCountSync(rowTable.filePath);
+      for (int pageId = 0; pageId < pageCount; pageId++) {
+        final page = db.cache.pinPageSync(rowTable.filePath, pageId);
+        final byteData = page.byteData;
+        final rowCount = byteData.getUint16(1);
+        for (int slotId = 0; slotId < rowCount; slotId++) {
+          final slotOffset = 5 + slotId * 4;
+          final recordOffset = byteData.getUint16(slotOffset);
+          final recordLen = byteData.getUint16(slotOffset + 2);
+          if (recordLen == 0 || recordOffset >= 4096) continue;
+          final recBytes = SlottedPageHelper.getRecord(page, slotId);
+          if (recBytes != null) {
+            List<DbValue> rowValues;
+            try {
+              final mvccRecord = MvccRecord.fromBytes(recBytes);
+              rowValues = RecordSerializer.deserializeRow(mvccRecord.rowData);
+            } catch (_) {
+              rowValues = RecordSerializer.deserializeRow(recBytes);
+            }
+            if (colIdx < rowValues.length) {
+              final val = rowValues[colIdx];
+              if (val is DbText) {
+                trgm.addDocumentSync(val.value, pageId, slotId);
+              }
+            }
+          }
+        }
+        db.cache.unpinPageSync(rowTable.filePath, pageId, isDirty: false);
+      }
+      trgm.saveSync();
+      return QueryResult(
+        columns: [],
+        rows: [],
+        message:
+            "Trigram Index '$indexName' created successfully on '$tableName($colName)'.",
       );
     }
 

@@ -1391,13 +1391,14 @@ Generating 100000 structured JSON documents in memory...
 
 ---
 
-## <a name="known-limitations"></a>⚠️ Known Limitations
+## <a name="known-limitations"></a>🛡️ Concurrency, Scalability & Architecture
 
-ULTSQL is focused on single-node embedded and converged local workloads. Current architectural trade-offs:
-- **Single-Node Architecture**: ULTSQL is an embedded and local database engine; it does not currently provide multi-node clustering or distributed Raft consensus.
-- **Substring Filtering**: Wildcard matching like `LIKE '%query%'` requires sequential page scans unless combined with indexed equality or range filters.
-- **Multi-Process Concurrency**: Multi-process concurrency uses OS file locks; high concurrent write contention is best coordinated through the built-in server daemon (`ultsql serve`).
-- **Experimental Subsystems**: P2P CRDT sync and direct CSV/JSON querying are actively evolving and intended for lightweight local workflows.
+ULTSQL provides converged local single-node performance alongside advanced multi-node and synchronization subsystems:
+
+- **Substring & Wildcard Indexing**: Wildcard queries like `LIKE '%query%'` can be accelerated via `CREATE INDEX idx_name ON table(col) USING TRIGRAM;`. This creates an inverted 3-gram index that directly pinpoints candidate slotted pages and eliminates sequential table scans.
+- **Multi-Process Concurrency**: Multi-process concurrency supports shared read-only locks (`Database(path, readOnly: true)` using `FileLock.shared`) alongside short-lived exclusive writer locks. Configurable lock timeout backoff (`lockTimeout: Duration(seconds: 3)`) prevents immediate lock exceptions under write contention.
+- **P2P Delta-CRDT & Streaming FDW**: Multi-device synchronization is powered by delta-state CRDTs with Hybrid Logical Clocks (HLC) and deletion tombstones (`P2pSyncNode`). External CSV/JSON files are queried via streaming RFC 4180 Foreign Data Wrappers (`FdwManager`) without whole-file memory buffering.
+- **Distributed Raft Consensus Engine**: Distributed multi-node clustering and State Machine Replication (SMR) are available via `RaftClusterNode` with randomized election timers, leader heartbeats, and quorum log replication (`(N/2)+1`).
 
 ---
 

@@ -652,6 +652,11 @@ class QueryPlanner {
 
         if (!schema.isColumnar && stmt.whereCondition != null) {
           final matchExpr = _findMatchExpr(stmt.whereCondition!);
+          final trigramMatch = _findTrigramMatch(
+            stmt.whereCondition!,
+            tableName,
+            catalog,
+          );
           if (matchExpr != null) {
             scanNode = FtsScanNode(
               tableName: tableName,
@@ -662,6 +667,21 @@ class QueryPlanner {
               catalog: catalog,
             );
             useIndexScan = true;
+          } else if (trigramMatch != null) {
+            scanNode = TrigramScanNode(
+              tableName: tableName,
+              columnName: trigramMatch.columnName,
+              pattern: trigramMatch.pattern,
+              dbDirectory: dbDirectory,
+              cache: cache,
+              catalog: catalog,
+              isCaseInsensitive: trigramMatch.isCaseInsensitive,
+            );
+            useIndexScan = true;
+            needFilterNode = _hasExtraConditions(
+              stmt.whereCondition!,
+              trigramMatch.targetExpr,
+            );
           } else {
             final indexes = catalog.getIndexesForTable(tableName);
             IndexSchema? bestIndex;
@@ -1970,6 +1990,81 @@ MatchExpr? _findMatchExpr(Expression expr) {
     return _findMatchExpr(expr.left) ?? _findMatchExpr(expr.right);
   }
   return null;
+}
+
+class _TrigramMatchInfo {
+  final String columnName;
+  final String pattern;
+  final bool isCaseInsensitive;
+  final Expression targetExpr;
+
+  _TrigramMatchInfo({
+    required this.columnName,
+    required this.pattern,
+    required this.isCaseInsensitive,
+    required this.targetExpr,
+  });
+}
+
+_TrigramMatchInfo? _findTrigramMatch(
+  Expression expr,
+  String tableName,
+  Catalog catalog,
+) {
+  if (expr is BinaryExpr) {
+    final op = expr.operator.toLowerCase();
+    if (op == 'like' || op == 'ilike') {
+      String? colName;
+      String? pattern;
+      if (expr.left is VariableExpr && expr.right is LiteralExpr) {
+        colName = (expr.left as VariableExpr).fullName;
+        final rawVal = (expr.right as LiteralExpr).value;
+        if (rawVal != null) pattern = rawVal.toString();
+      } else if (expr.right is VariableExpr && expr.left is LiteralExpr) {
+        colName = (expr.right as VariableExpr).fullName;
+        final rawVal = (expr.left as LiteralExpr).value;
+        if (rawVal != null) pattern = rawVal.toString();
+      }
+      if (colName != null && pattern != null) {
+        if (colName.contains('.')) {
+          final parts = colName.split('.');
+          if (parts[0].toLowerCase() == tableName.toLowerCase()) {
+            colName = parts[1];
+          }
+        }
+        final indexes = catalog.getIndexesForTable(tableName);
+        final hasTrigram = indexes.any(
+          (idx) =>
+              (idx.usingMethod?.toLowerCase() ?? '') == 'trigram' &&
+              idx.columnName.toLowerCase() == colName!.toLowerCase(),
+        );
+        if (hasTrigram) {
+          final clean = pattern.replaceAll("'", "").replaceAll('"', '');
+          final segments = clean
+              .toLowerCase()
+              .split(RegExp(r'[%_]'))
+              .where((s) => s.length >= 3);
+          if (segments.isNotEmpty) {
+            return _TrigramMatchInfo(
+              columnName: colName,
+              pattern: clean,
+              isCaseInsensitive: op == 'ilike' || true,
+              targetExpr: expr,
+            );
+          }
+        }
+      }
+    } else if (op == 'and') {
+      return _findTrigramMatch(expr.left, tableName, catalog) ??
+          _findTrigramMatch(expr.right, tableName, catalog);
+    }
+  }
+  return null;
+}
+
+bool _hasExtraConditions(Expression root, Expression matched) {
+  if (identical(root, matched)) return false;
+  return true;
 }
 
 PlanNode _planRecursiveQuery(
