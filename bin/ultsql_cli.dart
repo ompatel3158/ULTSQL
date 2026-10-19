@@ -124,17 +124,23 @@ void main(List<String> args) async {
       return;
     }
 
-    // 4. SERVE SUBCOMMAND
-    if (subCmd == 'serve') {
+    // 4. SERVE & DEV SUBCOMMANDS
+    if (subCmd == 'serve' || subCmd == 'dev') {
+      final isDev = subCmd == 'dev';
       int port = 8080;
+      String host = '127.0.0.1';
       int? pgwirePort;
-      String dbPath = './ultsql_data';
+      String dbPath = isDev ? './app_dev.db' : './ultsql_data';
       for (int i = 1; i < args.length; i++) {
         final a = args[i];
         if (a == '--port' && i + 1 < args.length) {
           port = int.tryParse(args[++i]) ?? 8080;
         } else if (a.startsWith('--port=')) {
           port = int.tryParse(a.substring(7)) ?? 8080;
+        } else if (a == '--host' && i + 1 < args.length) {
+          host = args[++i];
+        } else if (a.startsWith('--host=')) {
+          host = a.substring(7);
         } else if (a == '--pgwire' && i + 1 < args.length) {
           pgwirePort = int.tryParse(args[++i]) ?? 5432;
         } else if (a.startsWith('--pgwire=')) {
@@ -161,7 +167,7 @@ void main(List<String> args) async {
         stderr.writeln('❌ Error: ${e.message}');
         exit(1);
       }
-      final restServer = RestServer(db, port: port);
+      final restServer = RestServer(db, host: host, port: port);
       final boundPort = await restServer.start(autoPort: true);
 
       PgWireServer? pgServer;
@@ -171,22 +177,26 @@ void main(List<String> args) async {
       }
 
       print('===============================================================');
-      print('🚀 UltSQL Server Daemon Active & Ready! (v$ultSqlVersion)');
+      if (isDev) {
+        print('⚡ UltSQL Local Dev Server Active on http://$host:$boundPort');
+      } else {
+        print('🚀 UltSQL Server Daemon Active & Ready! (v$ultSqlVersion)');
+      }
       print('===============================================================');
       print('📁 Database Path       : $dbPath');
       if (passphrase != null) {
         print('🔒 Encryption          : AES-256-CTR Enabled');
       }
-      print('🌐 REST & OpenAPI API  : http://localhost:$boundPort');
-      print('📖 OpenAPI Specs       : http://localhost:$boundPort/openapi.json');
+      print('🌐 REST & Query API    : http://$host:$boundPort/query');
+      print('📖 OpenAPI Specs       : http://$host:$boundPort/openapi.json');
       if (pgServer != null) {
-        print('🔌 PostgreSQL Wire API : localhost:$pgwirePort (v3 protocol)');
+        print('🔌 PostgreSQL Wire API : $host:$pgwirePort (v3 protocol)');
       }
       print('===============================================================');
       print('Press Ctrl+C to stop the server daemon.\n');
 
       ProcessSignal.sigint.watch().listen((_) async {
-        print('\n🛑 Stopping UltSQL servers...');
+        print('\n🛑 Stopping UltSQL server...');
         await restServer.stop();
         await pgServer?.stop();
         await db.close();
@@ -1603,11 +1613,12 @@ void _printHelp() {
   print('''
 UltSQL CLI Usage:
   ultsql [database_file] [options]
+  ultsql dev [--host <ip>] [--port <port>] [--db <path>]      # Launch local development server (binds to 127.0.0.1)
+  ultsql serve [--host <ip>] [--port <port>] [--pgwire <port>] [--db <path>]
+  ultsql pgwire [--port=5432] [--db=./ultsql_data]
   ultsql bench [rows] [--db <path>] [--wal]
   ultsql import <file.csv|file.json> <table_name> [--db <db_path>]
   ultsql export <table_name> <file.csv|file.json> [--db <db_path>]
-  ultsql serve [--port=8080] [--pgwire=5432] [--db=./ultsql_data]
-  ultsql pgwire [--port=5432] [--db=./ultsql_data]
   ultsql mcp                                      # Launch Model Context Protocol stdio server for AI agents
 
 Options:
@@ -1616,6 +1627,7 @@ Options:
   -t, --timer               Display microsecond-precision execution timer
   --envelope <mode>         Encryption envelope mode: inPage (default) or companion
   --password, --key <pass>  Passphrase for AES-256-CTR authenticated encryption
+  --host <ip>               Host IP to bind HTTP/REST server (default: 127.0.0.1)
   --port <number>           Port for REST API daemon (default: 8080)
   --db <path>               Database storage directory (default: ./ultsql_data)
   -v, --version             Show CLI version

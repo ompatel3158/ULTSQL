@@ -12,7 +12,7 @@ class RestServer {
   HttpServer? _server;
   late Interpreter _interpreter;
 
-  RestServer(this.db, {this.host = '0.0.0.0', this.port = 8080}) {
+  RestServer(this.db, {this.host = '127.0.0.1', this.port = 8080}) {
     _interpreter = Interpreter(db);
   }
 

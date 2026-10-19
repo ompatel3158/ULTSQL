@@ -1,6 +1,6 @@
 /**
- * UltSQL Universal Node.js Client & Embedded Engine Launcher
- * Connects to a remote UltSQL instance or automatically manages a bundled local engine process.
+ * UltSQL Universal Node.js Client SDK & Local Process Manager
+ * Connects to a remote UltSQL instance or manages a local helper engine process.
  */
 
 const path = require('path');
@@ -67,7 +67,7 @@ function getBinaryPath() {
 }
 
 /**
- * Finds an available TCP port on the host.
+ * Finds an available TCP port on the host (defaults strictly to 127.0.0.1).
  */
 function findFreePort(host = '127.0.0.1') {
   return new Promise((resolve, reject) => {
@@ -81,24 +81,267 @@ function findFreePort(host = '127.0.0.1') {
   });
 }
 
-class UltSQLClient {
-  constructor(options = {}) {
-    if (typeof options === 'string') {
-      const parsed = new URL(options.startsWith('http') ? options : `http://${options}`);
-      this.host = parsed.hostname || '127.0.0.1';
-      this.port = parseInt(parsed.port || '8080', 10);
-    } else {
-      this.host = options.host || '127.0.0.1';
-      this.port = options.port || 8080;
+// Global active server process registry to reuse existing processes for the same database
+const _ACTIVE_SERVERS = new Map();
+
+function _cleanupAllActiveServers() {
+  for (const [normPath, serverInfo] of _ACTIVE_SERVERS.entries()) {
+    if (serverInfo.child) {
+      try {
+        serverInfo.child.kill();
+      } catch (_) {}
     }
+  }
+  _ACTIVE_SERVERS.clear();
+}
+
+process.once('exit', _cleanupAllActiveServers);
+process.once('SIGINT', _cleanupAllActiveServers);
+process.once('SIGTERM', _cleanupAllActiveServers);
+
+class UltSQLClient {
+  /**
+   * @param {string} [target='http://127.0.0.1:8080'] - Remote server URL or local database path.
+   * @param {object} [options={}] - Configuration options.
+   * @param {boolean} [options.auto_start=false] - Whether to automatically start a local server if target is a file path.
+   * @param {string} [options.host='127.0.0.1'] - Local binding host (strictly 127.0.0.1).
+   * @param {number} [options.port=0] - Port (0 for auto-assign free port).
+   */
+  constructor(target = 'http://127.0.0.1:8080', options = {}) {
+    if (typeof target === 'object' && target !== null) {
+      options = target;
+      target = options.url || options.target || 'http://127.0.0.1:8080';
+    }
+
+    this.target = target;
+    this.options = options;
+    this.autoStart = options.auto_start !== undefined ? options.auto_start : (options.autoStart || false);
+    this.passphrase = options.passphrase || null;
+    this.timeoutMs = options.timeout || 10000;
+    this.binaryPath = options.binaryPath || null;
+    this.quiet = options.quiet || false;
+
     this._child = null;
-    this._cleanupHandler = null;
+    this._serverKey = null;
+
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      this.isUrl = true;
+      const parsed = new URL(target);
+      this.host = parsed.hostname || options.host || '127.0.0.1';
+      this.port = parseInt(parsed.port || (parsed.protocol === 'https:' ? '443' : '8080'), 10);
+      this.baseUrl = target.replace(/\/+$/, '');
+      this.dbPath = null;
+    } else {
+      this.isUrl = false;
+      this.host = '127.0.0.1'; // Enforce loopback binding
+      this.port = options.port || 0;
+      this.dbPath = target;
+      this.baseUrl = this.port > 0 ? `http://${this.host}:${this.port}` : '';
+    }
+
+    if (!this.isUrl && this.autoStart) {
+      this._startPromise = this._startServer().catch(() => {});
+    }
   }
 
-  /**
-   * Execute raw SQL statements against the UltSQL REST daemon.
-   */
-  sql(sqlQuery) {
+  async _ensureServer() {
+    if (this.isUrl) return;
+    if (this._closed) {
+      throw new Error('UltSQLClient has been closed.');
+    }
+    if (this._child && this._child.exitCode === null) return;
+
+    if (this._startPromise) {
+      await this._startPromise;
+      if (this._child && this._child.exitCode === null) return;
+    }
+
+    if (!this.autoStart) {
+      throw new Error(
+        `UltSQLClient is configured for local database path "${this.target}" with auto_start=false.\n` +
+        `Either start an UltSQL server explicitly ('ultsql dev' or 'ultsql serve'),\n` +
+        `or enable automatic startup by setting auto_start: true.`
+      );
+    }
+
+    this._startPromise = this._startServer();
+    await this._startPromise;
+  }
+
+  async _startServer() {
+    const normDb = path.resolve(this.dbPath);
+    this._serverKey = normDb;
+
+    const existing = _ACTIVE_SERVERS.get(normDb);
+    if (existing) {
+      if (existing.startPromise) {
+        await existing.startPromise;
+      }
+      if (existing.child && existing.child.exitCode === null) {
+        existing.refCount++;
+        this._child = existing.child;
+        this.host = existing.host;
+        this.port = existing.port;
+        this.baseUrl = `http://${this.host}:${this.port}`;
+        return;
+      }
+    }
+
+    this.host = '127.0.0.1';
+    if (!this.port || this.port <= 0) {
+      this.port = await findFreePort(this.host);
+    }
+    this.baseUrl = `http://${this.host}:${this.port}`;
+
+    const serverEntry = {
+      child: null,
+      host: this.host,
+      port: this.port,
+      refCount: 1,
+      startPromise: null,
+    };
+    _ACTIVE_SERVERS.set(normDb, serverEntry);
+
+    const binPath = this.binaryPath || getBinaryPath();
+    const args = ['serve', '--host', this.host, '--port', String(this.port), '--db', this.dbPath];
+    if (this.passphrase) {
+      args.push('--password', this.passphrase);
+    }
+
+    const child = child_process.spawn(binPath, args, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+    });
+
+    let stderrOutput = '';
+    if (child.stderr) {
+      child.stderr.on('data', (chunk) => {
+        stderrOutput += chunk.toString();
+      });
+    }
+
+    let healthy = false;
+    const start = Date.now();
+
+    while (Date.now() - start < this.timeoutMs) {
+      if (child.exitCode !== null) {
+        _ACTIVE_SERVERS.delete(normDb);
+        throw new Error(`UltSQL local engine exited prematurely with code ${child.exitCode}:\n${stderrOutput}`);
+      }
+
+      try {
+        const res = await new Promise((resolve, reject) => {
+          const req = http.get(`http://${this.host}:${this.port}/`, { timeout: 400 }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(body));
+              } catch (_) {
+                resolve(null);
+              }
+            });
+          });
+          req.on('error', reject);
+          req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('timeout'));
+          });
+        });
+
+        if (res && res.status === 'online') {
+          healthy = true;
+          break;
+        }
+      } catch (_) {}
+
+      await new Promise(r => setTimeout(r, 60));
+    }
+
+    if (!healthy) {
+      try {
+        child.kill();
+      } catch (_) {}
+      _ACTIVE_SERVERS.delete(normDb);
+      throw new Error(`UltSQL local engine failed to become healthy on ${this.host}:${this.port} within ${this.timeoutMs}ms:\n${stderrOutput}`);
+    }
+
+    this._child = child;
+    serverEntry.child = child;
+    serverEntry.startPromise = null;
+
+    if (!this.quiet) {
+      console.log(`UltSQL local server started on ${this.host}:${this.port}`);
+    }
+  }
+
+  async status() {
+    if (this._closed) {
+      return {
+        status: 'offline',
+        host: this.host,
+        port: this.port,
+        url: this.baseUrl,
+        target: this.target,
+        auto_start: this.autoStart,
+        pid: null,
+        server_info: null,
+      };
+    }
+
+    if (this._startPromise) {
+      try {
+        await this._startPromise;
+      } catch (_) {}
+    }
+
+    let isOnline = false;
+    let serverInfo = null;
+    try {
+      if (this.baseUrl) {
+        const res = await new Promise((resolve, reject) => {
+          const req = http.get(`${this.baseUrl}/`, { timeout: 800 }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(body));
+              } catch (_) {
+                resolve(null);
+              }
+            });
+          });
+          req.on('error', reject);
+          req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('timeout'));
+          });
+        });
+        if (res && res.status === 'online') {
+          isOnline = true;
+          serverInfo = res;
+        }
+      }
+    } catch (_) {
+      isOnline = false;
+    }
+
+    return {
+      status: isOnline ? 'online' : 'offline',
+      host: this.host,
+      port: this.port,
+      url: this.baseUrl,
+      target: this.target,
+      auto_start: this.autoStart,
+      pid: this._child ? this._child.pid : null,
+      server_info: serverInfo,
+    };
+  }
+
+  async sql(sqlQuery) {
+    if (this._startPromise) await this._startPromise;
+    await this._ensureServer();
+
     return new Promise((resolve, reject) => {
       const payload = JSON.stringify({ sql: sqlQuery });
       const req = http.request({
@@ -131,9 +374,12 @@ class UltSQLClient {
     return this.sql(sqlQuery);
   }
 
-  query(tableName) {
+  async query(tableName) {
+    if (this._startPromise) await this._startPromise;
+    await this._ensureServer();
+
     return new Promise((resolve, reject) => {
-      http.get(`http://${this.host}:${this.port}/${tableName}`, (res) => {
+      http.get(`${this.baseUrl}/${tableName}`, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
@@ -147,7 +393,10 @@ class UltSQLClient {
     });
   }
 
-  insert(tableName, recordObject) {
+  async insert(tableName, recordObject) {
+    if (this._startPromise) await this._startPromise;
+    await this._ensureServer();
+
     return new Promise((resolve, reject) => {
       const payload = JSON.stringify(recordObject);
       const req = http.request({
@@ -176,7 +425,10 @@ class UltSQLClient {
     });
   }
 
-  insertBatch(tableName, recordsArray) {
+  async insertBatch(tableName, recordsArray) {
+    if (this._startPromise) await this._startPromise;
+    await this._ensureServer();
+
     return new Promise((resolve, reject) => {
       const payload = JSON.stringify(recordsArray);
       const req = http.request({
@@ -205,7 +457,10 @@ class UltSQLClient {
     });
   }
 
-  truncate(tableName) {
+  async truncate(tableName) {
+    if (this._startPromise) await this._startPromise;
+    await this._ensureServer();
+
     return new Promise((resolve, reject) => {
       const req = http.request({
         hostname: this.host,
@@ -228,129 +483,83 @@ class UltSQLClient {
     });
   }
 
-  openapiSpec() {
+  async openapiSpec() {
+    if (this._startPromise) await this._startPromise;
+    await this._ensureServer();
+
     return new Promise((resolve, reject) => {
-      http.get(`http://${this.host}:${this.port}/openapi.json`, (res) => {
+      http.get(`${this.baseUrl}/openapi.json`, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             resolve(JSON.parse(data));
           } catch (e) {
-            reject(new Error(`Failed to parse openapi response: ${data}`));
+            reject(new Error(`Failed to parse OpenAPI spec: ${data}`));
           }
         });
       }).on('error', reject);
     });
   }
 
-  close() {
-    if (this._child) {
+  stop() {
+    this._closed = true;
+    if (this._serverKey) {
+      const existing = _ACTIVE_SERVERS.get(this._serverKey);
+      if (existing) {
+        existing.refCount--;
+        if (existing.refCount <= 0) {
+          try {
+            if (existing.child && existing.child.exitCode === null) {
+              existing.child.kill();
+            }
+          } catch (_) {}
+          _ACTIVE_SERVERS.delete(this._serverKey);
+        }
+      }
+    } else if (this._child && this._child.exitCode === null) {
       try {
         this._child.kill();
       } catch (_) {}
-      this._child = null;
     }
-    if (this._cleanupHandler) {
-      process.removeListener('exit', this._cleanupHandler);
-      process.removeListener('SIGINT', this._cleanupHandler);
-      process.removeListener('SIGTERM', this._cleanupHandler);
-      this._cleanupHandler = null;
-    }
+    this._child = null;
+    this._serverKey = null;
+    this._startPromise = null;
+    this.baseUrl = '';
+  }
+
+  close() {
+    this.stop();
+  }
+}
+
+class UltSQL {
+  static Client = UltSQLClient;
+
+  /**
+   * Convenient local mode helper:
+   * Connects to or automatically launches a local UltSQL server for the given database file.
+   */
+  static open(dbPath = './app.ultsql', options = {}) {
+    return open(dbPath, options);
   }
 }
 
 /**
- * Automatically starts the bundled UltSQL engine binary on a free port,
- * waits until it is healthy, and registers process exit hooks.
- *
- * @param {string} dbPath - Path to database directory or file (e.g. 'app.db')
- * @param {object} [options] - Configuration options
- * @returns {Promise<UltSQLClient>}
+ * Automatically starts the bundled UltSQL engine binary on a free loopback port (127.0.0.1)
+ * and returns a ready-to-use client.
  */
-async function open(dbPath = 'app.db', options = {}) {
-  const host = options.host || '127.0.0.1';
-  const port = options.port || await findFreePort(host);
-  const binaryPath = options.binaryPath || getBinaryPath();
-  const timeoutMs = options.timeout || 10000;
-
-  const args = ['serve', '--db', dbPath, '--port', String(port)];
-  if (options.passphrase) {
-    args.push('--password', options.passphrase);
-  }
-
-  const child = child_process.spawn(binaryPath, args, {
-    stdio: ['ignore', 'ignore', 'pipe'],
-    windowsHide: true,
+async function open(dbPath = './app.ultsql', options = {}) {
+  const client = new UltSQLClient(dbPath, {
+    auto_start: true,
+    ...options,
   });
-
-  let stderrOutput = '';
-  if (child.stderr) {
-    child.stderr.on('data', (chunk) => {
-      stderrOutput += chunk.toString();
-    });
-  }
-
-  let healthy = false;
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    if (child.exitCode !== null) {
-      throw new Error(`UltSQL engine exited prematurely with code ${child.exitCode}:\n${stderrOutput}`);
-    }
-
-    try {
-      const res = await new Promise((resolve, reject) => {
-        const req = http.get(`http://${host}:${port}/`, { timeout: 400 }, (res) => {
-          let body = '';
-          res.on('data', chunk => body += chunk);
-          res.on('end', () => {
-            try {
-              resolve(JSON.parse(body));
-            } catch (_) {
-              resolve(null);
-            }
-          });
-        });
-        req.on('error', reject);
-        req.on('timeout', () => {
-          req.destroy();
-          reject(new Error('timeout'));
-        });
-      });
-
-      if (res && res.status === 'online') {
-        healthy = true;
-        break;
-      }
-    } catch (_) {}
-
-    await new Promise(r => setTimeout(r, 60));
-  }
-
-  if (!healthy) {
-    try {
-      child.kill();
-    } catch (_) {}
-    throw new Error(`UltSQL engine failed to start on port ${port} within ${timeoutMs}ms:\n${stderrOutput}`);
-  }
-
-  const client = new UltSQLClient({ host, port });
-  client._child = child;
-
-  const cleanup = () => {
-    client.close();
-  };
-  client._cleanupHandler = cleanup;
-
-  process.once('exit', cleanup);
-  process.once('SIGINT', cleanup);
-  process.once('SIGTERM', cleanup);
-
+  await client._ensureServer();
   return client;
 }
 
 module.exports = UltSQLClient;
+module.exports.UltSQL = UltSQL;
 module.exports.UltSQLClient = UltSQLClient;
 module.exports.open = open;
 module.exports.getBinaryPath = getBinaryPath;

@@ -497,17 +497,21 @@ print(result.message); // Inserted 100000 rows into products in 48ms
 Install via npm:
 ```bash
 npm install ultsql
-```
-
 ```typescript
-import { UltSQL } from 'ultsql';
+import { UltSQL, UltSQLClient } from 'ultsql';
 
 async function main() {
-  const client = new UltSQL('http://localhost:8080');
+  // Mode 1: Convenient Local Mode (opt-in auto_start)
+  const db = await UltSQL.open('./app.ultsql', { auto_start: true });
+  console.log(await db.status());
 
-  // Execute query
-  const res = await client.query('SELECT * FROM users WHERE status = $1', ['active']);
-  console.log('Columns:', res.columns);
+  // Execute SQL DDL / Queries
+  await db.sql('CREATE TABLE users (id INT PRIMARY KEY, name TEXT, balance DOUBLE);');
+  await db.insert('users', { id: 1, name: 'Alice', balance: 1500.0 });
+
+  // Mode 2: Client Mode (connecting to existing server)
+  const client = new UltSQLClient('http://127.0.0.1:8080');
+  const res = await client.query('users');
   console.log('Rows:', res.rows);
 }
 
@@ -524,14 +528,22 @@ pip install ultsql
 ```
 
 ```python
+import ultsql
 from ultsql import UltSQLClient
 
-client = UltSQLClient("http://localhost:8080")
+# Mode 1: Convenient Local Mode (opt-in auto_start=True)
+db = ultsql.open("./app.ultsql", auto_start=True)
+print(db.status())
 
-# Query records
-result = client.query("SELECT id, name, balance FROM accounts WHERE balance > 1000;")
+# Execute SQL DDL / Queries
+db.sql("CREATE TABLE accounts (id INT PRIMARY KEY, name TEXT, balance DOUBLE);")
+db.insert("accounts", {"id": 1, "name": "Alice", "balance": 1500.0})
+
+# Mode 2: Client Mode (connecting to existing server)
+client = UltSQLClient("http://127.0.0.1:8080")
+result = client.query("accounts")
 for row in result["rows"]:
-    print(f"ID: {row[0]}, Name: {row[1]}, Balance: {row[2]}")
+    print(f"Row: {row}")
 ```
 
 ---

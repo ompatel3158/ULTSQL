@@ -1,30 +1,63 @@
 # 🐍 UltSQL for Python Developers
 
-**Zero Dart / Zero External Services Required!** 
+**Universal Embedded & Client SDK for UltSQL**
 
-When using `ultsql` in Python, **a small bundled engine process starts automatically** on a free port, waits until it's healthy, and terminates cleanly when your application exits. You **DO NOT need Dart or Flutter installed on your machine**—everything is shipped inside native platform wheels via `pip`.
+UltSQL provides a fast, multi-model database engine (Relational SQL, JSON Document store, KV caching, Vector HNSW embeddings) for Python applications.
 
 ---
 
-## 🚀 Quickstart Guide for Python Developers
+## 🏛 Architecture
 
-### Step 1: Install Package
+Understanding the client-runtime architecture:
+
+```text
+Python Application
+        ↓
+UltSQL Python SDK (client package)
+        ↓  (HTTP / REST JSON)
+local UltSQL server process (strictly 127.0.0.1)
+        ↓
+Database File (*.ultsql)
+```
+
+The Python package `ultsql` is a **Client SDK**. The compiled native binary is the **Server Runtime**.
+
+UltSQL supports two operating modes:
+1. **Embedded / Local Mode**: The SDK manages a local engine helper process running on `127.0.0.1` when `auto_start=True` or `UltSQL.open()` is used.
+2. **Client Mode**: Connects directly to an already-running local or remote UltSQL server (`auto_start=False`).
+
+---
+
+## 🚀 Quickstart Guide
+
+### 1. Installation
+
 ```bash
 pip install ultsql
 ```
-`pip` automatically downloads the native wheel for your OS and architecture (`win_amd64`, `manylinux_2_28_x86_64`, `manylinux_2_28_aarch64`, `macosx_11_0_x86_64`, `macosx_11_0_arm64`).
+
+`pip` downloads the prebuilt native wheel with the engine runtime for your platform (`win_amd64`, `manylinux_2_28_x86_64`, `manylinux_2_28_aarch64`, `macosx_11_0_x86_64`, `macosx_11_0_arm64`). **Zero Dart or external dependencies required.**
 
 ---
 
-### Step 2: Use in Python
+### 2. Usage Modes
 
-#### Method A: Embedded Auto-Start Launcher (Recommended)
+#### Mode 1: Convenient Local Mode (Opt-in `auto_start=True`)
+
+In this mode, UltSQL starts a local helper engine on loopback (`127.0.0.1`), assigns a random available port (or specified port), and terminates cleanly when the application exits.
+
 ```python
 import ultsql
 
-# Embedded mode: starts a small bundled engine process automatically on a free port,
-# polls the health endpoint, and cleans up on exit.
-db = ultsql.open("app.db")
+# Convenient local mode launcher
+db = ultsql.open("./app.ultsql", auto_start=True)
+
+# Or via UltSQLClient with full configuration:
+# db = ultsql.UltSQLClient("./app.ultsql", auto_start=True, host="127.0.0.1", port=0)
+
+# Check status
+print(db.status())
+# Output: {'status': 'online', 'host': '127.0.0.1', 'port': 54321, 'pid': 1234, ...}
 
 # 1. Execute SQL DDL / Queries
 db.sql("""
@@ -35,7 +68,7 @@ db.sql("""
     );
 """)
 
-# 2. Single record insert
+# 2. Insert records
 db.insert("users", {"id": 1, "name": "Alice", "score": 98.5})
 
 # 3. High-throughput batch insert
@@ -48,21 +81,59 @@ db.insert_batch("users", [
 users = db.query("users")
 print("User rows:", users["rows"])
 
-# 5. Clean close (also registered via atexit automatically)
+# 5. Clean close (also handled automatically on exit via atexit)
 db.close()
 ```
 
-#### Method B: Connect to a Remote UltSQL Server
-If you already run a remote UltSQL instance or Docker container, use `UltSQLClient`:
+#### Using Context Managers:
+```python
+with ultsql.open("./app.ultsql") as db:
+    db.sql("SELECT 1;")
+```
+
+#### Mode 2: Client Mode (Connecting to an Existing Server)
+
+When connecting to an already-running local or remote server, pass the URL (`auto_start=False` by default):
+
 ```python
 from ultsql import UltSQLClient
 
-client = UltSQLClient("http://remote-server:8080")
+# Connect to local dev server or remote instance
+client = UltSQLClient("http://127.0.0.1:8080")
+
 users = client.query("users")
+print(users)
 ```
 
-#### Method C: Standard PostgreSQL Drivers (`psycopg2` / `asyncpg`)
-Because UltSQL also provides a native **PostgreSQL Wire Protocol** daemon, you can connect with standard PostgreSQL drivers:
+---
+
+## 🛠 Running the Server Explicitly via CLI
+
+Advanced users can launch the server runtime explicitly from the terminal:
+
+```bash
+# Development server (defaults to 127.0.0.1:8080 with live logs)
+ultsql dev --db ./app.ultsql
+
+# Or standard production server daemon
+ultsql serve --host 127.0.0.1 --port 8080 --db ./app.ultsql
+```
+
+---
+
+## 🔒 Security & Lifecycle Guarantees
+
+- **Loopback Binding**: Local engine servers bind exclusively to `127.0.0.1`, never `0.0.0.0`.
+- **Port Conflict Safe**: Defaults to dynamic port allocation (`port=0`) to avoid conflicts.
+- **Process Reuse**: Multiple client instances accessing the same database file share a single engine process instead of spawning redundant servers.
+- **Explicit Lifecycle**: Complete control with `db.status()`, `db.stop()`, `db.close()`, and automatic cleanup upon exit.
+- **Transparency**: Clear startup logging: `UltSQL local server started on 127.0.0.1:<port>`.
+
+---
+
+## 🐘 PostgreSQL Wire Protocol Support
+
+Because UltSQL also provides a native PostgreSQL wire protocol listener:
 
 ```bash
 pip install psycopg2-binary
@@ -71,34 +142,9 @@ pip install psycopg2-binary
 ```python
 import psycopg2
 
-conn = psycopg2.connect("host=localhost port=5432 user=admin password=admin dbname=ultsql_db")
+conn = psycopg2.connect("host=127.0.0.1 port=5432 user=admin password=admin dbname=ultsql_db")
 cur = conn.cursor()
 cur.execute("SELECT * FROM users WHERE score >= %s", (90.0,))
 rows = cur.fetchall()
 print("Rows:", rows)
 ```
-
----
-
-## 💻 Standalone CLI (Optional)
-If you also want to run the standalone `ultsql` CLI shell or server daemon directly from your command prompt:
-
-- **Windows (PowerShell)**:
-  ```powershell
-  iwr -useb https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.ps1 | iex
-  ```
-- **Linux & macOS (Bash)**:
-  ```bash
-  curl -sSL https://raw.githubusercontent.com/ompatel3158/ULTSQL/main/install.sh | bash
-  ```
-
----
-
-## ❓ Frequently Asked Questions for Python Users
-
-- **Do I need to install Dart or Flutter?**  
-  **No!** Native compiled binaries are bundled directly within the platform wheels.
-- **How does it work under the hood?**  
-  When you call `ultsql.open("app.db")`, a small bundled engine process starts automatically in the background on an ephemeral port, verifies readiness via local health check, and tears down automatically upon script completion.
-- **Can I connect to remote instances?**  
-  Yes! Use `ultsql.UltSQLClient("http://host:port")` to communicate with any remote UltSQL REST or PGWire server.

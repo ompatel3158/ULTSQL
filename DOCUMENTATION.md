@@ -20,12 +20,21 @@ Welcome to the official user manual for **UltSQL** - the converged 4-in-1 multim
 
 ## 1. Starting the UltSQL Server Daemon
 
+The compiled native executable is the **Server Runtime**. Client packages in Python and Node.js are **Client SDKs** that connect over REST/HTTP or manage local engine processes on loopback (`127.0.0.1`).
+
+```text
+Python/Node application  →  UltSQL client package  →  local UltSQL server (127.0.0.1)  →  database file
+```
+
 ### Option A: Standalone Native Executable (Zero Dependencies)
 No Flutter, Dart, Python, or Node required! Download `ultsql.exe` from [GitHub Releases](https://github.com/ompatel3158/ULTSQL/releases):
 
 ```bash
-# Start REST & OpenAPI Daemon on port 8080
-./ultsql serve --port 8080 --db ./my_database
+# Start local development server (defaults to 127.0.0.1:8080 with live logs)
+./ultsql dev --db ./my_database
+
+# Start production REST & OpenAPI Daemon (strictly binds to 127.0.0.1 by default)
+./ultsql serve --host 127.0.0.1 --port 8080 --db ./my_database
 
 # Start PostgreSQL Wire Server on port 5432
 ./ultsql .pgwire 5432
@@ -49,11 +58,10 @@ docker run -p 8080:8080 -v ./data:/db ompatel3158/ultsql serve --port 8080 --db 
 
 ## 2. CLI Terminal Commands & Meta Options
 
-Inside the interactive `ultsql` CLI prompt:
-
 | Command | Description | Example |
 | :--- | :--- | :--- |
-| `ultsql serve [--port] [--db]` | Launches HTTP REST daemon and live OpenAPI 3.0 specification. | `ultsql serve --port 8080 --db ./app.db` |
+| `ultsql dev [--host] [--port] [--db]` | Launches local development REST server on 127.0.0.1 with live request logs. | `ultsql dev --db ./app.ultsql` |
+| `ultsql serve [--host] [--port] [--db]` | Launches production HTTP REST daemon and live OpenAPI 3.0 specification. | `ultsql serve --host 127.0.0.1 --port 8080 --db ./app.ultsql` |
 | `.pgwire [port]` | Launches PostgreSQL Wire Protocol server daemon. | `.pgwire 5432` |
 | `.tables` | Lists all tables in the active catalog. | `.tables` |
 | `.schema [table]` | Displays DDL column definitions for a table. | `.schema users` |
@@ -64,56 +72,85 @@ Inside the interactive `ultsql` CLI prompt:
 
 ## 3. Python Package (`pip install ultsql`)
 
-No Dart or Flutter required! Full PEP 621 PyPA compliance.
+No Dart or Flutter required! Full PEP 621 PyPA compliance. Supports two modes:
 
 ```bash
 pip install ultsql
 ```
 
+### Mode 1: Convenient Local Mode (Opt-in `auto_start=True`)
 ```python
-from ultsql import UltSQLClient
+import ultsql
 
-# Connect to UltSQL Daemon
-db = UltSQLClient("http://localhost:8080")
+# Automatically manages a local engine on 127.0.0.1 on a free port
+db = ultsql.open("./app.ultsql", auto_start=True)
 
-# 1. Insert record (Auto-creates table schema if missing)
+# Inspect health and PID
+print(db.status())  # {'status': 'online', 'host': '127.0.0.1', 'port': 54321, ...}
+
+# 1. Execute SQL
+db.sql("CREATE TABLE products (id INT PRIMARY KEY, name TEXT, price DOUBLE);")
 db.insert("products", {"id": 1, "name": "Quantum Laptop", "price": 1299.99})
 
 # 2. Fetch records
 result = db.query("products")
-print("Count:", result["count"])
 print("Rows:", result["rows"])
 
-# 3. OpenAPI 3.0 Documentation Specification
-spec = db.openapi_spec()
-print("OpenAPI Title:", spec["info"]["title"])
+# 3. Clean close (also registered via atexit automatically)
+db.close()
+```
+
+### Mode 2: Client Mode (Connecting to an Existing Server)
+```python
+from ultsql import UltSQLClient
+
+# Connect to explicitly running server (auto_start=False)
+db = UltSQLClient("http://127.0.0.1:8080")
+result = db.query("products")
 ```
 
 ---
 
 ## 4. Node.js Package (`npm install ultsql`)
 
-Includes TypeScript definitions (`index.d.ts`) and supports both default and named imports.
+Includes TypeScript definitions (`index.d.ts`) and platform-native binaries via optionalDependencies.
 
 ```bash
 npm install ultsql
 ```
 
+### Mode 1: Convenient Local Mode (Opt-in `auto_start: true`)
 ```javascript
-const { UltSQLClient } = require('ultsql');
-
-const db = new UltSQLClient({ host: 'localhost', port: 8080 });
+const { UltSQL, UltSQLClient } = require('ultsql');
 
 async function run() {
-  // Insert record
+  // Automatically manages a local engine on 127.0.0.1 on a free port
+  const db = await UltSQL.open('./app.ultsql', { auto_start: true });
+
+  // Inspect health & metadata
+  const status = await db.status();
+  console.log('Status:', status);
+
+  // 1. Execute SQL
+  await db.sql('CREATE TABLE users (id INT PRIMARY KEY, name TEXT, tier TEXT);');
   await db.insert('users', { id: 101, name: 'Om Patel', tier: 'VIP' });
 
-  // Query records
+  // 2. Query records
   const result = await db.query('users');
   console.log('Users:', result.rows);
+
+  // 3. Clean close
+  db.close();
 }
 
 run();
+```
+
+### Mode 2: Client Mode (Connecting to an Existing Server)
+```javascript
+const { UltSQLClient } = require('ultsql');
+
+const db = new UltSQLClient('http://127.0.0.1:8080');
 ```
 
 ---

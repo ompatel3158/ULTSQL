@@ -121,16 +121,28 @@ void main() async {
 }
 ```
 
-### 2. 🐍 Python Developers (Auto-Start Bundled Engine + REST)
-**No Dart or Flutter required!** A small bundled engine process starts automatically on a free port and terminates on exit:
+### 2. 🐍 Python Developers (Client SDK & Opt-in Local Helper Engine)
+**No Dart or Flutter required!** Ships pre-compiled native platform wheels via `pip`.
+
+```text
+Python Application  →  UltSQL Client SDK  →  local UltSQL engine (127.0.0.1)  →  database file
+```
+
+Two operating modes:
+- **Local Mode (Opt-in `auto_start=True`)**: Automatically starts a loopback helper engine on a free port (`127.0.0.1`), reuses running processes for the same database file, and terminates cleanly upon exit.
+- **Client Mode**: Connects directly to an existing local or remote server (`auto_start=False`).
+
 ```bash
 pip install ultsql
 ```
 ```python
 import ultsql
 
-# Embedded mode: starts a small bundled engine process automatically on a free port
-db = ultsql.open("app.db")
+# Local mode (auto-starts engine on 127.0.0.1 with random port)
+db = ultsql.open("app.ultsql", auto_start=True)
+
+# Inspect health & process
+print(db.status())  # {'status': 'online', 'host': '127.0.0.1', 'port': 54321, ...}
 
 # 1. Execute SQL DDL / Queries
 db.sql("CREATE TABLE users (id INT PRIMARY KEY, name TEXT, score DOUBLE);")
@@ -148,19 +160,33 @@ print("User rows:", users["rows"])
 # 4. Clean shutdown (also auto-cleaned via atexit)
 db.close()
 ```
-*To connect to a remote server instead: `db = ultsql.UltSQLClient("http://remote-server:8080")`*
+*To connect to an already-running server instead: `db = ultsql.UltSQLClient("http://127.0.0.1:8080")`*  
+*To start an explicit dev server: `ultsql dev --db ./app.ultsql`*
 
-### 3. 🟢 Node.js & TypeScript Developers (Auto-Start Bundled Engine + REST)
-**No Dart or Flutter required!** Automatically downloads the matching platform package (`@ultsql/win32-x64`, `@ultsql/linux-x64`, `@ultsql/darwin-arm64`) and starts an engine process:
+### 3. 🟢 Node.js & TypeScript Developers (Client SDK & Opt-in Local Helper Engine)
+**No Dart or Flutter required!** Automatically downloads the matching platform package (`@ultsql/win32-x64`, `@ultsql/linux-x64`, `@ultsql/darwin-arm64`).
+
+```text
+Node.js Application  →  UltSQL Client SDK  →  local UltSQL engine (127.0.0.1)  →  database file
+```
+
+Two operating modes:
+- **Local Mode (Opt-in `auto_start: true`)**: Automatically starts a loopback helper engine on a free port (`127.0.0.1`), reuses running processes for the same database file, and terminates cleanly upon exit.
+- **Client Mode**: Connects directly to an existing local or remote server (`auto_start: false`).
+
 ```bash
 npm install ultsql
 ```
 ```javascript
-const ultsql = require('ultsql');
+const { UltSQL, UltSQLClient } = require('ultsql');
 
 async function main() {
-  // Embedded mode: starts a small bundled engine process automatically
-  const db = await ultsql.open('app.db');
+  // Local mode (auto-starts engine on 127.0.0.1 with dynamic port)
+  const db = await UltSQL.open('app.ultsql', { auto_start: true });
+
+  // Inspect health & process
+  const status = await db.status();
+  console.log('Status:', status);
 
   // 1. Execute SQL DDL
   await db.sql('CREATE TABLE users (id INT PRIMARY KEY, name TEXT, score DOUBLE);');
@@ -180,7 +206,8 @@ async function main() {
 }
 main();
 ```
-*To connect to a remote server instead: `const client = new ultsql.UltSQLClient({ host: 'remote', port: 8080 });`*
+*To connect to an already-running server instead: `const client = new UltSQLClient('http://127.0.0.1:8080');`*  
+*To start an explicit dev server: `ultsql dev --db ./app.ultsql`*
 
 ### 4. 🐹 Go Developers (Auto-Start Bundled Engine + REST)
 **No Dart or Flutter required!** Starts a small bundled engine process automatically on a free port:
@@ -329,6 +356,7 @@ ultsql bench 1000000                                # Live 1M-row disk ingestion
 ultsql app.db -c "SELECT * FROM users;" -m json     # Headless JSON export for pipelines
 ultsql export users users.csv                       # Streaming table export
 ultsql import data.json users                       # Zero-allocation batch import
+ultsql dev --db ./app.ultsql                        # Local dev server on 127.0.0.1:8080 with live logs
 ultsql serve --port=8080 --pgwire=5432 --db=./my_db # Combined REST API & PostgreSQL wire daemon
 ```
 
