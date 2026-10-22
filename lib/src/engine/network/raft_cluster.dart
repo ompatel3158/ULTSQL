@@ -183,6 +183,48 @@ class InMemoryRaftTransport implements RaftTransport {
   }
 }
 
+/// Lightweight Raft Node state machine for local simulations and tests.
+class RaftNode {
+  final String nodeId;
+  RaftNodeRole role;
+  int currentTerm;
+  String? votedFor;
+
+  RaftNode({
+    required this.nodeId,
+    this.role = RaftNodeRole.follower,
+    this.currentTerm = 0,
+    this.votedFor,
+  });
+
+  void becomeCandidate() {
+    role = RaftNodeRole.candidate;
+    currentTerm++;
+    votedFor = nodeId;
+  }
+
+  void becomeLeader() {
+    role = RaftNodeRole.leader;
+  }
+
+  void becomeFollower(int term) {
+    role = RaftNodeRole.follower;
+    currentTerm = term;
+    votedFor = null;
+  }
+
+  bool requestVote(int term, String candidateId, int lastLogIndex, int lastLogTerm) {
+    if (term > currentTerm) {
+      becomeFollower(term);
+    }
+    if (term == currentTerm && (votedFor == null || votedFor == candidateId)) {
+      votedFor = candidateId;
+      return true;
+    }
+    return false;
+  }
+}
+
 /// Distributed Raft Consensus Engine Node
 class RaftClusterNode {
   final String nodeId;
