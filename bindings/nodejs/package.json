@@ -1,6 +1,6 @@
 {
   "name": "ultsql",
-  "version": "1.0.29",
+  "version": "1.0.30",
   "description": "Universal Node.js client and embedded engine for the UltSQL multimodal database.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -28,10 +28,10 @@
   },
   "homepage": "https://github.com/ompatel3158/ULTSQL#readme",
   "optionalDependencies": {
-    "@ultsql/darwin-arm64": "1.0.29",
-    "@ultsql/darwin-x64": "1.0.29",
-    "@ultsql/linux-arm64": "1.0.29",
-    "@ultsql/linux-x64": "1.0.29",
-    "@ultsql/win32-x64": "1.0.29"
+    "@ultsql/darwin-arm64": "1.0.30",
+    "@ultsql/darwin-x64": "1.0.30",
+    "@ultsql/linux-arm64": "1.0.30",
+    "@ultsql/linux-x64": "1.0.30",
+    "@ultsql/win32-x64": "1.0.30"
   }
 }
