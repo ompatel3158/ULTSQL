@@ -1814,7 +1814,7 @@ class Interpreter {
 
         if (catalogModified) {
           if (db.directory != ':memory:' && !identical(0, 0.0)) {
-            unawaited(db.catalog.saveAsync());
+            db.catalog.save();
           }
           _referencingTablesCache.clear();
           _insertSchemaCache.clear();
@@ -5959,7 +5959,7 @@ END;
                       }
                       final projectedRow = <DbValue>[];
                       for (final proj in stmt.projections) {
-                        final pVal = evaluateExpression(proj.expr, rowContext);
+                        final pVal = JitCompiler.compile(proj.expr)(rowContext);
                         projectedRow.add(pVal);
                         columns.add(proj.alias ?? (proj.expr is VariableExpr ? (proj.expr as VariableExpr).fullName : pVal.toString()));
                       }

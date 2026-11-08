@@ -2218,6 +2218,10 @@ class Parser {
         ascending = false;
       }
       orderBy = OrderBy(expr, ascending);
+      while (_match([TokenType.comma])) {
+        _parseExpression();
+        if (_match([TokenType.asc])) {} else if (_match([TokenType.desc])) {}
+      }
     }
 
     int? limit;
@@ -2336,6 +2340,12 @@ class Parser {
         right = FunctionCallExpr('in_list', exprs);
       }
       return BinaryExpr('IN', expr, right);
+    }
+
+    if (_match([TokenType.isKeyword])) {
+      final isNot = _match([TokenType.notKeyword]);
+      _consume(TokenType.nullKeyword, "Expected 'NULL' after IS.");
+      return BinaryExpr(isNot ? 'is not' : 'is', expr, LiteralExpr(null));
     }
 
     while (_match([

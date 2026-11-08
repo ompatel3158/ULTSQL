@@ -37,6 +37,7 @@ class Lexer {
     'to': TokenType.to,
     'with': TokenType.withKeyword,
     'in': TokenType.inKeyword,
+    'is': TokenType.isKeyword,
     'generate': TokenType.generate,
     'group': TokenType.groupKeyword,
     'like': TokenType.likeKeyword,

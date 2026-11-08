@@ -24,6 +24,7 @@ enum TokenType {
   to,
   withKeyword,
   inKeyword,
+  isKeyword,
   generate,
   groupKeyword,
   likeKeyword,

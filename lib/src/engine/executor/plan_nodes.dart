@@ -278,6 +278,12 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
     if (name == 'in_list') {
       return DbList(args);
     }
+    if (name == 'coalesce') {
+      for (final v in args) {
+        if (v is! DbNull) return v;
+      }
+      return DbNull();
+    }
 
     if (JitCompiler.activeInterpreter != null) {
       final active = JitCompiler.activeInterpreter!;

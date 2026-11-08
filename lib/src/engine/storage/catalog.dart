@@ -522,7 +522,7 @@ class Catalog {
 
   void addProcedure(ProcedureSchema proc, {bool saveToFile = true}) {
     _procedures[proc.name.toLowerCase()] = proc;
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   FunctionSchema? getFunction(String name) => _functions[name.toLowerCase()];
@@ -530,7 +530,7 @@ class Catalog {
 
   void addFunction(FunctionSchema func, {bool saveToFile = true}) {
     _functions[func.name.toLowerCase()] = func;
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   TriggerSchema? getTrigger(String name) => _triggers[name.toLowerCase()];
@@ -538,7 +538,7 @@ class Catalog {
 
   void addTrigger(TriggerSchema trig, {bool saveToFile = true}) {
     _triggers[trig.name.toLowerCase()] = trig;
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   List<TriggerSchema> getTriggersForTable(
@@ -740,12 +740,12 @@ class Catalog {
 
   void addTable(TableSchema schema, {bool saveToFile = true}) {
     _tables[schema.name.toLowerCase()] = schema;
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   void removeTable(String name, {bool saveToFile = true}) {
     _tables.remove(name.toLowerCase());
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   RelationshipSchema? getRelationship(String name) =>
@@ -755,7 +755,7 @@ class Catalog {
 
   void addRelationship(RelationshipSchema rel, {bool saveToFile = true}) {
     _relationships[rel.name.toLowerCase()] = rel;
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   IndexSchema? getIndex(String name) => _indexes[name.toLowerCase()];
@@ -764,13 +764,13 @@ class Catalog {
   void addIndex(IndexSchema idx, {bool saveToFile = true}) {
     _indexes[idx.name.toLowerCase()] = idx;
     _tableIndexesCache.clear();
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   void removeIndex(String name, {bool saveToFile = true}) {
     _indexes.remove(name.toLowerCase());
     _tableIndexesCache.clear();
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   void removeIndexes(List<IndexSchema> indexes, {bool saveToFile = true}) {
@@ -778,7 +778,7 @@ class Catalog {
       _indexes.remove(indexes[i].name.toLowerCase());
     }
     _tableIndexesCache.clear();
-    if (saveToFile) scheduleSaveAsync();
+    if (saveToFile) save();
   }
 
   List<IndexSchema> getIndexesForTable(String tableName) {

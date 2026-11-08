@@ -331,6 +331,16 @@ class JitCompiler {
       final op = expr.operator;
 
       switch (op.toLowerCase()) {
+        case 'is':
+          return (row) {
+            final l = leftFn(row);
+            return l is DbNull ? DbInt.one : DbInt.zero;
+          };
+        case 'is not':
+          return (row) {
+            final l = leftFn(row);
+            return l is! DbNull ? DbInt.one : DbInt.zero;
+          };
         case '+':
           return (row) => leftFn(row) + rightFn(row);
         case '-':
@@ -370,6 +380,7 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
+            if (l is DbNull || r is DbNull) return DbNull();
             if (l is DbInt && r is DbInt)
               return l.value == r.value ? DbInt.one : DbInt.zero;
             if (l is DbDouble && r is DbDouble)
@@ -387,6 +398,7 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
+            if (l is DbNull || r is DbNull) return DbNull();
             if (l is DbInt && r is DbInt)
               return l.value != r.value ? DbInt.one : DbInt.zero;
             if (l is DbDouble && r is DbDouble)
@@ -403,6 +415,7 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
+            if (l is DbNull || r is DbNull) return DbNull();
             if (l is DbInt && r is DbInt)
               return l.value < r.value ? DbInt.one : DbInt.zero;
             if (l is DbDouble && r is DbDouble)
@@ -417,6 +430,7 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
+            if (l is DbNull || r is DbNull) return DbNull();
             if (l is DbInt && r is DbInt)
               return l.value <= r.value ? DbInt.one : DbInt.zero;
             if (l is DbDouble && r is DbDouble)
@@ -431,6 +445,7 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
+            if (l is DbNull || r is DbNull) return DbNull();
             if (l is DbInt && r is DbInt)
               return l.value > r.value ? DbInt.one : DbInt.zero;
             if (l is DbDouble && r is DbDouble)
@@ -445,6 +460,7 @@ class JitCompiler {
           return (row) {
             final l = leftFn(row);
             final r = rightFn(row);
+            if (l is DbNull || r is DbNull) return DbNull();
             if (l is DbInt && r is DbInt)
               return l.value >= r.value ? DbInt.one : DbInt.zero;
             if (l is DbDouble && r is DbDouble)
