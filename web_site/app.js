@@ -7,6 +7,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const anime = window.anime;
   const { animate, stagger, spring } = anime || {};
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ==========================================================================
   // 1. THEME TOGGLE (Strictly Black & White)
@@ -120,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'vector') {
           if (cadFooterMsg) cadFooterMsg.textContent = 'HNSW Radar: Click anywhere on radar to project query vector [Q]';
           if (typeof resizeRadarCanvas === 'function') resizeRadarCanvas();
+          if (typeof renderRadar === 'function' && !reduce) requestAnimationFrame(renderRadar);
         }
       });
     });
@@ -171,6 +173,15 @@ document.addEventListener('DOMContentLoaded', () => {
         storage: 'PAGE #0002 (CRC32: 0x7B29A4) • GIN Inverted Slotted Store',
         output: 'ompatel | Tier: Enterprise | City: San Francisco (1 Row)',
         sql: `SELECT username, metadata->'profile'->>'tier' AS tier FROM user_profiles WHERE metadata->'profile'->>'tier' = 'Enterprise';`
+      },
+      kv: {
+        ingress: { title: 'Key-Value Engine', sub: 'O(1) Point Get / Put Protocol' },
+        parser: { title: 'Hash Index Dispatcher', sub: 'CRC32 MurmurHash Key Mapping' },
+        kernel: { title: 'RAM L1 / NVMe Store', sub: 'Zero-Copy Slotted Cache Lines' },
+        plan: "INDEX_POINT_LOOKUP(kv_cache.cache_key = 'session:tok_99182')",
+        storage: 'PAGE #0004 (CRC32: 0x9A48F1) • Slotted KV Cell',
+        output: 'Key: session:tok_99182 | TTL: 3600s | Value: {user_id: 101} (1 Row)',
+        sql: `SELECT cache_key, cache_val, ttl_seconds FROM kv_cache WHERE cache_key = 'session:tok_99182';`
       },
       plsql: {
         ingress: { title: 'PL/SQL Compiler', sub: 'Anonymous Procedural Blocks' },
@@ -319,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let queryCoord = { x: 0.45, y: 0.45, active: true };
     let nearestVector = vectorDocuments[5];
     let laserProgress = 1;
+    let radarSweepAngle = 0;
 
     function resizeRadarCanvas() {
       if (!radarCanvas || !radarCanvas.parentElement) return;
@@ -406,6 +418,24 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.stroke();
         ctx.restore();
 
+        // Rotating CAD Radar Sweep Beam (Cyberpunk Telemetry)
+        if (!reduce) {
+          radarSweepAngle = (radarSweepAngle + 0.018) % (Math.PI * 2);
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(radarSweepAngle);
+          const sweepGrad = ctx.createLinearGradient(0, 0, 120, 0);
+          sweepGrad.addColorStop(0, isLight ? 'rgba(0, 0, 0, 0.16)' : 'rgba(0, 240, 255, 0.28)');
+          sweepGrad.addColorStop(1, 'transparent');
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, 120, -0.32, 0);
+          ctx.closePath();
+          ctx.fillStyle = sweepGrad;
+          ctx.fill();
+          ctx.restore();
+        }
+
         // Connect graph edges
         ctx.save();
         ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
@@ -485,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ctx.restore();
         }
 
-        if (laserProgress < 1) {
+        if (!reduce && (laserProgress < 1 || currentHudMode === 'vector')) {
           requestAnimationFrame(renderRadar);
         }
       }
@@ -532,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sqlEditor = document.getElementById('sqlEditor');
   const runBtn = document.getElementById('runBtn');
   const resultStatus = document.getElementById('resultStatus');
-  const resultTable = document.getElementById('resultTable');
+  const resultTable = document.getElementById('resultsTable') || document.getElementById('resultTable');
   const presetTabs = document.querySelectorAll('.preset-tab-btn');
 
   let engineScriptPromise = null;
@@ -626,6 +656,17 @@ SELECT username,
 FROM user_profiles
 WHERE metadata->'profile'->>'tier' = 'Enterprise';`,
 
+    kv: `-- 4. Key-Value Store & Rapid Point Lookups
+DROP TABLE IF EXISTS kv_cache;
+CREATE TABLE kv_cache (id INT, cache_key VARCHAR(64), cache_val VARCHAR(255), ttl_seconds INT);
+
+INSERT INTO kv_cache VALUES 
+(1, 'session:tok_99182', '{"user_id": 101, "role": "admin"}', 3600),
+(2, 'rate:192.168.1.1', '142_requests', 60),
+(3, 'flags:vector_rag', 'enabled', 86400);
+
+SELECT cache_key, cache_val, ttl_seconds FROM kv_cache WHERE cache_key = 'session:tok_99182';`,
+
     plsql: `-- 4. PL/SQL Procedural Script Execution
 DROP TABLE IF EXISTS system_audit;
 CREATE TABLE system_audit (id INT PRIMARY KEY, event_tag VARCHAR(100), val DOUBLE);
@@ -644,6 +685,39 @@ END;
 SELECT * FROM system_audit ORDER BY id ASC;`
   };
 
+  function triggerPlaygroundCircuitScan() {
+    const container = document.querySelector('.playground-container');
+    if (!container) return;
+    container.classList.add('is-executing');
+
+    const oldBeam = container.querySelector('.playground-exec-beam');
+    if (oldBeam) oldBeam.remove();
+
+    if (!reduce) {
+      const beam = document.createElement('div');
+      beam.className = 'playground-exec-beam';
+      beam.setAttribute('aria-hidden', 'true');
+      container.appendChild(beam);
+      setTimeout(() => {
+        beam.remove();
+        container.classList.remove('is-executing');
+      }, 850);
+
+      if (animate) {
+        animate(container, {
+          boxShadow: [
+            '0 0 0 1px rgba(0, 240, 255, 0.55), 0 0 25px rgba(0, 240, 255, 0.22)',
+            '0 0 0 1px var(--border-subtle), 0 0 0px transparent'
+          ],
+          duration: 850,
+          ease: 'out(4)'
+        });
+      }
+    } else {
+      setTimeout(() => container.classList.remove('is-executing'), 300);
+    }
+  }
+
   presetTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const presetKey = tab.getAttribute('data-preset');
@@ -651,12 +725,13 @@ SELECT * FROM system_audit ORDER BY id ASC;`
         sqlEditor.value = presets[presetKey];
         presetTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
+        triggerPlaygroundCircuitScan();
 
         if (animate) {
           animate(tab, {
-            scale: [0.95, 1],
-            duration: 250,
-            ease: 'out(4)'
+            scale: [0.93, 1.05, 1],
+            duration: 320,
+            ease: spring({ bounce: 0.35, duration: 350 })
           });
         }
       }
@@ -667,6 +742,7 @@ SELECT * FROM system_audit ORDER BY id ASC;`
     runBtn.addEventListener('click', async () => {
       const sqlText = sqlEditor ? sqlEditor.value : 'SELECT 1;';
 
+      triggerPlaygroundCircuitScan();
       runBtn.innerText = 'Executing...';
       runBtn.disabled = true;
 
@@ -695,14 +771,14 @@ SELECT * FROM system_audit ORDER BY id ASC;`
               html += `</tr></thead><tbody>`;
 
               res.rows.forEach(r => {
-                html += `<tr class="result-row-animate">`;
+                html += `<tr class="result-row-animate query-exec-pulse">`;
                 r.forEach(c => html += `<td>${escapeHtml(c)}</td>`);
                 html += `</tr>`;
               });
               html += `</tbody>`;
               resultTable.innerHTML = html;
 
-              if (animate) {
+              if (animate && !reduce) {
                 animate('.result-row-animate', {
                   opacity: [0, 1],
                   translateX: [-8, 0],
@@ -856,6 +932,14 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       benchmarkTabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       renderBenchmarkBars(metric);
+
+      if (animate) {
+        animate(tab, {
+          scale: [0.93, 1.05, 1],
+          duration: 300,
+          ease: spring({ bounce: 0.35, duration: 350 })
+        });
+      }
     });
   });
 
@@ -864,9 +948,9 @@ SELECT * FROM system_audit ORDER BY id ASC;`
   }
 
   // ==========================================================================
-  // 7. SCROLL REVEALS
+  // 7. SCROLL REVEALS & ANIME.JS V4 STAGGERED ENTRANCES
   // ==========================================================================
-  if ('IntersectionObserver' in window && animate) {
+  if ('IntersectionObserver' in window && animate && !reduce) {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -885,6 +969,41 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       el.style.opacity = '0';
       observer.observe(el);
     });
+
+    // Staggered Anime.js v4 entrance for multimodal pillars & feature matrix
+    const pillarsGrid = document.querySelector('.pillars-grid');
+    if (pillarsGrid) {
+      const pObs = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          animate('.pillar-card', {
+            opacity: [0, 1],
+            translateY: [24, 0],
+            delay: stagger(90),
+            duration: 650,
+            ease: 'out(4)'
+          });
+          pObs.disconnect();
+        }
+      }, { threshold: 0.15 });
+      pObs.observe(pillarsGrid);
+    }
+
+    const featureGrid = document.querySelector('.feature-matrix-grid');
+    if (featureGrid) {
+      const fObs = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          animate('.feature-box', {
+            opacity: [0, 1],
+            translateY: [20, 0],
+            delay: stagger(60),
+            duration: 550,
+            ease: 'out(4)'
+          });
+          fObs.disconnect();
+        }
+      }, { threshold: 0.1 });
+      fObs.observe(featureGrid);
+    }
   }
 
   // ==========================================================================
@@ -1145,31 +1264,114 @@ SELECT * FROM system_audit ORDER BY id ASC;`
     }
     let cadGuidesEnabled = true;
 
-    // 4. Inject Architectural Top CAD Ruler if not present
+    // 4. Inject Architectural Top CAD Ruler if not present or augment telemetry
     let ruler = document.querySelector('.architectural-ruler-top');
     if (!ruler) {
       ruler = document.createElement('div');
       ruler.className = 'architectural-ruler-top';
+      ruler.id = 'topCadRuler';
       ruler.innerHTML = `
-        <div class="ruler-item">
+        <div class="ruler-item ruler-sys-brand">
           <span class="ruler-dot-indicator"></span>
-          <span>CAD-SYS // ULTSQL-KERNEL v1.0.26</span>
+          <span>CAD-SYS // ULTSQL-KERNEL v1.0.30</span>
         </div>
         <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
         <div class="ruler-indicator-marker" id="rulerMarker"></div>
         <div class="ruler-telemetry">
-          <div class="ruler-item">
-            <span>COORD:</span>
-            <span style="color: var(--text-primary); font-family: var(--font-mono);" id="rulerCoordText">X: 0000 | Y: 0000</span>
+          <div class="ruler-item telemetry-coord">
+            <span class="telemetry-label">COORD:</span>
+            <span class="telemetry-val" id="rulerCoordText">X: 0000 | Y: 0000</span>
+          </div>
+          <div class="ruler-item telemetry-latency">
+            <span class="telemetry-label">LATENCY:</span>
+            <span class="telemetry-val" id="rulerLatencyTicker">2.18µs</span>
+          </div>
+          <div class="ruler-item telemetry-wal">
+            <span class="ruler-dot-indicator dot-wal"></span>
+            <span class="telemetry-label">WAL:</span>
+            <span class="telemetry-val wal-synced" id="rulerWalStatus">[SYNCED]</span>
+          </div>
+          <div class="ruler-item telemetry-fps">
+            <span class="telemetry-label">FREQ:</span>
+            <span class="telemetry-val" id="rulerFps">60.1 FPS</span>
           </div>
           <button class="ruler-toggle-btn" id="toggleCadGuidesBtn" title="Toggle CAD Guide Lines">GUIDES: ON</button>
-          <div class="ruler-item">
-            <span>JITTER:</span>
-            <span style="color: var(--text-primary);" id="rulerFps">0.08ms</span>
-          </div>
         </div>
       `;
       document.body.insertBefore(ruler, document.body.firstChild);
+    } else {
+      const telemetry = ruler.querySelector('.ruler-telemetry');
+      if (telemetry) {
+        if (!telemetry.querySelector('#rulerLatencyTicker')) {
+          const item = document.createElement('div');
+          item.className = 'ruler-item telemetry-latency';
+          item.innerHTML = `<span class="telemetry-label">LATENCY:</span><span class="telemetry-val" id="rulerLatencyTicker">2.18µs</span>`;
+          const toggleBtn = telemetry.querySelector('#toggleCadGuidesBtn');
+          if (toggleBtn) telemetry.insertBefore(item, toggleBtn);
+          else telemetry.appendChild(item);
+        }
+        if (!telemetry.querySelector('#rulerWalStatus')) {
+          const item = document.createElement('div');
+          item.className = 'ruler-item telemetry-wal';
+          item.innerHTML = `<span class="ruler-dot-indicator dot-wal"></span><span class="telemetry-label">WAL:</span><span class="telemetry-val wal-synced" id="rulerWalStatus">[SYNCED]</span>`;
+          const toggleBtn = telemetry.querySelector('#toggleCadGuidesBtn');
+          if (toggleBtn) telemetry.insertBefore(item, toggleBtn);
+          else telemetry.appendChild(item);
+        }
+        if (!telemetry.querySelector('#rulerFps')) {
+          const item = document.createElement('div');
+          item.className = 'ruler-item telemetry-fps';
+          item.innerHTML = `<span class="telemetry-label">FREQ:</span><span class="telemetry-val" id="rulerFps">60.1 FPS</span>`;
+          const toggleBtn = telemetry.querySelector('#toggleCadGuidesBtn');
+          if (toggleBtn) telemetry.insertBefore(item, toggleBtn);
+          else telemetry.appendChild(item);
+        }
+      }
+    }
+
+    // Telemetry Stream: Simulated live microsecond jitter (LATENCY: 2.1µs -> 2.4µs)
+    const latencyEl = document.getElementById('rulerLatencyTicker');
+    if (latencyEl && !reduce) {
+      let currentLat = 2.18;
+      setInterval(() => {
+        const delta = (Math.random() * 0.24 - 0.11);
+        currentLat = Math.max(2.05, Math.min(2.42, currentLat + delta * 0.45));
+        latencyEl.textContent = `${currentLat.toFixed(2)}µs`;
+      }, 220);
+    }
+
+    // Telemetry Stream: Live WAL status pulse (WAL: [SYNCED])
+    const walEl = document.getElementById('rulerWalStatus');
+    if (walEl && !reduce) {
+      setInterval(() => {
+        walEl.textContent = '[SYNCING]';
+        walEl.classList.remove('wal-synced');
+        walEl.classList.add('wal-syncing');
+        setTimeout(() => {
+          walEl.textContent = '[SYNCED]';
+          walEl.classList.remove('wal-syncing');
+          walEl.classList.add('wal-synced');
+        }, 180);
+      }, 7200);
+    }
+
+    // Telemetry Stream: Oscillating frequency / FPS counter
+    const fpsEl = document.getElementById('rulerFps');
+    if (fpsEl && !reduce) {
+      let frameCount = 0;
+      let lastTime = performance.now();
+      function tickFps(now) {
+        frameCount++;
+        if (now - lastTime >= 450) {
+          const fps = (frameCount * 1000) / (now - lastTime);
+          frameCount = 0;
+          lastTime = now;
+          const display = Math.max(58.8, Math.min(144.2, fps + (Math.random() * 0.3 - 0.15))).toFixed(1);
+          fpsEl.textContent = `${display} FPS`;
+        }
+        requestAnimationFrame(tickFps);
+      }
+      requestAnimationFrame(tickFps);
     }
 
     // Populate ruler ticks across full viewport
@@ -1200,10 +1402,10 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       });
     }
 
-    // 5. Inject Corner Crosshairs (+) on cards across all pages
+    // 5. Inject Tactical CAD Corner Reticles ([ + ]) on cards across all pages
     window.injectCornerCrosshairs = function(root = document) {
       const cards = root.querySelectorAll(
-        '.feature-box, .feature-card, .benchmarks-card, .bench-card, .bench-rig-card, .bench-reproduce-box, .terminal-window, .stat-card, .comparison-table-wrapper, .doc-table-wrapper, .doc-callout, .docs-sidebar, .features-arch-section, .faq-item, .hero-visual-card, .doc-code-card'
+        '.feature-box, .feature-card, .metric-card, .benchmarks-card, .bench-card, .bench-rig-card, .bench-reproduce-box, .benchmark-table-wrapper, .pillar-card, .terminal-window, .stat-card, .comparison-table-wrapper, .doc-table-wrapper, .doc-callout, .docs-sidebar, .features-arch-section, .faq-item, .hero-visual-card, .doc-code-card, .install-tabs-card, .playground-container'
       );
       cards.forEach(card => {
         if (!card.querySelector('.corner-cross')) {
@@ -1212,6 +1414,7 @@ SELECT * FROM system_audit ORDER BY id ASC;`
           ['tl', 'tr', 'bl', 'br'].forEach(pos => {
             const cross = document.createElement('span');
             cross.className = `corner-cross ${pos}`;
+            cross.setAttribute('aria-hidden', 'true');
             frag.appendChild(cross);
           });
           card.appendChild(frag);
@@ -1219,6 +1422,36 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       });
     };
     window.injectCornerCrosshairs();
+
+    // Magnetic / Spring Micro-Interactions on CTA Buttons
+    function initMagneticMicroInteractions() {
+      if (reduce || !window.matchMedia('(pointer: fine)').matches) return;
+      const magneticTargets = document.querySelectorAll('.btn-primary, .btn-secondary, #runBtn, #cadHudRunBtn');
+      magneticTargets.forEach(btn => {
+        btn.addEventListener('mousemove', (e) => {
+          const rect = btn.getBoundingClientRect();
+          const x = e.clientX - rect.left - rect.width / 2;
+          const y = e.clientY - rect.top - rect.height / 2;
+          const pullX = Math.max(-4, Math.min(4, x * 0.16));
+          const pullY = Math.max(-4, Math.min(4, y * 0.16));
+          btn.style.transform = `translate3d(${pullX}px, ${pullY}px, 0) scale(1.02)`;
+        });
+        btn.addEventListener('mouseleave', () => {
+          if (animate) {
+            animate(btn, {
+              translateX: 0,
+              translateY: 0,
+              scale: 1,
+              duration: 320,
+              ease: spring({ bounce: 0.35, duration: 350 })
+            });
+          } else {
+            btn.style.transform = '';
+          }
+        });
+      });
+    }
+    initMagneticMicroInteractions();
 
     // 6. Inject Custom Kinetic Cursor Elements (Desktop only)
     if (window.matchMedia('(pointer: fine)').matches) {
@@ -1250,8 +1483,22 @@ SELECT * FROM system_audit ORDER BY id ASC;`
 
       const rulerMarker = document.getElementById('rulerMarker');
       const rulerCoordText = document.getElementById('rulerCoordText');
+      let lastMouseMove = performance.now();
+
+      if (!reduce) {
+        setInterval(() => {
+          if (performance.now() - lastMouseMove > 2500) {
+            const driftX = 524 + Math.sin(performance.now() * 0.001) * 6;
+            const driftY = 142 + Math.cos(performance.now() * 0.0008) * 4;
+            if (rulerCoordText) {
+              rulerCoordText.textContent = `X: ${String(Math.round(driftX)).padStart(4, '0')} | Y: ${String(Math.round(driftY)).padStart(4, '0')}`;
+            }
+          }
+        }, 300);
+      }
 
       window.addEventListener('mousemove', (e) => {
+        lastMouseMove = performance.now();
         mouseX = e.clientX;
         mouseY = e.clientY;
 

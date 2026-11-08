@@ -1,34 +1,76 @@
-/* ULTSQL motion system - scroll reveals, counters, page transitions.
-   Only transform/opacity are animated. Respects prefers-reduced-motion. */
+/* ==========================================================================
+   ULTSQL MOTION SYSTEM & CYBERPUNK CAD ARCHITECTURAL ANIMATIONS
+   Clean, strictly monochrome architectural CAD aesthetic (#000000/#0a0a0a dark,
+   #ffffff accents, green/cyan telemetry indicators, hairline grid lines).
+   Only GPU-accelerated transform / opacity are animated.
+   Full prefers-reduced-motion: reduce compliance.
+   ========================================================================== */
 
+:root {
+  --cad-cyan: #00f0ff;
+  --cad-green: #00ff9d;
+  --cad-cyan-glow: rgba(0, 240, 255, 0.35);
+  --cad-green-glow: rgba(0, 255, 157, 0.35);
+  --cad-scanline-laser: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 240, 255, 0.25) 15%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(0, 240, 255, 0.25) 85%,
+    transparent 100%
+  );
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-cad: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] {
+  --cad-cyan: #0284c7;
+  --cad-green: #059669;
+  --cad-cyan-glow: rgba(2, 132, 199, 0.25);
+  --cad-green-glow: rgba(5, 150, 105, 0.25);
+  --cad-scanline-laser: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.15) 15%,
+    rgba(0, 0, 0, 0.75) 50%,
+    rgba(0, 0, 0, 0.15) 85%,
+    transparent 100%
+  );
+}
+
+/* --------------------------------------------------------------------------
+   1. SCROLL REVEALS (MONOCHROME CAD SYSTEM)
+   -------------------------------------------------------------------------- */
 [data-reveal] {
   opacity: 0;
   transition:
-    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.75s var(--ease-cad),
+    transform 0.75s var(--ease-cad);
   transition-delay: var(--reveal-delay, 0ms);
   will-change: opacity, transform;
 }
-[data-reveal="up"]    { transform: translate3d(0, 28px, 0); }
-[data-reveal="down"]  { transform: translate3d(0, -28px, 0); }
-[data-reveal="left"]  { transform: translate3d(-36px, 0, 0); }
-[data-reveal="right"] { transform: translate3d(36px, 0, 0); }
-[data-reveal="zoom"]  { transform: scale(0.94); }
+[data-reveal="up"]    { transform: translate3d(0, 26px, 0); }
+[data-reveal="down"]  { transform: translate3d(0, -26px, 0); }
+[data-reveal="left"]  { transform: translate3d(-32px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(32px, 0, 0); }
+[data-reveal="zoom"]  { transform: scale(0.95); }
 [data-reveal="fade"]  { transform: none; }
 [data-reveal].is-revealed {
   opacity: 1;
   transform: none;
 }
 
-/* Page enter / leave fade (Zero transform on body to preserve position: fixed viewport root) */
-html.motion-ready body { animation: ult-page-in 0.35s ease-out both; }
+/* Page enter / leave fade */
+html.motion-ready body { animation: ult-page-in 0.32s ease-out both; }
 html.motion-leaving body { opacity: 0; transition: opacity 0.2s ease; }
 @keyframes ult-page-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-/* Scroll progress bar (Monochrome) */
+/* --------------------------------------------------------------------------
+   2. SCROLL PROGRESS BAR (MONOCHROME WITH SUBTLE CYAN AURA)
+   -------------------------------------------------------------------------- */
 .ult-scroll-progress {
   position: fixed;
   top: 24px;
@@ -41,13 +83,15 @@ html.motion-leaving body { opacity: 0; transition: opacity 0.2s ease; }
   background: var(--text-primary);
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
   pointer-events: none;
+  will-change: transform;
 }
-
 [data-theme="light"] .ult-scroll-progress {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Spotlight glow that follows the cursor on [data-glow] cards (Strictly Monochrome) */
+/* --------------------------------------------------------------------------
+   3. SPOTLIGHT GLOW ON [data-glow] CARDS
+   -------------------------------------------------------------------------- */
 [data-glow] { position: relative; isolation: isolate; }
 [data-glow]::before {
   content: "";
@@ -65,11 +109,402 @@ html.motion-leaving body { opacity: 0; transition: opacity 0.2s ease; }
 }
 [data-glow]:hover::before { opacity: 1; }
 
-/* Count-up numbers keep width stable */
-[data-count] { font-variant-numeric: tabular-nums; }
+/* --------------------------------------------------------------------------
+   4. CYBERPUNK / CAD RADAR SCANLINE (ULTRA-SMOOTH GPU-ACCELERATED SWEEP)
+   -------------------------------------------------------------------------- */
+.hero-grid,
+.cad-hud-stage,
+.hero-visual-card {
+  position: relative;
+}
 
+.cad-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--cad-scanline-laser);
+  box-shadow:
+    0 0 10px var(--cad-cyan-glow),
+    0 0 2px rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  z-index: 7;
+  will-change: transform, opacity;
+  animation: cad-laser-sweep 7.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Trailing laser aura */
+.cad-scanline::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 4%;
+  right: 4%;
+  height: 38px;
+  background: linear-gradient(to top, transparent, rgba(0, 240, 255, 0.04));
+  pointer-events: none;
+}
+[data-theme="light"] .cad-scanline::after {
+  background: linear-gradient(to top, transparent, rgba(0, 0, 0, 0.03));
+}
+
+@keyframes cad-laser-sweep {
+  0% {
+    transform: translate3d(0, -10px, 0);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.9;
+  }
+  92% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(0, 720px, 0);
+    opacity: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. CAD TELEMETRY HUD LIVE STREAM PULSES & INDICATORS
+   -------------------------------------------------------------------------- */
+.ruler-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.03em;
+}
+
+.telemetry-label {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.telemetry-val {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wal-synced {
+  color: var(--cad-green) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 6px var(--cad-green-glow);
+}
+
+.wal-syncing {
+  color: var(--cad-cyan) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 6px var(--cad-cyan-glow);
+}
+
+.ruler-dot-indicator {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cad-cyan);
+  box-shadow: 0 0 6px var(--cad-cyan-glow);
+  display: inline-block;
+  animation: cad-pulse-dot 2.2s infinite ease-in-out;
+}
+
+.dot-wal {
+  background: var(--cad-green) !important;
+  box-shadow: 0 0 6px var(--cad-green-glow) !important;
+  animation: cad-pulse-wal 1.8s infinite ease-in-out !important;
+}
+
+@keyframes cad-pulse-dot {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes cad-pulse-wal {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+/* --------------------------------------------------------------------------
+   6. INTERACTIVE SQL PLAYGROUND EXECUTION GLOW & CIRCUIT SCAN
+   -------------------------------------------------------------------------- */
+.playground-container {
+  position: relative;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.playground-container.is-executing {
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.45),
+    0 0 30px rgba(0, 240, 255, 0.16),
+    var(--shadow-lg);
+  border-color: rgba(0, 240, 255, 0.5) !important;
+}
+
+/* Circuit scan line traversing down the playground on execution */
+.playground-exec-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 240, 255, 0.6) 20%,
+    #ffffff 50%,
+    rgba(0, 255, 157, 0.7) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 14px rgba(0, 240, 255, 0.8),
+    0 0 4px #ffffff;
+  pointer-events: none;
+  z-index: 25;
+  will-change: transform, opacity;
+  animation: playground-beam-sweep 0.8s cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+}
+
+@keyframes playground-beam-sweep {
+  0% {
+    top: 0%;
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 0.9;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Result table row execution circuit pulse */
+.query-exec-pulse {
+  animation: row-circuit-glow 0.65s var(--ease-cad) both;
+}
+
+@keyframes row-circuit-glow {
+  0% {
+    background-color: rgba(0, 240, 255, 0.18);
+    box-shadow: inset 3px 0 0 var(--cad-cyan), 0 0 12px rgba(0, 240, 255, 0.2);
+  }
+  40% {
+    background-color: rgba(0, 255, 157, 0.08);
+    box-shadow: inset 3px 0 0 var(--cad-green);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. TACTICAL CAD CORNER RETICLES & HAIRLINE BRACKETS
+   Subtly expand outward with spring physics on hover
+   -------------------------------------------------------------------------- */
+.with-corners {
+  position: relative !important;
+}
+
+.corner-cross {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0.35;
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s var(--ease-spring);
+  will-change: transform, opacity;
+}
+
+.corner-cross.tl { top: -5px; left: -5px; }
+.corner-cross.tr { top: -5px; right: -5px; }
+.corner-cross.bl { bottom: -5px; left: -5px; }
+.corner-cross.br { bottom: -5px; right: -5px; }
+
+.corner-cross::before,
+.corner-cross::after {
+  content: '';
+  position: absolute;
+  background: var(--text-primary);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.corner-cross::before {
+  top: 4.5px;
+  left: 0;
+  width: 10px;
+  height: 1px;
+}
+
+.corner-cross::after {
+  top: 0;
+  left: 4.5px;
+  width: 1px;
+  height: 10px;
+}
+
+/* Outward Tactical Expansion on Hover */
+.with-corners:hover .corner-cross {
+  opacity: 1;
+}
+
+.with-corners:hover .corner-cross::before,
+.with-corners:hover .corner-cross::after {
+  background: #ffffff;
+  box-shadow: 0 0 6px var(--cad-cyan-glow);
+}
+
+[data-theme="light"] .with-corners:hover .corner-cross::before,
+[data-theme="light"] .with-corners:hover .corner-cross::after {
+  background: #000000;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.25);
+}
+
+.with-corners:hover .corner-cross.tl {
+  transform: translate3d(-3px, -3px, 0) scale(1.15);
+}
+.with-corners:hover .corner-cross.tr {
+  transform: translate3d(3px, -3px, 0) scale(1.15);
+}
+.with-corners:hover .corner-cross.bl {
+  transform: translate3d(-3px, 3px, 0) scale(1.15);
+}
+.with-corners:hover .corner-cross.br {
+  transform: translate3d(3px, 3px, 0) scale(1.15);
+}
+
+/* --------------------------------------------------------------------------
+   8. MAGNETIC / SPRING MICRO-INTERACTIONS ON CTA BUTTONS & TABS
+   -------------------------------------------------------------------------- */
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-glass,
+.preset-tab-btn,
+.benchmark-tab-btn,
+.cad-mode-btn,
+.cad-chip,
+.install-tab-btn,
+.feature-chip-btn,
+.ruler-toggle-btn {
+  transition:
+    transform 0.22s var(--ease-spring),
+    box-shadow 0.2s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+  will-change: transform;
+}
+
+.btn:hover,
+.btn-primary:hover,
+.btn-secondary:hover {
+  transform: translate3d(0, -1.5px, 0);
+}
+
+.btn:active,
+.btn-primary:active,
+.btn-secondary:active {
+  transform: translate3d(0, 1px, 0) scale(0.97) !important;
+}
+
+.preset-tab-btn:hover,
+.benchmark-tab-btn:hover,
+.cad-mode-btn:hover,
+.cad-chip:hover {
+  transform: translate3d(0, -1px, 0);
+}
+
+.preset-tab-btn:active,
+.benchmark-tab-btn:active,
+.cad-mode-btn:active,
+.cad-chip:active {
+  transform: scale(0.95);
+}
+
+/* Tab Active State Subtle Spring Indicator */
+.preset-tab-btn.active,
+.benchmark-tab-btn.active,
+.cad-mode-btn.active,
+.cad-chip.active {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   9. ANIME.JS V4 COUNT-UP AND NUMBERS STABILITY
+   -------------------------------------------------------------------------- */
+[data-count] {
+  font-variant-numeric: tabular-nums;
+  will-change: contents;
+}
+
+/* --------------------------------------------------------------------------
+   10. STRICT PREFERS-REDUCED-MOTION SUPPORT
+   Disables all looping, scanlines, and spring oscillations cleanly.
+   -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
-  html.motion-ready body { animation: none; }
-  .ult-scroll-progress { display: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  html.motion-ready body {
+    animation: none !important;
+  }
+
+  .ult-scroll-progress,
+  .cad-scanline,
+  .playground-exec-beam,
+  .cad-guideline-v,
+  .cad-guideline-h,
+  .analog-grain-overlay {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .with-corners:hover .corner-cross {
+    transform: none !important;
+  }
+
+  .ruler-dot-indicator,
+  .dot-wal,
+  .status-pulse,
+  .cad-hud-pulse-dot {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .query-exec-pulse,
+  .result-row-animate {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .playground-container.is-executing {
+    box-shadow: var(--shadow-lg) !important;
+    border-color: var(--border-subtle) !important;
+  }
 }

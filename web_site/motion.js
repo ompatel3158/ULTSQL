@@ -4,6 +4,7 @@
  *  data-count="12345" [data-count-decimals="1"] [data-count-suffix="+"] [data-count-prefix="~"]
  *  data-glow   -> cursor-following spotlight
  *  Dispatches 'ult:reveal' on elements as they enter the viewport.
+ *  Powered by Anime.js v4 kinetic animations when available.
  */
 (function () {
   'use strict';
@@ -11,10 +12,11 @@
   const root = document.documentElement;
   root.classList.add('motion-ready');
 
-  // ---- Count-up ----
+  // ---- Count-up (Anime.js v4 accelerated when present) ----
   function formatNumber(v, decimals) {
     return v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
+
   function runCounter(el) {
     if (el.dataset.countDone) return;
     el.dataset.countDone = '1';
@@ -23,8 +25,29 @@
     const decimals = parseInt(el.dataset.countDecimals || '0', 10);
     const prefix = el.dataset.countPrefix || '';
     const suffix = el.dataset.countSuffix || '';
-    if (reduce) { el.textContent = prefix + formatNumber(target, decimals) + suffix; return; }
-    const dur = parseInt(el.dataset.countDuration || '1600', 10);
+
+    if (reduce) {
+      el.textContent = prefix + formatNumber(target, decimals) + suffix;
+      return;
+    }
+
+    const dur = parseInt(el.dataset.countDuration || '1500', 10);
+    const anime = window.anime;
+
+    if (anime && typeof anime.animate === 'function') {
+      const obj = { val: 0 };
+      anime.animate(obj, {
+        val: target,
+        duration: dur,
+        ease: 'out(4)',
+        onUpdate: () => {
+          el.textContent = prefix + formatNumber(obj.val, decimals) + suffix;
+        }
+      });
+      return;
+    }
+
+    // Fallback RAF loop
     const t0 = performance.now();
     const ease = (t) => 1 - Math.pow(1 - t, 4);
     (function tick(now) {
@@ -51,6 +74,7 @@
     if (el.hasAttribute('data-count')) runCounter(el);
     el.dispatchEvent(new CustomEvent('ult:reveal', { bubbles: true }));
   }
+
   function observe(scope) {
     scope = scope || document;
     applyStagger(scope);
@@ -61,6 +85,7 @@
       io.observe(el);
     });
   }
+
   if ('IntersectionObserver' in window) {
     io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
@@ -96,6 +121,20 @@
     }, { passive: true });
   }
 
+  // ---- Laser Scanline Injection ----
+  function injectScanlines(scope) {
+    if (reduce) return;
+    const targets = (scope || document).querySelectorAll('.hero-grid, .hero-section, .cad-hud-stage');
+    targets.forEach((el) => {
+      if (!el.querySelector('.cad-scanline')) {
+        const line = document.createElement('div');
+        line.className = 'cad-scanline';
+        line.setAttribute('aria-hidden', 'true');
+        el.insertBefore(line, el.firstChild);
+      }
+    });
+  }
+
   // ---- Smooth in-page anchors + page-leave fade ----
   function links() {
     document.addEventListener('click', (e) => {
@@ -125,11 +164,13 @@
     observe(document);
     progressBar();
     glow();
+    injectScanlines(document);
     links();
   }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
   // Public hook for dynamically rendered content.
-  window.UltMotion = { observe, runCounter };
+  window.UltMotion = { observe, runCounter, injectScanlines };
 })();

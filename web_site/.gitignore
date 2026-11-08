@@ -1,2 +1,4 @@
 .vercel
+_vercel
 .env*
+node_modules

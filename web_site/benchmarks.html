@@ -285,7 +285,7 @@
         </p>
       </div>
 
-      <div class="doc-table-wrapper" style="margin-bottom: 1.75rem;">
+      <div class="doc-table-wrapper benchmark-table-wrapper" style="margin-bottom: 1.75rem;">
         <table class="doc-table">
           <thead>
             <tr>
@@ -378,7 +378,7 @@
           <strong>Durability Distinctions:</strong> Comparing buffered group-commit writes against SQLite's default per-commit <code>fsync()</code> (which yields ~1,064 tx/s due to NVMe disk sync latency) is not apples-to-apples. Under matching WAL durability (<code>PRAGMA synchronous = NORMAL</code>), SQLite reaches <strong>94,437 tx/s</strong>, while UltSQL achieves <strong>519,481 tx/s</strong>. When disk synchronization is relaxed entirely (<code>synchronous = OFF</code>), SQLite achieves <strong>657,895 rows/s</strong> on disk and <strong>1.32M rows/s</strong> in memory, while UltSQL's batch group-commit reaches <strong>4.55M rows/s</strong>.
         </p>
         <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55;">
-          <strong>Out-of-Process Crash Safety Proof:</strong> UltSQL is rigorously verified with an out-of-process crash harness executing <code>kill -9</code> / <code>taskkill /F</code> abruptly mid-batch. In both single-crash and multi-cycle recovery tests, 100% of acknowledged committed transactions survive, the Write-Ahead Log replays cleanly, and relational SQL correctness is verified against standardized SQL logic conformance suites.
+          <strong>Out-of-Process Crash Safety Proof:</strong> UltSQL is rigorously verified with an out-of-process crash harness (<code>test/out_of_process_crash_test.dart</code>) executing <code>kill -9</code> / <code>taskkill /F</code> abruptly mid-batch. In both single-crash and multi-cycle recovery tests, 100% of acknowledged committed transactions survive, the Write-Ahead Log replays cleanly, and relational SQL correctness is verified against standardized SQL logic conformance suites.
         </p>
       </div>
 
@@ -416,7 +416,7 @@ python tool/benchmarks/benchmark_native_sqlite_vs_ultsql.py</code></pre>
         </button>
       </div>
 
-      <div class="doc-table-wrapper">
+      <div class="doc-table-wrapper benchmark-table-wrapper">
         <table class="doc-table">
           <thead>
             <tr>

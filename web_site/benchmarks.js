@@ -66,7 +66,7 @@
       if (filterCategory !== 'all' && cat !== filterCategory) return;
 
       const card = document.createElement('article');
-      card.className = 'bench-card';
+      card.className = 'bench-card metric-card';
       card.setAttribute('data-glow', '');
 
       const ult = item.engines && item.engines.ultsql ? item.engines.ultsql.median : null;

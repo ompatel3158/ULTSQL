@@ -19,6 +19,12 @@
   --border-strong: rgba(255, 255, 255, 0.35);
   --border-glow: rgba(255, 255, 255, 0.25);
 
+  /* Cyberpunk / CAD Telemetry Accent Indicators */
+  --cad-cyan: #00f0ff;
+  --cad-green: #00ff9d;
+  --cad-cyan-glow: rgba(0, 240, 255, 0.35);
+  --cad-green-glow: rgba(0, 255, 157, 0.35);
+
   --text-primary: #ffffff;
   --text-secondary: #d1d5db;
   --text-tertiary: #9ca3af;
@@ -69,6 +75,12 @@
   --border-medium: rgba(0, 0, 0, 0.16);
   --border-strong: rgba(0, 0, 0, 0.35);
   --border-glow: rgba(0, 0, 0, 0.15);
+
+  /* Cyberpunk / CAD Telemetry Accent Indicators (Light Theme) */
+  --cad-cyan: #0284c7;
+  --cad-green: #059669;
+  --cad-cyan-glow: rgba(2, 132, 199, 0.25);
+  --cad-green-glow: rgba(5, 150, 105, 0.25);
 
   --text-primary: #000000;
   --text-secondary: #374151;
@@ -1603,28 +1615,82 @@ code, pre {
 .ruler-telemetry {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1.15rem;
   position: relative;
   z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.02em;
 }
 
 .ruler-item {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+}
+
+.telemetry-label {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.telemetry-val {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wal-synced {
+  color: var(--cad-green) !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 8px var(--cad-green-glow);
+}
+
+.wal-syncing {
+  color: var(--cad-cyan) !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 8px var(--cad-cyan-glow);
 }
 
 .ruler-dot-indicator {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--text-primary);
-  animation: pulse-dot 2s infinite ease-in-out;
+  background: var(--cad-cyan);
+  box-shadow: 0 0 6px var(--cad-cyan-glow);
+  display: inline-block;
+  animation: cad-pulse-dot 2.2s infinite ease-in-out;
 }
 
-@keyframes pulse-dot {
-  0%, 100% { opacity: 0.3; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1.15); }
+.dot-wal {
+  background: var(--cad-green) !important;
+  box-shadow: 0 0 6px var(--cad-green-glow) !important;
+  animation: cad-pulse-wal 1.8s infinite ease-in-out !important;
+}
+
+@keyframes cad-pulse-dot {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes cad-pulse-wal {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+@media (max-width: 992px) {
+  .telemetry-fps { display: none; }
+}
+
+@media (max-width: 768px) {
+  .telemetry-latency { display: none; }
+  .ruler-sys-brand { display: none; }
+}
+
+@media (max-width: 480px) {
+  .telemetry-wal { display: none; }
 }
 
 /* Adjust header navbar top position to account for the top ruler */
@@ -2215,7 +2281,7 @@ code, pre {
 }
 
 /* ==========================================================================
-   TECHNICAL CAD CORNER CROSSHAIRS
+   TECHNICAL CAD CORNER RETICLES & HAIRLINE BRACKETS
    ========================================================================== */
 .with-corners {
   position: relative !important;
@@ -2223,17 +2289,15 @@ code, pre {
 
 .corner-cross {
   position: absolute;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
   opacity: 0.35;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-
-.with-corners:hover .corner-cross {
-  opacity: 0.95;
-  transform: scale(1.2);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
 }
 
 .corner-cross.tl { top: -5px; left: -5px; }
@@ -2246,20 +2310,51 @@ code, pre {
   content: '';
   position: absolute;
   background: var(--text-primary);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .corner-cross::before {
-  top: 4px;
+  top: 4.5px;
   left: 0;
-  width: 9px;
+  width: 10px;
   height: 1px;
 }
 
 .corner-cross::after {
   top: 0;
-  left: 4px;
+  left: 4.5px;
   width: 1px;
-  height: 9px;
+  height: 10px;
+}
+
+/* Outward Tactical Expansion on Hover */
+.with-corners:hover .corner-cross {
+  opacity: 1;
+}
+
+.with-corners:hover .corner-cross::before,
+.with-corners:hover .corner-cross::after {
+  background: #ffffff;
+  box-shadow: 0 0 6px var(--cad-cyan-glow);
+}
+
+[data-theme="light"] .with-corners:hover .corner-cross::before,
+[data-theme="light"] .with-corners:hover .corner-cross::after {
+  background: #000000;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.25);
+}
+
+.with-corners:hover .corner-cross.tl {
+  transform: translate3d(-3px, -3px, 0) scale(1.15);
+}
+.with-corners:hover .corner-cross.tr {
+  transform: translate3d(3px, -3px, 0) scale(1.15);
+}
+.with-corners:hover .corner-cross.bl {
+  transform: translate3d(-3px, 3px, 0) scale(1.15);
+}
+.with-corners:hover .corner-cross.br {
+  transform: translate3d(3px, 3px, 0) scale(1.15);
 }
 
 /* ==========================================================================

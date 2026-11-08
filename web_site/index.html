@@ -118,16 +118,24 @@
     <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
     <div class="ruler-indicator-marker" id="rulerMarker"></div>
     <div class="ruler-telemetry">
-      <div class="ruler-item">
-        <span>COORD:</span>
-        <span style="color: var(--text-primary); font-family: var(--font-mono);" id="rulerCoordText">X: 0000 | Y:
-          0000</span>
+      <div class="ruler-item telemetry-coord">
+        <span class="telemetry-label">COORD:</span>
+        <span class="telemetry-val" id="rulerCoordText">X: 0000 | Y: 0000</span>
+      </div>
+      <div class="ruler-item telemetry-latency">
+        <span class="telemetry-label">LATENCY:</span>
+        <span class="telemetry-val" id="rulerLatencyTicker">2.18µs</span>
+      </div>
+      <div class="ruler-item telemetry-wal">
+        <span class="ruler-dot-indicator dot-wal"></span>
+        <span class="telemetry-label">WAL:</span>
+        <span class="telemetry-val wal-synced" id="rulerWalStatus">[SYNCED]</span>
+      </div>
+      <div class="ruler-item telemetry-fps">
+        <span class="telemetry-label">FREQ:</span>
+        <span class="telemetry-val" id="rulerFps">60.1 FPS</span>
       </div>
       <button class="ruler-toggle-btn" id="toggleCadGuidesBtn" title="Toggle CAD Guide Lines">GUIDES: ON</button>
-      <div class="ruler-item">
-        <span>JITTER:</span>
-        <span style="color: var(--text-primary);" id="rulerFps">0.08ms</span>
-      </div>
     </div>
   </div>
 
@@ -223,6 +231,7 @@
     <section class="hero-section">
       <div class="container">
         <div class="hero-grid">
+          <div class="cad-scanline" aria-hidden="true"></div>
           <div class="hero-content">
             <div class="hero-pill-badge hero-stagger">
               <span class="hero-pill-dot"></span>
@@ -264,7 +273,7 @@
 
             <div class="hero-specs-row hero-stagger">
               <div class="spec-item">
-                <span class="spec-value">142,000+</span>
+                <span class="spec-value" data-count="142000" data-count-suffix="+">142,000+</span>
                 <span class="spec-label">Ops / Sec</span>
               </div>
               <div class="spec-item">
@@ -523,6 +532,9 @@
               <button class="preset-tab-btn" data-preset="nosql">
                 <span>●</span> NoSQL JSON Docs
               </button>
+              <button class="preset-tab-btn" data-preset="kv">
+                <span>●</span> Key-Value
+              </button>
               <button class="preset-tab-btn" data-preset="plsql">
                 <span>●</span> PL/SQL Procedural
               </button>
@@ -584,7 +596,7 @@ ORDER BY total_spent DESC;</textarea>
                 <span id="resultStatus" style="color: var(--text-primary);">Ready</span>
               </div>
               <div class="results-body">
-                <table class="results-table" id="resultTable">
+                <table class="results-table" id="resultsTable">
                   <tbody>
                     <tr>
                       <td style="padding: 3rem 1.5rem; text-align: center; color: var(--text-tertiary);">

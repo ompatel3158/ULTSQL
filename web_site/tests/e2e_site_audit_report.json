@@ -1,0 +1,361 @@
+{
+  "total": 55,
+  "passed": 55,
+  "failed": 0,
+  "warnings": 0,
+  "tests": [
+    {
+      "name": "HTTP 200 OK for /index.html",
+      "passed": true,
+      "details": "Status: 200",
+      "durationMs": 535.6726000000001
+    },
+    {
+      "name": "Page Title for /index.html",
+      "passed": true,
+      "details": "\"ULTSQL - 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)\" includes \"ULTSQL\"",
+      "durationMs": 0
+    },
+    {
+      "name": "Canonical Link for /index.html",
+      "passed": true,
+      "details": "Expected https://ultsql.tech/, found https://ultsql.tech/",
+      "durationMs": 0
+    },
+    {
+      "name": "Active Nav Link for /index.html",
+      "passed": true,
+      "details": "Active nav link: \"Home\" (href: /)",
+      "durationMs": 0
+    },
+    {
+      "name": "Essential Links Present on /index.html",
+      "passed": true,
+      "details": "Found 16 action/footer links",
+      "durationMs": 0
+    },
+    {
+      "name": "HTTP 200 OK for /benchmarks.html",
+      "passed": true,
+      "details": "Status: 200",
+      "durationMs": 241.95519999999988
+    },
+    {
+      "name": "Page Title for /benchmarks.html",
+      "passed": true,
+      "details": "\"Empirical Benchmarks & Hardware Rig Audit - ULTSQL\" includes \"Benchmarks\"",
+      "durationMs": 0
+    },
+    {
+      "name": "Canonical Link for /benchmarks.html",
+      "passed": true,
+      "details": "Expected https://ultsql.tech/benchmarks, found https://ultsql.tech/benchmarks",
+      "durationMs": 0
+    },
+    {
+      "name": "Active Nav Link for /benchmarks.html",
+      "passed": true,
+      "details": "Active nav link: \"Benchmarks\" (href: /benchmarks)",
+      "durationMs": 0
+    },
+    {
+      "name": "Essential Links Present on /benchmarks.html",
+      "passed": true,
+      "details": "Found 16 action/footer links",
+      "durationMs": 0
+    },
+    {
+      "name": "HTTP 200 OK for /features.html",
+      "passed": true,
+      "details": "Status: 200",
+      "durationMs": 197.96499999999992
+    },
+    {
+      "name": "Page Title for /features.html",
+      "passed": true,
+      "details": "\"Features & Architecture - ULTSQL\" includes \"Features\"",
+      "durationMs": 0
+    },
+    {
+      "name": "Canonical Link for /features.html",
+      "passed": true,
+      "details": "Expected https://ultsql.tech/features, found https://ultsql.tech/features",
+      "durationMs": 0
+    },
+    {
+      "name": "Active Nav Link for /features.html",
+      "passed": true,
+      "details": "Active nav link: \"Features\" (href: /features)",
+      "durationMs": 0
+    },
+    {
+      "name": "Essential Links Present on /features.html",
+      "passed": true,
+      "details": "Found 16 action/footer links",
+      "durationMs": 0
+    },
+    {
+      "name": "HTTP 200 OK for /docs.html",
+      "passed": true,
+      "details": "Status: 200",
+      "durationMs": 404.1925000000001
+    },
+    {
+      "name": "Page Title for /docs.html",
+      "passed": true,
+      "details": "\"Documentation & Complete API Reference - ULTSQL\" includes \"Documentation\"",
+      "durationMs": 0
+    },
+    {
+      "name": "Canonical Link for /docs.html",
+      "passed": true,
+      "details": "Expected https://ultsql.tech/docs, found https://ultsql.tech/docs",
+      "durationMs": 0
+    },
+    {
+      "name": "Active Nav Link for /docs.html",
+      "passed": true,
+      "details": "Active nav link: \"Docs\" (href: /docs)",
+      "durationMs": 0
+    },
+    {
+      "name": "Essential Links Present on /docs.html",
+      "passed": true,
+      "details": "Found 16 action/footer links",
+      "durationMs": 0
+    },
+    {
+      "name": "Visual Snapshot: Hero Section",
+      "passed": true,
+      "details": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\hero_section.png",
+      "durationMs": 0
+    },
+    {
+      "name": "Playground #sqlEditor default query",
+      "passed": true,
+      "details": "Initial length: 729 chars",
+      "durationMs": 0
+    },
+    {
+      "name": "Run Query Default Execution",
+      "passed": true,
+      "details": "Headers: [users.name, users.role, total_orders, total_spent] | Rows: 3",
+      "durationMs": 186.2890999999995
+    },
+    {
+      "name": "Preset Chip: AI Vector RAG (HNSW)",
+      "passed": true,
+      "details": "Found keyword \"Attention Is All You Need\" in result table",
+      "durationMs": 997.1539999999995
+    },
+    {
+      "name": "Preset Chip: NoSQL JSON Docs",
+      "passed": true,
+      "details": "Found keyword \"ompatel\" in result table",
+      "durationMs": 932.8752000000004
+    },
+    {
+      "name": "Preset Chip: Key-Value Store",
+      "passed": true,
+      "details": "Found keyword \"session:tok_99182\" in result table",
+      "durationMs": 933.7925999999998
+    },
+    {
+      "name": "Preset Chip: Relational SQL",
+      "passed": true,
+      "details": "Found keyword \"Om Patel\" in result table",
+      "durationMs": 958.1690999999992
+    },
+    {
+      "name": "Preset Chip: PL/SQL Procedural Script",
+      "passed": true,
+      "details": "Found keyword \"METRIC_TICK\" in result table",
+      "durationMs": 945.1952000000001
+    },
+    {
+      "name": "Visual Snapshot: Playground Result",
+      "passed": true,
+      "details": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\playground_result.png",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Hardware Rig Audit",
+      "passed": true,
+      "details": "CPU: \"13th Gen Intel(R) Core(TM) i7-13650HX\" | Disk: \"Micron 2400 NVMe SSD (PCIe Gen4)\"",
+      "durationMs": 0
+    },
+    {
+      "name": "Dynamic Benchmark Cards Loaded",
+      "passed": true,
+      "details": "Rendered 20 benchmark workload cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Cards Display Numbers & Metrics",
+      "passed": true,
+      "details": "Verified numeric metrics across 20 cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Filter Tab [relational]",
+      "passed": true,
+      "details": "Filtered to 11 matching cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Filter Tab [nosql]",
+      "passed": true,
+      "details": "Filtered to 3 matching cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Filter Tab [kv]",
+      "passed": true,
+      "details": "Filtered to 2 matching cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Filter Tab [vector]",
+      "passed": true,
+      "details": "Filtered to 3 matching cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Benchmark Filter Tab [all]",
+      "passed": true,
+      "details": "Filtered to 20 matching cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Native AOT Head-to-Head Empirical Metrics",
+      "passed": true,
+      "details": "Verified bulk ingest (3.35M rows/s), point lookup (<1µs), and relaxed durability (4.55M rows/s)",
+      "durationMs": 0
+    },
+    {
+      "name": "Crash Safety & Kill -9 Documentation Proof",
+      "passed": true,
+      "details": "Confirmed out-of-process crash test harness and WAL durability explanation are visible",
+      "durationMs": 0
+    },
+    {
+      "name": "Visual Snapshot: Benchmark Table",
+      "passed": true,
+      "details": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\benchmark_table.png",
+      "durationMs": 0
+    },
+    {
+      "name": "Features Category Chip Filtering",
+      "passed": true,
+      "details": "Second category chip activated",
+      "durationMs": 0
+    },
+    {
+      "name": "Features Page Live Metric Binding",
+      "passed": true,
+      "details": "Bound 5 live hardware benchmark metrics into cards",
+      "durationMs": 0
+    },
+    {
+      "name": "Code Block Copy-to-Clipboard Button",
+      "passed": true,
+      "details": "Button transitioned to \"Copied!\" | Clipboard bytes: 126",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#overview]",
+      "passed": true,
+      "details": "Element #overview present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#installation]",
+      "passed": true,
+      "details": "Element #installation present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#relational-sql]",
+      "passed": true,
+      "details": "Element #relational-sql present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#sql-reference]",
+      "passed": true,
+      "details": "Element #sql-reference present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#vector-rag]",
+      "passed": true,
+      "details": "Element #vector-rag present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#vector-search]",
+      "passed": true,
+      "details": "Element #vector-search present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#nosql-collections]",
+      "passed": true,
+      "details": "Element #nosql-collections present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#key-value]",
+      "passed": true,
+      "details": "Element #key-value present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Docs Hash Anchor [#pgwire-server]",
+      "passed": true,
+      "details": "Element #pgwire-server present in DOM and targeted by hash",
+      "durationMs": 0
+    },
+    {
+      "name": "Visual Snapshot: Docs Layout",
+      "passed": true,
+      "details": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\docs_layout.png",
+      "durationMs": 0
+    },
+    {
+      "name": "Production Domain Reachability (https://ultsql.tech)",
+      "passed": true,
+      "details": "Status: 200 | Title: \"ULTSQL - 100% Pure Dart Multimodal Database (SQL + Vector + NoSQL)\"",
+      "durationMs": 0
+    },
+    {
+      "name": "Zero Console Errors & Zero Uncaught Exceptions",
+      "passed": true,
+      "details": "Console Errors: 0 | Exceptions: 0",
+      "durationMs": 0
+    }
+  ],
+  "consoleErrors": [],
+  "uncaughtExceptions": [],
+  "screenshots": [
+    {
+      "name": "Hero Section",
+      "path": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\hero_section.png"
+    },
+    {
+      "name": "Playground Results",
+      "path": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\playground_result.png"
+    },
+    {
+      "name": "Benchmark Table",
+      "path": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\benchmark_table.png"
+    },
+    {
+      "name": "Docs Layout",
+      "path": "C:\\Users\\ompat\\.gemini\\antigravity\\scratch\\ULTSQL\\web_site\\tests\\screenshots\\docs_layout.png"
+    }
+  ],
+  "timings": {},
+  "durationSec": "29.46",
+  "timestamp": "2026-11-08T09:17:00.451Z"
+}
