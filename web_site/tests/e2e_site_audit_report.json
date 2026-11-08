@@ -8,7 +8,7 @@
       "name": "HTTP 200 OK for /index.html",
       "passed": true,
       "details": "Status: 200",
-      "durationMs": 535.6726000000001
+      "durationMs": 435.79009999999994
     },
     {
       "name": "Page Title for /index.html",
@@ -38,7 +38,7 @@
       "name": "HTTP 200 OK for /benchmarks.html",
       "passed": true,
       "details": "Status: 200",
-      "durationMs": 241.95519999999988
+      "durationMs": 199.30230000000006
     },
     {
       "name": "Page Title for /benchmarks.html",
@@ -68,7 +68,7 @@
       "name": "HTTP 200 OK for /features.html",
       "passed": true,
       "details": "Status: 200",
-      "durationMs": 197.96499999999992
+      "durationMs": 196.375
     },
     {
       "name": "Page Title for /features.html",
@@ -98,7 +98,7 @@
       "name": "HTTP 200 OK for /docs.html",
       "passed": true,
       "details": "Status: 200",
-      "durationMs": 404.1925000000001
+      "durationMs": 220.8411000000001
     },
     {
       "name": "Page Title for /docs.html",
@@ -140,37 +140,37 @@
       "name": "Run Query Default Execution",
       "passed": true,
       "details": "Headers: [users.name, users.role, total_orders, total_spent] | Rows: 3",
-      "durationMs": 186.2890999999995
+      "durationMs": 152.63550000000032
     },
     {
       "name": "Preset Chip: AI Vector RAG (HNSW)",
       "passed": true,
       "details": "Found keyword \"Attention Is All You Need\" in result table",
-      "durationMs": 997.1539999999995
+      "durationMs": 984.2559000000001
     },
     {
       "name": "Preset Chip: NoSQL JSON Docs",
       "passed": true,
       "details": "Found keyword \"ompatel\" in result table",
-      "durationMs": 932.8752000000004
+      "durationMs": 970.1233000000002
     },
     {
       "name": "Preset Chip: Key-Value Store",
       "passed": true,
       "details": "Found keyword \"session:tok_99182\" in result table",
-      "durationMs": 933.7925999999998
+      "durationMs": 938.0293999999994
     },
     {
       "name": "Preset Chip: Relational SQL",
       "passed": true,
       "details": "Found keyword \"Om Patel\" in result table",
-      "durationMs": 958.1690999999992
+      "durationMs": 983.0176000000001
     },
     {
       "name": "Preset Chip: PL/SQL Procedural Script",
       "passed": true,
       "details": "Found keyword \"METRIC_TICK\" in result table",
-      "durationMs": 945.1952000000001
+      "durationMs": 938.8937000000005
     },
     {
       "name": "Visual Snapshot: Playground Result",
@@ -356,6 +356,6 @@
     }
   ],
   "timings": {},
-  "durationSec": "29.46",
-  "timestamp": "2026-11-08T09:17:00.451Z"
+  "durationSec": "28.36",
+  "timestamp": "2026-11-08T10:56:05.047Z"
 }

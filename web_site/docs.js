@@ -51,6 +51,13 @@
         blocks.forEach((block) => {
           if (block.dataset.lang === targetLang) {
             block.style.display = 'block';
+            if (window.anime && typeof window.anime.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+              window.anime.animate(block, {
+                opacity: [0.5, 1],
+                duration: 220,
+                ease: 'out(3)'
+              });
+            }
           } else if (matched) {
             block.style.display = 'none';
           }
@@ -187,46 +194,5 @@
     initScrollSpy();
     highlightCode();
 
-    // ==========================================================================
-    // MOBILE HAMBURGER MENU TOGGLE
-    // ==========================================================================
-    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-    const mobileMenuClose = document.getElementById('mobileMenuClose');
-    const mobileNavDrawer = document.getElementById('mobileNavDrawer');
-
-    if (mobileMenuToggle && mobileNavDrawer) {
-      mobileMenuToggle.addEventListener('click', () => {
-        mobileNavDrawer.classList.add('open');
-        document.body.style.overflow = 'hidden';
-      });
-    }
-
-    if (mobileMenuClose && mobileNavDrawer) {
-      mobileMenuClose.addEventListener('click', () => {
-        mobileNavDrawer.classList.remove('open');
-        document.body.style.overflow = '';
-      });
-    }
-
-    // Close mobile drawer on link click
-    const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
-    mobileNavLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        if (mobileNavDrawer) {
-          mobileNavDrawer.classList.remove('open');
-          document.body.style.overflow = '';
-        }
-      });
-    });
-
-    // Close drawer on backdrop click (outside drawer)
-    document.addEventListener('click', (e) => {
-      if (mobileNavDrawer && mobileNavDrawer.classList.contains('open')) {
-        if (!mobileNavDrawer.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-          mobileNavDrawer.classList.remove('open');
-          document.body.style.overflow = '';
-        }
-      }
-    });
   });
 })();

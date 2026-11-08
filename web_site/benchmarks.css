@@ -3,10 +3,13 @@
 
 .bench-container {
   max-width: 1360px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 6.75rem 1.5rem 6rem;
   position: relative;
   z-index: 1;
+  overflow-x: hidden;
 }
 
 .bench-hero {
@@ -396,6 +399,10 @@
     padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem) !important;
     padding-left: 1rem;
     padding-right: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .bench-hero-title {
@@ -415,6 +422,13 @@
     justify-content: flex-start;
     padding-bottom: 0.5rem;
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: none;
+  }
+
+  .bench-filter-bar::-webkit-scrollbar {
+    display: none;
   }
 
   .bench-filter-btn {
@@ -426,6 +440,9 @@
 
   .bench-rig-card {
     padding: 1.25rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .bench-rig-grid {
@@ -434,25 +451,52 @@
   }
 
   .bench-cards-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 1.25rem;
     margin-bottom: 3rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .bench-card {
     padding: 1.15rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .bench-card-header,
+  .bench-bars-container,
+  .bench-bar-row,
+  .bench-bar-meta,
+  .bench-bar-track {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .bench-reproduce-box {
     padding: 1.25rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
-  .doc-table-wrapper {
+  .doc-table-wrapper,
+  .benchmark-table-wrapper {
     margin: 1.25rem 0 2rem;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
   }
 
   .doc-table {
-    min-width: 600px;
+    min-width: 580px;
     font-size: 0.82rem;
   }
 

@@ -1184,46 +1184,113 @@ SELECT * FROM system_audit ORDER BY id ASC;`
   });
 
   // ==========================================================================
-  // MOBILE HAMBURGER MENU TOGGLE
+  // MOBILE HAMBURGER MENU & VIEWPORT CONTROLLER
   // ==========================================================================
   const mobileMenuToggle = document.getElementById('mobileMenuToggle');
   const mobileMenuClose = document.getElementById('mobileMenuClose');
   const mobileNavDrawer = document.getElementById('mobileNavDrawer');
 
-  if (mobileMenuToggle && mobileNavDrawer) {
-    mobileMenuToggle.addEventListener('click', () => {
-      mobileNavDrawer.classList.add('open');
-      document.body.style.overflow = 'hidden';
+  // Ensure high-tech backdrop exists
+  let mobileNavBackdrop = document.getElementById('mobileNavBackdrop');
+  if (!mobileNavBackdrop && mobileNavDrawer) {
+    mobileNavBackdrop = document.createElement('div');
+    mobileNavBackdrop.id = 'mobileNavBackdrop';
+    mobileNavBackdrop.className = 'mobile-nav-backdrop';
+    document.body.appendChild(mobileNavBackdrop);
+  }
+
+  function openMobileMenu() {
+    if (!mobileNavDrawer) return;
+    mobileNavDrawer.classList.add('open');
+    if (mobileNavBackdrop) mobileNavBackdrop.classList.add('open');
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    // Stagger in links with kinetic ease if anime is available
+    if (window.anime && typeof window.anime.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const links = mobileNavDrawer.querySelectorAll('.mobile-nav-link');
+      if (links.length) {
+        window.anime.animate(links, {
+          opacity: [0, 1],
+          translateX: [20, 0],
+          delay: (el, i) => i * 45,
+          duration: 350,
+          ease: 'out(4)'
+        });
+      }
+    }
+  }
+
+  function closeMobileMenu() {
+    if (!mobileNavDrawer) return;
+    mobileNavDrawer.classList.remove('open');
+    if (mobileNavBackdrop) mobileNavBackdrop.classList.remove('open');
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+
+  if (mobileMenuToggle) {
+    mobileMenuToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (mobileNavDrawer && mobileNavDrawer.classList.contains('open')) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
     });
   }
 
-  if (mobileMenuClose && mobileNavDrawer) {
-    mobileMenuClose.addEventListener('click', () => {
-      mobileNavDrawer.classList.remove('open');
-      document.body.style.overflow = '';
+  if (mobileMenuClose) {
+    mobileMenuClose.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMobileMenu();
     });
   }
 
-  // Close mobile drawer on link click
+  if (mobileNavBackdrop) {
+    mobileNavBackdrop.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeMobileMenu();
+    });
+  }
+
+  // Close drawer on link click
   const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
   mobileNavLinks.forEach(link => {
     link.addEventListener('click', () => {
-      if (mobileNavDrawer) {
-        mobileNavDrawer.classList.remove('open');
-        document.body.style.overflow = '';
-      }
+      closeMobileMenu();
     });
   });
 
-  // Close drawer on backdrop click (outside drawer)
-  document.addEventListener('click', (e) => {
-    if (mobileNavDrawer && mobileNavDrawer.classList.contains('open')) {
-      if (!mobileNavDrawer.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-        mobileNavDrawer.classList.remove('open');
-        document.body.style.overflow = '';
-      }
+  // Close drawer on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mobileNavDrawer && mobileNavDrawer.classList.contains('open')) {
+      closeMobileMenu();
     }
   });
+
+  // Swipe-to-dismiss gesture on mobile drawer
+  if (mobileNavDrawer) {
+    let touchStartX = 0;
+    let touchCurrentX = 0;
+    mobileNavDrawer.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchCurrentX = touchStartX;
+    }, { passive: true });
+
+    mobileNavDrawer.addEventListener('touchmove', (e) => {
+      touchCurrentX = e.touches[0].clientX;
+    }, { passive: true });
+
+    mobileNavDrawer.addEventListener('touchend', () => {
+      // Swipe right by at least 60px to dismiss
+      if (touchCurrentX - touchStartX > 60) {
+        closeMobileMenu();
+      }
+    });
+  }
 
   // ==========================================================================
   // 12. ARCHITECTURAL CAD RULER, TACTILE CURSOR & TACTILE GRAIN

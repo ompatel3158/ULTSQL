@@ -3,10 +3,13 @@
 
 .features-container {
   max-width: 1360px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 6.75rem 1.5rem 6rem;
   position: relative;
   z-index: 1;
+  overflow-x: hidden;
 }
 
 .features-hero {
@@ -307,6 +310,10 @@
     padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem) !important;
     padding-left: 1rem;
     padding-right: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .features-hero-title {
@@ -326,6 +333,13 @@
     justify-content: flex-start;
     padding-bottom: 0.5rem;
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: none;
+  }
+
+  .features-filter-bar::-webkit-scrollbar {
+    display: none;
   }
 
   .feature-chip-btn {
@@ -336,21 +350,46 @@
   }
 
   .features-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 1.25rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .feature-card {
     padding: 1.25rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
   }
 
   .feature-card-title {
     font-size: 1.1rem;
   }
 
+  .feature-code-box {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .feature-code-box code {
+    display: block;
+    white-space: pre;
+    min-width: max-content;
+  }
+
   .features-arch-section {
     padding: 2rem 1rem;
     margin-top: 3.5rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .features-arch-title {
@@ -359,6 +398,17 @@
 
   .features-matrix-section {
     margin-top: 3.5rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .comparison-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
   }
 }
 

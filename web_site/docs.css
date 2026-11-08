@@ -3,10 +3,13 @@
 
 .docs-container {
   max-width: 1440px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 6.75rem 1.5rem 6rem;
   position: relative;
   z-index: 1;
+  overflow-x: hidden;
 }
 
 .docs-grid {
@@ -258,6 +261,9 @@
   margin: 1.5rem 0 2rem;
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .code-header {
@@ -267,11 +273,23 @@
   padding: 0.45rem 0.8rem;
   background: var(--bg-surface-elevated);
   border-bottom: 1px solid var(--border-subtle);
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 0.5rem;
 }
 
 .code-tabs {
   display: flex;
   gap: 0.35rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  max-width: calc(100% - 60px);
+  min-width: 0;
+}
+
+.code-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .code-tab-btn {
@@ -284,6 +302,8 @@
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .code-tab-btn:hover {
@@ -310,6 +330,7 @@
   align-items: center;
   gap: 0.35rem;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .code-copy-btn:hover {
@@ -327,10 +348,17 @@
   color: var(--text-primary);
   background: var(--bg-base);
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .code-block code {
   font-family: inherit;
+  display: block;
+  white-space: pre;
+  min-width: max-content;
 }
 
 /* Syntax Highlighting (Strictly Minimal Monochrome Bklit UI) */
@@ -450,21 +478,45 @@
     padding-top: calc(max(0.85rem, env(safe-area-inset-top, 0.85rem)) + 4.5rem) !important;
     padding-left: 1rem;
     padding-right: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .docs-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 1.5rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .docs-content {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .docs-sidebar {
     position: static;
     max-height: none;
     margin-bottom: 2rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .docs-title {
     font-size: 1.85rem;
+  }
+
+  .doc-section {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .doc-section-h2 {
@@ -480,12 +532,17 @@
     padding: 0.85rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
   }
 
   .doc-table-wrapper {
     margin: 1rem 0 1.5rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .doc-table {

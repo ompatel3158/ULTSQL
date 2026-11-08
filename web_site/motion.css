@@ -68,6 +68,85 @@ html.motion-leaving body { opacity: 0; transition: opacity 0.2s ease; }
   to   { opacity: 1; }
 }
 
+/* ==========================================================================
+   HIGH-TECH CAD TOP LASER LOADER & LOADING PROGRESS BEAM
+   ========================================================================== */
+.cad-top-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, var(--text-primary) 0%, var(--cad-cyan) 85%, var(--cad-green) 100%);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  opacity: 0;
+  z-index: 100099;
+  pointer-events: none;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  box-shadow: 0 0 10px var(--cad-cyan-glow);
+  will-change: transform, opacity;
+}
+
+.cad-loader-head {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  width: 14px;
+  height: 4.5px;
+  background: #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 0 10px #ffffff, 0 0 16px var(--cad-cyan);
+}
+
+[data-theme="light"] .cad-top-loader {
+  background: linear-gradient(90deg, #000000 0%, var(--cad-cyan) 85%, var(--cad-green) 100%);
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.3);
+}
+
+[data-theme="light"] .cad-loader-head {
+  background: #000000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* CAD Shimmer Loading Skeleton */
+.bench-skeleton-card {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.skeleton-line {
+  background: linear-gradient(90deg, var(--bg-surface-elevated) 0%, var(--bg-surface-hover) 50%, var(--bg-surface-elevated) 100%);
+  background-size: 200% 100%;
+  animation: cad-shimmer 1.5s infinite;
+  border-radius: var(--radius-xs);
+}
+
+@keyframes cad-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Glowing Precision Tip on Benchmark Bar Fills */
+.bench-bar-fill {
+  position: relative;
+  overflow: visible;
+  transition: width 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: width;
+}
+
+.bench-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 100%;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
 /* --------------------------------------------------------------------------
    2. SCROLL PROGRESS BAR (MONOCHROME WITH SUBTLE CYAN AURA)
    -------------------------------------------------------------------------- */

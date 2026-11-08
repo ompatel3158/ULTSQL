@@ -4,7 +4,21 @@
 
   let rawData = null;
 
+  function renderSkeletons() {
+    const grid = document.getElementById('benchCardsGrid');
+    if (!grid) return;
+    grid.innerHTML = Array(4).fill(0).map(() => `
+      <article class="bench-card metric-card bench-skeleton-card">
+        <div class="skeleton-line" style="width: 35%; height: 12px; margin-bottom: 12px;"></div>
+        <div class="skeleton-line" style="width: 70%; height: 22px; margin-bottom: 24px;"></div>
+        <div class="skeleton-line" style="width: 100%; height: 10px; margin-bottom: 12px;"></div>
+        <div class="skeleton-line" style="width: 100%; height: 10px;"></div>
+      </article>
+    `).join('');
+  }
+
   async function loadBenchmarkData() {
+    renderSkeletons();
     try {
       const res = await fetch('data/benchmarks.json');
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -123,7 +137,7 @@
               <span class="bench-engine-val" style="color:var(--text-primary);">${ult !== null ? formatVal(ult) + ' ' + item.unit : 'N/A'}</span>
             </div>
             <div class="bench-bar-track">
-              <div class="bench-bar-fill fill-ultsql" style="width: ${ultFillPct}%;"></div>
+              <div class="bench-bar-fill fill-ultsql" style="width: 0%;" data-target-width="${ultFillPct}%"></div>
             </div>
           </div>
 
@@ -134,7 +148,7 @@
               <span class="bench-engine-val" style="color:var(--text-secondary);">${formatVal(sq)} ${item.unit}</span>
             </div>
             <div class="bench-bar-track">
-              <div class="bench-bar-fill fill-sqlite" style="width: ${sqFillPct}%;"></div>
+              <div class="bench-bar-fill fill-sqlite" style="width: 0%;" data-target-width="${sqFillPct}%"></div>
             </div>
           </div>` : ''}
         </div>
@@ -143,6 +157,28 @@
       `;
 
       grid.appendChild(card);
+    });
+
+    // Animate cards entrance
+    const cards = grid.querySelectorAll('.bench-card');
+    if (window.anime && typeof window.anime.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      window.anime.animate(cards, {
+        opacity: [0, 1],
+        translateY: [16, 0],
+        delay: (el, i) => i * 35,
+        duration: 380,
+        ease: 'out(4)'
+      });
+    }
+
+    // Smooth progressive bar fill animation
+    requestAnimationFrame(() => {
+      grid.querySelectorAll('.bench-bar-fill').forEach((bar) => {
+        const target = bar.getAttribute('data-target-width');
+        if (target) {
+          bar.style.width = target;
+        }
+      });
     });
 
     if (window.UltMotion && window.UltMotion.observe) {
@@ -215,47 +251,5 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     loadBenchmarkData();
-
-    // ==========================================================================
-    // MOBILE HAMBURGER MENU TOGGLE
-    // ==========================================================================
-    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-    const mobileMenuClose = document.getElementById('mobileMenuClose');
-    const mobileNavDrawer = document.getElementById('mobileNavDrawer');
-
-    if (mobileMenuToggle && mobileNavDrawer) {
-      mobileMenuToggle.addEventListener('click', () => {
-        mobileNavDrawer.classList.add('open');
-        document.body.style.overflow = 'hidden';
-      });
-    }
-
-    if (mobileMenuClose && mobileNavDrawer) {
-      mobileMenuClose.addEventListener('click', () => {
-        mobileNavDrawer.classList.remove('open');
-        document.body.style.overflow = '';
-      });
-    }
-
-    // Close mobile drawer on link click
-    const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
-    mobileNavLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        if (mobileNavDrawer) {
-          mobileNavDrawer.classList.remove('open');
-          document.body.style.overflow = '';
-        }
-      });
-    });
-
-    // Close drawer on backdrop click (outside drawer)
-    document.addEventListener('click', (e) => {
-      if (mobileNavDrawer && mobileNavDrawer.classList.contains('open')) {
-        if (!mobileNavDrawer.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-          mobileNavDrawer.classList.remove('open');
-          document.body.style.overflow = '';
-        }
-      }
-    });
   });
 })();

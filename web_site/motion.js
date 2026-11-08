@@ -135,6 +135,52 @@
     });
   }
 
+  // ---- High-Tech CAD Top Laser Loader ----
+  let topLoaderBar = null;
+  function initTopLaserLoader() {
+    if (reduce || document.getElementById('cadTopLoader')) return;
+    topLoaderBar = document.createElement('div');
+    topLoaderBar.id = 'cadTopLoader';
+    topLoaderBar.className = 'cad-top-loader';
+    topLoaderBar.setAttribute('aria-hidden', 'true');
+    topLoaderBar.innerHTML = '<span class="cad-loader-head"></span>';
+    document.body.appendChild(topLoaderBar);
+
+    // Initial page load sequence: 0% -> 70% -> 100% -> fade
+    requestAnimationFrame(() => {
+      topLoaderBar.style.transform = 'scaleX(0.7)';
+      topLoaderBar.style.opacity = '1';
+    });
+
+    const finish = () => {
+      if (!topLoaderBar) return;
+      topLoaderBar.style.transform = 'scaleX(1)';
+      setTimeout(() => {
+        if (topLoaderBar) topLoaderBar.style.opacity = '0';
+        setTimeout(() => {
+          if (topLoaderBar) {
+            topLoaderBar.style.transform = 'scaleX(0)';
+            topLoaderBar.style.opacity = '0';
+          }
+        }, 300);
+      }, 150);
+    };
+
+    if (document.readyState === 'complete') finish();
+    else window.addEventListener('load', finish);
+  }
+
+  function startTopLoader() {
+    if (reduce || !topLoaderBar) return;
+    topLoaderBar.style.transition = 'none';
+    topLoaderBar.style.transform = 'scaleX(0)';
+    topLoaderBar.style.opacity = '1';
+    requestAnimationFrame(() => {
+      topLoaderBar.style.transition = 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease';
+      topLoaderBar.style.transform = 'scaleX(0.75)';
+    });
+  }
+
   // ---- Smooth in-page anchors + page-leave fade ----
   function links() {
     document.addEventListener('click', (e) => {
@@ -153,14 +199,22 @@
       const url = new URL(a.href, location.href);
       if (reduce || url.origin !== location.origin || url.pathname === location.pathname) return;
       e.preventDefault();
+      startTopLoader();
       root.classList.add('motion-leaving');
-      setTimeout(() => { location.href = a.href; }, 200);
+      setTimeout(() => { location.href = a.href; }, 180);
     });
     // Restore when navigating back via bfcache
-    addEventListener('pageshow', () => root.classList.remove('motion-leaving'));
+    addEventListener('pageshow', () => {
+      root.classList.remove('motion-leaving');
+      if (topLoaderBar) {
+        topLoaderBar.style.transform = 'scaleX(0)';
+        topLoaderBar.style.opacity = '0';
+      }
+    });
   }
 
   function init() {
+    initTopLaserLoader();
     observe(document);
     progressBar();
     glow();
@@ -172,5 +226,5 @@
   else init();
 
   // Public hook for dynamically rendered content.
-  window.UltMotion = { observe, runCounter, injectScanlines };
+  window.UltMotion = { observe, runCounter, injectScanlines, startTopLoader };
 })();
