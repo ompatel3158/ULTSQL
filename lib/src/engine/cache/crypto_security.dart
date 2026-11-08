@@ -44,14 +44,17 @@ class DerivedKeys {
   }
 }
 
-/// Pure-Dart enterprise cryptography engine for ULTSQL.
+/// Application-layer page encryption and authenticated envelopes for ULTSQL.
 ///
 /// Implements:
-/// - PBKDF2-HMAC-SHA256 Key Derivation with salt and 10,000+ rounds.
+/// - PBKDF2-HMAC-SHA256 Key Derivation with salt (default 100,000 rounds).
 /// - Authenticated Page Envelopes (AES-256-CTR + HMAC-SHA256).
 /// - Active bit-tamper detection and page-swap replay prevention.
 /// - Memory zeroization.
 class CryptoSecurity {
+  /// Default PBKDF2 key derivation iterations.
+  static const int defaultIterations = 100000;
+
   /// Generates cryptographically secure pseudo-random salt.
   static Uint8List generateSalt([int length = 16]) {
     final rng = Random.secure();
@@ -66,7 +69,7 @@ class CryptoSecurity {
   static DerivedKeys pbkdf2DeriveKeys(
     String passphrase,
     Uint8List salt, {
-    int iterations = 10000,
+    int iterations = defaultIterations,
   }) {
     final passwordBytes = utf8.encode(passphrase);
     final hmacSha256 = Hmac(sha256, passwordBytes);

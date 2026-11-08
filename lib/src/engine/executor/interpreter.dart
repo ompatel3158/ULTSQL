@@ -401,7 +401,7 @@ class Database {
       final content = metaFile.readAsStringSync();
       final json = jsonDecode(content) as Map<String, dynamic>;
       final salt = base64Decode(json['salt'] as String);
-      final iterations = json['iterations'] as int? ?? 10000;
+      final iterations = json['iterations'] as int? ?? CryptoSecurity.defaultIterations;
       final modeStr = json['envelopeMode'] as String?;
       final mode = (modeStr == 'companion')
           ? AuthEnvelopeMode.companion
@@ -442,7 +442,7 @@ class Database {
       final derived = CryptoSecurity.pbkdf2DeriveKeys(
         passphrase,
         salt,
-        iterations: 10000,
+        iterations: CryptoSecurity.defaultIterations,
       );
       final markerCiphertext = Uint8List.fromList(markerPlaintext);
       AesCtr(derived.encKey).cryptPage(0, markerCiphertext);
@@ -452,7 +452,7 @@ class Database {
       final data = {
         'version': 1,
         'salt': base64Encode(salt),
-        'iterations': 10000,
+        'iterations': CryptoSecurity.defaultIterations,
         'envelopeMode':
             authEnvelopeMode == AuthEnvelopeMode.companion ? 'companion' : 'inPage',
         'verificationMarker': base64Encode(markerCiphertext),
