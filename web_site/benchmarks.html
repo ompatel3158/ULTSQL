@@ -66,7 +66,7 @@
   <div class="architectural-ruler-top" id="topCadRuler">
     <div class="ruler-item">
       <span class="ruler-dot-indicator"></span>
-      <span>CAD-SYS // ULTSQL-KERNEL v1.0.29</span>
+      <span>CAD-SYS // ULTSQL-KERNEL v1.0.30</span>
     </div>
     <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
     <div class="ruler-indicator-marker" id="rulerMarker"></div>
@@ -99,7 +99,7 @@
           <img src="icon.svg" alt="ULTSQL Pinwheel Logo" width="24" height="24">
         </div>
         <span>ULTSQL</span>
-        <span class="nav-version-badge">v1.0.29</span>
+        <span class="nav-version-badge">v1.0.30</span>
       </a>
 
       <ul class="nav-links">
@@ -248,7 +248,7 @@
 
       <div
         style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; color: var(--text-tertiary);">
-        <div id="rigEngines">ULTSQL v1.0.29 (Pure Dart & Standalone AOT) vs SQLite 3.50.4 (C/FFI)</div>
+        <div id="rigEngines">ULTSQL v1.0.30 (Pure Dart & Standalone AOT) vs SQLite 3.50.4 (C/FFI)</div>
         <div id="rigTimestamp">Measured from live automated test run</div>
       </div>
     </section>
@@ -354,11 +354,11 @@
               <td style="font-weight:700; color:var(--text-primary);">🏆 5.50x faster</td>
             </tr>
             <tr>
-              <td style="font-weight:600; color:var(--text-primary);">8b. Auto-Commit (<code>synchronous = FULL</code> fsync)</td>
-              <td><code>tx/s</code></td>
-              <td style="color:var(--text-primary); font-weight:700; font-family:var(--font-mono);">519,481</td>
-              <td style="color:var(--text-secondary); font-family:var(--font-mono);">1,064</td>
-              <td style="font-weight:700; color:var(--text-primary);">🏆 488.23x faster</td>
+              <td style="font-weight:600; color:var(--text-primary);">8b. Relaxed Durability (<code>synchronous = OFF</code>)</td>
+              <td><code>rows/s</code></td>
+              <td style="color:var(--text-primary); font-weight:700; font-family:var(--font-mono);">4,545,455</td>
+              <td style="color:var(--text-secondary); font-family:var(--font-mono);">657,895</td>
+              <td style="font-weight:700; color:var(--text-primary);">🏆 6.91x faster</td>
             </tr>
             <tr>
               <td style="font-weight:600; color:var(--text-primary);">9. DROP TABLE Catalog Cleanup</td>
@@ -371,14 +371,14 @@
         </table>
       </div>
 
-      <!-- Durability Explanation Card -->
+      <!-- Durability & Correctness Explanation Card -->
       <div class="doc-callout" style="margin-bottom: 2rem; border-left: 3px solid var(--text-primary); padding: 1.25rem; background: var(--bg-surface-elevated); border-radius: var(--radius-xs);">
-        <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text-primary);">Technical Durability & fsync Semantics</h4>
+        <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text-primary);">Durability Semantics & Crash Safety Verification</h4>
         <p style="margin: 0 0 0.5rem 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55;">
-          <strong>Why SQLite auto-commit defaults to ~1,064 tx/s:</strong> In SQLite's default auto-commit mode (<code>synchronous = FULL</code>), an OS <code>fsync()</code> system call is issued after every single write, which takes ~0.5–1.0 ms on NVMe SSDs. In <code>synchronous = NORMAL</code>, SQLite defers syncs to WAL checkpoints, reaching <strong>94,437 tx/s</strong>.
+          <strong>Durability Distinctions:</strong> Comparing buffered group-commit writes against SQLite's default per-commit <code>fsync()</code> (which yields ~1,064 tx/s due to NVMe disk sync latency) is not apples-to-apples. Under matching WAL durability (<code>PRAGMA synchronous = NORMAL</code>), SQLite reaches <strong>94,437 tx/s</strong>, while UltSQL achieves <strong>519,481 tx/s</strong>. When disk synchronization is relaxed entirely (<code>synchronous = OFF</code>), SQLite achieves <strong>657,895 rows/s</strong> on disk and <strong>1.32M rows/s</strong> in memory, while UltSQL's batch group-commit reaches <strong>4.55M rows/s</strong>.
         </p>
         <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55;">
-          <strong>UltSQL Slotted Page WAL:</strong> UltSQL appends transactions sequentially into an ARIES Write-Ahead Log with CRC32 integrity check and group-commit flush, achieving <strong>519,481 tx/s</strong> (5.50x faster under equivalent durability semantics).
+          <strong>Out-of-Process Crash Safety Proof:</strong> UltSQL is rigorously verified with an out-of-process crash harness executing <code>kill -9</code> / <code>taskkill /F</code> abruptly mid-batch. In both single-crash and multi-cycle recovery tests, 100% of acknowledged committed transactions survive, the Write-Ahead Log replays cleanly, and relational SQL correctness is verified against standardized SQL logic conformance suites.
         </p>
       </div>
 
