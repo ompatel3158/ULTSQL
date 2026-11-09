@@ -1,10 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -14 136 136" width="100%" height="100%">
-  <!-- Background -->
-  <rect width="108" height="108" rx="24" fill="#000000" />
+  <defs>
+    <!-- Center Core Cutout Hole -->
+    <mask id="pinwheel-core-cutout">
+      <rect x="-50" y="-50" width="236" height="236" fill="white" />
+      <circle cx="54" cy="54" r="4.8" fill="black" />
+    </mask>
+  </defs>
   
-  <!-- 3-Petal Pinwheel Logo (Perfectly padded, 0% cropping) -->
-  <g transform="translate(54, 54) scale(2.4) translate(-54, -54)">
-    <g fill="#FFFFFF">
+  <!-- 3-Petal Pinwheel Logo (Transparent background, zero black box) -->
+  <g mask="url(#pinwheel-core-cutout)">
+    <g transform="translate(54, 54) scale(2.4) translate(-54, -54)" fill="#FFFFFF">
       <!-- Petal 1 (0 deg) -->
       <path d="M 54,35.5 A 4.2,10.1 0 1,1 54,55.7 A 4.2,10.1 0 1,1 54,35.5 Z" />
       
@@ -14,8 +19,5 @@
       <!-- Petal 3 (240 deg) -->
       <path d="M 54,35.5 A 4.2,10.1 0 1,1 54,55.7 A 4.2,10.1 0 1,1 54,35.5 Z" transform="rotate(240, 54, 54)" />
     </g>
-
-    <!-- Center Core Cutout -->
-    <circle cx="54" cy="54" r="2" fill="#000000" />
   </g>
 </svg>

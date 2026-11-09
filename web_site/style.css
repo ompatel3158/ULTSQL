@@ -263,11 +263,12 @@ code, pre {
 }
 
 .nav-brand img {
-  filter: grayscale(1) brightness(1.2);
+  filter: none;
+  transition: filter var(--transition-normal);
 }
 
 [data-theme="light"] .nav-brand img {
-  filter: grayscale(1) brightness(0.2);
+  filter: brightness(0);
 }
 
 .nav-version-badge {
