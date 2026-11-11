@@ -32,7 +32,7 @@ if os.path.exists(readme_path):
 
 setup(
     name="ultsql",
-    version="1.0.30",
+    version="1.0.31",
     description="Universal Python client and embedded engine for UltSQL multimodal database.",
     long_description=long_description,
     long_description_content_type="text/markdown",

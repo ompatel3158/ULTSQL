@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.0.31
+
+- **Adversarial Chaos & Architectural Defect Hardening (24 Defects Resolved)**:
+  - **Storage & WAL Integrity**:
+    - Replaced 16-bit code unit byte truncation with full UTF-8 byte serialization in `TableFile`, preserving non-ASCII text (Cyrillic, Greek, Emojis) across disk persistence and cold restarts.
+    - Added CRC32 checksums to WAL record frames and implemented resilient recovery preventing torn frames from applying partial or corrupted transactions.
+    - Encrypted `catalog.db` with AES-CTR when database encryption is enabled (`passphrase != null`), securing schema metadata and column names on disk.
+    - Added automatic schema reload synchronization across background isolates in `Catalog`.
+    - Redacted raw query literals in `AuditLogger` to prevent sensitive credentials and tokens from leaking in plaintext logs.
+  - **SQL Parser & Grammar Enhancements**:
+    - Added support for SQL-standard escaped single quotes (`''`) and backslash escaped quotes (`\'`).
+    - Added support for standard C-style block comments (`/* ... */`), multi-line comments, and inline expression comments.
+    - Added support for scientific notation numbers (`1e10`, `1e-5`, `2.5e3`).
+    - Supported parameter alias lists in recursive CTEs (`WITH RECURSIVE cnt(n) AS (...)`).
+    - Added duplicate column validation in `CREATE TABLE` and `TableSchema`, rejecting redundant column definitions with `FormatException`.
+    - Fixed cursor declaration parsing in PL/SQL (`CURSOR c IS SELECT ...`).
+    - Enabled SQL data type keywords (`text`, `int`, `count`, etc.) as valid column identifiers.
+  - **Execution & Math Safety**:
+    - Guarded modulo by zero (`SELECT 10 % 0;`, `SELECT mod(10, 0);`) in plan execution and JIT compiler, returning `DbNull` instead of crashing with uncaught `IntegerDivisionByZeroException`.
+  - **Multi-Model: NoSQL Document Store**:
+    - Restored TOAST overflow resolution in point reads (`_fetchDocAtPointer`), preserving documents larger than 1024 bytes across cold restarts.
+    - Fixed array index updates in `$set` (`'tags.1': 'val'`) to mutate lists in-place without replacing them with Maps.
+    - Added static ReDoS protection in `QueryFilter`, safely rejecting catastrophic backtracking regex patterns (`(a+)+`, `(a|aa)+`).
+  - **Multi-Model: HNSW Vector RAG**:
+    - Added validation rejecting `NaN` and `Infinity` coordinates in vectors and search queries with `ArgumentError`.
+    - Enforced strict vector dimension checks throwing `ArgumentError` on mismatch across distance functions.
+    - Added automatic L2 vector normalization for Cosine distance metric during insert and search.
+  - **Multi-Model: Redis-Style Key-Value Store**:
+    - Implemented key-level asynchronous queuing (`_synchronizedKey`) in `KVStore` eliminating lost updates during concurrent `incr()` / `decr()` calls.
+    - Fixed JSON serialization for Map and List values in KV store, avoiding nested quote double-encoding.
+    - Enforced immediate expiration and deletion on negative or zero TTL durations.
+- **Dedicated Automated Adversarial Regression Suite**:
+  - Added `test/adversarial_audit_defects_test.dart` covering all 24 defect vectors with 100% pass rate.
+
 ## 1.0.30
 
 - **SQLite sqllogictest Conformance & SQL Expression Support**:

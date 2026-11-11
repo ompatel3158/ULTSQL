@@ -1340,7 +1340,7 @@ SELECT * FROM system_audit ORDER BY id ASC;`
       ruler.innerHTML = `
         <div class="ruler-item ruler-sys-brand">
           <span class="ruler-dot-indicator"></span>
-          <span>CAD-SYS // ULTSQL-KERNEL v1.0.30</span>
+          <span>CAD-SYS // ULTSQL-KERNEL v1.0.31</span>
         </div>
         <div class="ruler-ticks-track" id="rulerTicksTrack"></div>
         <div class="ruler-indicator-marker" id="rulerMarker"></div>
