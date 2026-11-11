@@ -117,13 +117,24 @@ class HnswIndex {
   }
 
   void insertSync(DbVector vector, int pageId, int slotId) {
+    for (final coord in vector.value) {
+      if (!coord.isFinite) {
+        throw ArgumentError('Vector coordinate must be finite (got $coord)');
+      }
+    }
+    if (nodes.isNotEmpty && vector.value.length != nodes.first.vector.value.length) {
+      throw ArgumentError(
+        'Vector dimension mismatch: expected ${nodes.first.vector.value.length}, got ${vector.value.length}',
+      );
+    }
+    final effectiveVector = (metric.toLowerCase() == 'cosine') ? vector.normalized() : vector;
     final newNodeId = nodes.length;
     final int level = _getRandomLevel();
 
     final neighbors = List<List<int>>.generate(level + 1, (_) => []);
     final newNode = HnswNode(
       id: newNodeId,
-      vector: vector,
+      vector: effectiveVector,
       pageId: pageId,
       slotId: slotId,
       neighbors: neighbors,
@@ -144,7 +155,7 @@ class HnswIndex {
 
     // Phase 1: Search top-down to find closest node at the new node's level
     for (int l = currEnterLevel; l > level; l--) {
-      currEnterNode = _searchLayerGreedy(vector, currEnterNode, l);
+      currEnterNode = _searchLayerGreedy(effectiveVector, currEnterNode, l);
     }
 
     // Phase 2: Insert into levels from min(level, enterLevel) down to 0
@@ -152,9 +163,9 @@ class HnswIndex {
     List<int> enterNodes = [currEnterNode];
 
     for (int l = startLevel; l >= 0; l--) {
-      final candidates = _searchLayer(vector, enterNodes, efConstruction, l);
+      final candidates = _searchLayer(effectiveVector, enterNodes, efConstruction, l);
       final selectedNeighbors = _selectNeighbors(
-        vector,
+        effectiveVector,
         candidates,
         l == 0 ? M0 : M,
       );
@@ -297,17 +308,28 @@ class HnswIndex {
     int k, {
     bool Function(int pageId, int slotId)? filter,
   }) {
+    for (final coord in query.value) {
+      if (!coord.isFinite) {
+        throw ArgumentError('Query vector coordinate must be finite (got $coord)');
+      }
+    }
     if (nodes.isEmpty || enterNodeId == null) return [];
+    if (query.value.length != nodes.first.vector.value.length) {
+      throw ArgumentError(
+        'Vector dimension mismatch: expected ${nodes.first.vector.value.length}, got ${query.value.length}',
+      );
+    }
+    final effectiveQuery = (metric.toLowerCase() == 'cosine') ? query.normalized() : query;
 
     int currEnterNode = enterNodeId!;
     int currEnterLevel = enterLevel;
 
     for (int l = currEnterLevel; l > 0; l--) {
-      currEnterNode = _searchLayerGreedy(query, currEnterNode, l);
+      currEnterNode = _searchLayerGreedy(effectiveQuery, currEnterNode, l);
     }
 
     final candidates = _searchLayer(
-      query,
+      effectiveQuery,
       [currEnterNode],
       efSearch > k ? efSearch : k,
       0,

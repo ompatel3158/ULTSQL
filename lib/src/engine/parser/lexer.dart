@@ -236,6 +236,18 @@ class Lexer {
           buffer.write(_advance());
         }
       }
+      if (_peek().toLowerCase() == 'e') {
+        final next = _peekNext();
+        if (_isDigit(next) || next == '+' || next == '-') {
+          buffer.write(_advance()); // Consume 'e' or 'E'
+          if (_peek() == '+' || _peek() == '-') {
+            buffer.write(_advance()); // Consume '+' or '-'
+          }
+          while (_isDigit(_peek())) {
+            buffer.write(_advance());
+          }
+        }
+      }
       return Token(
         TokenType.numberLiteral,
         buffer.toString(),
@@ -247,24 +259,34 @@ class Lexer {
     // Strings (bounded by single quotes)
     if (char == "'") {
       final buffer = StringBuffer();
-      while (_peek() != "'" && !_isAtEnd) {
-        if (_peek() == '\n') {
-          // Multiline string
+      while (!_isAtEnd) {
+        if (_peek() == "'") {
+          if (_peekNext() == "'") {
+            // Escaped single quote: '' -> '
+            _advance(); // first '
+            _advance(); // second '
+            buffer.write("'");
+          } else {
+            // Closing quote
+            _advance();
+            return Token(
+              TokenType.stringLiteral,
+              buffer.toString(),
+              startLine,
+              startCol,
+            );
+          }
+        } else if (_peek() == r'\' && _peekNext() == "'") {
+          // Backslash escaped quote: \' -> '
+          _advance(); // \
+          buffer.write(_advance()); // '
+        } else {
+          buffer.write(_advance());
         }
-        buffer.write(_advance());
       }
-      if (_isAtEnd) {
-        return Token(
-          TokenType.invalid,
-          'Unterminated string literal',
-          startLine,
-          startCol,
-        );
-      }
-      _advance(); // Consume closing quote
       return Token(
-        TokenType.stringLiteral,
-        buffer.toString(),
+        TokenType.invalid,
+        'Unterminated string literal',
         startLine,
         startCol,
       );
@@ -378,6 +400,18 @@ class Lexer {
       } else if (char == '-' && _peekNext() == '-') {
         // Skip comment line
         while (_peek() != '\n' && !_isAtEnd) {
+          _advance();
+        }
+      } else if (char == '/' && _peekNext() == '*') {
+        // Skip block comment /* ... */
+        _advance(); // '/'
+        _advance(); // '*'
+        while (!_isAtEnd) {
+          if (_peek() == '*' && _peekNext() == '/') {
+            _advance(); // '*'
+            _advance(); // '/'
+            break;
+          }
           _advance();
         }
       } else {

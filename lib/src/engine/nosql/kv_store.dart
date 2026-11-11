@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import '../executor/interpreter.dart';
 
@@ -8,7 +9,7 @@ class _KVEntry {
   _KVEntry({required this.value, this.expiresAt = 0});
 
   bool get isExpired =>
-      expiresAt > 0 && DateTime.now().millisecondsSinceEpoch >= expiresAt;
+      expiresAt != 0 && DateTime.now().millisecondsSinceEpoch >= expiresAt;
 }
 
 /// High-performance Key-Value engine with in-memory caching and persistent WAL durability.
@@ -51,9 +52,31 @@ class KVStore {
     _initialized = true;
   }
 
+  final Map<String, Future<dynamic>> _keyLocks = {};
+
+  Future<T> _synchronizedKey<T>(String key, Future<T> Function() action) async {
+    while (_keyLocks.containsKey(key)) {
+      try {
+        await _keyLocks[key];
+      } catch (_) {}
+    }
+    final completer = Completer<void>();
+    _keyLocks[key] = completer.future;
+    try {
+      return await action();
+    } finally {
+      _keyLocks.remove(key);
+      completer.complete();
+    }
+  }
+
   /// Sets a [key]-[value] pair with optional Time-To-Live [ttl].
   Future<void> set(String key, dynamic value, {Duration? ttl}) async {
     await _ensureInitialized();
+    if (ttl != null && ttl.isNegative) {
+      await delete(key);
+      return;
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     final expiresAt = (ttl != null) ? (now + ttl.inMilliseconds) : 0;
 
@@ -100,12 +123,14 @@ class KVStore {
 
   /// Atomically increments a numeric value by [amount] (default 1).
   Future<int> incr(String key, [int amount = 1]) async {
-    await _ensureInitialized();
-    final current = await get(key);
-    final int currentVal = (current is num) ? current.toInt() : 0;
-    final newVal = currentVal + amount;
-    await set(key, newVal);
-    return newVal;
+    return _synchronizedKey(key, () async {
+      await _ensureInitialized();
+      final current = await get(key);
+      final int currentVal = (current is num) ? current.toInt() : 0;
+      final newVal = currentVal + amount;
+      await set(key, newVal);
+      return newVal;
+    });
   }
 
   /// Atomically decrements a numeric value by [amount] (default 1).
@@ -198,6 +223,11 @@ class KVStore {
   dynamic _deserialize(String raw, int typeCode) {
     switch (typeCode) {
       case 0:
+        if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+          try {
+            return jsonDecode(raw);
+          } catch (_) {}
+        }
         return null;
       case 1:
         return int.tryParse(raw) ?? 0;
@@ -214,6 +244,11 @@ class KVStore {
           return raw;
         }
       default:
+        if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+          try {
+            return jsonDecode(raw);
+          } catch (_) {}
+        }
         return raw;
     }
   }

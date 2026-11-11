@@ -80,7 +80,7 @@ class Document {
     return current;
   }
 
-  /// Sets a value at the specified dotted path, creating nested maps if needed.
+  /// Sets a value at the specified dotted path, creating nested maps or expanding lists if needed.
   void setByPath(String path, dynamic value) {
     if (path == '_id') return; // Cannot mutate _id
     if (!path.contains('.')) {
@@ -93,18 +93,48 @@ class Document {
 
     for (int i = 0; i < parts.length - 1; i++) {
       final part = parts[i];
+      final nextPart = parts[i + 1];
+      final nextIdx = int.tryParse(nextPart);
+
       if (current is Map) {
-        if (!current.containsKey(part) || current[part] is! Map) {
-          current[part] = <String, dynamic>{};
+        if (!current.containsKey(part) || (current[part] is! Map && current[part] is! List)) {
+          if (nextIdx != null) {
+            current[part] = <dynamic>[];
+          } else {
+            current[part] = <String, dynamic>{};
+          }
         }
         current = current[part];
+      } else if (current is List) {
+        final idx = int.tryParse(part);
+        if (idx == null || idx < 0) return;
+        while (current.length <= idx) {
+          current.add(null);
+        }
+        if (current[idx] is! Map && current[idx] is! List) {
+          if (nextIdx != null) {
+            current[idx] = <dynamic>[];
+          } else {
+            current[idx] = <String, dynamic>{};
+          }
+        }
+        current = current[idx];
       } else {
         return;
       }
     }
 
+    final lastPart = parts.last;
     if (current is Map) {
-      current[parts.last] = value;
+      current[lastPart] = value;
+    } else if (current is List) {
+      final idx = int.tryParse(lastPart);
+      if (idx != null && idx >= 0) {
+        while (current.length <= idx) {
+          current.add(null);
+        }
+        current[idx] = value;
+      }
     }
   }
 
@@ -119,19 +149,43 @@ class Document {
     dynamic current = data;
 
     for (int i = 0; i < parts.length - 1; i++) {
-      if (current is! Map) return false;
-      current = current[parts[i]];
+      final part = parts[i];
+      if (current is Map) {
+        current = current[part];
+      } else if (current is List) {
+        final idx = int.tryParse(part);
+        if (idx == null || idx < 0 || idx >= current.length) return false;
+        current = current[idx];
+      } else {
+        return false;
+      }
     }
 
+    final lastPart = parts.last;
     if (current is Map) {
-      return current.remove(parts.last) != null;
+      return current.remove(lastPart) != null;
+    } else if (current is List) {
+      final idx = int.tryParse(lastPart);
+      if (idx != null && idx >= 0 && idx < current.length) {
+        current.removeAt(idx);
+        return true;
+      }
     }
     return false;
   }
 
+  static dynamic _deepCloneValue(dynamic obj) {
+    if (obj is Map) {
+      return obj.map((k, v) => MapEntry(k.toString(), _deepCloneValue(v)));
+    } else if (obj is List) {
+      return obj.map(_deepCloneValue).toList();
+    }
+    return obj;
+  }
+
   /// Clones this document deeply.
   Document clone() {
-    final clonedMap = jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
+    final clonedMap = _deepCloneValue(data) as Map<String, dynamic>;
     return Document(id: id, data: clonedMap);
   }
 

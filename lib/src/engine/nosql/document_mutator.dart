@@ -49,6 +49,10 @@ class DocumentMutator {
             final current = doc.getByPath(f.key);
             final delta = f.value;
             if (delta is num) {
+              if (current != null && current is! num) {
+                // Reject type confusion on non-numeric scalar
+                continue;
+              }
               final newVal = (current is num) ? (current + delta) : delta;
               doc.setByPath(f.key, newVal);
               mutated = true;
@@ -62,6 +66,10 @@ class DocumentMutator {
             final current = doc.getByPath(f.key);
             final factor = f.value;
             if (factor is num) {
+              if (current != null && current is! num) {
+                // Reject type confusion on non-numeric scalar
+                continue;
+              }
               final newVal = (current is num) ? (current * factor) : 0;
               doc.setByPath(f.key, newVal);
               mutated = true;
@@ -73,6 +81,10 @@ class DocumentMutator {
           for (final f in payload.entries) {
             if (f.key == '_id') continue;
             var list = doc.getByPath(f.key);
+            if (list != null && list is! List) {
+              // In MongoDB, $push on a non-array is a type error and rejected
+              continue;
+            }
             if (list == null) {
               list = <dynamic>[];
               doc.setByPath(f.key, list);

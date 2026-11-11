@@ -6,14 +6,20 @@ class AuditLogger {
   final StringBuffer _buffer = StringBuffer();
   RandomAccessFile? _raf;
   bool _pendingWrite = false;
+  bool redactSensitiveLiterals = true;
 
   AuditLogger(this.dbPath);
   bool enabled = true;
 
+  static String _redactQuery(String query) {
+    return query.replaceAll(RegExp(r"'([^']*)'"), "'***'");
+  }
+
   void logQuery(String username, String query) {
     if (!enabled || dbPath == ':memory:' || identical(0, 0.0)) return;
+    final sanitizedQuery = redactSensitiveLiterals ? _redactQuery(query) : query;
     final timestamp = DateTime.now().toIso8601String();
-    _buffer.writeln('[$timestamp] USER: $username | QUERY: $query');
+    _buffer.writeln('[$timestamp] USER: $username | QUERY: $sanitizedQuery');
     if (!_pendingWrite) {
       _pendingWrite = true;
       Future.microtask(() {

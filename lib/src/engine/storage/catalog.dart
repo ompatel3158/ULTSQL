@@ -1,3 +1,5 @@
+import '../cache/aes_crypt.dart';
+import 'dart:typed_data';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -214,6 +216,12 @@ class TableSchema {
        columnMaskedWith =
            columnMaskedWith ?? List.filled(columnNames.length, null),
        partitionChildren = partitionChildren ?? [] {
+    final seen = <String>{};
+    for (final col in columnNames) {
+      if (!seen.add(col.toLowerCase())) {
+        throw FormatException("Duplicate column name '$col' in table '$name'.");
+      }
+    }
     columnNamesLower = columnNames.map((c) => c.toLowerCase()).toList();
     columnIndexMap = {
       for (int i = 0; i < columnNamesLower.length; i++) columnNamesLower[i]: i,
@@ -734,9 +742,69 @@ class Catalog {
   }
 
   String get _catalogPath => '$basePath/catalog.db';
+  Uint8List? encryptionKey;
+  DateTime? _lastDiskModified;
 
-  TableSchema? getTableSchema(String name) => _tables[name.toLowerCase()];
-  bool hasTable(String name) => _tables.containsKey(name.toLowerCase());
+  void _reloadIfDiskModifiedSync({bool merge = false}) {
+    if (basePath == ':memory:' || basePath.startsWith(':memory:') || identical(0, 0.0)) return;
+    try {
+      final file = File(_catalogPath);
+      if (!file.existsSync()) return;
+      final mod = file.lastModifiedSync();
+      if (_lastDiskModified == null || mod.isAfter(_lastDiskModified!)) {
+        _lastDiskModified = mod;
+        final rawBytes = file.readAsBytesSync();
+        if (rawBytes.isEmpty) return;
+        Uint8List contentBytes = rawBytes;
+        if (encryptionKey != null) {
+          contentBytes = Uint8List.fromList(rawBytes);
+          final aes = AesCtr(encryptionKey!);
+          aes.cryptPage(0, contentBytes);
+        }
+        final content = utf8.decode(contentBytes);
+        final Map<String, dynamic> jsonMap = json.decode(content);
+        if (!merge) {
+          _tables.clear();
+          _relationships.clear();
+          _indexes.clear();
+          _tableIndexesCache.clear();
+        }
+        if (jsonMap.containsKey('tables')) {
+          final tablesMap = jsonMap['tables'] as Map<String, dynamic>;
+          tablesMap.forEach((key, val) {
+            if (!merge || !_tables.containsKey(key.toLowerCase())) {
+              _tables[key.toLowerCase()] = TableSchema.fromJson(val);
+            }
+          });
+        }
+        if (jsonMap.containsKey('relationships')) {
+          final relsMap = jsonMap['relationships'] as Map<String, dynamic>;
+          relsMap.forEach((key, val) {
+            if (!merge || !_relationships.containsKey(key.toLowerCase())) {
+              _relationships[key.toLowerCase()] = RelationshipSchema.fromJson(val);
+            }
+          });
+        }
+        if (jsonMap.containsKey('indexes')) {
+          final idxMap = jsonMap['indexes'] as Map<String, dynamic>;
+          idxMap.forEach((key, val) {
+            if (!merge || !_indexes.containsKey(key.toLowerCase())) {
+              _indexes[key.toLowerCase()] = IndexSchema.fromJson(val);
+            }
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  TableSchema? getTableSchema(String name) {
+    _reloadIfDiskModifiedSync();
+    return _tables[name.toLowerCase()];
+  }
+  bool hasTable(String name) {
+    _reloadIfDiskModifiedSync();
+    return _tables.containsKey(name.toLowerCase());
+  }
 
   void addTable(TableSchema schema, {bool saveToFile = true}) {
     _tables[schema.name.toLowerCase()] = schema;
@@ -821,7 +889,16 @@ class Catalog {
       final file = File(_catalogPath);
       if (!await file.exists()) return;
       loadedFromDisk = true;
-      final content = await file.readAsString();
+      _lastDiskModified = await file.lastModified();
+      final rawBytes = await file.readAsBytes();
+      if (rawBytes.isEmpty) return;
+      Uint8List contentBytes = rawBytes;
+      if (encryptionKey != null) {
+        contentBytes = Uint8List.fromList(rawBytes);
+        final aes = AesCtr(encryptionKey!);
+        aes.cryptPage(0, contentBytes);
+      }
+      final content = utf8.decode(contentBytes);
       final Map<String, dynamic> jsonMap = json.decode(content);
       _tableIndexesCache.clear();
       _tables.clear();
@@ -955,20 +1032,28 @@ class Catalog {
         basePath.startsWith(':memory:') ||
         identical(0, 0.0)) return;
     try {
+      _reloadIfDiskModifiedSync(merge: true);
       final file = File(_catalogPath);
       if (!file.parent.existsSync()) {
         file.parent.createSync(recursive: true);
       }
       final outputMap = _buildCatalogMap();
       final content = json.encode(outputMap);
+      Uint8List bytes = utf8.encode(content);
+      if (encryptionKey != null) {
+        bytes = Uint8List.fromList(bytes);
+        final aes = AesCtr(encryptionKey!);
+        aes.cryptPage(0, bytes);
+      }
       final tmpFile = File('$_catalogPath.tmp');
-      tmpFile.writeAsStringSync(content, flush: true);
+      tmpFile.writeAsBytesSync(bytes, flush: true);
       try {
         if (file.existsSync()) file.deleteSync();
         tmpFile.renameSync(_catalogPath);
       } catch (_) {
-        file.writeAsStringSync(content, flush: true);
+        file.writeAsBytesSync(bytes, flush: true);
       }
+      _lastDiskModified = file.existsSync() ? file.lastModifiedSync() : null;
     } catch (_) {}
   }
 

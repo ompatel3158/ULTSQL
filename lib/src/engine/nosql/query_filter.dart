@@ -78,6 +78,9 @@ class QueryFilter {
       case r'$regex':
         if (actual == null) return false;
         final pattern = target.toString();
+        if (_isVulnerableToReDoS(pattern)) {
+          return false;
+        }
         try {
           final regex = RegExp(pattern, caseSensitive: false);
           return regex.hasMatch(actual.toString());
@@ -164,6 +167,16 @@ class QueryFilter {
     }
 
     return a.toString().compareTo(b.toString());
+  }
+
+  static final _reDosNestedQuantifier = RegExp(r'\((?:[^\(\)]*[\+\*]){1,}[^\(\)]*\)[\+\*\{]');
+  static final _reDosAlternationOverlap = RegExp(r'\((?:[a-zA-Z0-9_]+\|[a-zA-Z0-9_]+)\)[\+\*\{]');
+
+  static bool _isVulnerableToReDoS(String pattern) {
+    if (pattern.length > 500) return true;
+    if (_reDosNestedQuantifier.hasMatch(pattern)) return true;
+    if (_reDosAlternationOverlap.hasMatch(pattern)) return true;
+    return false;
   }
 }
 
@@ -358,4 +371,5 @@ class CompiledFilterRule {
     }
     return QueryFilter._compareEqual(actual, expected);
   }
+
 }

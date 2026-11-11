@@ -1,3 +1,4 @@
+import 'crc32.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -708,6 +709,9 @@ class PageCache {
       final header = ByteData(4)..setUint32(0, jsonBytes.length, Endian.big);
       builder.add(header.buffer.asUint8List());
       builder.add(jsonBytes);
+      final crc = Crc32.compute(jsonBytes);
+      final crcBytes = ByteData(4)..setUint32(0, crc, Endian.big);
+      builder.add(crcBytes.buffer.asUint8List());
     } else if (type == 2) {
       // PAGE_RECORD
       final pathBytes = _encodedPathsCache.putIfAbsent(
@@ -720,7 +724,11 @@ class PageCache {
       builder.add(header.buffer.asUint8List());
       builder.add(pathBytes);
       builder.add(before as Uint8List);
-      builder.add(after!);
+      final afterData = after!;
+      builder.add(afterData);
+      final crc = Crc32.compute(afterData);
+      final crcBytes = ByteData(4)..setUint32(0, crc, Endian.big);
+      builder.add(crcBytes.buffer.asUint8List());
     } else if (type == 3) {
       // COMMIT_TX
       // No extra payload
@@ -776,6 +784,7 @@ class PageCache {
       print('WAL file found. Starting recovery...');
       final bytes = walFile.readAsBytesSync();
       int offset = 0;
+      bool hasCorruptedRecords = false;
 
       final List<_RecoverTx> txList = [];
       _RecoverTx? currentTx;
@@ -787,19 +796,44 @@ class PageCache {
 
           if (type == 1) {
             // START_TX
+            if (offset + 4 > bytes.length) {
+              hasCorruptedRecords = true;
+              break;
+            }
             final jsonLen = ByteData.sublistView(
               bytes,
               offset,
               offset + 4,
             ).getUint32(0, Endian.big);
             offset += 4;
+            if (jsonLen < 0 || offset + jsonLen > bytes.length) {
+              hasCorruptedRecords = true;
+              break;
+            }
             final jsonBytes = bytes.sublist(offset, offset + jsonLen);
             offset += jsonLen;
+            if (offset + 4 <= bytes.length) {
+              final expectedCrc = ByteData.sublistView(
+                bytes,
+                offset,
+                offset + 4,
+              ).getUint32(0, Endian.big);
+              final actualCrc = Crc32.compute(jsonBytes);
+              if (expectedCrc != actualCrc) {
+                hasCorruptedRecords = true;
+                if (currentTx != null) currentTx.isCorrupted = true;
+              }
+              offset += 4;
+            }
             final catalogBackupJson = utf8.decode(jsonBytes);
             currentTx = _RecoverTx(catalogBackupJson: catalogBackupJson);
             txList.add(currentTx);
           } else if (type == 2) {
             // PAGE_RECORD
+            if (offset + 8 > bytes.length) {
+              hasCorruptedRecords = true;
+              break;
+            }
             final pathLen = ByteData.sublistView(
               bytes,
               offset,
@@ -812,6 +846,10 @@ class PageCache {
               offset + 4,
             ).getUint32(0, Endian.big);
             offset += 4;
+            if (pathLen < 0 || offset + pathLen + pageSize * 2 > bytes.length) {
+              hasCorruptedRecords = true;
+              break;
+            }
             final pathBytes = bytes.sublist(offset, offset + pathLen);
             offset += pathLen;
             final filePath = utf8.decode(pathBytes);
@@ -821,6 +859,20 @@ class PageCache {
 
             final afterBytes = bytes.sublist(offset, offset + pageSize);
             offset += pageSize;
+
+            if (offset + 4 <= bytes.length) {
+              final expectedCrc = ByteData.sublistView(
+                bytes,
+                offset,
+                offset + 4,
+              ).getUint32(0, Endian.big);
+              final actualCrc = Crc32.compute(afterBytes);
+              if (expectedCrc != actualCrc) {
+                hasCorruptedRecords = true;
+                if (currentTx != null) currentTx.isCorrupted = true;
+              }
+              offset += 4;
+            }
 
             // Decrypt if encryption key is present
             if (encryptionKey != null) {
@@ -835,6 +887,10 @@ class PageCache {
             );
           } else if (type == 4) {
             // REDO_PAGE_RECORD (committed frame, after bytes only)
+            if (offset + 8 > bytes.length) {
+              hasCorruptedRecords = true;
+              break;
+            }
             final pathLen = ByteData.sublistView(
               bytes,
               offset,
@@ -847,12 +903,30 @@ class PageCache {
               offset + 4,
             ).getUint32(0, Endian.big);
             offset += 4;
+            if (pathLen < 0 || offset + pathLen + pageSize > bytes.length) {
+              hasCorruptedRecords = true;
+              break;
+            }
             final pathBytes = bytes.sublist(offset, offset + pathLen);
             offset += pathLen;
             final filePath = utf8.decode(pathBytes);
 
             final afterBytes = bytes.sublist(offset, offset + pageSize);
             offset += pageSize;
+
+            if (offset + 4 <= bytes.length) {
+              final expectedCrc = ByteData.sublistView(
+                bytes,
+                offset,
+                offset + 4,
+              ).getUint32(0, Endian.big);
+              final actualCrc = Crc32.compute(afterBytes);
+              if (expectedCrc != actualCrc) {
+                hasCorruptedRecords = true;
+                if (currentTx != null) currentTx.isCorrupted = true;
+              }
+              offset += 4;
+            }
 
             if (encryptionKey != null) {
               _cryptPageData(pageId, afterBytes);
@@ -871,21 +945,24 @@ class PageCache {
           }
         }
       } catch (e) {
+        hasCorruptedRecords = true;
         print('WAL parsing ended or failed: $e');
       }
 
       for (final tx in txList) {
-        if (tx.isCommitted) {
+        if (tx.isCommitted && !tx.isCorrupted) {
           print('Transaction committed. Replaying modifications...');
           for (final rec in tx.pageRecords) {
             final pager = getOrCreatePager(rec.filePath);
             pager.writePageSync(rec.pageId, rec.afterBytes);
           }
-        } else {
+        } else if (!tx.isCommitted && !tx.isCorrupted) {
           print('Transaction was not committed. Reverting modifications...');
           for (final rec in tx.pageRecords.reversed) {
-            final pager = getOrCreatePager(rec.filePath);
-            pager.writePageSync(rec.pageId, rec.beforeBytes);
+            if (rec.beforeBytes.isNotEmpty) {
+              final pager = getOrCreatePager(rec.filePath);
+              pager.writePageSync(rec.pageId, rec.beforeBytes);
+            }
           }
           if (tx.catalogBackupJson != null) {
             try {
@@ -904,11 +981,17 @@ class PageCache {
       try {
         _walFile?.closeSync();
         _walFile = null;
-        walFile.deleteSync();
-        print('WAL recovery completed successfully. WAL file deleted.');
+        if (!hasCorruptedRecords) {
+          walFile.deleteSync();
+          print('WAL recovery completed successfully. WAL file deleted.');
+        } else {
+          print('WAL recovery encountered corrupted records. Preserving wal.log.');
+        }
       } catch (e) {
         try {
-          walFile.writeAsBytesSync([]);
+          if (!hasCorruptedRecords) {
+            walFile.writeAsBytesSync([]);
+          }
         } catch (_) {}
       }
     } catch (_) {}
@@ -939,6 +1022,9 @@ class PageCache {
             final header = ByteData(4)..setUint32(0, jsonBytes.length, Endian.big);
             walBuilder.add(header.buffer.asUint8List());
             walBuilder.add(jsonBytes);
+            final crc = Crc32.compute(jsonBytes);
+            final crcBytes = ByteData(4)..setUint32(0, crc, Endian.big);
+            walBuilder.add(crcBytes.buffer.asUint8List());
             _txState!.startLogged = true;
           }
           // Write remaining dirty pages to WAL in a single sequential buffer (REDO-only frame)
@@ -965,6 +1051,9 @@ class PageCache {
               walBuilder.add(header.buffer.asUint8List());
               walBuilder.add(pathBytes);
               walBuilder.add(encAfter);
+              final crc = Crc32.compute(encAfter);
+              final crcBytes = ByteData(4)..setUint32(0, crc, Endian.big);
+              walBuilder.add(crcBytes.buffer.asUint8List());
               _txState!.loggedPages.add(key);
             }
           }
@@ -1865,5 +1954,6 @@ class _RecoverTx {
   final String? catalogBackupJson;
   final List<_WalPageRecord> pageRecords = [];
   bool isCommitted = false;
+  bool isCorrupted = false;
   _RecoverTx({this.catalogBackupJson});
 }

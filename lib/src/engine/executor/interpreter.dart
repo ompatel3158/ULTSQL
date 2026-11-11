@@ -390,6 +390,7 @@ class Database {
         iterations: 1000,
       );
       cache.setCryptoKeys(derived.encKey, derived.authKey, mode: authEnvelopeMode);
+      catalog.encryptionKey = derived.encKey;
       return;
     }
 
@@ -436,6 +437,7 @@ class Database {
       }
 
       cache.setCryptoKeys(derived.encKey, derived.authKey, mode: mode);
+      catalog.encryptionKey = derived.encKey;
     } else {
       metaFile.parent.createSync(recursive: true);
       final salt = CryptoSecurity.generateSalt(16);
@@ -460,6 +462,7 @@ class Database {
       };
       metaFile.writeAsStringSync(jsonEncode(data));
       cache.setCryptoKeys(derived.encKey, derived.authKey, mode: authEnvelopeMode);
+      catalog.encryptionKey = derived.encKey;
     }
   }
 
@@ -775,6 +778,7 @@ class Database {
     _indexCache.clear();
     cache.closeAllSync();
     cache.wipeCryptoKeys();
+    catalog.encryptionKey = null;
     final hadLock = _lockFile != null;
     if (_lockFile != null) {
       try {

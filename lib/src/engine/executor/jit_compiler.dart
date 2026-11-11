@@ -364,12 +364,16 @@ class JitCompiler {
             final leftVal = leftFn(row);
             final rightVal = rightFn(row);
             if (leftVal is DbInt && rightVal is DbInt) {
+              if (rightVal.value == 0) return DbNull();
               return DbInt(leftVal.value % rightVal.value);
             } else if (leftVal is DbInt && rightVal is DbDouble) {
+              if (rightVal.value == 0) return DbDouble(double.nan);
               return DbDouble(leftVal.value % rightVal.value);
             } else if (leftVal is DbDouble && rightVal is DbInt) {
+              if (rightVal.value == 0) return DbDouble(double.nan);
               return DbDouble(leftVal.value % rightVal.value);
             } else if (leftVal is DbDouble && rightVal is DbDouble) {
+              if (rightVal.value == 0) return DbDouble(double.nan);
               return DbDouble(leftVal.value % rightVal.value);
             }
             return DbNull();
@@ -1000,6 +1004,7 @@ class JitCompiler {
         if (name == 'mod' && argFns.length >= 2) {
           final n1 = int.tryParse(argFns[0](row).toString()) ?? 0;
           final n2 = int.tryParse(argFns[1](row).toString()) ?? 1;
+          if (n2 == 0) return DbNull();
           return DbInt(n1 % n2);
         }
         if (name == 'sign' && argFns.isNotEmpty) {

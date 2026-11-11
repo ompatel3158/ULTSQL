@@ -208,12 +208,16 @@ DbValue evaluateExpression(Expression expr, Map<String, DbValue> rowContext) {
         return leftVal / rightVal;
       case '%':
         if (leftVal is DbInt && rightVal is DbInt) {
+          if (rightVal.value == 0) return DbNull();
           return DbInt(leftVal.value % rightVal.value);
         } else if (leftVal is DbInt && rightVal is DbDouble) {
+          if (rightVal.value == 0) return DbDouble(double.nan);
           return DbDouble(leftVal.value % rightVal.value);
         } else if (leftVal is DbDouble && rightVal is DbInt) {
+          if (rightVal.value == 0) return DbDouble(double.nan);
           return DbDouble(leftVal.value % rightVal.value);
         } else if (leftVal is DbDouble && rightVal is DbDouble) {
+          if (rightVal.value == 0) return DbDouble(double.nan);
           return DbDouble(leftVal.value % rightVal.value);
         }
         return DbNull();

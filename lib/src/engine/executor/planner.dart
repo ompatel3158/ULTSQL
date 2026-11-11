@@ -1938,6 +1938,15 @@ class QueryPlanner {
     SelectStmt recursiveStmt,
     String cteName,
   ) {
+    final colAliases = stmt.cteColumnAliases[cteName.toLowerCase()];
+    if (colAliases != null && colAliases.isNotEmpty) {
+      for (int i = 0; i < anchorStmt.projections.length && i < colAliases.length; i++) {
+        final proj = anchorStmt.projections[i];
+        if (proj.alias == null) {
+          anchorStmt.projections[i] = Projection(proj.expr, colAliases[i]);
+        }
+      }
+    }
     final anchorPlan = planSelect(anchorStmt);
     final recursiveNode = RecursiveCteNode(anchorPlan, (workingChild) {
       return _planRecursiveQuery(recursiveStmt, cteName, workingChild);

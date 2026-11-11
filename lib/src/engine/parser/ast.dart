@@ -348,11 +348,13 @@ class CteSelectStmt extends SelectStmt {
   final Map<String, dynamic> ctes;
   final SelectStmt mainSelect;
   final bool isRecursive;
+  final Map<String, List<String>> cteColumnAliases;
 
   CteSelectStmt({
     required this.ctes,
     required this.mainSelect,
     this.isRecursive = false,
+    this.cteColumnAliases = const {},
   }) : super(
          projections: mainSelect.projections,
          tableName: mainSelect.tableName,

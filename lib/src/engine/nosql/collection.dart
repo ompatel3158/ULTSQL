@@ -131,10 +131,18 @@ class Collection {
             currentTxId,
             activeTxIds,
           )) {
-            fullRow = RecordSerializer.deserializeRow(mvccRecord.rowData);
+            fullRow = RecordSerializer.deserializeRow(
+              mvccRecord.rowData,
+              null,
+              rowTable.toastManager,
+            );
           }
         } catch (_) {
-          fullRow = RecordSerializer.deserializeRow(recBytes);
+          fullRow = RecordSerializer.deserializeRow(
+            recBytes,
+            null,
+            rowTable.toastManager,
+          );
         }
 
         if (fullRow != null && fullRow.length >= 2) {

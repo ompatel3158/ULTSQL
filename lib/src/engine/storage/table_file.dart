@@ -64,30 +64,22 @@ class RecordSerializer {
         bd.setFloat64(currentOffset + 1, val.value);
         currentOffset += 9;
       } else if (val is DbText) {
-        dest[currentOffset] = 3;
         final str = val.value;
-        final strLen = str.length;
-        if (strLen <= 1024) {
-          for (int c = 0; c < strLen; c++) {
-            dest[currentOffset + 1 + c] = str.codeUnitAt(c);
-          }
-          currentOffset += 1 + strLen;
+        final bytes = utf8.encoder.convert(str);
+        if (toastManager != null && bytes.length > 1024) {
+          int startPage = toastManager.writeDataSync(bytes);
+          dest[currentOffset] = 6;
+          bd.setUint32(currentOffset + 1, startPage);
+          bd.setUint32(currentOffset + 5, bytes.length);
+          currentOffset += 9;
         } else {
-          final bytes = utf8.encoder.convert(str);
-          if (toastManager != null) {
-            int startPage = toastManager.writeDataSync(bytes);
-            dest[currentOffset] = 6;
-            bd.setUint32(currentOffset + 1, startPage);
-            bd.setUint32(currentOffset + 5, bytes.length);
-            currentOffset += 9;
-          } else {
-            dest.setRange(
-              currentOffset + 1,
-              currentOffset + 1 + bytes.length,
-              bytes,
-            );
-            currentOffset += 1 + bytes.length;
-          }
+          dest[currentOffset] = 3;
+          dest.setRange(
+            currentOffset + 1,
+            currentOffset + 1 + bytes.length,
+            bytes,
+          );
+          currentOffset += 1 + bytes.length;
         }
       } else if (val is DbVector) {
         dest[currentOffset] = 4;
@@ -97,48 +89,22 @@ class RecordSerializer {
         }
         currentOffset += 1 + vLen * 8;
       } else if (val is DbJson) {
-        dest[currentOffset] = 5;
         final jsonStr = json.encode(val.value);
-        final strLen = jsonStr.length;
-        bool isAscii = true;
-        for (int j = 0; j < strLen; j++) {
-          if (jsonStr.codeUnitAt(j) > 127) {
-            isAscii = false;
-            break;
-          }
-        }
-        if (isAscii) {
-          if (toastManager != null && strLen > 1024) {
-            final bytes = Uint8List.fromList(jsonStr.codeUnits);
-            int startPage = toastManager.writeDataSync(bytes);
-            dest[currentOffset] = 7; // TOAST Json
-            bd.setUint32(currentOffset + 1, startPage);
-            bd.setUint32(currentOffset + 5, bytes.length);
-            currentOffset += 9;
-          } else {
-            dest.setRange(
-              currentOffset + 1,
-              currentOffset + 1 + strLen,
-              jsonStr.codeUnits,
-            );
-            currentOffset += 1 + strLen;
-          }
+        final bytes = utf8.encoder.convert(jsonStr);
+        if (toastManager != null && bytes.length > 1024) {
+          int startPage = toastManager.writeDataSync(bytes);
+          dest[currentOffset] = 7; // TOAST Json
+          bd.setUint32(currentOffset + 1, startPage);
+          bd.setUint32(currentOffset + 5, bytes.length);
+          currentOffset += 9;
         } else {
-          final bytes = utf8.encoder.convert(jsonStr);
-          if (toastManager != null && bytes.length > 1024) {
-            int startPage = toastManager.writeDataSync(bytes);
-            dest[currentOffset] = 7; // TOAST Json
-            bd.setUint32(currentOffset + 1, startPage);
-            bd.setUint32(currentOffset + 5, bytes.length);
-            currentOffset += 9;
-          } else {
-            dest.setRange(
-              currentOffset + 1,
-              currentOffset + 1 + bytes.length,
-              bytes,
-            );
-            currentOffset += 1 + bytes.length;
-          }
+          dest[currentOffset] = 5;
+          dest.setRange(
+            currentOffset + 1,
+            currentOffset + 1 + bytes.length,
+            bytes,
+          );
+          currentOffset += 1 + bytes.length;
         }
       } else if (val is DbBool) {
         dest[currentOffset] = 8;
@@ -238,29 +204,21 @@ class RecordSerializer {
         bd.setFloat64(currentOffset + 1, val);
         currentOffset += 9;
       } else if (val is String) {
-        dest[currentOffset] = 3;
-        final strLen = val.length;
-        if (strLen <= 1024) {
-          for (int c = 0; c < strLen; c++) {
-            dest[currentOffset + 1 + c] = val.codeUnitAt(c);
-          }
-          currentOffset += 1 + strLen;
+        final bytes = utf8.encoder.convert(val);
+        if (toastManager != null && bytes.length > 1024) {
+          int startPage = toastManager.writeDataSync(bytes);
+          dest[currentOffset] = 6;
+          bd.setUint32(currentOffset + 1, startPage);
+          bd.setUint32(currentOffset + 5, bytes.length);
+          currentOffset += 9;
         } else {
-          final bytes = utf8.encoder.convert(val);
-          if (toastManager != null) {
-            int startPage = toastManager.writeDataSync(bytes);
-            dest[currentOffset] = 6;
-            bd.setUint32(currentOffset + 1, startPage);
-            bd.setUint32(currentOffset + 5, bytes.length);
-            currentOffset += 9;
-          } else {
-            dest.setRange(
-              currentOffset + 1,
-              currentOffset + 1 + bytes.length,
-              bytes,
-            );
-            currentOffset += 1 + bytes.length;
-          }
+          dest[currentOffset] = 3;
+          dest.setRange(
+            currentOffset + 1,
+            currentOffset + 1 + bytes.length,
+            bytes,
+          );
+          currentOffset += 1 + bytes.length;
         }
       } else if (val is bool) {
         dest[currentOffset] = 8;
@@ -324,14 +282,16 @@ class RecordSerializer {
           bd.setFloat64(currentOffset + 1, val.value);
           currentOffset += 9;
         } else if (val is DbText) {
-          dest[currentOffset] = 3;
           final str = val.value;
-          final strLen = str.length;
-          if (strLen <= 1024) {
-            dest.setRange(currentOffset + 1, currentOffset + 1 + strLen, str.codeUnits);
-            currentOffset += 1 + strLen;
+          final bytes = utf8.encoder.convert(str);
+          if (toastManager != null && bytes.length > 1024) {
+            int startPage = toastManager.writeDataSync(bytes);
+            dest[currentOffset] = 6;
+            bd.setUint32(currentOffset + 1, startPage);
+            bd.setUint32(currentOffset + 5, bytes.length);
+            currentOffset += 9;
           } else {
-            final bytes = utf8.encoder.convert(str);
+            dest[currentOffset] = 3;
             dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
             currentOffset += 1 + bytes.length;
           }
@@ -342,9 +302,10 @@ class RecordSerializer {
         }
       } else {
         final str = val.toString();
+        final bytes = utf8.encode(str);
         dest[currentOffset] = 3;
-        dest.setRange(currentOffset + 1, currentOffset + 1 + str.length, str.codeUnits);
-        currentOffset += 1 + str.length;
+        dest.setRange(currentOffset + 1, currentOffset + 1 + bytes.length, bytes);
+        currentOffset += 1 + bytes.length;
       }
     }
     return currentOffset;
@@ -382,12 +343,10 @@ class RecordSerializer {
       return b;
     } else if (val is DbText) {
       final str = val.value;
-      final strLen = str.length;
-      final b = Uint8List(1 + strLen);
+      final bytes = utf8.encode(str);
+      final b = Uint8List(1 + bytes.length);
       b[0] = 3;
-      for (int c = 0; c < strLen; c++) {
-        b[1 + c] = str.codeUnitAt(c);
-      }
+      b.setRange(1, 1 + bytes.length, bytes);
       return b;
     } else if (val is DbBool) {
       return Uint8List.fromList([8, val.value ? 1 : 0]);

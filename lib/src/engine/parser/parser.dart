@@ -198,7 +198,6 @@ class Parser {
     String name;
     if (_match([TokenType.cursorKeyword]) ||
         (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'cursor')) {
-      if (_check(TokenType.identifier)) _advance();
       final nameToken = _consume(
         TokenType.identifier,
         "Expected cursor name after 'CURSOR'.",
@@ -209,14 +208,14 @@ class Parser {
       name = nameToken.lexeme;
       if (_match([TokenType.cursorKeyword]) ||
           (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'cursor')) {
-        if (_check(TokenType.identifier)) _advance();
       }
     }
 
     if (_match([TokenType.forKeyword])) {
       // FOR
-    } else if (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'is') {
-      _advance(); // Consume 'IS'
+    } else if (_match([TokenType.isKeyword]) ||
+        (_check(TokenType.identifier) && _peek().lexeme.toLowerCase() == 'is')) {
+      // Consume 'IS'
     }
 
     _consume(TokenType.select, "Expected 'SELECT' for cursor query.");
@@ -1492,7 +1491,11 @@ class Parser {
               );
             }
           } else {
-            columns.add(_parseColumnDef());
+            final colDef = _parseColumnDef();
+            if (columns.any((c) => c.name.toLowerCase() == colDef.name.toLowerCase())) {
+              throw FormatException("Duplicate column name '${colDef.name}' in CREATE TABLE.");
+            }
+            columns.add(colDef);
           }
         } while (_match([TokenType.comma]));
         _consume(TokenType.rParen, "Expected ')' to close column list.");
@@ -1634,10 +1637,25 @@ class Parser {
   }
 
   ColumnDef _parseColumnDef() {
-    final colNameToken = _consume(
-      TokenType.identifier,
-      "Expected column name.",
-    );
+    Token colNameToken;
+    if (_check(TokenType.identifier) ||
+        _check(TokenType.typeText) ||
+        _check(TokenType.typeInt) ||
+        _check(TokenType.typeDouble) ||
+        _check(TokenType.typeBool) ||
+        _check(TokenType.typeJson) ||
+        _check(TokenType.typeVector) ||
+        _check(TokenType.typeBlob) ||
+        _check(TokenType.typeDateTime) ||
+        _check(TokenType.typeDecimal) ||
+        _check(TokenType.typeUuid)) {
+      colNameToken = _advance();
+    } else {
+      colNameToken = _consume(
+        TokenType.identifier,
+        "Expected column name.",
+      );
+    }
     final colType = _parseDataType();
 
     bool isPrimaryKey = false;
@@ -2659,17 +2677,23 @@ class Parser {
       isRecursive = true;
     }
     final ctes = <String, dynamic>{};
+    final cteAliases = <String, List<String>>{};
     do {
       final cteNameToken = _consume(TokenType.identifier, "Expected CTE name.");
       final cteName = cteNameToken.lexeme.toLowerCase();
+      final colList = <String>[];
       if (_match([TokenType.lParen])) {
         do {
-          _consume(
+          final pToken = _consume(
             TokenType.identifier,
             "Expected column name in CTE parameter list.",
           );
+          colList.add(pToken.lexeme);
         } while (_match([TokenType.comma]));
         _consume(TokenType.rParen, "Expected ')' after CTE column names.");
+      }
+      if (colList.isNotEmpty) {
+        cteAliases[cteName] = colList;
       }
       _consume(TokenType.as, "Expected 'AS' after CTE name.");
       _consume(TokenType.lParen, "Expected '(' before CTE query.");
@@ -2686,6 +2710,7 @@ class Parser {
       ctes: ctes,
       mainSelect: mainSelect,
       isRecursive: isRecursive,
+      cteColumnAliases: cteAliases,
     );
   }
 

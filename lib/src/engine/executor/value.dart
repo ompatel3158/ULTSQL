@@ -491,11 +491,20 @@ class DbVector extends DbValue {
   @override
   String toString() => '[${value.join(", ")}]';
 
+  DbVector normalized() {
+    final n = norm;
+    if (n == 0.0) return this;
+    return DbVector(value.map((v) => v / n).toList());
+  }
+
   double distanceTo(DbVector other) {
     final v1 = value;
     final v2 = other.value;
     final len = v1.length;
-    if (len != v2.length || len == 0) return 0.0;
+    if (len != v2.length) {
+      throw ArgumentError('Vector dimension mismatch: $len != ${v2.length}');
+    }
+    if (len == 0) return 0.0;
 
     final s1 = simd;
     final s2 = other.simd;
@@ -520,7 +529,10 @@ class DbVector extends DbValue {
     final v1 = value;
     final v2 = other.value;
     final len = v1.length;
-    if (len != v2.length || len == 0) return 1.0;
+    if (len != v2.length) {
+      throw ArgumentError('Vector dimension mismatch: $len != ${v2.length}');
+    }
+    if (len == 0) return 1.0;
 
     final nA = norm;
     final nB = other.norm;
@@ -551,7 +563,10 @@ class DbVector extends DbValue {
     final v1 = value;
     final v2 = other.value;
     final len = v1.length;
-    if (len != v2.length || len == 0) return 0.0;
+    if (len != v2.length) {
+      throw ArgumentError('Vector dimension mismatch: $len != ${v2.length}');
+    }
+    if (len == 0) return 0.0;
 
     final s1 = simd;
     final s2 = other.simd;
