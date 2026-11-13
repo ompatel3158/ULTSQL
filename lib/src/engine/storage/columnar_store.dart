@@ -61,10 +61,36 @@ class CompressedColumnStore {
     data.setUint32(1, values.length);
     data.setUint32(5, compressedData.length);
 
-    // Payload
-    page.data.setRange(9, 9 + compressedData.length, compressedData);
+    // Payload (handle overflow beyond slotted page size)
+    final firstChunkCapacity = page.data.length - 9;
+    if (compressedData.length <= firstChunkCapacity) {
+      page.data.setRange(9, 9 + compressedData.length, compressedData);
+      cache.unpinPageSync(colFilePath, pageCount, isDirty: true);
+    } else {
+      page.data.setRange(
+        9,
+        9 + firstChunkCapacity,
+        compressedData.sublist(0, firstChunkCapacity),
+      );
+      cache.unpinPageSync(colFilePath, pageCount, isDirty: true);
 
-    cache.unpinPageSync(colFilePath, pageCount, isDirty: true);
+      int written = firstChunkCapacity;
+      int curPageId = pageCount + 1;
+      while (written < compressedData.length) {
+        final contPage = cache.pinPageSync(colFilePath, curPageId);
+        final remaining = compressedData.length - written;
+        final chunkLen =
+            remaining < contPage.data.length ? remaining : contPage.data.length;
+        contPage.data.setRange(
+          0,
+          chunkLen,
+          compressedData.sublist(written, written + chunkLen),
+        );
+        cache.unpinPageSync(colFilePath, curPageId, isDirty: true);
+        written += chunkLen;
+        curPageId++;
+      }
+    }
   }
 
   List<DbValue> readBatchSync(int colIndex, int pageId) {
@@ -76,8 +102,32 @@ class CompressedColumnStore {
     final valuesCount = data.getUint32(1);
     final byteLength = data.getUint32(5);
 
-    final payload = page.data.sublist(9, 9 + byteLength);
-    cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+    Uint8List payload;
+    final firstChunkCapacity = page.data.length - 9;
+    if (byteLength <= firstChunkCapacity) {
+      final safeEnd =
+          9 + byteLength > page.data.length ? page.data.length : 9 + byteLength;
+      payload = page.data.sublist(9, safeEnd);
+      cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+    } else {
+      final builder = BytesBuilder();
+      builder.add(page.data.sublist(9, 9 + firstChunkCapacity));
+      cache.unpinPageSync(colFilePath, pageId, isDirty: false);
+
+      int read = firstChunkCapacity;
+      int curPageId = pageId + 1;
+      while (read < byteLength) {
+        final contPage = cache.pinPageSync(colFilePath, curPageId);
+        final remaining = byteLength - read;
+        final chunkLen =
+            remaining < contPage.data.length ? remaining : contPage.data.length;
+        builder.add(contPage.data.sublist(0, chunkLen));
+        cache.unpinPageSync(colFilePath, curPageId, isDirty: false);
+        read += chunkLen;
+        curPageId++;
+      }
+      payload = builder.takeBytes();
+    }
 
     if (encodingType == 3) {
       final uncompressed = BlockCompressor.decompressBlock(payload);
@@ -107,8 +157,10 @@ class CompressedColumnStore {
     int offset = 0;
     final bd = ByteData.sublistView(payload);
     for (int i = 0; i < count; i++) {
+      if (offset >= payload.length) break;
       int len = payload[offset];
       offset += 1;
+      if (offset + len > payload.length) break;
       res.add(DbValue.fromBytes(bd, offset, len));
       offset += len;
     }

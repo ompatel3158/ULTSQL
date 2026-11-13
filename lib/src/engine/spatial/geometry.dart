@@ -41,6 +41,16 @@ class BoundingBox2D {
   }
 
   bool intersects(BoundingBox2D other) {
+    if (minX.isNaN ||
+        maxX.isNaN ||
+        minY.isNaN ||
+        maxY.isNaN ||
+        other.minX.isNaN ||
+        other.maxX.isNaN ||
+        other.minY.isNaN ||
+        other.maxY.isNaN) {
+      return false;
+    }
     return !(other.minX > maxX ||
         other.maxX < minX ||
         other.minY > maxY ||

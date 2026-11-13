@@ -238,7 +238,10 @@ class Lexer {
       }
       if (_peek().toLowerCase() == 'e') {
         final next = _peekNext();
-        if (_isDigit(next) || next == '+' || next == '-') {
+        final hasDirectDigit = _isDigit(next);
+        final hasSignedDigit = (next == '+' || next == '-') &&
+            (_position + 2 < source.length && _isDigit(source[_position + 2]));
+        if (hasDirectDigit || hasSignedDigit) {
           buffer.write(_advance()); // Consume 'e' or 'E'
           if (_peek() == '+' || _peek() == '-') {
             buffer.write(_advance()); // Consume '+' or '-'

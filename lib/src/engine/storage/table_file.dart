@@ -498,28 +498,29 @@ class RecordSerializer {
     return list;
   }
 
-  static DbValue deserializeCell(Uint8List recordBytes, int colIndex) {
+  static DbValue deserializeCell(
+    Uint8List recordBytes,
+    int colIndex, [
+    ToastManager? toastManager,
+  ]) {
     if (recordBytes.length < 2) return DbNull();
     final data = ByteData.sublistView(recordBytes);
-    final count = data.getUint16(0);
-    if (colIndex >= count) return DbNull();
-
-    final startOffset = data.getUint16(2 + colIndex * 2);
-    final endOffset = (colIndex + 1 < count)
-        ? data.getUint16(2 + (colIndex + 1) * 2)
-        : recordBytes.length;
-
-    final len = endOffset - startOffset;
-    if (len <= 0 || startOffset + len > recordBytes.length) return DbNull();
-    return DbValue.fromBytes(data, startOffset, len);
+    return deserializeCellFromView(
+      data,
+      0,
+      recordBytes.length,
+      colIndex,
+      toastManager,
+    );
   }
 
   static DbValue deserializeCellFromView(
     ByteData data,
     int startOffsetInBytes,
     int recordLengthInBytes,
-    int colIndex,
-  ) {
+    int colIndex, [
+    ToastManager? toastManager,
+  ]) {
     if (recordLengthInBytes < 2) return DbNull();
     final count = data.getUint16(startOffsetInBytes);
     if (colIndex >= count) return DbNull();
@@ -531,7 +532,26 @@ class RecordSerializer {
 
     final len = endOffset - startOffset;
     if (len <= 0 || startOffset + len > recordLengthInBytes) return DbNull();
-    return DbValue.fromBytes(data, startOffsetInBytes + startOffset, len);
+    final absOffset = startOffsetInBytes + startOffset;
+    final typeCode = data.getUint8(absOffset);
+    if (typeCode == 6) {
+      if (toastManager != null) {
+        final startPage = data.getUint32(absOffset + 1);
+        final totalSize = data.getUint32(absOffset + 5);
+        final bytes = toastManager.readDataSync(startPage, totalSize);
+        return DbText(utf8.decode(bytes));
+      }
+      return DbNull();
+    } else if (typeCode == 7) {
+      if (toastManager != null) {
+        final startPage = data.getUint32(absOffset + 1);
+        final totalSize = data.getUint32(absOffset + 5);
+        final bytes = toastManager.readDataSync(startPage, totalSize);
+        return DbJson.fromBytes(bytes);
+      }
+      return DbNull();
+    }
+    return DbValue.fromBytes(data, absOffset, len);
   }
 }
 
@@ -560,11 +580,22 @@ class SlottedPageHelper {
     if (page.byteData.getUint8(0) != 1) return 0; // Not a valid row data page
     final count = page.rowCount ??= page.byteData.getUint16(1);
     final maxSlots = (page.data.length - headerSize) ~/ 4;
-    return count > maxSlots ? 0 : count;
+    if (count > maxSlots) {
+      throw DatabaseIntegrityException(
+        'Corrupted slotted page: rowCount $count exceeds maxSlots $maxSlots',
+      );
+    }
+    return count;
   }
 
   static int getFreeSpaceOffset(Page page) {
-    return page.freeSpaceOffset ??= page.byteData.getUint16(3);
+    final offset = page.freeSpaceOffset ??= page.byteData.getUint16(3);
+    if (offset < headerSize || offset > page.data.length) {
+      throw DatabaseIntegrityException(
+        'Corrupted slotted page: freeSpaceOffset $offset is out of bounds (headerSize=$headerSize, pageSize=${page.data.length})',
+      );
+    }
+    return offset;
   }
 
   static bool insertRecord(Page page, Uint8List recordBytes) {
@@ -582,6 +613,11 @@ class SlottedPageHelper {
     }
 
     final newFreeSpaceOffset = freeSpaceOffset - allocLen;
+    if (newFreeSpaceOffset < currentSlotEnd + 4 || newFreeSpaceOffset + recordLen > page.data.length) {
+      throw DatabaseIntegrityException(
+        'Slotted page bounds violation: newFreeSpaceOffset $newFreeSpaceOffset is invalid',
+      );
+    }
     page.data.setRange(newFreeSpaceOffset, newFreeSpaceOffset + recordLen, recordBytes);
 
     // Write slot info
@@ -612,6 +648,11 @@ class SlottedPageHelper {
     }
 
     final newFreeSpaceOffset = freeSpaceOffset - allocLen;
+    if (newFreeSpaceOffset < currentSlotEnd + 4 || newFreeSpaceOffset + recordLen > page.data.length) {
+      throw DatabaseIntegrityException(
+        'Slotted page bounds violation: newFreeSpaceOffset $newFreeSpaceOffset is invalid',
+      );
+    }
     page.data.setRange(
       newFreeSpaceOffset,
       newFreeSpaceOffset + recordLen,
@@ -644,7 +685,7 @@ class SlottedPageHelper {
     final offset = data.getUint16(slotOffset);
     final len = data.getUint16(slotOffset + 2);
 
-    if (len == 0 || offset >= page.data.length || offset + len > page.data.length) return null;
+    if (len == 0 || offset < headerSize || offset >= page.data.length || offset + len > page.data.length) return null;
     return Uint8List.view(
       page.data.buffer,
       page.data.offsetInBytes + offset,
@@ -727,11 +768,18 @@ class RowTableFile {
       final page = cache.pinPageSync(filePath, 0);
       cache.logPageBeforeModifySync(filePath, 0);
       SlottedPageHelper.initPage(page, maxPayloadSize);
-      SlottedPageHelper.insertRecordDirect(
+      final ok = SlottedPageHelper.insertRecordDirect(
         page,
         recordBytes,
         recordBytes.length,
       );
+      if (!ok) {
+        cache.unpinPageSync(filePath, 0, isDirty: false);
+        final maxCapacity = maxPayloadSize - SlottedPageHelper.headerSize - 4;
+        throw DatabaseIntegrityException(
+          'Record size (${recordBytes.length} bytes) exceeds maximum slotted page capacity ($maxCapacity bytes).',
+        );
+      }
       page.isDirty = true;
       _activeInsertPage = page;
       _activeInsertPageId = 0;
@@ -758,11 +806,18 @@ class RowTableFile {
       final newPage = cache.pinPageSync(filePath, newPageId);
       cache.logPageBeforeModifySync(filePath, newPageId);
       SlottedPageHelper.initPage(newPage, maxPayloadSize);
-      SlottedPageHelper.insertRecordDirect(
+      final ok = SlottedPageHelper.insertRecordDirect(
         newPage,
         recordBytes,
         recordBytes.length,
       );
+      if (!ok) {
+        cache.unpinPageSync(filePath, newPageId, isDirty: false);
+        final maxCapacity = maxPayloadSize - SlottedPageHelper.headerSize - 4;
+        throw DatabaseIntegrityException(
+          'Record size (${recordBytes.length} bytes) exceeds maximum slotted page capacity ($maxCapacity bytes).',
+        );
+      }
       newPage.isDirty = true;
       _activeInsertPage = newPage;
       _activeInsertPageId = newPageId;
@@ -801,7 +856,14 @@ class RowTableFile {
       final page = cache.pinPageSync(filePath, 0);
       cache.logPageBeforeModifySync(filePath, 0);
       SlottedPageHelper.initPage(page, maxPayloadSize);
-      SlottedPageHelper.insertRecordDirect(page, _sharedTempBuffer, recordLen);
+      final ok = SlottedPageHelper.insertRecordDirect(page, _sharedTempBuffer, recordLen);
+      if (!ok) {
+        cache.unpinPageSync(filePath, 0, isDirty: false);
+        final maxCapacity = maxPayloadSize - SlottedPageHelper.headerSize - 4;
+        throw DatabaseIntegrityException(
+          'Record size ($recordLen bytes) exceeds maximum slotted page capacity ($maxCapacity bytes).',
+        );
+      }
       page.isDirty = true;
       _activeInsertPage = page;
       _activeInsertPageId = 0;
@@ -829,11 +891,18 @@ class RowTableFile {
       final newPageId = pageCount;
       final newPage = cache.pinPageSync(filePath, newPageId);
       SlottedPageHelper.initPage(newPage, maxPayloadSize);
-      SlottedPageHelper.insertRecordDirect(
+      final ok = SlottedPageHelper.insertRecordDirect(
         newPage,
         _sharedTempBuffer,
         recordLen,
       );
+      if (!ok) {
+        cache.unpinPageSync(filePath, newPageId, isDirty: false);
+        final maxCapacity = maxPayloadSize - SlottedPageHelper.headerSize - 4;
+        throw DatabaseIntegrityException(
+          'Record size ($recordLen bytes) exceeds maximum slotted page capacity ($maxCapacity bytes).',
+        );
+      }
       newPage.isDirty = true;
       final newSlotId = SlottedPageHelper.getRowCount(newPage) - 1;
       _activeInsertPage = newPage;
@@ -873,6 +942,13 @@ class RowTableFile {
     ByteData data = page.byteData;
     int rowCount = data.getUint16(1);
     int freeSpaceOffset = data.getUint16(3);
+    final maxSlots = (page.data.length - 5) ~/ 4;
+    if (rowCount > maxSlots) {
+      throw DatabaseIntegrityException('Corrupted slotted page: rowCount $rowCount exceeds maxSlots $maxSlots');
+    }
+    if (freeSpaceOffset < 5 || freeSpaceOffset > page.data.length) {
+      throw DatabaseIntegrityException('Corrupted slotted page: freeSpaceOffset $freeSpaceOffset is out of bounds (min=5, max=${page.data.length})');
+    }
     bool pageDirty = pageCount == 0;
     final isTx = cache.isTransactionActive;
 
@@ -889,6 +965,12 @@ class RowTableFile {
 
       final allocLen = (recordLen + 7) & ~7;
       final requiredSpace = allocLen + 4;
+      final maxCapacity = maxPayloadSize - SlottedPageHelper.headerSize;
+      if (requiredSpace > maxCapacity) {
+        throw DatabaseIntegrityException(
+          'Record size ($recordLen bytes) exceeds maximum slotted page capacity (${maxCapacity - 4} bytes).',
+        );
+      }
       final currentSlotEnd = 5 + rowCount * 4;
 
       if (freeSpaceOffset - currentSlotEnd < requiredSpace) {
@@ -966,6 +1048,13 @@ class RowTableFile {
     ByteData data = page.byteData;
     int rowCount = data.getUint16(1);
     int freeSpaceOffset = data.getUint16(3);
+    final maxSlots = (page.data.length - 5) ~/ 4;
+    if (rowCount > maxSlots) {
+      throw DatabaseIntegrityException('Corrupted slotted page: rowCount $rowCount exceeds maxSlots $maxSlots');
+    }
+    if (freeSpaceOffset < 5 || freeSpaceOffset > page.data.length) {
+      throw DatabaseIntegrityException('Corrupted slotted page: freeSpaceOffset $freeSpaceOffset is out of bounds (min=5, max=${page.data.length})');
+    }
     bool pageDirty = pageCount == 0;
 
     for (int r = 0; r < rows.length; r++) {
@@ -982,6 +1071,12 @@ class RowTableFile {
 
       final allocLen = (recordLen + 7) & ~7;
       final requiredSpace = allocLen + 4;
+      final maxCapacity = maxPayloadSize - SlottedPageHelper.headerSize;
+      if (requiredSpace > maxCapacity) {
+        throw DatabaseIntegrityException(
+          'Record size ($recordLen bytes) exceeds maximum slotted page capacity (${maxCapacity - 4} bytes).',
+        );
+      }
       final currentSlotEnd = 5 + rowCount * 4;
 
       if (freeSpaceOffset - currentSlotEnd < requiredSpace) {

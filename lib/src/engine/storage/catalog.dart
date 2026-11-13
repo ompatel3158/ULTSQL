@@ -1,4 +1,5 @@
 import '../cache/aes_crypt.dart';
+import '../cache/crypto_security.dart';
 import 'dart:typed_data';
 import 'dart:async';
 import 'dart:convert';
@@ -794,7 +795,10 @@ class Catalog {
           });
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (e is DatabaseIntegrityException) rethrow;
+      throw DatabaseIntegrityException('Corrupted catalog metadata: $e');
+    }
   }
 
   TableSchema? getTableSchema(String name) {
@@ -969,7 +973,8 @@ class Catalog {
         });
       }
     } catch (e) {
-      // Catalog corrupt or empty, ignore
+      if (e is DatabaseIntegrityException) rethrow;
+      throw DatabaseIntegrityException('Corrupted catalog metadata: $e');
     }
   }
 

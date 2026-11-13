@@ -19,6 +19,71 @@ String _toLowerCaseFast(String s) {
   return s;
 }
 
+/// Converts a SQL LIKE pattern into a safe Regular Expression source string,
+/// collapsing adjacent wildcards to prevent ReDoS catastrophic backtracking.
+String likePatternToRegexSource(String pattern) {
+  final sb = StringBuffer();
+  int i = 0;
+  final len = pattern.length;
+
+  while (i < len) {
+    final c = pattern[i];
+
+    if (c == '\\' && i + 1 < len) {
+      // Escaped character: treat next char as literal
+      i++;
+      final escapedChar = pattern[i];
+      sb.write(RegExp.escape(escapedChar));
+      i++;
+      continue;
+    }
+
+    if (c == '%' || c == '_') {
+      // Collapse all adjacent unescaped wildcards
+      int underscores = 0;
+      bool hasPercent = false;
+
+      while (i < len) {
+        final wc = pattern[i];
+        if (wc == '\\') {
+          break;
+        } else if (wc == '%') {
+          hasPercent = true;
+          i++;
+        } else if (wc == '_') {
+          underscores++;
+          i++;
+        } else {
+          break;
+        }
+      }
+
+      if (hasPercent) {
+        if (underscores == 0) {
+          sb.write('.*');
+        } else if (underscores == 1) {
+          sb.write('.+');
+        } else {
+          sb.write('.{$underscores,}');
+        }
+      } else {
+        if (underscores == 1) {
+          sb.write('.');
+        } else {
+          sb.write('.{$underscores}');
+        }
+      }
+      continue;
+    }
+
+    // Literal character: escape for regex
+    sb.write(RegExp.escape(c));
+    i++;
+  }
+
+  return sb.toString();
+}
+
 bool matchLike(String str, String pattern) {
   if (!pattern.contains('_') && !pattern.contains('\\')) {
     final firstPct = pattern.startsWith('%');
@@ -42,11 +107,7 @@ bool matchLike(String str, String pattern) {
       }
     }
   }
-  final escaped = RegExp.escape(pattern)
-      .replaceAll(r'\%', '%')
-      .replaceAll(r'\_', '_')
-      .replaceAll('%', '.*')
-      .replaceAll('_', '.');
+  final escaped = likePatternToRegexSource(pattern);
   final regex = RegExp('^$escaped\$', caseSensitive: false);
   return regex.hasMatch(str);
 }
@@ -561,11 +622,7 @@ class JitCompiler {
                       !isSimpleStartsWith &&
                       !isSimpleEndsWith &&
                       !isSimpleEquals) {
-                    final escaped = RegExp.escape(pat)
-                        .replaceAll(r'\%', '%')
-                        .replaceAll(r'\_', '_')
-                        .replaceAll('%', '.*')
-                        .replaceAll('_', '.');
+                    final escaped = likePatternToRegexSource(pat);
                     cachedRegex = RegExp('^$escaped\$', caseSensitive: false);
                   }
                 }
@@ -618,11 +675,7 @@ class JitCompiler {
                       !isSimpleStartsWith &&
                       !isSimpleEndsWith &&
                       !isSimpleEquals) {
-                    final escaped = RegExp.escape(pat)
-                        .replaceAll(r'\%', '%')
-                        .replaceAll(r'\_', '_')
-                        .replaceAll('%', '.*')
-                        .replaceAll('_', '.');
+                    final escaped = likePatternToRegexSource(pat);
                     cachedRegex = RegExp('^$escaped\$', caseSensitive: false);
                   }
                 }

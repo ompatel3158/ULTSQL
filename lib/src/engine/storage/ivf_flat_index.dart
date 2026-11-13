@@ -3,6 +3,10 @@ import 'dart:io';
 import 'dart:math';
 import 'package:ultsql/src/engine/executor/value.dart';
 
+extension DbVectorDimensions on DbVector {
+  int get dimensions => value.length;
+}
+
 class IvfFlatNode {
   final DbVector vector;
   final int pageId;
@@ -40,6 +44,15 @@ class IvfFlatIndex {
   final List<DbVector> centroids = [];
   final Map<int, List<IvfFlatNode>> buckets = {};
   final List<IvfFlatNode> _tempNodes = [];
+
+  int? get expectedDimensions {
+    if (centroids.isNotEmpty) return centroids.first.dimensions;
+    if (_tempNodes.isNotEmpty) return _tempNodes.first.vector.dimensions;
+    for (final b in buckets.values) {
+      if (b.isNotEmpty) return b.first.vector.dimensions;
+    }
+    return null;
+  }
 
   IvfFlatIndex({
     required this.indexPath,
@@ -131,7 +144,7 @@ class IvfFlatIndex {
           final dim = groups[i].first.value.length;
           final meanVals = List<double>.filled(dim, 0.0);
           for (final vec in groups[i]) {
-            for (int d = 0; d < dim; d++) {
+            for (int d = 0; d < dim && d < vec.value.length; d++) {
               meanVals[d] += vec.value[d];
             }
           }
@@ -202,6 +215,17 @@ class IvfFlatIndex {
   }
 
   void insertSync(DbVector vector, int pageId, int slotId) {
+    for (final coord in vector.value) {
+      if (!coord.isFinite) {
+        throw ArgumentError('Vector coordinate must be finite (got $coord)');
+      }
+    }
+    final expDim = expectedDimensions;
+    if (expDim != null && vector.dimensions != expDim) {
+      throw ArgumentError(
+        'Vector dimension mismatch: expected $expDim, got ${vector.dimensions}',
+      );
+    }
     final node = IvfFlatNode(vector: vector, pageId: pageId, slotId: slotId);
     if (centroids.isEmpty) {
       _tempNodes.add(node);
@@ -227,6 +251,17 @@ class IvfFlatIndex {
     int limit, {
     bool Function(int pageId, int slotId)? filter,
   }) {
+    for (final coord in query.value) {
+      if (!coord.isFinite) {
+        throw ArgumentError('Query vector coordinate must be finite (got $coord)');
+      }
+    }
+    final expDim = expectedDimensions;
+    if (expDim != null && query.dimensions != expDim) {
+      throw ArgumentError(
+        'Vector dimension mismatch: expected $expDim, got ${query.dimensions}',
+      );
+    }
     if (centroids.isEmpty) {
       final list = <_IvfFlatDistance>[];
       for (final node in _tempNodes) {

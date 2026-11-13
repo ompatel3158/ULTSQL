@@ -1099,11 +1099,18 @@ class PreparedStatement {
                 rowStart,
                 rowLen,
                 plan.schema.columnNames.length,
+                plan.rowTable.toastManager,
               );
             } else {
               row = List<DbValue>.generate(plan.projectedColIndices.length, (i) {
                 final cIdx = plan.projectedColIndices[i];
-                DbValue val = RecordSerializer.deserializeCellFromView(data, rowStart, rowLen, cIdx);
+                DbValue val = RecordSerializer.deserializeCellFromView(
+                  data,
+                  rowStart,
+                  rowLen,
+                  cIdx,
+                  plan.rowTable.toastManager,
+                );
                 if (val is DbNull &&
                     cIdx < plan.schema.columnDefaultValues.length &&
                     plan.schema.columnDefaultValues[cIdx] != null) {
@@ -1156,13 +1163,23 @@ class PreparedStatement {
 
             final List<DbValue> row;
             if (plan.isAllColumns && !plan.hasDefaults) {
-              row = RecordSerializer.deserializeRow(rowPayload, plan.schema.columnNames.length);
+              row = RecordSerializer.deserializeRow(
+                rowPayload,
+                plan.schema.columnNames.length,
+                plan.rowTable.toastManager,
+              );
             } else {
               final bd = ByteData.sublistView(rowPayload);
               final rowLength = rowPayload.length;
               row = List<DbValue>.generate(plan.projectedColIndices.length, (i) {
                 final cIdx = plan.projectedColIndices[i];
-                DbValue val = RecordSerializer.deserializeCellFromView(bd, 0, rowLength, cIdx);
+                DbValue val = RecordSerializer.deserializeCellFromView(
+                  bd,
+                  0,
+                  rowLength,
+                  cIdx,
+                  plan.rowTable.toastManager,
+                );
                 if (val is DbNull &&
                     cIdx < plan.schema.columnDefaultValues.length &&
                     plan.schema.columnDefaultValues[cIdx] != null) {
@@ -5930,7 +5947,13 @@ END;
                     if (allSimpleVars) {
                       final projectedRow = List<DbValue>.generate(projectedIndices.length, (i) {
                         final cIdx = projectedIndices[i];
-                        DbValue val = RecordSerializer.deserializeCellFromView(bd, 0, rowLength, cIdx);
+                        DbValue val = RecordSerializer.deserializeCellFromView(
+                          bd,
+                          0,
+                          rowLength,
+                          cIdx,
+                          rowTable.toastManager,
+                        );
                         if (val is DbNull &&
                             cIdx < schema.columnDefaultValues.length &&
                             schema.columnDefaultValues[cIdx] != null) {
@@ -5949,6 +5972,8 @@ END;
                     } else {
                       final fullRow = RecordSerializer.deserializeRow(
                         rowStartOffset > 0 ? recBytes.sublist(rowStartOffset) : recBytes,
+                        schema.columnNames.length,
+                        rowTable.toastManager,
                       );
                       final rowContext = <String, DbValue>{};
                       for (int i = 0; i < schema.columnNames.length; i++) {

@@ -150,7 +150,7 @@ class _PgConnectionHandler {
         if (_buffer.length < 5) return;
         final msgType = String.fromCharCode(_buffer[0]);
         final length = _readInt32(1);
-        if (_buffer.length < length + 1) return;
+        if (length < 4 || length + 1 > _buffer.length) return;
 
         final payload = _buffer.sublist(5, length + 1);
         _buffer.removeRange(0, length + 1);
@@ -162,8 +162,15 @@ class _PgConnectionHandler {
         } else if (msgType == 'P') {
           // Parse
           int zeroIdx = payload.indexOf(0);
-          int nextZeroIdx = payload.indexOf(0, zeroIdx + 1);
-          final query = utf8.decode(payload.sublist(zeroIdx + 1, nextZeroIdx));
+          String query;
+          if (zeroIdx == -1) {
+            query = utf8.decode(payload, allowMalformed: true);
+          } else {
+            int nextZeroIdx = payload.indexOf(0, zeroIdx + 1);
+            query = nextZeroIdx == -1
+                ? utf8.decode(payload.sublist(zeroIdx + 1), allowMalformed: true)
+                : utf8.decode(payload.sublist(zeroIdx + 1, nextZeroIdx), allowMalformed: true);
+          }
           if (query.isNotEmpty) {
             _lastQuery = query;
           }

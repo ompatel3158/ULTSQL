@@ -2437,7 +2437,10 @@ class Parser {
       expr = LiteralExpr(null);
     } else if (_match([TokenType.numberLiteral])) {
       final lex = _previous().lexeme;
-      final val = num.parse(lex);
+      final val = num.tryParse(lex);
+      if (val == null) {
+        throw FormatException("Invalid number literal '$lex'.");
+      }
       expr = LiteralExpr(val);
     } else if (_match([TokenType.stringLiteral])) {
       var lex = _previous().lexeme;
@@ -2456,7 +2459,13 @@ class Parser {
             TokenType.numberLiteral,
             "Expected vector element double.",
           );
-          elements.add(sign * double.parse(numToken.lexeme));
+          final parsed = double.tryParse(numToken.lexeme);
+          if (parsed == null) {
+            throw FormatException(
+              "Invalid double in vector literal '${numToken.lexeme}'.",
+            );
+          }
+          elements.add(sign * parsed);
         } while (_match([TokenType.comma]));
       }
       _consume(TokenType.rBracket, "Expected ']' to close vector literal.");

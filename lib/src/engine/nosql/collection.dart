@@ -174,6 +174,80 @@ class Collection {
     }
   }
 
+  void _pruneStalePrimaryKeyPointer(String docId, [BTreePointer? oldPtr]) {
+    final idxName = 'idx_${tableName}__id';
+    final idx = db.catalog.getIndexForColumn(tableName, '_id') ??
+        (db.catalog.hasIndex(idxName) ? db.catalog.getIndex(idxName) : null);
+    if (idx == null) return;
+    final dKey = _toIndexKey(docId);
+    if (dKey == null) return;
+
+    final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
+    int currentPageId = btree.findLeafPageId([dKey]);
+    if (currentPageId < 0) return;
+
+    int pagesChecked = 0;
+    while (currentPageId != -1 && pagesChecked < 3) {
+      pagesChecked++;
+      final page = db.cache.pinPageSync(btree.indexPath, currentPageId);
+      bool isDirty = false;
+      bool foundKeyInPage = false;
+      int nextPageId = -1;
+      try {
+        int keyCount = page.byteData.getUint16(2);
+        int i = 0;
+        while (i < keyCount) {
+          final k = page.byteData.getFloat64(4 + i * 8);
+          if (k == dKey) {
+            foundKeyInPage = true;
+            final pId = page.byteData.getInt32(btree.pageIdOffset + i * 4);
+            final sId = page.byteData.getUint16(btree.slotIdOffset + i * 2);
+            final ptr = BTreePointer(pId, sId);
+
+            bool isStale = false;
+            if (oldPtr != null && pId == oldPtr.pageId && sId == oldPtr.slotId) {
+              isStale = true;
+            } else {
+              final doc = _fetchDocAtPointer(ptr);
+              if (doc == null || doc.id != docId) {
+                isStale = true;
+              }
+            }
+
+            if (isStale) {
+              for (int j = i; j < keyCount - 1; j++) {
+                final nextKey = page.byteData.getFloat64(4 + (j + 1) * 8);
+                page.byteData.setFloat64(4 + j * 8, nextKey);
+                final nextPId =
+                    page.byteData.getInt32(btree.pageIdOffset + (j + 1) * 4);
+                page.byteData.setInt32(btree.pageIdOffset + j * 4, nextPId);
+                final nextSId =
+                    page.byteData.getUint16(btree.slotIdOffset + (j + 1) * 2);
+                page.byteData.setUint16(btree.slotIdOffset + j * 2, nextSId);
+              }
+              keyCount--;
+              page.byteData.setUint16(2, keyCount);
+              page.markDirty();
+              isDirty = true;
+              continue;
+            }
+          } else if (foundKeyInPage && k > dKey) {
+            break;
+          }
+          i++;
+        }
+        nextPageId = page.byteData.getInt32(btree.siblingOffset);
+      } finally {
+        db.cache.unpinPageSync(btree.indexPath, currentPageId, isDirty: isDirty);
+      }
+      if (foundKeyInPage && nextPageId != -1) {
+        currentPageId = nextPageId;
+      } else {
+        break;
+      }
+    }
+  }
+
   /// Direct low-latency point-lookup on `_id` via hot cache & B+ Tree index.
   Document? _pointLookupById(String targetId) {
     ensureTableSync();
@@ -189,6 +263,30 @@ class Collection {
       if (doc != null && doc.id == targetId) {
         _cacheDoc(doc);
         return doc;
+      }
+
+      // If retrieved slot is dead or stale, search all matching pointers
+      final idxName = 'idx_${tableName}__id';
+      final idx = db.catalog.getIndexForColumn(tableName, '_id') ??
+          (db.catalog.hasIndex(idxName) ? db.catalog.getIndex(idxName) : null);
+      if (idx != null) {
+        final dKey = _toIndexKey(targetId);
+        if (dKey != null) {
+          final btree = db.getOrInitIndexSync(idx.name.toLowerCase());
+          final allPtrs = btree.searchRangeSync([dKey], [dKey]);
+          for (final candidatePtr in allPtrs) {
+            if (candidatePtr.pageId == ptr.pageId &&
+                candidatePtr.slotId == ptr.slotId) {
+              continue;
+            }
+            final candidateDoc = _fetchDocAtPointer(candidatePtr);
+            if (candidateDoc != null && candidateDoc.id == targetId) {
+              _pruneStalePrimaryKeyPointer(targetId, ptr);
+              _cacheDoc(candidateDoc);
+              return candidateDoc;
+            }
+          }
+        }
       }
     }
     return null;
@@ -328,10 +426,18 @@ class Collection {
 
     final mutated = DocumentMutator.applyUpdate(doc, update);
     if (mutated) {
+      final oldPtr = _getPointerForDocId(doc.id);
       final stmt = db.prepare('REPLACE INTO $tableName VALUES (?, ?);');
       stmt.executeSync([DbText(doc.id), DbJson(doc.data)]);
+      _pruneStalePrimaryKeyPointer(doc.id, oldPtr);
       _hotCache.remove(doc.id);
       _cacheDoc(doc);
+      if (_indexes.isNotEmpty) {
+        final ptr = _getPointerForDocId(doc.id);
+        if (ptr != null) {
+          _updateFieldIndexes(doc, ptr);
+        }
+      }
       return UpdateResult(matchedCount: 1, modifiedCount: 1);
     }
 
@@ -350,11 +456,19 @@ class Collection {
     int modified = 0;
     final stmt = db.prepare('REPLACE INTO $tableName VALUES (?, ?);');
     for (final doc in docs) {
+      final oldPtr = _getPointerForDocId(doc.id);
       final wasMutated = DocumentMutator.applyUpdate(doc, update);
       if (wasMutated) {
         stmt.executeSync([DbText(doc.id), DbJson(doc.data)]);
+        _pruneStalePrimaryKeyPointer(doc.id, oldPtr);
         _hotCache.remove(doc.id);
         _cacheDoc(doc);
+        if (_indexes.isNotEmpty) {
+          final ptr = _getPointerForDocId(doc.id);
+          if (ptr != null) {
+            _updateFieldIndexes(doc, ptr);
+          }
+        }
         modified++;
       }
     }
@@ -369,10 +483,12 @@ class Collection {
     if (doc == null) return 0;
 
     _hotCache.remove(doc.id);
+    final oldPtr = _getPointerForDocId(doc.id);
     final interpreter = Interpreter(db);
     await interpreter.executeScript(
       "DELETE FROM $tableName WHERE _id = '${_escapeSql(doc.id)}';",
     );
+    _pruneStalePrimaryKeyPointer(doc.id, oldPtr);
     return 1;
   }
 
@@ -387,9 +503,11 @@ class Collection {
     try {
       for (final doc in docs) {
         _hotCache.remove(doc.id);
+        final oldPtr = _getPointerForDocId(doc.id);
         await interpreter.executeScript(
           "DELETE FROM $tableName WHERE _id = '${_escapeSql(doc.id)}';",
         );
+        _pruneStalePrimaryKeyPointer(doc.id, oldPtr);
       }
       await interpreter.executeScript('COMMIT;');
     } catch (_) {
@@ -664,10 +782,32 @@ class DocumentCursor {
           int cmp = 0;
           if (valA is num && valB is num) {
             cmp = valA.compareTo(valB);
-          } else if (valA is Comparable && valB is Comparable) {
+          } else if (valA is String && valB is String) {
+            cmp = valA.compareTo(valB);
+          } else if (valA is bool && valB is bool) {
+            cmp = (valA ? 1 : 0).compareTo(valB ? 1 : 0);
+          } else if (valA is DateTime && valB is DateTime) {
             cmp = valA.compareTo(valB);
           } else {
-            cmp = valA.toString().compareTo(valB.toString());
+            // Deterministic type order for heterogeneous comparison:
+            // null < bool < num < String < List < Map < other
+            int typeRank(dynamic v) {
+              if (v == null) return 0;
+              if (v is bool) return 1;
+              if (v is num) return 2;
+              if (v is String) return 3;
+              if (v is List) return 4;
+              if (v is Map) return 5;
+              return 6;
+            }
+
+            final rankA = typeRank(valA);
+            final rankB = typeRank(valB);
+            if (rankA != rankB) {
+              cmp = rankA.compareTo(rankB);
+            } else {
+              cmp = valA.toString().compareTo(valB.toString());
+            }
           }
 
           if (cmp != 0) return cmp * direction;

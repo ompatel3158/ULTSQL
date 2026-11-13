@@ -39,10 +39,10 @@ class TrigramIndex {
     if (text.isEmpty) return {};
     final lower = text.toLowerCase();
     // Standard trigram padding: two spaces prefix, one space suffix
-    final padded = '  $lower ';
+    final runes = [32, 32, ...lower.runes, 32];
     final trigrams = <String>{};
-    for (int i = 0; i <= padded.length - 3; i++) {
-      trigrams.add(padded.substring(i, i + 3));
+    for (int i = 0; i <= runes.length - 3; i++) {
+      trigrams.add(String.fromCharCodes(runes.sublist(i, i + 3)));
     }
     return trigrams;
   }
@@ -51,11 +51,12 @@ class TrigramIndex {
   static Set<String> extractQueryTrigrams(String pattern) {
     final lower = pattern.toLowerCase();
     // Split by wildcards to find contiguous literal substrings
-    final segments = lower.split(RegExp(r'[%_]')).where((s) => s.length >= 3);
+    final segments = lower.split(RegExp(r'[%_]'));
     final trigrams = <String>{};
     for (final seg in segments) {
-      for (int i = 0; i <= seg.length - 3; i++) {
-        trigrams.add(seg.substring(i, i + 3));
+      final runes = seg.runes.toList();
+      for (int i = 0; i <= runes.length - 3; i++) {
+        trigrams.add(String.fromCharCodes(runes.sublist(i, i + 3)));
       }
     }
     return trigrams;

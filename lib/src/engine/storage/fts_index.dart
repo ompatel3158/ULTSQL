@@ -398,7 +398,9 @@ const Set<String> stopWords = {
 };
 
 List<String> tokenizeAndStem(String text) {
-  final cleanText = text.replaceAll(RegExp(r'[^\w\s]'), ' ').toLowerCase();
+  final cleanText = text
+      .replaceAll(RegExp(r'[^\p{L}\p{N}\p{M}\s]', unicode: true), ' ')
+      .toLowerCase();
   final tokens = cleanText.split(RegExp(r'\s+'));
   final List<String> stemmed = [];
   for (final t in tokens) {

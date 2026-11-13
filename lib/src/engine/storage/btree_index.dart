@@ -118,7 +118,15 @@ class BTreeIndex {
 
   int _findRightmostLeafPageId() {
     int curr = _rootPageId;
+    final visited = <int>{};
+    int depth = 0;
     while (curr != -1) {
+      if (depth > 50 || visited.contains(curr)) {
+        throw DatabaseIntegrityException('BTree cycle or corrupted internal node pointer detected');
+      }
+      visited.add(curr);
+      depth++;
+
       final page = cache.pinPageSync(indexPath, curr);
       final isLeaf = page.byteData.getUint8(1) == 1;
       if (isLeaf) {
@@ -129,6 +137,10 @@ class BTreeIndex {
       if (keyCount == 0) {
         cache.unpinPage(page, isDirty: false);
         return curr;
+      }
+      if (keyCount > maxKeys) {
+        cache.unpinPage(page, isDirty: false);
+        throw DatabaseIntegrityException('BTree page keyCount $keyCount exceeds maxKeys $maxKeys');
       }
       final childPageId = page.byteData.getInt32(
         pageIdOffset + keyCount * 4,
@@ -199,10 +211,17 @@ class BTreeIndex {
     Page currentPage = rootPage;
     int currentPageId = _rootPageId;
 
+    int depth = 0;
     while (true) {
+      if (++depth > 50) {
+        throw DatabaseIntegrityException('BTree cycle or depth > 50 detected in searchKey1');
+      }
       final bd = currentPage.byteData;
       final isLeaf = bd.getUint8(1) == 1;
       final keyCount = bd.getUint16(2);
+      if (keyCount > maxKeys) {
+        throw DatabaseIntegrityException('Corrupted BTree page $currentPageId: keyCount $keyCount exceeds maxKeys $maxKeys');
+      }
 
       if (isLeaf) {
         final idx = _binarySearchVal1Exact(bd, searchVal, keyCount);
@@ -222,6 +241,9 @@ class BTreeIndex {
           final sibPage = p.getCachedPage(siblingId) ?? cache.pinPagerPageSync(p, siblingId);
           final sibBd = sibPage.byteData;
           final sibKeyCount = sibBd.getUint16(2);
+          if (sibKeyCount > maxKeys) {
+            throw DatabaseIntegrityException('Corrupted BTree sibling page $siblingId: keyCount $sibKeyCount exceeds maxKeys $maxKeys');
+          }
           final sibIdx = _binarySearchVal1Exact(sibBd, searchVal, sibKeyCount);
           if (sibIdx != -1) {
             if (sibKeyCount > 0) {
@@ -255,6 +277,9 @@ class BTreeIndex {
   }
 
   int _binarySearchVal1Exact(ByteData bd, double val, int count) {
+    if (count > maxKeys || count < 0) {
+      throw DatabaseIntegrityException('Corrupted BTree page: keyCount $count exceeds maxKeys $maxKeys');
+    }
     int low = 0;
     int high = count - 1;
     while (low <= high) {
@@ -273,6 +298,9 @@ class BTreeIndex {
 
 
   int _binarySearchInternalVal1(ByteData bd, double val, int count) {
+    if (count > maxKeys || count < 0) {
+      throw DatabaseIntegrityException('Corrupted BTree page: keyCount $count exceeds maxKeys $maxKeys');
+    }
     int low = 0;
     int high = count - 1;
     while (low <= high) {
@@ -294,10 +322,18 @@ class BTreeIndex {
     }
 
     int currentPageId = _rootPageId;
+    int depth = 0;
     while (true) {
+      if (++depth > 50) {
+        throw DatabaseIntegrityException('BTree cycle or depth > 50 detected in searchSync');
+      }
       final page = cache.pinPageSync(indexPath, currentPageId);
       final isLeaf = page.byteData.getUint8(1) == 1;
       final keyCount = page.byteData.getUint16(2);
+      if (keyCount > maxKeys) {
+        cache.unpinPageSync(indexPath, currentPageId, isDirty: false);
+        throw DatabaseIntegrityException('Corrupted BTree page $currentPageId: keyCount $keyCount exceeds maxKeys $maxKeys');
+      }
 
       if (isLeaf) {
         // Search inside leaf
@@ -334,6 +370,10 @@ class BTreeIndex {
         if (siblingId != -1) {
           final sibPage = cache.pinPageSync(indexPath, siblingId);
           final sibKeyCount = sibPage.byteData.getUint16(2);
+          if (sibKeyCount > maxKeys) {
+            cache.unpinPageSync(indexPath, siblingId, isDirty: false);
+            throw DatabaseIntegrityException('Corrupted BTree sibling page $siblingId: keyCount $sibKeyCount exceeds maxKeys $maxKeys');
+          }
           int sibIdx = _binarySearch(sibPage, key, sibKeyCount);
           bool sibMatch = false;
           if (sibIdx < sibKeyCount) {
@@ -1028,6 +1068,9 @@ class BTreeIndex {
   }
 
   int _binarySearch(Page page, List<double> key, int count) {
+    if (count > maxKeys || count < 0) {
+      throw DatabaseIntegrityException('Corrupted BTree page: keyCount $count exceeds maxKeys $maxKeys');
+    }
     if (keyColumns == 1) {
       final searchVal = key[0];
       int low = 0;
@@ -1059,6 +1102,9 @@ class BTreeIndex {
   }
 
   int _binarySearchInternal(Page page, dynamic key, int count) {
+    if (count > maxKeys || count < 0) {
+      throw DatabaseIntegrityException('Corrupted BTree page: keyCount $count exceeds maxKeys $maxKeys');
+    }
     if (key is List<double> && key.isEmpty) return 0;
     if (keyColumns == 1) {
       final double searchVal = key is double ? key : (key as List<double>)[0];

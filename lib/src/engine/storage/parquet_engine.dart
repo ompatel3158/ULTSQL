@@ -93,11 +93,28 @@ class ParquetEngine {
 
     final bd = ByteData.view(parquetBytes.buffer);
     final dataLen = bd.getInt32(4, Endian.big);
+    if (dataLen < 0 || 8 + dataLen > parquetBytes.length) {
+      throw FormatException('Corrupted Parquet data length: $dataLen');
+    }
     final dataBytes = parquetBytes.sublist(8, 8 + dataLen);
 
-    final decodedJson =
-        json.decode(utf8.decode(dataBytes)) as Map<String, dynamic>;
-    final columnDataList = (decodedJson['data'] as List).cast<List<dynamic>>();
+    final dynamic parsed = json.decode(utf8.decode(dataBytes));
+    if (parsed is! Map<String, dynamic>) {
+      throw FormatException('Malformed Parquet JSON payload: expected a JSON map');
+    }
+    final decodedJson = parsed;
+    final rawData = decodedJson['data'];
+    if (rawData is! List) {
+      throw FormatException('Malformed Parquet data structure: "data" must be a list');
+    }
+    final columnDataList = <List<dynamic>>[];
+    for (final col in rawData) {
+      if (col is List) {
+        columnDataList.add(col);
+      } else {
+        throw FormatException('Malformed Parquet column: expected a list, got ${col.runtimeType}');
+      }
+    }
     final numRows = (decodedJson['metadata']['num_rows'] as int);
     final metaCols = (decodedJson['metadata']['columns'] as List?)?.map((e) => e.toString()).toList() ?? [];
     final activeCols = schema.columnNames.isNotEmpty ? schema.columnNames : metaCols;

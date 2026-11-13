@@ -1,8 +1,10 @@
 import 'dart:typed_data';
+import '../cache/crypto_security.dart';
 
 class BlockCompressor {
   static const int _minMatch = 4;
   static const int _maxOffset = 65535;
+  static const int maxDecompressedSize = 64 * 1024 * 1024; // 64 MB limit
 
   /// Compresses a block of data (e.g. 4KB slotted page) using an LZ4-style algorithm.
   static Uint8List compressBlock(Uint8List rawBytes) {
@@ -129,6 +131,11 @@ class BlockCompressor {
         (compressedBytes[3] << 24);
 
     if (expectedSize == 0) return Uint8List(0);
+    if (expectedSize < 0 || expectedSize > maxDecompressedSize) {
+      throw DatabaseIntegrityException(
+        'Decompression bomb detected: size $expectedSize exceeds limit',
+      );
+    }
 
     Uint8List out = Uint8List(expectedSize);
     int op = 0;
