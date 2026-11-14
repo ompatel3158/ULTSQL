@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.0.32
+
+- **Campaign 2 & 3 Adversarial Hardening (19 Critical & High Defects Resolved)**:
+  - **Storage & Slotted Page Durability**:
+    - Guarded wide record insertion (> 4091B) across `RowTableFile` and `SlottedPageHelper`, raising `DatabaseIntegrityException` instead of silently dropping un-toastable records.
+    - Fixed point-lookup TOAST pointer resolution in `_executePointLookup` so indexed point queries (`WHERE id = ?`) correctly deserialize text and JSON overflow pages (> 1024B) instead of returning `NULL`.
+    - Added cycle detection and depth limit guards (> 50) in `BTreeIndex._findRightmostLeafPageId`, preventing corrupted internal child pointers from triggering infinite CPU hangs.
+    - Bound-checked `keyCount` and `freeSpaceOffset` headers against page capacity (4096B), raising `DatabaseIntegrityException` instead of raw `RangeError` exceptions.
+    - Prevented silent catalog overwriting when loading corrupted or bit-flipped `catalog.db` files.
+  - **NoSQL & Cursor Stability**:
+    - Implemented `_pruneStalePrimaryKeyPointer` in `Collection`, purging superseded slot pointers from `idx__coll_<name>__id` upon `updateOne` and `updateMany`. Added automatic self-healing fallback in `_pointLookupById`.
+    - Resolved cursor sorting type confusion in `DocumentCursor.sort`, establishing deterministic cross-type sorting order and eliminating unhandled `TypeError` crashes on heterogeneous collections.
+  - **SQL Parser & JIT Robustness**:
+    - Hardened scientific notation scanning in `Lexer` and `Parser` to require exponent digits after signs (`1e+`, `1e-`), raising handled syntax errors.
+    - Collapsed adjacent SQL wildcards (`%_%`, `%%`) in `JitCompiler.likePatternToRegexSource` to prevent catastrophic ReDoS backtracking.
+  - **Protocols, Spatial GIS, Columnar & Formats**:
+    - Enforced packet length and null-terminator boundary validation in PostgreSQL Wire protocol handler (`PgWireServer`).
+    - Guarded `BoundingBox2D.intersects()` against `NaN` coordinate false positives matching every bounding box.
+    - Implemented hierarchical node splitting in `RTreeIndex`, eliminating $O(N^2)$ flat degeneracy on bulk spatial insertions.
+    - Upgraded `FTSIndex` tokenizer to Unicode category regex (`\p{L}\p{N}\p{M}`), preserving international scripts (Cyrillic, Chinese, Arabic, accented characters).
+    - Switched `TrigramIndex` to UTF-16 rune-based iteration, preventing surrogate pair cleavage on 4-byte characters and emojis.
+    - Added multi-page continuation chaining in `CompressedColumnStore` for columnar batches exceeding 4KB.
+    - Capped maximum decompressed size in `BlockCompressor` at 64MB to prevent decompression bomb OOM denial-of-service.
+    - Validated binary payload and column offsets in `ParquetEngine` against negative and truncated lengths.
+    - Added instant vector dimension validation in `IvfFlatIndex.insertSync()`.
+  - **CLI & Toolchain Synchronization**:
+    - Synchronized `ultSqlVersion` single source of truth in `lib/src/version.dart` and `bin/ultsql_cli.dart` to `v1.0.32`.
+    - Added dedicated test suites: `test/storage_slotted_specialist_defects_test.dart`, `test/specialist_defects_verification_test.dart`, and `test/specialist_protocols_spatial_compression_test.dart`.
+
 ## 1.0.31
 
 - **Adversarial Chaos & Architectural Defect Hardening (24 Defects Resolved)**:
